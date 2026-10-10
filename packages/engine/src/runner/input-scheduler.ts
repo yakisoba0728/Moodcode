@@ -1,7 +1,7 @@
 import { EngineError, isTerminal, type AcceptInput, type InputReceipt, type InputRecord, type SessionControl, type SubmitInput, type RunReceipt } from '@moodcode/contracts';
 import { normalizeAcceptInput, normalizeEngineBudgets } from '@moodcode/contracts/validation';
 import type { SessionEngineStore } from '../ports.js';
-import { RunCoordinator } from './index.js';
+import type { RunCoordinator } from './index.js';
 
 interface Flight { sessionId: string; workspaceId: string; done: Promise<void>; resolve(): void; reject(error: unknown): void; running: boolean; queued: boolean }
 export interface InputSchedulerOptions {
@@ -76,9 +76,6 @@ export class InputScheduler {
   }
   waitForSession(sessionId: string): Promise<void> { return this.flights.get(sessionId)?.done ?? Promise.resolve(); }
   /** Retire waiting tickets before an audit decision; durable inputs and pauses stay intact. */
-  holdSummaryRecoveryWorkspace(workspaceId: string): void {
-    this.holdRecoveryWorkspace(workspaceId);
-  }
   holdRecoveryWorkspace(workspaceId: string): void {
     this.assertOpen();
     for (const flight of [...this.flights.values()]) if (flight.workspaceId === workspaceId && !flight.running) this.finish(flight);

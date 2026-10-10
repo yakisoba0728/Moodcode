@@ -78,7 +78,7 @@ test('function argument formatting, numeric exponents and object key order bind 
 
 test('argument redaction covers parsed JSON escapes, keys and nested values and binds normalized calls', () => {
   const encoded = JSON.stringify({ credential: SECRET, [SECRET]: [SECRET] }).replaceAll('sk-replay', 'sk-\\u0072eplay');
-  const safe = validateReplayItems([call(encoded, { call_id: `call-${SECRET}`, name: `read-${SECRET}`, extra: { [SECRET]: SECRET } })], { ...limits, apiKey: SECRET });
+  const safe = validateReplayItems([call(encoded, { call_id: `call-${SECRET}`, name: `read-${SECRET}`, extra: { [SECRET]: SECRET } })], { ...limits, secrets: [SECRET] });
   assert.doesNotMatch(JSON.stringify(safe), /sk-replay-fixture-private/);
   assert.deepEqual(JSON.parse(safe[0]!.arguments as string), { credential: '[REDACTED]', '[REDACTED]': ['[REDACTED]'] });
   validateReplayBinding({ role: 'assistant', content: '', toolCalls: [{ id: 'call-[REDACTED]', name: 'read-[REDACTED]', input: { credential: '[REDACTED]', '[REDACTED]': ['[REDACTED]'] } }] }, safe);
@@ -89,21 +89,21 @@ test('ordinary native text, metadata and reasoning summaries are redacted while 
   const safe = validateReplayItems([
     reasoning({ encrypted_content: cipher, summary: [{ type: 'summary_text', text: SECRET }], content: [{ type: 'reasoning_text', text: SECRET }] }),
     message(SECRET, { metadata: { [SECRET]: SECRET } }),
-  ], { ...limits, apiKey: SECRET });
+  ], { ...limits, secrets: [SECRET] });
   assert.equal(safe[0]!.encrypted_content, cipher);
   assert.doesNotMatch(JSON.stringify(safe), /sk-replay-fixture-private/);
   validateReplayBinding({ role: 'assistant', content: '[REDACTED]' }, safe);
 });
 
 test('ciphertext containing the injected key fails instead of changing opaque state', () => {
-  for (const encrypted_content of [SECRET, `prefix-${SECRET}-suffix`]) invalid(() => validateReplayItems([reasoning({ encrypted_content })], { ...limits, apiKey: SECRET }));
+  for (const encrypted_content of [SECRET, `prefix-${SECRET}-suffix`]) invalid(() => validateReplayItems([reasoning({ encrypted_content })], { ...limits, secrets: [SECRET] }));
   const original = reasoning({ encrypted_content: null });
-  assert.deepEqual(validateReplayItems([original], { ...limits, apiKey: SECRET }), [original]);
+  assert.deepEqual(validateReplayItems([original], { ...limits, secrets: [SECRET] }), [original]);
 });
 
 test('replacement marker cannot reflect short or bracket-containing injected keys', () => {
   for (const secret of ['REDACTED', '[', ']']) {
-    const safe = validateReplayItems([message(`before ${secret} after`), call(JSON.stringify({ value: secret }))], { ...limits, apiKey: secret });
+    const safe = validateReplayItems([message(`before ${secret} after`), call(JSON.stringify({ value: secret }))], { ...limits, secrets: [secret] });
     assert.ok(!(safe[0]!.content as JsonObject[])[0]!.text!.toString().includes(secret));
     assert.ok(!(JSON.parse(safe[1]!.arguments as string) as { value: string }).value.includes(secret));
   }
@@ -121,10 +121,10 @@ test('byte bounds include full JSON escaping and Unicode before redaction', () =
 test('byte and aggregate argument limits are applied again after redaction expands strings', () => {
   const items = [message('XY')];
   const rawBytes = Buffer.byteLength(JSON.stringify(items), 'utf8');
-  invalid(() => validateReplayItems(items, { ...limits, apiKey: 'XY', maxBytes: rawBytes }));
-  assert.equal((validateReplayItems(items, { ...limits, apiKey: 'XY', maxBytes: rawBytes + 8 })[0]!.content as JsonObject[])[0]!.text, '[REDACTED]');
+  invalid(() => validateReplayItems(items, { ...limits, secrets: ['XY'], maxBytes: rawBytes }));
+  assert.equal((validateReplayItems(items, { ...limits, secrets: ['XY'], maxBytes: rawBytes + 8 })[0]!.content as JsonObject[])[0]!.text, '[REDACTED]');
   const rawArguments = '{"value":"XY"}';
-  invalid(() => validateReplayItems([call(rawArguments)], { ...limits, apiKey: 'XY', maxToolArgumentBytes: Buffer.byteLength(rawArguments) }));
+  invalid(() => validateReplayItems([call(rawArguments)], { ...limits, secrets: ['XY'], maxToolArgumentBytes: Buffer.byteLength(rawArguments) }));
   const two = [call('{}'), call('{}', { id: 'fc-2', call_id: 'call-2' })];
   assert.deepEqual(validateReplayItems(two, { ...limits, maxToolArgumentBytes: 4, maxToolCalls: 2 }), two);
   invalid(() => validateReplayItems(two, { ...limits, maxToolArgumentBytes: 3 }));
@@ -140,7 +140,7 @@ test('raw and redacted item IDs, call IDs and JSON keys remain unique', () => {
     [call('{}', { call_id: SECRET }), call('{}', { id: 'fc-2', call_id: '[REDACTED]' })],
     [message('', { metadata: { [SECRET]: 1, '[REDACTED]': 2 } })],
     [call(JSON.stringify({ [SECRET]: 1, '[REDACTED]': 2 }))],
-  ]) invalid(() => validateReplayItems(items, { ...limits, apiKey: SECRET }));
+  ]) invalid(() => validateReplayItems(items, { ...limits, secrets: [SECRET] }));
 });
 
 test('unknown or malformed native fields are rejected', () => {

@@ -35,7 +35,7 @@ function prefix(text: string, maximum: number): string {
   while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end--;
   return bytes.subarray(0, end).toString('utf8');
 }
-export interface ToolDiscoveryDispatch {
+interface ToolDiscoveryDispatch {
   catalogue: ToolCatalogue;
   reservedBytes: number;
   toolCatalogueSha256: string;

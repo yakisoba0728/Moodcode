@@ -1,6 +1,6 @@
 import { EngineError } from '@moodcode/contracts';
 
-export interface SseLimits { maxFrameBytes: number; maxResponseBytes: number }
+interface SseLimits { maxFrameBytes: number; maxResponseBytes: number }
 export interface SseErrors { frameLimit(): EngineError; malformed(): EngineError }
 
 const providerErrors: SseErrors = {

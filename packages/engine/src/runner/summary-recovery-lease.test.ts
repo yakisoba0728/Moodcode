@@ -105,9 +105,9 @@ test('audit-only uncertain receipts remain observations while exact identities a
     const receipt=f.runner.submit(f.input()); await f.runner.waitForRun(receipt.runId); await tick(); const beforeIdle=idle;
     f.summaryBlocked.add('a');
     const auditReceipt={state:'uncertain',cleanupConfirmed:false,executionBlocked:true,decision:'audit-only'};
-    const audit=f.runner.withSummaryRecoveryLease('a',async()=>{entered=true;await release.promise;return auditReceipt;});
+    const audit=f.runner.withRecoveryDecisionLease('a',async()=>{entered=true;await release.promise;return auditReceipt;});
     assert.equal(entered,false); assert.deepEqual(f.runner.submit(f.input()),{...receipt,duplicate:true}); assert.throws(()=>f.runner.submit({...f.input(),prompt:'changed'}),hasCode('REQUEST_ID_CONFLICT'));
-    await assert.rejects(f.runner.withSummaryRecoveryLease('a',async()=>0),hasCode('WORKSPACE_BUSY'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('a',async()=>0),hasCode('WORKSPACE_BUSY'));
     f.summaryBlocked.delete('a'); assert.throws(()=>f.runner.submit(f.input('new-during-audit')),hasCode('WORKSPACE_BUSY'));
     await assert.rejects(f.runner.withWorkspaceLease('a',async()=>0),hasCode('WORKSPACE_BUSY'));
     const independent=f.runner.submit(f.input('other-workspace','b')); await f.runner.waitForRun(independent.runId); await tick();
@@ -120,10 +120,10 @@ test('audit decisions cannot clear independent runtime quarantine and generic un
   const f=fixture(); let callbacks=0;
   try {
     f.runner.quarantineWorkspace('a'); f.summaryBlocked.add('a'); f.summaryBlocked.delete('a');
-    await assert.rejects(f.runner.withSummaryRecoveryLease('a',async()=>{callbacks++;return{cleanupConfirmed:false};}),hasCode('CLEANUP_PENDING'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('a',async()=>{callbacks++;return{cleanupConfirmed:false};}),hasCode('CLEANUP_PENDING'));
     assert.equal(callbacks,0); assert.throws(()=>f.runner.assertWorkspaceAvailable('a'),hasCode('CLEANUP_PENDING'));
     await assert.rejects(f.runner.withWorkspaceLease('b',async()=>({cleanupConfirmed:false})),hasCode('CLEANUP_UNCERTAIN'));
-    await assert.rejects(f.runner.withSummaryRecoveryLease('b',async()=>{callbacks++;}),hasCode('CLEANUP_PENDING'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('b',async()=>{callbacks++;}),hasCode('CLEANUP_PENDING'));
     assert.equal(callbacks,0);
   } finally { await f.runner.close(); }
 });
@@ -132,15 +132,15 @@ test('live owner, unowned persisted Run and ordinary maintenance each prevent su
   const held=deferred(), f=fixture(held); let callbacks=0;
   try {
     f.overrideActive(false); const active=f.runner.submit(f.input());
-    await assert.rejects(f.runner.withSummaryRecoveryLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
     assert.equal(callbacks,0); held.resolve(); await f.runner.waitForRun(active.runId); await tick(); f.overrideActive(undefined);
     const unowned=f.store.admit(f.input('persisted-unowned'));
-    await assert.rejects(f.runner.withSummaryRecoveryLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
     f.store.commit(unowned.runId,'run.cancelled',{}, {run:{state:'cancelled'}});
     const release=deferred(), maintenance=f.runner.withWorkspaceLease('a',async()=>{await release.promise;});
-    await assert.rejects(f.runner.withSummaryRecoveryLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('a',async()=>{callbacks++;}),hasCode('WORKSPACE_BUSY'));
     assert.equal(callbacks,0); release.resolve(); await maintenance;
-    await assert.rejects(f.runner.withSummaryRecoveryLease('unknown',async()=>{callbacks++;}),hasCode('WORKSPACE_NOT_FOUND'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('unknown',async()=>{callbacks++;}),hasCode('WORKSPACE_NOT_FOUND'));
     assert.equal(callbacks,0);
   } finally { held.resolve(); await f.runner.close(); }
 });
@@ -149,22 +149,22 @@ test('close joins a started audit lease and preserves its audit receipt without 
   const f=fixture(), release=deferred(); let signal:AbortSignal|undefined, settled=false, closed=false, idle=0;
   f.runner.setSessionHooks({boundary:()=>false,cancelled:()=>{},settled:()=>{},workspaceIdle:()=>{idle++;}});
   const receipt={state:'uncertain',cleanupConfirmed:false,decision:'audit-only'};
-  const lease=f.runner.withSummaryRecoveryLease('a',async value=>{signal=value;try {await release.promise;return receipt;} finally {settled=true;}});
+  const lease=f.runner.withRecoveryDecisionLease('a',async value=>{signal=value;try {await release.promise;return receipt;} finally {settled=true;}});
   try {
     await until(()=>signal!==undefined); const closing=f.runner.close().then(()=>{closed=true;});
     assert.equal(signal!.aborted,true); await tick(); assert.equal(closed,false); assert.equal(settled,false);
-    await assert.rejects(f.runner.withSummaryRecoveryLease('b',async()=>0),hasCode('ENGINE_CLOSED'));
+    await assert.rejects(f.runner.withRecoveryDecisionLease('b',async()=>0),hasCode('ENGINE_CLOSED'));
     release.resolve(); assert.strictEqual(await lease,receipt); await closing; assert.equal(settled,true); assert.equal(idle,0);
   } finally { release.resolve(); await f.runner.close(); }
 });
 
 test('close before the audit microtask skips the decision and an audit error does not masquerade as effect cleanup uncertainty', async () => {
   const f=fixture(); let callbacks=0;
-  const lease=f.runner.withSummaryRecoveryLease('a',async()=>{callbacks++;return{cleanupConfirmed:false};});
+  const lease=f.runner.withRecoveryDecisionLease('a',async()=>{callbacks++;return{cleanupConfirmed:false};});
   const observed=assert.rejects(lease,hasCode('ENGINE_CLOSED')); await f.runner.close(); await observed; assert.equal(callbacks,0);
   const next=fixture(); const expected=new EngineError('CLEANUP_UNCERTAIN','Stored provider uncertainty is an audit observation');
   try {
-    await assert.rejects(next.runner.withSummaryRecoveryLease('a',async()=>{throw expected;}),error=>error===expected);
+    await assert.rejects(next.runner.withRecoveryDecisionLease('a',async()=>{throw expected;}),error=>error===expected);
     assert.doesNotThrow(()=>next.runner.assertWorkspaceAvailable('a'));
   } finally { await next.runner.close(); }
 });
@@ -183,7 +183,7 @@ test('retiring an unpaused ticket waiting on the audit lease prevents automatic 
   const release=deferred(); let entered=false;
   try {
     const before=clone(controls.get('session-a')!);
-    const audit=f.runner.withSummaryRecoveryLease('a',async()=>{entered=true;await release.promise;scheduler.holdSummaryRecoveryWorkspace('a');return{state:'uncertain',cleanupConfirmed:false};});
+    const audit=f.runner.withRecoveryDecisionLease('a',async()=>{entered=true;await release.promise;scheduler.holdRecoveryWorkspace('a');return{state:'uncertain',cleanupConfirmed:false};});
     await until(()=>entered);const flight=scheduler.wake('session-a');let finished=false;void flight.then(()=>{finished=true;});await tick();
     assert.equal(finished,false,'The unpaused queued ticket is genuinely waiting on workspace admission');
     assert.equal(promotions,0); assert.equal(f.providerCalls,0); assert.deepEqual(controls.get('session-a'),before); assert.equal(pending[0]!.state,'pending');

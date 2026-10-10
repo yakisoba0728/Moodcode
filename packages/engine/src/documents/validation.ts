@@ -2,7 +2,7 @@ import { types } from 'node:util';
 import { createHash } from 'node:crypto';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 
-export const INPUT_DOCUMENT_ID = /^doc_[a-f0-9]{32}$/u;
+const INPUT_DOCUMENT_ID = /^doc_[a-f0-9]{32}$/u;
 export interface DocumentLimits { maxDocumentBytes: number; maxInputDocuments: number; maxInputBytes: number; maxSessionDocuments: number; maxSessionBytes: number }
 /** Local storage budgets, independent of provider limits or document token estimates. */
 export const DEFAULT_DOCUMENT_LIMITS: Readonly<DocumentLimits> = Object.freeze({ maxDocumentBytes: 524_288, maxInputDocuments: 1, maxInputBytes: 1_048_576, maxSessionDocuments: 32, maxSessionBytes: 16_777_216 });

@@ -10,7 +10,7 @@ export function executionRecords(store: EngineStore): ExecutionRecordStore | und
   const native = store as EngineStore & Partial<ExecutionRecordStore>;
   return typeof native.putTurn === 'function' && typeof native.putAttempt === 'function' && typeof native.putPart === 'function' ? native as ExecutionRecordStore : undefined;
 }
-export interface TurnExecutorOptions {
+interface TurnExecutorOptions {
   run: Run; index: number; inputIds: string[]; budget: BudgetAccount; store: EngineStore; wait: Wait;
   contextRevisionId?: string;
   currentContextRevisionId?: () => string | undefined;

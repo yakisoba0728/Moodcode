@@ -32,7 +32,6 @@ import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 import type { LifecycleCapture, LifecycleDispatchOutcome, LifecycleInvocation } from '../lifecycle/index.js';
 import type { VerificationBoundary } from '../verification/completion.js';
-export { InputScheduler, type InputSchedulerOptions } from './input-scheduler.js';
 
 const CLEANUP_GRACE_MS = 1_000;
 // Closing the owned generator can join a pending wait, then the adapter's
@@ -1266,11 +1265,7 @@ export class RunCoordinator implements CoordinatorPort {
     return this.workspaceLease(workspaceId, operation, false, true, false, true);
   }
 
-  /** Host ledger decisions only. Keeps other quarantines and never wakes queued work. */
-  withSummaryRecoveryLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.withRecoveryDecisionLease(workspaceId, operation);
-  }
-
+  /** Host recovery decisions only. Keeps other quarantines and never wakes queued work. */
   withRecoveryDecisionLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     return this.workspaceLease(workspaceId, operation, true);
   }

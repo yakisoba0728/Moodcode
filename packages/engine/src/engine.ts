@@ -2723,11 +2723,11 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
       const existing = this.store.findSummaryRecoveryReceipt(prepared);
       if (existing) return Promise.resolve(existing);
       const session = this.store.getSession(prepared.sessionId);
-      return this.coordinator.withSummaryRecoveryLease(session.workspaceId, async signal => {
+      return this.coordinator.withRecoveryDecisionLease(session.workspaceId, async signal => {
         if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', 'Summary recovery decision was cancelled');
         verifyExecutionIdle(this.executionLockPath);
         const receipt = this.store.acknowledgeSummaryRecovery(prepared);
-        this.scheduler.holdSummaryRecoveryWorkspace(session.workspaceId);
+        this.scheduler.holdRecoveryWorkspace(session.workspaceId);
         return receipt;
       });
     } catch (error) { return Promise.reject(error); }

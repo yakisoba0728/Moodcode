@@ -4,7 +4,6 @@ import type { ProviderMessage } from '../ports.js';
 import { credentialSecrets, redactCredentialJson, redactCredentialText } from './helpers.js';
 
 export interface ReplayValidationOptions {
-  apiKey?: string;
   secrets?: readonly string[];
   maxItems: number;
   maxBytes: number;
@@ -131,7 +130,7 @@ function argumentValue(argumentsText: string): JsonValue {
 }
 
 interface NativeCall { itemIndex: number; argumentsText: string; input: JsonValue }
-function validateNative(items: JsonObject[], options: ReplayValidationOptions): NativeCall[] {
+function validateNative(items: JsonObject[], options: ReplayValidationOptions, secrets: readonly string[]): NativeCall[] {
   const ids = new Set<string>();
   const callIds = new Set<string>();
   const calls: NativeCall[] = [];
@@ -173,7 +172,7 @@ function validateNative(items: JsonObject[], options: ReplayValidationOptions): 
       }
       if (Object.hasOwn(item, 'encrypted_content') && item.encrypted_content !== null) {
         const ciphertext = string(item.encrypted_content);
-        if (credentialSecrets(options.apiKey, options.secrets).some(secret => ciphertext.includes(secret))) invalid();
+        if (secrets.some(secret => ciphertext.includes(secret))) invalid();
       }
     } else invalid();
   }
@@ -183,7 +182,7 @@ function validateNative(items: JsonObject[], options: ReplayValidationOptions): 
 /** Clone native output safely for persistence and later same-provider stateless input. */
 export function validateReplayItems(value: unknown, options: ReplayValidationOptions): JsonObject[] {
   try {
-    const secrets = credentialSecrets(options.apiKey, options.secrets);
+    const secrets = credentialSecrets(undefined, options.secrets);
     for (const [name, limit] of [['maxItems', options.maxItems], ['maxBytes', options.maxBytes], ['maxToolArgumentBytes', options.maxToolArgumentBytes], ['maxToolCalls', options.maxToolCalls]] as const) {
       if (!Number.isSafeInteger(limit) || limit < (name === 'maxBytes' ? 1 : 0) || limit > ABSOLUTE_LIMIT) invalid();
     }
@@ -191,7 +190,7 @@ export function validateReplayItems(value: unknown, options: ReplayValidationOpt
     const cloned = cloneJson(value, options.maxBytes);
     if (!Array.isArray(cloned)) invalid();
     const original = cloned.map(object);
-    const calls = validateNative(original, options);
+    const calls = validateNative(original, options, secrets);
     const redacted = redactCredentialJson(original, secrets);
     if (!Array.isArray(redacted)) invalid();
     const safe = redacted.map(object);
@@ -208,7 +207,7 @@ export function validateReplayItems(value: unknown, options: ReplayValidationOpt
     const checked = cloneJson(safe, options.maxBytes);
     if (!Array.isArray(checked)) invalid();
     const items = checked.map(object);
-    validateNative(items, options);
+    validateNative(items, options, secrets);
     return items;
   } catch { invalid(); }
 }
