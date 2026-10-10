@@ -304,6 +304,7 @@ export class ContextService {
     };
     const provider = this.provider?.(request.config.providerId);
     let candidate: PreparedActivePrefix | undefined;
+    let handedOff = false;
     let prefixTried = prefixAttempted;
     let outcome: Awaited<ReturnType<typeof makePlan>>;
     try { outcome = await makePlan(); }
@@ -348,11 +349,8 @@ export class ContextService {
         plan.warnings.push(`Active-prefix summary was not activated (${error instanceof EngineError ? error.code : 'SUMMARY_FAILED'}); the previous checkpoint remains in use.`);
       }
     }
-    if (request.signal.aborted) {
-      const error = new EngineError('CANCELLED', 'Context construction was cancelled');
-      if (candidate) this.activePrefix!.discard(candidate, error);
-      throw error;
-    }
+    try {
+    if (request.signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled');
     let lifecycleDiagnostics: ContextDiagnostics['lifecycleContext'];
     if (lifecycle) {
       const baseContextSha256 = plan.sha256;
@@ -456,6 +454,7 @@ export class ContextService {
       omittedDatabaseMessages: history?.omittedMessages ?? 0, omittedDatabaseRuns: history?.omittedRuns ?? 0 };
     const data = { revisionId, contextRevision: revision, bindingHash, diagnostics: JSON.parse(JSON.stringify(diagnostics)) as JsonObject };
     if (candidate && pendingRevision) {
+      handedOff = true;
       try { this.activePrefix!.publishWithContext(request, candidate, { contextRevision: pendingRevision, contextData: data }); }
       catch (error) {
         if (request.signal.aborted || error instanceof EngineError && ['OUTPUT_LIMIT', 'RUN_TIME_LIMIT', 'CLEANUP_UNCERTAIN'].includes(error.code)) throw error;
@@ -477,6 +476,10 @@ export class ContextService {
       if (proposal) preparedProposals.delete(proposal);
     }
     return messages;
+    } catch (error) {
+      if (candidate && !handedOff) this.activePrefix!.discard(candidate, error);
+      throw error;
+    }
     } finally {
       try { releaseDiscarded(); } finally { releaseReservation(); }
     }

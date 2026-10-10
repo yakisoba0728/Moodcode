@@ -9,6 +9,7 @@ import { ACTIVE_PREFIX_DOCUMENT, ACTIVE_PREFIX_MEMORY_PREFIX, ActivePrefixMemory
 import { planContext } from './plan.js';
 import { unknownModelSpec } from './model-spec.js';
 import { ContextService } from './service.js';
+import type { ContextSourcePort, PreparedRepositoryContribution } from './repository-contributions.js';
 
 const stamp = () => new Date().toISOString();
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -320,4 +321,26 @@ test('ContextService prepares a replacement checkpoint when the old protected re
   assert.ok(Buffer.byteLength(JSON.stringify(messages)) <= runConfig.limits.maxContextBytes);
   assert.ok(messages.some(message => message.content.startsWith(ACTIVE_PREFIX_MEMORY_PREFIX)));
   assert.equal(service.diagnostics('session')!.activePrefix!.checkpointId, next.id);
+});
+
+test('ContextService settles a prepared checkpoint once when repository context turns stale before publication', async t => {
+  const runConfig = { ...config, limits: { ...config.limits, maxContextBytes: 10_000 } };
+  const f = fixture(t, 4, { runConfig, toolBytes: 3300 });
+  const summaryProvider = provider([{ type: 'text.delta', delta: 'Compact historical observations; verify the current state.' }, { type: 'finish', reason: 'stop' }]);
+  const source: ContextSourcePort = {
+    prepare: async () => ({ messages: [] }) as unknown as PreparedRepositoryContribution,
+    assertFresh: async () => { throw new EngineError('REPOSITORY_CONTEXT_STALE', 'A selected source changed while the summary was prepared'); },
+  };
+  const service = new ContextService(f.store, undefined, 0, () => summaryProvider, { activePrefixPolicy: { kind: 'active-prefix-semantic', version: 1 },
+    repositoryContext: { source, policy: { query: { kind: 'symbols', paths: ['source.ts'] }, slotBytes: 16_384 } } });
+  f.request.snapshot = service.snapshot('session', runConfig);
+  await assert.rejects(service.build(f.request), hasCode('REPOSITORY_CONTEXT_STALE'));
+  const id = f.store.readEvents('session', 0).find(event => event.type === 'summary.dispatched')?.payload.summaryAttemptId;
+  assert.equal(typeof id, 'string');
+  const attempt = f.store.getSummaryAttempt(id as string);
+  assert.equal(attempt.state, 'failed'); assert.equal(attempt.publication, 'discarded'); assert.ok(attempt.providerCompletedAt);
+  const failures = f.store.readEvents('session', 0).filter(event => event.type === 'summary.failed');
+  assert.equal(failures.length, 1); assert.equal(failures[0]!.payload.code, 'REPOSITORY_CONTEXT_STALE');
+  assert.equal(service.activePrefix!.active('session', f.run.id), null);
+  assert.equal(f.store.getLatestContextRevision('session'), null);
 });
