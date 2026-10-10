@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import fs, { copyFileSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -174,6 +176,28 @@ test('manifest/member tampering and future schema metadata reject import before 
   assert.throws(() => validateEngineArchive({ directory: f.destination }), code('DB_VERSION_UNSUPPORTED'));
   manifest.databases[0].schemaVersion = 1; manifest.artifacts[0].file = '../foreign'; writeFileSync(path, JSON.stringify(manifest));
   assert.throws(() => validateEngineArchive({ directory: f.destination }), code('ARCHIVE_MANIFEST_INVALID'));
+});
+
+test('import validates the staged bytes it publishes, not archive paths swapped after hashing', async t => {
+  const f = fixture(t); await exportEngineArchive(f.source);
+  const data = join(f.destination, 'data'), member = join(data, 'engine.sqlite'), benign = join(f.directory, 'benign.sqlite'), crafted = join(f.directory, 'crafted.sqlite');
+  copyFileSync(member, benign); copyFileSync(member, crafted);
+  const writer = new DatabaseSync(crafted); try { writer.exec("UPDATE workspaces SET data=json_set(data,'$.crafted',1)"); } finally { writer.close(); }
+  const path = join(data, 'manifest.json'), manifest = JSON.parse(readFileSync(path, 'utf8')), bytes = readFileSync(crafted);
+  Object.assign(manifest.databases.find((item: { role: string }) => item.role === 'primary'), { bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') });
+  writeFileSync(path, JSON.stringify(manifest, null, 2) + '\n'); copyFileSync(crafted, member);
+  // A writer of the archive directory serves the benign logical content to every reopen after the first hash, then restores the crafted bytes before staging.
+  const swap = (from: string) => { copyFileSync(from, member + '.swap'); renameSync(member + '.swap', member); }, original = { openSync: fs.openSync, mkdtempSync: fs.mkdtempSync };
+  let opens = 0;
+  fs.openSync = ((...args: Parameters<typeof fs.openSync>) => { if (args[0] === member && ++opens === 2) swap(benign); return original.openSync(...args); }) as typeof fs.openSync;
+  fs.mkdtempSync = ((...args: Parameters<typeof fs.mkdtempSync>) => { if (args[0].includes('.moodcode-import-') && opens > 1) swap(crafted); return original.mkdtempSync(...args); }) as typeof fs.mkdtempSync;
+  syncBuiltinESMExports();
+  const target = join(f.directory, 'swapped-import');
+  try { await assert.rejects(importEngineArchive({ directory: f.destination, destination: target }), code('ARCHIVE_DATABASE_INVALID')); }
+  finally { Object.assign(fs, original); syncBuiltinESMExports(); }
+  assert.equal(opens, 1, 'Import reads each archive member once, into private staging');
+  assert.equal(existsSync(target), false);
+  assert.equal(readdirSync(f.directory).some(name => name.startsWith('.moodcode-import-')), false);
 });
 
 test('archive/import cancellation and existing destinations preserve source data and competing content', async t => {

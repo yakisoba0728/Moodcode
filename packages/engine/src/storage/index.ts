@@ -223,8 +223,8 @@ export class SqliteStore implements SessionEngineStore {
         }
       }
       db = new DatabaseSync(path, { timeout: 1_000 });
-      databaseVersion(db);
       // Inspect user_version before making any changes to a future-version database.
+      databaseVersion(db);
       db.exec('PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL');
       migrateDatabase(db);
       if (path !== ':memory:') assertSingleLink(path);

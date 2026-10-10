@@ -540,25 +540,29 @@ function parseManifest(file: string): { manifest: EngineArchiveManifest; manifes
   assertAuditManifest(value);
   return { manifest: value, manifestSha256: digest(raw) };
 }
-function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifest>,check:()=>void,frame:DocumentFrame|(()=>DocumentFrame),collect?:ChildIndexCollector):void {
+/** With `staging`, members are copied there while hashed and every later check reads those private copies. */
+function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifest>,check:()=>void,frame:DocumentFrame|(()=>DocumentFrame),collect?:ChildIndexCollector,staging?:string):void {
   const initialManifestHash = parsed.manifestSha256;
   for (const item of [...parsed.manifest.databases, ...parsed.manifest.artifacts]) {
-    const file = join(root, item.file); checkedDirectory(dirname(file));
-    const actual = stableFile(file, check);
+    const file = join(root, item.file), output = staging ? join(staging, item.file) : undefined; checkedDirectory(dirname(file));
+    if (output) mkdirSync(dirname(output), { recursive: true, mode: 0o700 });
+    const actual = stableFile(file, check, output);
     if (actual.bytes !== item.bytes || actual.sha256 !== item.sha256) fail('ARCHIVE_HASH_MISMATCH', 'Archive member hash or size does not match its manifest');
   }
+  const members = staging ?? root;
   for (const item of parsed.manifest.databases) {
-    const db = sqlite(join(root, item.file));
+    const db = sqlite(join(members, item.file));
     try { const actual = logicalDatabase(db, item.role, check); if (actual.schemaVersion !== item.schemaVersion || actual.logicalHash !== item.logicalHash) fail('ARCHIVE_DATABASE_INVALID', 'Archive database logical content does not match'); }
     finally { db.close(); }
   }
-  const mediaPrimary=sqlite(join(root,databaseFiles.primary));try{validateMediaFiles(mediaPrimary,join(root,'artifacts'),check,parsed.manifest.artifacts);}finally{mediaPrimary.close();}
-  validateReviewFiles(root, check);
-  // Preserve the existing validator's proof-only deadline. An explicit
-  // inspection supplies its already-started operation-wide frame instead.
+  const mediaPrimary=sqlite(join(members,databaseFiles.primary));try{validateMediaFiles(mediaPrimary,join(members,'artifacts'),check,parsed.manifest.artifacts);}finally{mediaPrimary.close();}
+  validateReviewFiles(members, check);
+  // validateEngineArchive and importEngineArchive pass a factory so the
+  // document-proof deadline starts here, after member hashing;
+  // inspectArchivedChildDocumentStorage passes its already-running frame.
   const proofFrame=typeof frame==='function'?frame():frame;
-  validateDocumentArchive(root,parsed.manifest,check,proofFrame);
-  validateChildDocumentArchive(root,parsed.manifest,proofFrame,check,collect);
+  validateDocumentArchive(members,parsed.manifest,check,proofFrame);
+  validateChildDocumentArchive(members,parsed.manifest,proofFrame,check,collect);
   if (parseManifest(join(root, 'manifest.json')).manifestSha256 !== initialManifestHash) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during validation');
   check();
 }
@@ -745,20 +749,16 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
 }
 /** New bundle only. Source acknowledgments and immutable row identities are retained, never rebound. */
 export async function importEngineArchive(options: ImportEngineArchiveOptions): Promise<ImportedEngineArchive> {
-  const archive = validateEngineArchive(options), destination = destinationPath(options.destination), sourceRoot = manifestRoot(options.directory);
+  const archiveDocumentBudgetMs = archiveDocumentBudget(options);
+  const sourceRoot = manifestRoot(options.directory), check = () => abort(options.signal);
+  check(); const parsed = parseManifest(join(sourceRoot, 'manifest.json'));
+  const archive = { directory: checkedDirectory(options.directory), ...parsed }, destination = destinationPath(options.destination);
   if (inside(archive.directory, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Import destination must be outside the archive');
   let staging: string | undefined;
   try {
     staging = mkdtempSync(join(dirname(destination), '.moodcode-import-'));
     mkdirSync(join(staging, 'artifacts'), { mode: 0o700 });
-    const check = () => abort(options.signal);
-    for (const member of [...archive.manifest.databases, ...archive.manifest.artifacts]) {
-      const source = join(sourceRoot, member.file), output = join(staging, member.file);
-      mkdirSync(dirname(output), { recursive: true, mode: 0o700 });
-      const actual = stableFile(source, check, output);
-      if (actual.bytes !== member.bytes || actual.sha256 !== member.sha256) fail('ARCHIVE_SOURCE_CHANGED', 'Archive changed after validation');
-    }
-    if (parseManifest(join(sourceRoot, 'manifest.json')).manifestSha256 !== archive.manifestSha256) fail('ARCHIVE_SOURCE_CHANGED', 'Archive manifest changed during import');
+    validateParsedArchive(sourceRoot, parsed, check, () => createArchiveDocumentReadFrame({ signal: options.signal, archiveDocumentBudgetMs }), undefined, staging);
     const primary = archive.manifest.databases.find(item => item.role === 'primary')!;
     const artifactDir = join(destination, 'data', 'artifacts');
     const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0, worktreesRelocated = 0,childSessionsPaused=0;
