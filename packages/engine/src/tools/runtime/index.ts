@@ -6,7 +6,7 @@ import type { ApprovalPort, PreparedTool, ProviderTool, ToolContext, ToolDefinit
 import { ArtifactStore } from '../../artifacts/store.js';
 import { createToolResultEnvelope, enrichLegacyToolResult } from '../../artifacts/result.js';
 import { boundedJson } from '../../artifacts/validation.js';
-import { inferToolEffect, ToolPolicy, type ToolEffectClass } from '../../permission/policy.js';
+import { inferToolEffect, ToolPolicy, withPathRestriction, type ToolEffectClass } from '../../permission/policy.js';
 import { ScopedToolGrants, type GrantScope, type ScopedToolGrant } from '../../permission/grants.js';
 import { RoleResourcePolicy, type RoleResource, type RoleResourceInput, type RoleResourceReceipt } from '../../permission/role-resources.js';
 import { RoleResourcePolicyRegistry, type RoleResourcePolicyCapture, type RoleResourcePolicyGeneration } from '../../permission/role-policy-registry.js';
@@ -425,7 +425,8 @@ export class ScopedToolRuntime {
     }
     if (request.grant) this.grants.consume(request.grant.id, request.grantScope, this.policy.version, request.grant.revision);
     commitObservation?.();
-    const result = await request.entry.definition.execute(request.inner, context);
+    const restriction = this.policy.descendantRestriction({ toolName: prepared.name, effect: request.entry.effect, resources: resources(request.inner) });
+    const result = await withPathRestriction(context, restriction, () => request.entry.definition.execute(request.inner, context));
     if (!result || typeof result.content !== 'string' || result.isError !== undefined && typeof result.isError !== 'boolean') fail('INVALID_TOOL_RESULT', 'Tool returned invalid content or outcome');
     const limits = { maxModelBytes: Math.min(context.limits.maxOutputBytes, 32 * 1024), maxDisplayBytes: Math.min(context.limits.maxOutputBytes, 64 * 1024) };
     const outcome = context.signal.aborted ? 'interrupted' : result.isError ? 'failed' : 'completed';

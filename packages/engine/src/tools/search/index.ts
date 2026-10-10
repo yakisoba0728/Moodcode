@@ -5,6 +5,7 @@ import { projectToolResult } from '../../artifacts/result.js';
 import { textPrefix } from '../../artifacts/validation.js';
 import { createReadTools } from '../read/index.js';
 import { readExactText } from '../file-actions/text.js';
+import { pathRestriction, withPathRestriction } from '../../permission/policy.js';
 import { continuationOffset, continuationToken, snapshotFingerprint, validateContinuation } from '../../workspace/ignore.js';
 import { runSearchWorker } from './worker.js';
 export const PATTERN_SEARCH_LIMITS = Object.freeze({ maxPatternBytes: 2048, maxFiles: 1000, maxBytes: 8 * 1024 * 1024, maxResults: 200, workerTimeoutMs: 250 });
@@ -39,7 +40,7 @@ export function createPatternSearchTools(): ToolDefinition[] {
         if (context.signal.aborted) throw new EngineError('CANCELLED', 'Search cancelled'); const request = requests.get(prepared); if (!request || request.used) throw new EngineError('INVALID_PREPARED_SEARCH', 'Search must be freshly prepared by this tool'); request.used = true;
         if (JSON.stringify(prepared) !== request.snapshot || binding(context) !== request.binding) throw new EngineError('SEARCH_REQUEST_STALE', 'Prepared search or execution identity changed');
         const scanContext: ToolContext = { ...context, limits: { ...context.limits, maxOutputBytes: 1024 * 1024 } };
-        const listing = await list.execute(await list.prepare({ path: request.input.path, limit: 2000 }, scanContext), scanContext); const listingData = listing.data as JsonObject;
+        const listing = await withPathRestriction(scanContext, pathRestriction(context), async () => list.execute(await list.prepare({ path: request.input.path, limit: 2000 }, scanContext), scanContext)); const listingData = listing.data as JsonObject;
         const paths = (listingData.files as string[]).slice(0, PATTERN_SEARCH_LIMITS.maxFiles); const files: { path: string; content?: string }[] = []; const warnings: string[] = []; let bytesScanned = 0; let skippedFiles = 0;
         let scanTruncated = Boolean(listingData.truncated) || (listingData.files as string[]).length > paths.length;
         for (const path of paths) {

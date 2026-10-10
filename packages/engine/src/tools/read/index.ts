@@ -4,6 +4,7 @@ import { open, opendir, stat } from 'node:fs/promises';
 import { isAbsolute, posix, relative, sep, win32 } from 'node:path';
 import { EngineError, type JsonObject, type JsonValue, type Workspace } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../../ports.js';
+import { pathRestriction, type PathRestriction } from '../../permission/policy.js';
 import { resolveWorkspacePath } from '../../workspace/index.js';
 import { continuationOffset, continuationToken, excludedDirectory, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from '../../workspace/ignore.js';
 
@@ -123,8 +124,9 @@ function scanMetadata(state: ScanState): JsonObject {
   return { entriesVisited: state.entriesVisited, filesVisited: state.filesVisited, bytesScanned: state.bytesScanned, skippedBinaryFiles: state.skippedBinaryFiles, skippedLargeFiles: state.skippedLargeFiles, skippedSymlinks: state.skippedSymlinks, warnings: state.warnings, warningsOmitted: state.warningsOmitted, truncated: state.reasons.size > 0, truncationReasons: [...state.reasons] };
 }
 
-async function* walkFiles(workspace: Workspace, path: string, signal: AbortSignal, state: ScanState): AsyncGenerator<{ path: string; absolute: string }> {
+async function* walkFiles(workspace: Workspace, path: string, signal: AbortSignal, state: ScanState, restricted?: PathRestriction): AsyncGenerator<{ path: string; absolute: string }> {
   cancelled(signal);
+  if (restricted?.(path)) return;
   const absolute = await resolveWorkspacePath(workspace, path);
   cancelled(signal);
   const info = await stat(absolute);
@@ -147,8 +149,9 @@ async function* walkFiles(workspace: Workspace, path: string, signal: AbortSigna
       const handle = await opendir(resolved);
       let batch: Dirent[] = [];
       async function* visit(entries: Dirent[]): AsyncGenerator<{ path: string; absolute: string }> {
-        const candidates = entries.filter(entry => !entry.isSymbolicLink() && (!entry.isDirectory() || !excludedDirectory(entry.name)));
-        const paths = candidates.map(entry => directory === '.' ? entry.name : `${directory}/${entry.name}`);
+        const childPath = (entry: Dirent) => directory === '.' ? entry.name : `${directory}/${entry.name}`;
+        const candidates = entries.filter(entry => !entry.isSymbolicLink() && (!entry.isDirectory() || !excludedDirectory(entry.name)) && !restricted?.(childPath(entry)));
+        const paths = candidates.map(childPath);
         const ignored = await ignoredWorkspacePaths(workspace, paths, signal);
         for (const [index, entry] of candidates.entries()) {
           const child = paths[index]!;
@@ -339,7 +342,7 @@ async function listFiles(input: ListInput, context: ToolContext): Promise<ToolRe
   const state = scanState();
   const files: string[] = [];
   const observations: JsonValue[] = [];
-  for await (const file of walkFiles(context.workspace, input.path, context.signal, state)) {
+  for await (const file of walkFiles(context.workspace, input.path, context.signal, state, pathRestriction(context))) {
     if (files.length >= READ_TOOL_LIMITS.maxFiles) { state.reasons.add('files'); break; }
     files.push(file.path);
     state.filesVisited++;
@@ -425,7 +428,7 @@ async function searchFiles(input: SearchInput, context: ToolContext): Promise<To
   const matches: JsonObject[] = [];
   const observations: JsonValue[] = [];
   let snippetsTruncated = 0;
-  outer: for await (const file of walkFiles(context.workspace, input.path, context.signal, state)) {
+  outer: for await (const file of walkFiles(context.workspace, input.path, context.signal, state, pathRestriction(context))) {
     cancelled(context.signal);
     if (state.filesVisited >= READ_TOOL_LIMITS.maxFiles) { state.reasons.add('files'); break; }
     state.filesVisited++;

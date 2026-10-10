@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { promisify } from 'node:util';
-import { captureWorkspace, getGitStatus, openWorkspace, resolveWorkspacePath } from './index.js';
+import { captureWorkspace, getGitStatus, openWorkspace, resolveWorkspacePath, workspaceWritePath } from './index.js';
 import { runGit } from './git.js';
 
 const exec = promisify(execFile);
@@ -87,6 +87,15 @@ test('path resolution rejects lexical traversal and absolute or ambiguous portab
   await assert.rejects(resolveWorkspacePath(workspace, 'missing'), errorCode('PATH_NOT_FOUND'));
   assert.equal(await resolveWorkspacePath(workspace, 'missing/nested/file.txt', true), path.join(root, 'missing', 'nested', 'file.txt'));
   await assert.rejects(resolveWorkspacePath(workspace, 'folder/file.txt/child', true), errorCode('PATH_NOT_DIRECTORY'));
+});
+
+test('write paths reject Windows aliases of Git metadata and dependencies on every platform', () => {
+  for (const relative of ['.git./hooks/pre-commit', '.git /config', 'GIT~1/hooks/pre-commit', 'pkg/node_m~1/x.js', 'src/trailing.', 'src/trailing ', '.GIT/config', 'src/node_modules/x', 'a/./b', 'a/../b', 'a//b', '/absolute', 'C:/absolute', 'a\\b', 'a\nb']) {
+    assert.throws(() => workspaceWritePath(relative, 'BAD_PATH', 'bad path'), errorCode('BAD_PATH'));
+  }
+  assert.deepEqual(workspaceWritePath('a\nb', 'BAD_PATH', 'bad path', false), ['a\nb']);
+  assert.deepEqual(workspaceWritePath('.github/report~2024.pdf', 'BAD_PATH', 'bad path'), ['.github', 'report~2024.pdf']);
+  assert.deepEqual(workspaceWritePath('src/a~b.ts', 'BAD_PATH', 'bad path'), ['src', 'a~b.ts']);
 });
 
 test('symlink resolution checks existing and missing targets and prefix siblings', async (t) => {

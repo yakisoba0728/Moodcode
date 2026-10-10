@@ -89,6 +89,24 @@ test('hostile change arrays/getters are rejected without invoking user callbacks
   }finally{await f.cleanup();}
 });
 
+test('patch paths reject Windows aliases of Git metadata and dependencies',async()=>{
+  const f=await fixture();try{
+    for(const relative of ['.git./hooks/pre-commit','.git /hooks/pre-commit','GIT~1/hooks/pre-commit','NODE_M~1/pkg/index.js','src/trailing.'])await assert.rejects(f.physical.prepare(f.binding,[change(relative,null,'new')],f.controller.signal),hasCode('INVALID_PATCH_PATH'));
+    assert.deepEqual(await fs.readdir(f.root),[]);
+  }finally{await f.cleanup();}
+});
+
+test('patch parents that physically resolve into dependencies are rejected before any effect',async t=>{
+  const f=await fixture();try{
+    await fs.mkdir(path.join(f.root,'node_modules','pkg'),{recursive:true});await fs.writeFile(path.join(f.root,'node_modules','pkg','index.js'),'old');
+    const alias='node_module\u017f';
+    if(!await fs.lstat(path.join(f.root,alias)).then(()=>true,()=>false)){t.skip('volume does not fold this name onto node_modules');return;}
+    await assert.rejects(f.physical.prepare(f.binding,[change(`${alias}/pkg/index.js`,'old','new')],f.controller.signal),hasCode('UNSAFE_PATCH_PATH'));
+    await assert.rejects(f.physical.prepare(f.binding,[change(`${alias}/hook/index.js`,null,'new')],f.controller.signal),hasCode('UNSAFE_PATCH_PATH'));
+    assert.deepEqual(await fs.readdir(path.join(f.root,'node_modules')),['pkg']);assert.equal(await fs.readFile(path.join(f.root,'node_modules','pkg','index.js'),'utf8'),'old');
+  }finally{await f.cleanup();}
+});
+
 test('neutral physical lane rejects an oversized whole proposal without chunking or effects',async()=>{
   const f=await fixture();try{
     await assert.rejects(f.physical.prepare(f.binding,Array.from({length:33},(_,i)=>change('a'+i,null,'new')),f.controller.signal),hasCode('INVALID_PATCH_INPUT'));

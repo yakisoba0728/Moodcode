@@ -25,7 +25,7 @@ DB13은 파일 관찰·head·publication·checkpoint·receipt·recovery acknowle
 
 ## 지원 범위와 한계
 
-파일은 canonical workspace 안의 단일 링크 일반 UTF-8 텍스트이며 현재 읽기·출력 모두 16 KiB로 제한한다. `.git`과 `node_modules` 대상은 거부한다. 일반 파일의 부모는 이미 있어야 한다. 새 부모 생성은 정확한 `.moodcode/skills/<id>/SKILL.md` 경로에만 허용한다. source/root/parent/file identity와 SHA를 각 실제 효과 경계에서 확인하며 symlink/hardlink 치환을 거부한다. 부분 생성한 부모를 자동으로 되돌리는 복구는 제공하지 않는다.
+파일은 canonical workspace 안의 단일 링크 일반 UTF-8 텍스트이며 현재 읽기·출력 모두 16 KiB로 제한한다. `.git`과 `node_modules` 대상, 점이나 공백으로 끝나는 경로 segment, Windows 8.3 short name 형태의 segment는 모든 플랫폼에서 거부한다. 일반 파일의 부모는 이미 있어야 한다. 새 부모 생성은 정확한 `.moodcode/skills/<id>/SKILL.md` 경로에만 허용한다. source/root/parent/file identity와 SHA를 각 실제 효과 경계에서 확인하며 symlink/hardlink 치환을 거부한다. 부분 생성한 부모를 자동으로 되돌리는 복구는 제공하지 않는다.
 
 Node의 경로 기반 rename/unlink는 외부 writer와의 원자적인 OS hash CAS가 아니다. 관찰과 실제 syscall 사이의 외부 수정 가능성까지 차단한다고 주장하지 않는다. 공통 잠금은 이 Engine storage에 결속된 producer를 조정한다. 배포 환경의 원격 filesystem과 Windows 검증, imported knowledge의 명시적 재결속·activation(MC2-03d)은 별도 미완료 작업이다.
 

@@ -493,6 +493,18 @@ test("malformed getter/proxy/null prepare has no binding or candidate callbacks"
   assert.equal(f.state.bindingReads, before);
   assert.equal(f.store.listPublications("workspace").items.length, 0);
 });
+test("Windows aliases of Git metadata and dependencies are rejected before binding", (t) => {
+  const f = fixture(t),
+    input = f.input(),
+    before = f.state.bindingReads;
+  for (const path of [".git./hooks/pre-commit", "GIT~1/hooks/pre-commit", "NODE_M~1/x.js", "notes."])
+    assert.throws(
+      () => f.store.prepare({ ...input, path }),
+      (e) => e instanceof EngineError && e.code === "INVALID_KNOWLEDGE_FILE_PATH",
+    );
+  assert.equal(f.state.bindingReads, before);
+  assert.equal(f.store.listPublications("workspace").items.length, 0);
+});
 test("preimage mutation rejects stale target before intent and currentness callback", (t) => {
   const f = fixture(t),
     p = f.prepare();

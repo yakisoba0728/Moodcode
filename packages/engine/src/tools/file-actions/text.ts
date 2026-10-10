@@ -1,13 +1,14 @@
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
-import { isAbsolute, join, win32 } from 'node:path';
+import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { EngineError, type Workspace } from '@moodcode/contracts';
+import { workspaceWritePath } from '../../workspace/index.js';
 export const TEXT_FILE_LIMIT = 1024 * 1024;
 export const textHash = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 export function exactPath(value: unknown): string {
-  if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 512 || isAbsolute(value) || win32.isAbsolute(value) || /[\u0000-\u001f\u007f\\:]/.test(value) || Buffer.from(value).toString() !== value || value.split('/').some(p => !p || p === '.' || p === '..' || ['.git', 'node_modules'].includes(p.toLowerCase()))) throw new EngineError('INVALID_FILE_ACTION_PATH', 'Use an exact bounded workspace-relative path outside Git metadata and dependencies');
-  return value;
+  workspaceWritePath(value, 'INVALID_FILE_ACTION_PATH', 'Use an exact bounded workspace-relative path outside Git metadata and dependencies');
+  return value as string;
 }
 export async function readExactText(workspace: Workspace, relative: string, signal: AbortSignal): Promise<{ content: string; hash: string; mode: number }> {
   exactPath(relative);

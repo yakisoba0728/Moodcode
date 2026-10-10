@@ -1,14 +1,15 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import { constants, type Stats } from 'node:fs';
 import fs, { type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
+import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
+import { textHash } from '../file-actions/text.js';
 
 const MAX_FILES = 32;
 const MAX_FILE_BYTES = 1024 * 1024;
 const MAX_TOTAL_BYTES = 4 * 1024 * 1024;
-const MAX_PATH_BYTES = 512;
 const MAX_PREVIEW_BYTES = 32 * 1024;
 const SHA256 = /^[a-f0-9]{64}$/;
 
@@ -43,7 +44,6 @@ function code(error: unknown): string | undefined {
   return error instanceof Error && 'code' in error ? String(error.code) : undefined;
 }
 function errorText(error: unknown): string { return error instanceof Error ? error.message : String(error); }
-function hash(content: string): string { return createHash('sha256').update(content, 'utf8').digest('hex'); }
 function assertActive(context: PhysicalOperation): void {
   if (context.signal.aborted) throw new EngineError('CANCELLED', 'Patch was cancelled');
 }
@@ -56,14 +56,7 @@ function keys(value: Record<string, unknown>, expected: string[]): boolean {
   return Reflect.ownKeys(descriptors).length === expected.length && expected.every(key => descriptors[key]?.enumerable && Object.hasOwn(descriptors[key]!, 'value'));
 }
 function parts(relative: string): string[] {
-  if (!relative || Buffer.byteLength(relative, 'utf8') > MAX_PATH_BYTES || Buffer.from(relative, 'utf8').toString('utf8') !== relative || relative.includes('\0') || relative.includes('\\') || relative.includes(':') || path.isAbsolute(relative) || path.win32.isAbsolute(relative)) {
-    throw new EngineError('INVALID_PATCH_PATH', 'Patch paths must be bounded workspace-relative paths');
-  }
-  const segments = relative.split('/');
-  if (segments.some((segment) => !segment || segment === '.' || segment === '..' || ['.git', 'node_modules'].includes(segment.toLowerCase()))) {
-    throw new EngineError('INVALID_PATCH_PATH', 'Patch path contains an unsafe or excluded component');
-  }
-  return segments;
+  return workspaceWritePath(relative, 'INVALID_PATCH_PATH', 'Patch paths must be bounded workspace-relative paths outside Git metadata and dependencies', false);
 }
 function parse(input: unknown): Change[] {
   if (!object(input) || !keys(input, ['changes']) || !Array.isArray(input.changes) || types.isProxy(input.changes) || input.changes.length === 0 || input.changes.length > MAX_FILES) {
@@ -123,6 +116,7 @@ async function targetPath(root: string, relative: string, createParents = false,
       info = await fs.lstat(current);
     }
     if (info.isSymbolicLink() || !info.isDirectory()) throw new EngineError('UNSAFE_PATCH_PATH', 'Patch parent is a symlink or is not a directory');
+    await assertWorkspaceWriteParent(root, current, 'UNSAFE_PATCH_PATH', 'Patch parent resolves outside the workspace or into Git metadata or dependencies');
   }
   return path.join(root, ...segments);
 }
@@ -147,7 +141,7 @@ async function readHandle(handle: FileHandle): Promise<Image> {
   if (content.includes('\0') || !Buffer.from(content, 'utf8').equals(bytes)) throw new EngineError('UNSUPPORTED_PATCH_FILE', 'Patch targets must contain valid UTF-8 text without NUL bytes');
   const observed = await handle.stat();
   if (!sameObservation(initial, observed)) throw new EngineError('PATCH_PREIMAGE_MISMATCH', 'Target changed while its content was being read');
-  return { content, hash: hash(content), stat: observed };
+  return { content, hash: textHash(content), stat: observed };
 }
 async function openImage(root: string, relative: string, tracker: IoTracker, writable = false): Promise<{ absolute: string; image: Image; handle?: FileHandle }> {
   const absolute = await targetPath(root, relative);
@@ -194,7 +188,7 @@ function preview(changes: Change[], before: Image[]): JsonObject {
     const image = before[index]!;
     return {
       path: change.path, operation: image.hash === null ? 'create' : change.content === null ? 'delete' : 'update',
-      beforeHash: image.hash, afterHash: change.content === null ? null : hash(change.content),
+      beforeHash: image.hash, afterHash: change.content === null ? null : textHash(change.content),
       beforeBytes: image.content === null ? 0 : Buffer.byteLength(image.content, 'utf8'),
       afterBytes: change.content === null ? 0 : Buffer.byteLength(change.content, 'utf8'),
       diff: `--- ${image.content === null ? '/dev/null' : `a/${change.path}`}\n+++ ${change.content === null ? '/dev/null' : `b/${change.path}`}\n${imageLines(image.content, '-')}${image.content !== null && change.content !== null ? '\n' : ''}${imageLines(change.content, '+')}`,
@@ -315,8 +309,8 @@ export class PhysicalPatchProducer {
       const pins = await this.pins(ownedBinding, validated, before); assertActive({ signal: current });
       const original = Object.freeze({ id: randomUUID() });
       this.#captures.set(original, { binding: ownedBinding, changes: validated, before, pins,
-        sourceSha256: hash(JSON.stringify({ binding: ownedBinding, changes: validated, before: before.map(image => ({ content: image.content, hash: image.hash })) })),
-        physicalPinsSha256: hash(JSON.stringify(pins)), state: 'prepared' });
+        sourceSha256: textHash(JSON.stringify({ binding: ownedBinding, changes: validated, before: before.map(image => ({ content: image.content, hash: image.hash })) })),
+        physicalPinsSha256: textHash(JSON.stringify(pins)), state: 'prepared' });
       return original;
     });
   }
@@ -331,7 +325,7 @@ export class PhysicalPatchProducer {
     const pins = record.pins as {parents:{path:string;dev:string|null;ino:string|null}[]};
     if (pins.parents.some(parent => parent.dev === null || parent.ino === null)) return null;
     return {version:1,producer:'physical-patch',workspaceId:record.binding.workspaceId,root:record.binding.root,rootDevice:record.binding.rootDevice,rootInode:record.binding.rootInode,sourceSha256:record.sourceSha256,physicalPinsSha256:record.physicalPinsSha256,
-      files:record.changes.map((change,i)=>({path:change.path,device:String(record.before[i]!.stat!.dev),inode:String(record.before[i]!.stat!.ino),beforeHash:record.before[i]!.hash!,afterHash:hash(change.content!)})),
+      files:record.changes.map((change,i)=>({path:change.path,device:String(record.before[i]!.stat!.dev),inode:String(record.before[i]!.stat!.ino),beforeHash:record.before[i]!.hash!,afterHash:textHash(change.content!)})),
       parents:pins.parents.map(parent=>({path:parent.path,device:parent.dev!,inode:parent.ino!}))};
   }
   private async fresh(record: PhysicalRecord, signal: AbortSignal, tracker: IoTracker): Promise<void> {
@@ -340,7 +334,7 @@ export class PhysicalPatchProducer {
       assertActive({ signal }); const image = await observe(record.binding.root, record.changes[index]!.path, tracker);
       checkExpected(record.changes[index]!, image, record.before[index]); observations.push(image);
     }
-    if (hash(JSON.stringify(await this.pins(record.binding, record.changes, observations))) !== record.physicalPinsSha256) throw new EngineError('PATCH_APPROVAL_STALE', 'Original physical patch identities changed');
+    if (textHash(JSON.stringify(await this.pins(record.binding, record.changes, observations))) !== record.physicalPinsSha256) throw new EngineError('PATCH_APPROVAL_STALE', 'Original physical patch identities changed');
     assertActive({ signal });
   }
   assertFresh(original: object, signal: AbortSignal): Promise<void> {

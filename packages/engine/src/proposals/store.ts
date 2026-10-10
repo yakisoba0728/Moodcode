@@ -8,6 +8,7 @@ import {
   validateBinding,
 } from "../knowledge/validation.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import { workspaceWritePath } from "../workspace/index.js";
 import type {
   PreparedProposalSourceSnapshot,
   ProposalSourceManifest,
@@ -206,25 +207,12 @@ function checkHash(value: Record<string, unknown>): void {
   if (hash(expected) !== knowledgeHash(rest)) fail("PROPOSAL_HASH_MISMATCH");
 }
 function relative(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 512 ||
-    value.includes("\\") ||
-    value.startsWith("/") ||
-    /[:\u0000-\u001f\u007f]/u.test(value) ||
-    value
-      .split("/")
-      .some(
-        (p) =>
-          !p ||
-          p === "." ||
-          p === ".." ||
-          [".git", "node_modules"].includes(p.toLowerCase()),
-      )
-  )
-    fail("INVALID_PROPOSAL_PATH");
-  return value;
+  workspaceWritePath(
+    value,
+    "INVALID_PROPOSAL_PATH",
+    "Proposal paths must be bounded workspace-relative paths outside Git metadata and dependencies",
+  );
+  return value as string;
 }
 function content(value: unknown): string | null {
   if (value === null) return null;

@@ -5,7 +5,26 @@ export type PolicyDecision = 'allow' | 'ask' | 'deny';
 export interface ToolPolicyRule { tool?: string; effect?: ToolEffectClass; resource?: string; decision: PolicyDecision }
 export interface ToolPolicyInput { toolName: string; effect: ToolEffectClass; mode: 'plan' | 'build'; requiresApproval: boolean; resources?: readonly string[] }
 export interface ToolPolicyResult { decision: PolicyDecision; version: number; reason: string }
+/** True when a workspace-relative descendant path is withheld from a directory walk. */
+export type PathRestriction = (path: string) => boolean;
 const EFFECTS = new Set<ToolEffectClass>(['read', 'state', 'write', 'execute', 'network', 'unknown']);
+const restrictions = new WeakMap<object, PathRestriction>();
+function applies(rule: ToolPolicyRule, toolName: string, effect: ToolEffectClass): boolean {
+  return (rule.tool === undefined || rule.tool === '*' || rule.tool === toolName) && (rule.effect === undefined || rule.effect === effect);
+}
+/** Lexical match: the exact resource text, or a `path:` prefix ending in `/**` and its base. */
+function covers(rule: string, resource: string): boolean {
+  return resource === rule || rule.startsWith('path:') && rule.endsWith('/**') && (resource === rule.slice(0, -3) || resource.startsWith(`${rule.slice(0, -3)}/`));
+}
+/** Runtime-internal: exposes a call's restriction to directory walks that run with this execution context. */
+export async function withPathRestriction<T>(context: object, restriction: PathRestriction | undefined, run: () => Promise<T>): Promise<T> {
+  if (!restriction) return run();
+  const previous = restrictions.get(context);
+  restrictions.set(context, restriction);
+  try { return await run(); }
+  finally { if (previous) restrictions.set(context, previous); else restrictions.delete(context); }
+}
+export function pathRestriction(context: object): PathRestriction | undefined { return restrictions.get(context); }
 export function inferToolEffect(name: string, declared?: ToolEffectClass): ToolEffectClass {
   if (declared !== undefined) { if (!EFFECTS.has(declared)) throw new EngineError('INVALID_TOOL_EFFECT', 'Unsupported tool effect class'); return declared; }
   if (['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'todo_read', 'skill_read'].includes(name)) return 'read';
@@ -33,7 +52,7 @@ export class ToolPolicy {
   }
   evaluate(input: ToolPolicyInput): ToolPolicyResult {
     const result = (decision: PolicyDecision, reason: string) => ({ decision, reason, version: this.current });
-    const matches = this.rules.filter(rule => (rule.tool === undefined || rule.tool === '*' || rule.tool === input.toolName) && (rule.effect === undefined || rule.effect === input.effect) && (rule.resource === undefined || input.resources?.some(resource => resource === rule.resource || rule.resource!.startsWith('path:') && rule.resource!.endsWith('/**') && (resource === rule.resource!.slice(0, -3) || resource.startsWith(`${rule.resource!.slice(0, -3)}/`)))));
+    const matches = this.rules.filter(rule => applies(rule, input.toolName, input.effect) && (rule.resource === undefined || input.resources?.some(resource => covers(rule.resource!, resource))));
     if (matches.some(rule => rule.decision === 'deny')) return result('deny', 'configured denial');
     if (input.mode === 'plan' && input.effect !== 'read' && input.effect !== 'state') return result('deny', 'plan mode allows read and internal state effects only');
     if (matches.some(rule => rule.decision === 'ask')) return result('ask', 'configured approval requirement');
@@ -41,5 +60,10 @@ export class ToolPolicy {
     if (input.effect === 'unknown') return result('ask', 'unknown tool effects require approval');
     if (matches.some(rule => rule.decision === 'allow')) return result('allow', 'configured allowance');
     return input.effect === 'read' || input.effect === 'state' ? result('allow', `${input.effect} effect`) : result('ask', 'effect requires approval');
+  }
+  /** Deny/ask path rules below a call's own resources; rules those resources matched were already decided for the call. */
+  descendantRestriction(input: Pick<ToolPolicyInput, 'toolName' | 'effect' | 'resources'>): PathRestriction | undefined {
+    const rules = this.rules.filter(rule => rule.decision !== 'allow' && rule.resource?.startsWith('path:') && applies(rule, input.toolName, input.effect) && !input.resources?.some(resource => covers(rule.resource!, resource)));
+    return rules.length ? path => rules.some(rule => covers(rule.resource!, `path:${path}`)) : undefined;
   }
 }

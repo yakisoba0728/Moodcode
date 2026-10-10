@@ -9,6 +9,7 @@ import {
   stamp,
   validateBinding,
 } from "./validation.js";
+import { workspaceWritePath } from "../workspace/index.js";
 import type {
   FilePhysicalObservation,
   FilePublicationCheckpoint,
@@ -175,11 +176,11 @@ function decimal(value: unknown, signed = false): void {
 export function filePath(value: unknown): string {
   const path = exactKnowledgePath(value);
   if (
-    Buffer.byteLength(path) > 512 ||
-    path.split("/").length > 32 ||
-    path
-      .split("/")
-      .some((part) => [".git", "node_modules"].includes(part.toLowerCase()))
+    workspaceWritePath(
+      path,
+      "INVALID_KNOWLEDGE_FILE_PATH",
+      "File publication path is unsafe or exceeds its cap",
+    ).length > 32
   )
     filePublicationError(
       "INVALID_KNOWLEDGE_FILE_PATH",

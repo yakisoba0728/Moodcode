@@ -465,6 +465,15 @@ test("file count/body/aggregate/path alias caps reject before binding and preser
         }),
       code("PROPOSAL_PATH_CONFLICT"),
     );
+    for (const path of [".git./config", "GIT~1/hooks/pre-commit", "node_modules /x"])
+      assert.throws(
+        () =>
+          f.store.beginCapture({
+            ...request(),
+            operations: [{ path, expectedSha256: null, after: "" }],
+          }),
+        code("INVALID_PROPOSAL_PATH"),
+      );
     assert.equal(f.counters().bindings, 0);
     const empty = await f.append(request("empty", ""));
     assert.equal(empty.revision.files[0]!.after!.bytes, 0);

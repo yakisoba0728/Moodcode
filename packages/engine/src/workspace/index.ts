@@ -19,6 +19,9 @@ function within(root: string, candidate: string): boolean {
   return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
+const PROTECTED_DIRECTORIES = ['.git', 'node_modules'];
+const SHORT_NAME = /^(?=[^.]{1,8}(?:\.|$))[^.\s]{1,6}~\d+(?:\.[^.\s]{1,3})?$/u;
+
 async function validateRoot(workspace: Workspace): Promise<string> {
   try {
     const root = await realpath(workspace.root);
@@ -105,6 +108,29 @@ export async function resolveWorkspacePath(workspace: Workspace, relative: strin
     }
   }
   return current;
+}
+
+/**
+ * Workspace-relative write path, checked with Windows component rules on every platform: no
+ * segment ending in a dot or space (including . and ..), no 8.3 short name and no Git metadata
+ * or dependency directory. Returns the segments.
+ */
+export function workspaceWritePath(value: unknown, code: string, message: string, rejectControl = true): string[] {
+  if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 512 || Buffer.from(value).toString() !== value ||
+      path.posix.isAbsolute(value) || path.win32.isAbsolute(value) || (rejectControl ? /[\u0000-\u001f\u007f\\:]/u : /[\0\\:]/u).test(value)) {
+    throw new EngineError(code, message);
+  }
+  const segments = value.split('/');
+  if (segments.some((segment) => !segment || /[. ]$/u.test(segment) || SHORT_NAME.test(segment) ||
+    PROTECTED_DIRECTORIES.includes(segment.toLowerCase()))) throw new EngineError(code, message);
+  return segments;
+}
+
+/** An existing write parent must resolve inside the root and outside Git metadata and dependencies. */
+export async function assertWorkspaceWriteParent(root: string, directory: string, code: string, message: string): Promise<void> {
+  const resolved = await realpath(directory);
+  if (!within(root, resolved) || path.relative(root, resolved).split(path.sep).some((part) =>
+    PROTECTED_DIRECTORIES.includes(part.toLowerCase()))) throw new EngineError(code, message);
 }
 
 export interface GitStatusEntry {
