@@ -98,6 +98,17 @@ test('write paths reject Windows aliases of Git metadata and dependencies on eve
   assert.deepEqual(workspaceWritePath('src/a~b.ts', 'BAD_PATH', 'bad path'), ['src', 'a~b.ts']);
 });
 
+test('write paths reject HFS+ ignorable-code-point aliases of Git metadata and dependencies', () => {
+  const ignorable = ['‌', '‍', '‎', '‏', '‪', '‫', '‬', '‭', '‮', '⁪', '⁫', '⁬', '⁭', '⁮', '⁯', '﻿'];
+  for (const mark of ignorable) {
+    for (const relative of [`${mark}.git/config`, `.g${mark}it/hooks/pre-commit`, `.GI${mark}T/config`, `.git${mark}/config`, `src/node${mark}_modules/x.js`, `NODE_MODULES${mark}${mark}/x.js`]) {
+      assert.throws(() => workspaceWritePath(relative, 'BAD_PATH', 'bad path'), errorCode('BAD_PATH'));
+    }
+  }
+  assert.deepEqual(workspaceWritePath('src/a‌b.ts', 'BAD_PATH', 'bad path'), ['src', 'a‌b.ts']);
+  assert.deepEqual(workspaceWritePath('.gi‌t-x/config', 'BAD_PATH', 'bad path'), ['.gi‌t-x', 'config']);
+});
+
 test('symlink resolution checks existing and missing targets and prefix siblings', async (t) => {
   const { temporary, root, workspace } = await fixture(t);
   const outside = `${root}-other`;

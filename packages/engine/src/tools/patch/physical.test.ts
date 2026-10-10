@@ -89,9 +89,9 @@ test('hostile change arrays/getters are rejected without invoking user callbacks
   }finally{await f.cleanup();}
 });
 
-test('patch paths reject Windows aliases of Git metadata and dependencies',async()=>{
+test('patch paths reject Windows and HFS+ aliases of Git metadata and dependencies',async()=>{
   const f=await fixture();try{
-    for(const relative of ['.git./hooks/pre-commit','.git /hooks/pre-commit','GIT~1/hooks/pre-commit','NODE_M~1/pkg/index.js','src/trailing.'])await assert.rejects(f.physical.prepare(f.binding,[change(relative,null,'new')],f.controller.signal),hasCode('INVALID_PATCH_PATH'));
+    for(const relative of ['.git./hooks/pre-commit','.git /hooks/pre-commit','GIT~1/hooks/pre-commit','NODE_M~1/pkg/index.js','src/trailing.','.g‌it/hooks/pre-commit','﻿.GIT/config','node_module‪s/pkg/index.js'])await assert.rejects(f.physical.prepare(f.binding,[change(relative,null,'new')],f.controller.signal),hasCode('INVALID_PATCH_PATH'));
     assert.deepEqual(await fs.readdir(f.root),[]);
   }finally{await f.cleanup();}
 });

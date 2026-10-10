@@ -3,7 +3,7 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { EngineError, type Workspace } from '@moodcode/contracts';
-import { workspaceWritePath } from '../../workspace/index.js';
+import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
 export const TEXT_FILE_LIMIT = 1024 * 1024;
 export const textHash = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 export function exactPath(value: unknown): string {
@@ -16,6 +16,7 @@ export async function readExactText(workspace: Workspace, relative: string, sign
   const root = await lstat(workspace.root); if (!root.isDirectory() || root.isSymbolicLink() || await realpath(workspace.root) !== workspace.root) throw new EngineError('UNSAFE_FILE_ACTION_PATH', 'Workspace root must remain canonical');
   let current = workspace.root; const parts = relative.split('/');
   for (const part of parts.slice(0, -1)) { current = join(current, part); const info = await lstat(current); if (!info.isDirectory() || info.isSymbolicLink()) throw new EngineError('UNSAFE_FILE_ACTION_PATH', 'File parents must be ordinary directories'); }
+  await assertWorkspaceWriteParent(workspace.root, current, 'UNSAFE_FILE_ACTION_PATH', 'File parents must resolve inside the workspace and outside Git metadata and dependencies');
   const absolute = join(current, parts.at(-1)!); const candidate = await lstat(absolute, { bigint: true });
   if (!candidate.isFile() || candidate.isSymbolicLink() || candidate.nlink !== 1n) throw new EngineError('UNSUPPORTED_FILE_ACTION', 'Only singly linked regular UTF-8 text files are supported');
   if (candidate.size > BigInt(TEXT_FILE_LIMIT)) throw new EngineError('FILE_ACTION_LIMIT', 'File exceeds text action byte limit');
