@@ -98,7 +98,9 @@ test(
     const forkOriginal = await f.engine.captureForkPreview(forkInput),
       forkProof = f.engine.readForkPreview(forkOriginal);
     const pidPath = join(f.base, "cross-feature.pid");
-    const script = `require('node:fs').writeFileSync(${JSON.stringify(pidPath)},String(process.pid));console.log('ACTUAL_HOST_READY');setInterval(()=>{},50);`;
+    // Publish the PID by rename: a reader must never see the created-but-empty file, whose
+    // Number('') = 0 would make process.kill(0, 0) signal this test's own group.
+    const script = `const fs=require('node:fs');fs.writeFileSync(${JSON.stringify(`${pidPath}.tmp`)},String(process.pid));fs.renameSync(${JSON.stringify(`${pidPath}.tmp`)},${JSON.stringify(pidPath)});console.log('ACTUAL_HOST_READY');setInterval(()=>{},50);`;
     const original = await f.engine.previewHostCommand({
       workspaceId: f.workspace.id,
       sessionId: f.session.id,
@@ -118,6 +120,10 @@ test(
     );
     const pid = Number(readFileSync(pidPath, "utf8")),
       head = gitFixture(f.root, "rev-parse", "HEAD");
+    assert.ok(
+      Number.isSafeInteger(pid) && pid > 0,
+      "owned process PID must be a positive safe integer",
+    );
     const beforeSessions = f.engine.store.listSessions(f.workspace.id).length;
     await assert.rejects(
       f.engine.commitReviewedChanges(gitOriginal, gitInput),

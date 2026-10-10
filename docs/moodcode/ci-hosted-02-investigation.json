@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "kind": "moodcode-ci-hosted-02-host-git-fork-investigation",
+  "date": "2026-10-10",
+  "todo": "R-CI-HOSTED-02",
+  "scope": "The host-git-fork failure only; the fixture-retention failure from the same run stays open.",
+  "original": {
+    "commit": "92c1fb36e64c72d0847d91821e795d1af12caa39", "run": 38006403237, "attempt": 1, "job": 114076091840, "lane": "macos-15 / Node 24.x",
+    "test": "integration/host-git-fork: one actual workspace owner fences Git commit and fork admission; settled ownership permits both without source replay",
+    "failingAssertion": "dist line 121: assert.throws(() => process.kill(pid, 0), ESRCH) -> Missing expected exception (actual undefined)",
+    "notFailing": "Both busy rejections (commit and fork admission while the host command owned the workspace) and closed.state === 'cancelled' with cleanupConfirmed === true passed before it."
+  },
+  "hypotheses": [
+    { "id": "pid-reuse", "check": "Local PID allocation: 100 sequential spawns strictly increasing; 0/100 immediate reuse of a just-freed PID.", "result": "not supported" },
+    { "id": "exit-window", "check": "40 trials of a 200 MB child in its own group: after SIGTERM the (killpg, kill) states went live -> zombie (EPERM/ok) only; never ESRCH from killpg while kill(pid) succeeded. A zombie-only group returns EPERM (also from a non-parent process), which groupExists treats as present.", "result": "not supported; the engine's group check waits for reaping on macOS" },
+    { "id": "partial-pid-file", "check": "The host script wrote the PID with writeFileSync while the test waited only for existsSync. writeFileSync creates the file before writing, so a loaded reader can see it empty; Number('') is 0 and process.kill(0, 0) signals the caller's own process group and succeeds without an exception.", "result": "consistent with the exact failure; not directly observed on the hosted runner" }
+  ],
+  "precedent": "sandbox/boundaries.integration.test publishes held.pid with write-then-rename and asserts a positive safe integer; agent-backends crash-effects waits for /^[1-9]\\d*$/ content.",
+  "resolution": {
+    "change": "The host script writes <pid>.tmp and renames it to the PID path; the test asserts the parsed PID is a positive safe integer before using it.",
+    "productCodeChanged": false,
+    "assertionsWeakened": false,
+    "localVerification": { "command": "node --test packages/engine/dist/integration/host-git-fork.integration.test.js", "runs": 3, "pass": 3 },
+    "productConclusion": "The engine's ownership fencing and cleanup confirmation behaved correctly in the failing attempt."
+  },
+  "otherReaders": "Other PID-file readers either publish atomically, validate the content, or read after the process has settled; none was changed."
+}

@@ -3,10 +3,15 @@
   "kind": "moodcode-r-lsp-hist-reproduction-attempt",
   "date": "2026-10-10",
   "todo": "R-LSP-HIST",
-  "status": "not-reproduced-within-bounds",
+  "status": "closed-not-reproducible",
   "historic": {
     "commit": "e3032f0998ea8897284f6a401667b7e764034a82",
-    "wholeCompiled": { "tests": 5303, "pass": 5299, "fail": 1, "skipped": 3 },
+    "wholeCompiled": {
+      "tests": 5303,
+      "pass": 5299,
+      "fail": 1,
+      "skipped": 3
+    },
     "failingProbe": "bom-crlf-astral-definition (native-typescript-corpus.test)",
     "recordedNotation": "35–42/26–33 (quoted as recorded)",
     "notationDecodable": false,
@@ -16,15 +21,48 @@
   "attempt": {
     "source": "detached worktree of e3032f0; engine built with tsc -b; contracts unchanged since then",
     "nativeExecutable": "The engine requires a canonical, non-symlinked native TS executable, so the worktree's node_modules was a real directory: entries symlinked to the main checkout except @typescript/typescript-darwin-arm64, which was an APFS clone (cp -c).",
-    "host": { "platform": "darwin", "arch": "arm64", "node": "26.9.0", "nativeTypescript": "7.0.2" },
-    "smoke": { "runs": 1, "result": "pass", "definition": "unicode.ts:0:38-43", "probeMs": 318 },
+    "host": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "26.9.0",
+      "nativeTypescript": "7.0.2"
+    },
+    "smoke": {
+      "runs": 1,
+      "result": "pass",
+      "definition": "unicode.ts:0:38-43",
+      "probeMs": 318
+    },
     "contention": [
-      { "shape": "2 concurrent corpus runs + 1 engine-verification test file (f94ff7f build), nice 10", "rounds": 8, "corpusRuns": 16, "failures": 0, "probeMs": "357-569" },
-      { "shape": "4 concurrent corpus runs, nice 10", "rounds": 3, "corpusRuns": 12, "failures": 0, "probeMs": "439-760" }
+      {
+        "shape": "2 concurrent corpus runs + 1 engine-verification test file (f94ff7f build), nice 10",
+        "rounds": 8,
+        "corpusRuns": 16,
+        "failures": 0,
+        "probeMs": "357-569"
+      },
+      {
+        "shape": "4 concurrent corpus runs, nice 10",
+        "rounds": 3,
+        "corpusRuns": 12,
+        "failures": 0,
+        "probeMs": "439-760"
+      }
     ],
-    "everyRun": { "definition": "unicode.ts:0:38-43", "references": "unicode.ts:0:38-43, unicode.ts:1:29-34", "precision": 1, "recall": 1 },
+    "everyRun": {
+      "definition": "unicode.ts:0:38-43",
+      "references": "unicode.ts:0:38-43, unicode.ts:1:29-34",
+      "precision": 1,
+      "recall": 1
+    },
     "decisionRule": "Fixed before the runs: 37-42 would establish the disk-text versus open-overlay ordering race; any other range would be recorded verbatim; no failure leaves the item open with these bounds."
   },
   "conclusion": "28 contended runs of the historic code returned the correct range every time. The trigger likely needs conditions of the original whole-suite run (4-way concurrency across about 225 s of saturated CPU and other native-server tests) that this bounded attempt did not reproduce at the user's requested load. HEAD's native BOM projection (R-LSP) removes the known disk/overlay divergence; that does not prove the historic cause.",
-  "notDone": "No whole-suite repetition at e3032f0 (load), no HEAD loop (nothing to compare without a historic failure)."
+  "notDone": "No whole-suite repetition at e3032f0 (load), no HEAD loop (nothing to compare without a historic failure).",
+  "closure": {
+    "date": "2026-10-10",
+    "decidedBy": "user",
+    "reason": "Not reproduced within the bounded attempt; whole-suite repetition was declined for load. The historic cause stays unconfirmed; the known disk/overlay coordinate divergence was fixed by R-LSP.",
+    "reopenWhen": "A new failure of the BOM probes with its original log."
+  }
 }
