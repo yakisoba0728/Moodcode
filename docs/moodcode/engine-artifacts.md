@@ -10,7 +10,7 @@ E0-07/E4-02의 독립 기반 모듈이다. `ArtifactStore`는 GUI 없이 임시 
 
 producer 기본 제한은 16 MiB, 저장 제한은 8 MiB, model/display는 각각 32/64 KiB다. 개별 제한은 검증된 상한 안에서 변경할 수 있다. UTF-8 표시 문자열은 Unicode scalar 경계를 지키며, 원본 바이트는 그대로 저장한다. 관측량 = 저장량 + artifact 손실 + producer 손실은 producer 손실이 알려진 경우에만 성립한다. producer 손실이 null이면 관측량은 저장량 + artifact 손실 이상이다. 표시·모델 한도는 별도다. 스트림에는 chunk 수 제한이 있으며 정지한 생산자에는 호출자의 AbortSignal이 필요하다.
 
-`read(id,{identity,offset,limit,signal})`는 제한된 원본 바이트 페이지를 반환한다. 페이지 요청마다 저장된 전체 SHA-256을 검증한다. `get`은 메타데이터 조회이며 내용 해시 검증을 하지 않는다. `legacyArtifact`는 기존 `{path,bytes,truncated}` 소비자용 명시적 호환 API다. 이 경로 접근은 공개 참조의 해시 검증 읽기와 같은 계약이 아니다.
+`read(id,{identity,offset,limit,signal})`는 제한된 원본 바이트 페이지를 반환한다. 페이지 요청마다 저장된 전체 SHA-256을 검증한다. `get`은 메타데이터 조회이며 내용 해시 검증을 하지 않는다.
 
 `createToolResultEnvelope`는 displayContent/modelContent/structuredData/metadata/warnings/artifactRefs/outcome을 분리한다. 구조화된 데이터가 너무 크면 생략과 경고를 반환하고, 잘못된 JSON·순환·accessor는 거부한다. `projectToolResult`는 modelContent를 기존 content에 투영한다. `enrichLegacyToolResult`는 기존 content/data/artifacts를 유지하면서 additive structuredResult를 추가하므로 기존 소비자의 동작이 바뀌지 않는다.
 

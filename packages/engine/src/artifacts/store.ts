@@ -312,15 +312,6 @@ export class ArtifactStore {
       return { reference: structuredClone(ref), bytes: page, offset, ...(nextOffset < ref.storedBytes ? { nextOffset } : {}) };
     } finally { await handle.close(); }
   }
-  /** Compatibility escape hatch for existing command/read consumers; public refs contain no paths. */
-  async legacyArtifact(id: string, owner?: ArtifactIdentity): Promise<{ path: string; bytes: number; truncated: boolean }> {
-    const ref = await this.get(id, owner);
-    const path = join(await this.artifactDirectory(id), 'content');
-    const handle = await safeFile(path);
-    try { if ((await handle.stat()).size !== ref.storedBytes) fail('ARTIFACT_INTEGRITY_FAILED', 'Artifact size differs from its reference'); }
-    finally { await handle.close(); }
-    return { path, bytes: ref.storedBytes, truncated: !ref.complete };
-  }
   async prune(options: { signal?: AbortSignal } = {}): Promise<ArtifactPruneResult> {
     abort(options.signal); await this.checkRoot();
     const result: ArtifactPruneResult = { scanned: 0, removed: [], warnings: [], scanTruncated: false };

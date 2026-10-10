@@ -56,15 +56,14 @@ export function createToolResultEnvelope(input: ToolResultProjection, options: P
     ...(metadata === undefined ? {} : { metadata }), warnings, artifactRefs, outcome };
 }
 
-/** New producers can emit the old content/data/paths shape without changing old consumers. */
-export function projectToolResult(input: ToolResultProjection, options: Partial<ArtifactLimits> = {}, legacyArtifacts?: ToolResult['artifacts']): ToolResult {
+/** Builds the bounded envelope and mirrors its model text and data into ToolResult.content/data. */
+export function projectToolResult(input: ToolResultProjection, options: Partial<ArtifactLimits> = {}): ToolResult {
   const envelope = createToolResultEnvelope(input, options);
   return { content: envelope.modelContent, ...(envelope.outcome === 'completed' ? {} : { isError: true }),
-    ...(envelope.structuredData === undefined ? {} : { data: envelope.structuredData }),
-    ...(legacyArtifacts === undefined ? {} : { artifacts: structuredClone(legacyArtifacts) }), structuredResult: envelope };
+    ...(envelope.structuredData === undefined ? {} : { data: envelope.structuredData }), structuredResult: envelope };
 }
 
-/** Enrichment keeps existing content, data, and artifact paths unchanged. Wiring must opt in. */
+/** Attaches a bounded envelope without changing the producer's content, data or artifact paths. */
 export function enrichLegacyToolResult(result: ToolResult, input: Omit<ToolResultProjection, 'displayContent'> & { displayContent?: string } = {}, options: Partial<ArtifactLimits> = {}): ToolResult {
   const structuredResult = createToolResultEnvelope({ displayContent: input.displayContent ?? result.content,
     modelContent: input.modelContent ?? result.content, ...(result.data === undefined ? {} : { structuredData: result.data }),
