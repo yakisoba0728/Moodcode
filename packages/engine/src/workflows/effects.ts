@@ -11,11 +11,12 @@ import {
 import { join, relative } from "node:path";
 import { types } from "node:util";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type {
-  JsonObject,
-  Run,
-  RunConfigInput,
-  ToolCallRecord,
+import {
+  EngineError,
+  type JsonObject,
+  type Run,
+  type RunConfigInput,
+  type ToolCallRecord,
 } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type {
@@ -112,6 +113,9 @@ function filePin(path: string): WorkflowFilePin {
       size,
       sha256: hash.digest("hex"),
     };
+  } catch (error) {
+    if (error instanceof EngineError) throw error;
+    return effectFail("WORKFLOW_SOURCE_STALE");
   } finally {
     if (fd !== undefined) closeSync(fd);
   }
@@ -336,8 +340,23 @@ private closed = false;
           pin.root,
           ["ls-files", "--others", "--exclude-standard", "-z"],
           { signal: new AbortController().signal },
+        ),
+        deleted = await runGit(
+          pin.root,
+          [
+            "diff",
+            "--no-renames",
+            "--diff-filter=D",
+            "--name-only",
+            "-z",
+            pin.baseCommit,
+            "--",
+          ],
+          { signal: new AbortController().signal },
         );
-      if (git.code || untracked.code) effectFail("WORKFLOW_SOURCE_STALE");
+      if (git.code || untracked.code || deleted.code)
+        effectFail("WORKFLOW_SOURCE_STALE");
+      if (deleted.stdout.length) effectFail("WORKFLOW_CHILD_EFFECT_FAILED");
       paths = [
         ...new Set(
           Buffer.concat([git.stdout, untracked.stdout])
@@ -642,7 +661,7 @@ private closed = false;
         input: JsonObject;
         record: WorkflowInstanceRevision;
         preparedSha: string;
-        target?: object;
+        targetSha256?: string;
       }
     >();
     return WORKFLOW_MODEL_NAMES.map((name): ToolDefinition => ({
@@ -747,11 +766,11 @@ private closed = false;
         }
         const target =
           name === "deliver_workflow_result"
-            ? this.captureTarget({
+            ? this.target({
                 workspaceId: a.record.workspaceId,
                 instanceId: a.record.instanceId,
                 config: this.engine.store.getRun(a.record.owner.runId).config,
-              })
+              }).proof
             : undefined;
         const preview = {
           instanceId: a.record.instanceId,
@@ -760,9 +779,7 @@ private closed = false;
           revision: a.record.revision,
           ownerSha256: a.record.owner.sha256,
           operation: name,
-          ...(target
-            ? { target: this.readTarget(target) as unknown as JsonObject }
-            : {}),
+          ...(target ? { target: target as unknown as JsonObject } : {}),
         };
         const prepared: PreparedTool = {
           name,
@@ -781,7 +798,7 @@ private closed = false;
           input: data,
           record: a.record,
           preparedSha: knowledgeHash(prepared),
-          ...(target ? { target } : {}),
+          ...(target ? { targetSha256: target.sha256 } : {}),
         });
         return prepared;
       },
@@ -801,12 +818,19 @@ private closed = false;
           effectFail("WORKFLOW_STAGE_STALE");
         workflowAbort(context.signal);
         if (name === "deliver_workflow_result") {
+          const target = this.captureTarget({
+            workspaceId: a.record.workspaceId,
+            instanceId: a.record.instanceId,
+            config: this.engine.store.getRun(a.record.owner.runId).config,
+          });
           try {
+            if (this.readTarget(target).sha256 !== p.targetSha256)
+              effectFail("WORKFLOW_DELIVERY_STALE");
             const r = this.deliver({
               workspaceId: a.record.workspaceId,
               requestId: String(p.input.requestId),
               expectedRevision: 0,
-              target: p.target!,
+              target,
               approved: true,
               signal: context.signal,
             });
@@ -819,7 +843,7 @@ private closed = false;
               }),
             };
           } finally {
-            if (p.target) this.release(p.target);
+            this.release(target);
           }
         }
         const input = {
@@ -1000,6 +1024,13 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     instanceId: string;
     config: RunConfigInput;
   }): object {
+    return this.issue(this.targets, this.target(input));
+  }
+  private target(input: {
+    workspaceId: string;
+    instanceId: string;
+    config: RunConfigInput;
+  }): TargetOriginal {
     workflowHostRecord(input, ["workspaceId", "instanceId", "config"]);
     this.open();
     const { record, owner } = this.service().effectOwner(
@@ -1070,7 +1101,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
       }
     };
     check();
-    return this.issue(this.targets, { proof, check });
+    return { proof, check };
   }
   readTarget(original: object): WorkflowDeliveryTargetProof {
     const target = this.targets.get(original);

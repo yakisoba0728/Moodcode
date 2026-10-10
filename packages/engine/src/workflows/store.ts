@@ -142,6 +142,8 @@ export const WORKFLOW_STORAGE_LIMITS = Object.freeze({
   rows: 4096,
   bytes: 16777216,
 });
+/** Upper bound of a receipt plus the fields forcePause changes in an instance or stage revision. */
+const FORCE_PAUSE_ROW_BYTES = 4096;
 type Kind = "spec" | "instance" | "stage" | "transition";
 interface StageRevision {
   id: string;
@@ -723,6 +725,38 @@ export class WorkflowStorage {
         JSON.stringify(body),
       );
   }
+  /** Normal writes keep room for recoverInterrupted and a later pauseImported to force-pause every instance. */
+  private assertHeadroom(): void {
+    const total = this.db
+      .prepare(
+        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
+      )
+      .get()!;
+    let rows = Number(total.count),
+      bytes = Number(total.bytes);
+    for (const head of this.db
+      .prepare(
+        "SELECT json_extract(r.data,'$.state') AS state,length(CAST(r.data AS BLOB)) AS bytes,count(j.key) AS live,coalesce(sum(length(CAST(s.data AS BLOB))),0) AS liveBytes FROM workflow_heads h JOIN workflow_revisions r ON r.id=h.revision_id LEFT JOIN json_each(r.data,'$.stages') j ON json_extract(j.value,'$.state') IN ('dispatching','running') LEFT JOIN workflow_revisions s ON s.id=json_extract(j.value,'$.id') WHERE h.kind='instance' GROUP BY h.workspace_id,h.entity_id",
+      )
+      .all()) {
+      const size = Number(head.bytes),
+        live = Number(head.live);
+      if (head.state === "pending" || head.state === "running") {
+        rows += 2 + live;
+        bytes +=
+          size + Number(head.liveBytes) + (2 + live) * FORCE_PAUSE_ROW_BYTES;
+      }
+      if (head.state !== "paused-import") {
+        rows += 2;
+        bytes += size + 2 * FORCE_PAUSE_ROW_BYTES;
+      }
+    }
+    if (
+      rows > WORKFLOW_STORAGE_LIMITS.rows ||
+      bytes > WORKFLOW_STORAGE_LIMITS.bytes
+    )
+      workflowError("WORKFLOW_LIMIT");
+  }
   private moveHead(
     workspaceId: string,
     kind: "spec" | "instance" | "stage",
@@ -872,6 +906,7 @@ export class WorkflowStorage {
         json({ ...r, spec }) as unknown as JsonObject,
       );
       this.moveHead(workspaceId, "spec", spec.id, record, prior);
+      this.assertHeadroom();
       return { record, receipt, duplicate: false };
     });
   }
@@ -1035,6 +1070,7 @@ export class WorkflowStorage {
         r as JsonObject,
       );
       this.moveHead(workspaceId, "instance", instanceId, record);
+      this.assertHeadroom();
       return { record, receipt, duplicate: false };
     });
   }
@@ -1399,6 +1435,14 @@ export class WorkflowStorage {
         digest,
       );
       if (again) return again;
+      if (
+        this.db
+          .prepare(
+            "SELECT 1 FROM workflow_revisions WHERE workspace_id=? AND request_scope=? AND request_id=?",
+          )
+          .get(workspaceId, `receipt:${instanceId}`, requestId)
+      )
+        workflowError("WORKFLOW_REQUEST_CONFLICT");
       const before = this.getInstance(workspaceId, instanceId);
       if (!before || before.revision !== data.expectedRevision)
         workflowError("WORKFLOW_STALE");
@@ -1453,6 +1497,7 @@ export class WorkflowStorage {
         requestInput,
       );
       this.moveHead(workspaceId, "instance", instanceId, record, before);
+      this.assertHeadroom();
       return { record, receipt, duplicate: false };
     });
   }

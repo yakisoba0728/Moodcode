@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -336,6 +336,38 @@ test(
 );
 
 test(
+  "an editor that deletes a tracked file fails the workflow with a typed child effect error",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowEffectsFixture(t, { editorDeletes: true });
+    f.proceed.resolve();
+    await f.approveParent("request_workflow_stage");
+    await f.approveChild("apply_patch");
+    const observe = () =>
+      f.engine.store
+        .getSnapshot(f.session.id)
+        .tools.find((tool) => tool.name === "observe_workflow_stage");
+    await effectsUntil(
+      () => !["requested", "running", undefined].includes(observe()?.state),
+      "Observe did not settle",
+    );
+    assert.equal(existsSync(join(f.worktree.root, "seed.txt")), false);
+    assert.equal(observe()!.state, "failed");
+    assert.match(observe()!.output ?? "", /WORKFLOW_CHILD_EFFECT_FAILED/);
+    assert.equal(f.record().state, "failed");
+    assert.equal(
+      f.engine.inspectWorkflowEffect(
+        f.workspace.id,
+        f.record().instanceId,
+        "edit",
+      ),
+      null,
+    );
+    assert.equal(f.sourceBytes(), EFFECT_BEFORE);
+  },
+);
+
+test(
   "failed genuine verification cannot become a merge or result receipt",
   { timeout: 20000 },
   async (t) => {
@@ -361,6 +393,79 @@ test(
     );
     assert.equal(f.engine.store.listCheckpoints(f.parent.runId).length, 0);
     assert.equal(f.events.filter((e) => e === "parent-input").length, 0);
+  },
+);
+
+test(
+  "a denied model result delivery leaves no captured delivery target behind",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowEffectsFixture(t);
+    await f.throughMerge();
+    await f.approveParent("deliver_workflow_result", "deny");
+    await effectsUntil(() => f.sourceTerminal(), "Denied source did not stop");
+    assert.equal(
+      Reflect.get(Reflect.get(f.engine, "workflowEffects"), "targets").size,
+      0,
+    );
+    assert.equal(
+      f.engine.inspectWorkflowDelivery(f.workspace.id, f.record().instanceId),
+      null,
+    );
+    assert.equal(f.sourceBytes(), EFFECT_AFTER);
+  },
+);
+
+test(
+  "an approved model result delivery recaptures its target and refuses a parent changed since approval",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowEffectsFixture(t);
+    await f.throughMerge();
+    const approval = await f.pendingParent("deliver_workflow_result");
+    writeFileSync(join(f.root, "seed.txt"), "parent changed before delivery\n");
+    f.engine.approvals.decide(approval.id, "allow", approval.fingerprint);
+    await effectsUntil(() => f.sourceTerminal(), "Stale source did not stop");
+    const deliver = f.engine.store
+      .getSnapshot(f.session.id)
+      .tools.find((tool) => tool.name === "deliver_workflow_result")!;
+    assert.equal(deliver.state, "failed");
+    assert.match(deliver.output ?? "", /WORKFLOW_SOURCE_STALE/);
+    assert.equal(
+      Reflect.get(Reflect.get(f.engine, "workflowEffects"), "targets").size,
+      0,
+    );
+    assert.equal(
+      f.engine.inspectWorkflowDelivery(f.workspace.id, f.record().instanceId),
+      null,
+    );
+  },
+);
+
+test(
+  "an approved model result delivery refuses a merged parent file deleted since approval with a typed stale error",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await workflowEffectsFixture(t);
+    await f.throughMerge();
+    const approval = await f.pendingParent("deliver_workflow_result");
+    unlinkSync(join(f.root, "seed.txt"));
+    f.engine.approvals.decide(approval.id, "allow", approval.fingerprint);
+    await effectsUntil(() => f.sourceTerminal(), "Stale source did not stop");
+    const deliver = f.engine.store
+      .getSnapshot(f.session.id)
+      .tools.find((tool) => tool.name === "deliver_workflow_result")!;
+    assert.equal(deliver.state, "failed");
+    assert.match(deliver.output ?? "", /WORKFLOW_SOURCE_STALE/);
+    assert.doesNotMatch(deliver.output ?? "", /ENOENT/);
+    assert.equal(
+      Reflect.get(Reflect.get(f.engine, "workflowEffects"), "targets").size,
+      0,
+    );
+    assert.equal(
+      f.engine.inspectWorkflowDelivery(f.workspace.id, f.record().instanceId),
+      null,
+    );
   },
 );
 

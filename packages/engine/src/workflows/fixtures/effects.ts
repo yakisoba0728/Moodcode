@@ -94,6 +94,7 @@ export async function workflowEffectsFixture(
     automaticDelivery?: boolean;
     dbRoot?: string;
     sourcePath?: string;
+    editorDeletes?: boolean;
   } = {},
 ) {
   const base =
@@ -211,7 +212,7 @@ export async function workflowEffectsFixture(
                     {
                       path: sourcePath,
                       expectedHash: effectHash(EFFECT_BEFORE),
-                      content: EFFECT_AFTER,
+                      content: options.editorDeletes ? null : EFFECT_AFTER,
                     },
                   ],
                 },

@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
+import { createEngine } from "../engine.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { WorkflowStartPreview } from "./host.js";
 import type { WorkflowInstanceRevision } from "./reducer.js";
 import {
+  WORKFLOW_STORAGE_LIMITS,
   WorkflowStorage,
+  markImportedWorkflowsPaused,
   validateWorkflowDatabase,
   type WorkflowRequestResult,
   type WorkflowSpecRevision,
@@ -73,6 +77,104 @@ function rollback(native: WorkflowStorage, fn: () => void) {
 function resign(value: Record<string, unknown>) {
   const { sha256: _old, ...body } = value;
   return { ...body, sha256: knowledgeHash(body) };
+}
+/** Signed register pairs written straight to SQL: reaching the cap through registerWorkflow() is quadratic. */
+function fillWithSpecRevisions(
+  db: DatabaseSync,
+  workspaceId: string,
+  workflowId: string,
+  limit: { rows: number; bytes: number },
+) {
+  const insert = db.prepare(
+      "INSERT INTO workflow_revisions(id,workspace_id,kind,entity_id,revision,previous_id,root_session_id,root_run_id,owner_sha256,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,?,?,?,?,NULL,NULL,NULL,?,?,?,?,?)",
+    ),
+    total = db
+      .prepare(
+        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
+      )
+      .get()!;
+  let rows = Number(total.count),
+    bytes = Number(total.bytes),
+    head = JSON.parse(
+      String(
+        db
+          .prepare(
+            "SELECT r.data FROM workflow_heads h JOIN workflow_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='spec' AND h.entity_id=?",
+          )
+          .get(workspaceId, workflowId)!.data,
+      ),
+    ) as WorkflowSpecRevision;
+  db.exec("BEGIN");
+  for (;;) {
+    const requestId = `fill-${head.revision}`,
+      requestInput = {
+        workspaceId,
+        requestId,
+        expectedRevision: head.revision,
+        spec: head.spec,
+      },
+      requestSha256 = knowledgeHash(requestInput),
+      record = resign({
+        ...head,
+        id: randomUUID(),
+        revision: head.revision + 1,
+        previousId: head.id,
+        lastReceiptId: randomUUID(),
+      }) as unknown as WorkflowSpecRevision,
+      receipt = resign({
+        id: record.lastReceiptId,
+        workspaceId,
+        instanceId: null,
+        workflowId,
+        operation: "register",
+        stageId: null,
+        beforeRevisionId: head.id,
+        afterRevisionId: record.id,
+        afterSha256: record.sha256,
+        requestId,
+        requestSha256,
+        requestInput,
+        ownerSha256: null,
+        createdAt: record.createdAt,
+      }) as { id: string; sha256: string },
+      size =
+        Buffer.byteLength(JSON.stringify(record)) +
+        Buffer.byteLength(JSON.stringify(receipt));
+    if (rows + 2 > limit.rows || bytes + size > limit.bytes) break;
+    insert.run(
+      record.id,
+      workspaceId,
+      "spec",
+      workflowId,
+      record.revision,
+      head.id,
+      `register:${workflowId}`,
+      requestId,
+      requestSha256,
+      record.sha256,
+      JSON.stringify(record),
+    );
+    insert.run(
+      receipt.id,
+      workspaceId,
+      "transition",
+      `spec:${workflowId}`,
+      record.revision,
+      head.lastReceiptId,
+      `receipt:spec:${workflowId}`,
+      requestId,
+      requestSha256,
+      receipt.sha256,
+      JSON.stringify(receipt),
+    );
+    rows += 2;
+    bytes += size;
+    head = record;
+  }
+  db.prepare(
+    "UPDATE workflow_heads SET revision_id=?,revision=?,sha256=? WHERE workspace_id=? AND kind='spec' AND entity_id=?",
+  ).run(head.id, head.revision, head.sha256, workspaceId, workflowId);
+  db.exec("COMMIT");
 }
 function update(
   native: WorkflowStorage,
@@ -365,4 +467,79 @@ test("native workflow aggregate caps reject metadata before parsing bodies and a
   });
   assert.deepEqual(f.counts(), before);
   validateWorkflowDatabase(native.db);
+});
+
+test("a stage mutation reusing the create requestId is a typed request conflict before any write", async (t) => {
+  const { f, created, native, original } = await started(t),
+    before = f.counts();
+  assert.throws(
+    () =>
+      native.prepareStage(original, {
+        workspaceId: f.workspace.id,
+        instanceId: created.record.instanceId,
+        stageId: "plan",
+        requestId: "start",
+        expectedRevision: created.record.revision,
+        childRequestId: "reused-create-child",
+        prompt: "Reuses the create requestId.",
+      }),
+    code("WORKFLOW_REQUEST_CONFLICT"),
+  );
+  assert.deepEqual(f.counts(), before);
+  validateWorkflowDatabase(native.db);
+});
+
+test("normal workflow writes stop while recovery and pause-import headroom remains, so a near-cap journal reopens and imports", async (t) => {
+  const { f, spec, created, native, original } = await started(t);
+  const prepared = native.prepareStage(original, {
+    workspaceId: f.workspace.id,
+    instanceId: created.record.instanceId,
+    stageId: "plan",
+    requestId: "near-cap-intent",
+    expectedRevision: created.record.revision,
+    childRequestId: "near-cap-child",
+    prompt: "Dispatch before the journal fills.",
+  });
+  assert.equal(prepared.record.state, "running");
+  assert.equal(prepared.record.stages[0]!.state, "dispatching");
+  fillWithSpecRevisions(native.db, f.workspace.id, spec.id, {
+    rows: WORKFLOW_STORAGE_LIMITS.rows - 32,
+    bytes: WORKFLOW_STORAGE_LIMITS.bytes - 262144,
+  });
+  let rejected: unknown;
+  for (let index = 0; index < 256 && !rejected; index++)
+    try {
+      native.registerWorkflow({
+        workspaceId: f.workspace.id,
+        requestId: `near-cap-${index}`,
+        expectedRevision: native.getWorkflow(f.workspace.id, spec.id)!.revision,
+        spec,
+      });
+    } catch (error) {
+      rejected = error;
+    }
+  assert.ok(code("WORKFLOW_LIMIT")(rejected));
+  assert.ok(
+    Number(f.counts().workflow_revisions) + 5 <= WORKFLOW_STORAGE_LIMITS.rows,
+  );
+  await f.engine.close();
+  f.engines.delete(f.engine);
+  const reopened = createEngine(f.configuration);
+  f.engines.add(reopened);
+  const recovered = reopened.inspectWorkflow(
+    f.workspace.id,
+    created.record.instanceId,
+  )!;
+  assert.equal(recovered.state, "uncertain");
+  assert.equal(recovered.stages[0]!.state, "uncertain");
+  const db = (Reflect.get(reopened, "workflowRecords") as WorkflowStorage).db;
+  validateWorkflowDatabase(db);
+  db.exec("SAVEPOINT pause_import_probe");
+  try {
+    markImportedWorkflowsPaused(db, "a".repeat(64), f.workspace.id);
+    validateWorkflowDatabase(db);
+  } finally {
+    db.exec("ROLLBACK TO pause_import_probe");
+    db.exec("RELEASE pause_import_probe");
+  }
 });
