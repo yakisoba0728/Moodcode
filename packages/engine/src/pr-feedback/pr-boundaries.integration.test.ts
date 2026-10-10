@@ -21,7 +21,7 @@ import {
   prOccurrenceKind,
   validatePrFeedbackDatabase,
 } from "./records.js";
-import { prSign } from "./types.js";
+import { PR_LIMITS, prSign } from "./types.js";
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
   timeout: 25000,
@@ -235,6 +235,109 @@ test(
     assert.deepEqual(watchCounts(f), { admissions: 1, transitions: 1, observations: 0, feedback: 0, duplicates: 0, runs: 0, inputs: 0 });
     assert.throws(() => f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 }), hasCode("ENGINE_CLOSED"));
     await preserveWatchEvidence(f, "root-close");
+  },
+);
+test(
+  "watch loop writes PR events only for changes: unchanged snapshots, repeated gaps and back-off write none",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    await f.register("watch", null);
+    const input = { workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 };
+    const watch = () => f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!;
+    f.engine.startPrWatch(input);
+    await until(() => watch().cursor === 1, "Loop did not observe the remote");
+    let requests = f.remote.requests.length;
+    await until(() => f.remote.requests.length >= requests + 5, "Loop did not poll the unchanged remote");
+    f.remote.onRequest = (_request, response) => {
+      response.writeHead(503);
+      response.end("{}");
+      return true;
+    };
+    await until(() => watch().gap === "PR_API_OUTAGE", "Loop did not record the outage");
+    requests = f.remote.requests.length;
+    await until(() => f.remote.requests.length > requests, "Loop did not retry during the outage");
+    f.remote.onRequest = (_request, response) => {
+      response.writeHead(429, { "retry-after": "3600" });
+      response.end("{}");
+      return true;
+    };
+    await until(() => watch().gap === "PR_RATE_LIMIT", "Loop did not record the rate limit");
+    requests = f.remote.requests.length;
+    await new Promise(resolve => setTimeout(resolve, 1300));
+    f.engine.stopPrWatch(f.workspace.id, f.session.id, "watch");
+    assert.equal(f.remote.requests.length, requests);
+    assert.equal(watch().revision, 4);
+    assert.deepEqual(watchCounts(f), { admissions: 1, transitions: 4, observations: 1, feedback: 1, duplicates: 0, runs: 0, inputs: 0 });
+  },
+);
+test(
+  "watch loop keeps running after another poll advances the revision it read",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    await f.register("watch", null);
+    const input = { workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 };
+    let held: ServerResponse | undefined;
+    f.remote.onRequest = (_request, response) => {
+      held = response;
+      return true;
+    };
+    const manual = f.engine.pollPrWatch(f.pollInput("manual", "watch"));
+    await until(() => held !== undefined, "Manual poll did not enter HTTP");
+    f.engine.startPrWatch(input);
+    await new Promise(resolve => setImmediate(resolve));
+    f.remote.onRequest = null;
+    held!.writeHead(503);
+    held!.end("{}");
+    assert.equal((await manual).kind, "gap");
+    await new Promise(resolve => setImmediate(resolve));
+    assert.throws(() => f.engine.startPrWatch(input), hasCode("PR_WATCH_RUNNING"));
+    await until(() => f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.cursor === 1, "Loop stopped after a stale revision");
+    f.engine.stopPrWatch(f.workspace.id, f.session.id, "watch");
+  },
+);
+test(
+  "a poll queued behind a cancelled loop poll runs its own request",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    await f.register("watch", null);
+    f.remote.onRequest = () => true;
+    f.engine.startPrWatch({ workspaceId: f.workspace.id, sessionId: f.session.id, watchId: "watch", intervalMs: 1000 });
+    await until(() => f.remote.requests.length === 1, "Loop did not enter HTTP");
+    const manual = f.engine.pollPrWatch(f.pollInput("manual", "watch"));
+    f.remote.onRequest = null;
+    f.engine.stopPrWatch(f.workspace.id, f.session.id, "watch");
+    assert.equal((await manual).kind, "updated");
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.cursor, 1);
+  },
+);
+test(
+  "ordinary PR writes leave event headroom for disable, and disable leaves it for import pause",
+  posix,
+  async t => {
+    const f = await watchFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    await f.register("watch", null);
+    const db = Reflect.get(f.engine.store, "db") as DatabaseSync;
+    const fill = (total: number) => {
+      const used = Number(db.prepare("SELECT count(*) n FROM session_events WHERE type GLOB 'pr.*'").get()!.n);
+      const last = Number(db.prepare("SELECT last_seq FROM session_sequences WHERE session_id=?").get(f.session.id)!.last_seq);
+      db.prepare("WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM n WHERE i<?) INSERT INTO session_events(session_id,seq,event_id,schema_version,type,data) SELECT ?,?+i,lower(hex(randomblob(16))),2,'pr.fixture.filler','{}' FROM n").run(total - used, f.session.id, last);
+      db.prepare("UPDATE session_sequences SET last_seq=? WHERE session_id=?").run(last + total - used, f.session.id);
+    };
+    fill(PR_LIMITS.requests - 2 * PR_LIMITS.watches);
+    await assert.rejects(f.engine.pollPrWatch(f.pollInput("ordinary", "watch")), hasCode("PR_STORAGE_LIMIT"));
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.cursor, 0);
+    assert.equal(f.engine.disablePrWatch(f.pollInput("disable", "watch")).state, "disabled");
+    fill(PR_LIMITS.requests - PR_LIMITS.watches);
+    assert.throws(() => f.engine.disablePrWatch(f.pollInput("disable-again", "watch")), hasCode("PR_STORAGE_LIMIT"));
+    f.engine.store.createPrFeedbackStorage().pause(f.workspace.id, "b".repeat(64));
+    assert.equal(f.engine.getPrWatch(f.workspace.id, f.session.id, "watch")!.state, "paused-import");
   },
 );
 test(

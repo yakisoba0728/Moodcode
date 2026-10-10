@@ -4,7 +4,7 @@ import { readFileSync, realpathSync, lstatSync } from "node:fs";
 import { join, relative } from "node:path";
 import { types } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
-import type { InputRecord, Run} from "@moodcode/contracts";
+import { EngineError, type InputRecord, type Run } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
@@ -106,6 +106,12 @@ interface SnapshotHandle {
   readonly watch: PrWatchRecord;
   readonly snapshot: PrRemoteSnapshot;
 }
+/** A loop that stopped on an error keeps it until the next start or stop of its watch. */
+interface WatchLoop {
+  readonly controller: AbortController;
+  readonly promise: Promise<void>;
+  error?: unknown;
+}
 /** The genuine Root owns approvals, HTTP observations and native queue acceptance. Serialized data owns none of them. */
 export class PrFeedbackHost {
   private readonly previews = new WeakMap<object, PrWatchPreview>();
@@ -115,10 +121,7 @@ export class PrFeedbackHost {
   private readonly readers = new Map<string, GitHubPrReader>();
   private readonly pending = new Set<Promise<unknown>>();
   private readonly polls = new Map<string, Promise<PrPollResult>>();
-  private readonly loops = new Map<
-    string,
-    { controller: AbortController; promise: Promise<void> }
-  >();
+  private readonly loops = new Map<string, WatchLoop>();
   private readonly epoch = rawSha(randomUUID());
   private readonly firstDispatch = new Set<string>();
   private closed = false;
@@ -400,59 +403,83 @@ export class PrFeedbackHost {
   }
   poll(input: PollPrWatchInput, signal?: AbortSignal): Promise<PrPollResult> {
     this.active();
-    const i = this.pollInput(input),
-      key = knowledgeHash([i.workspaceId, i.sessionId, i.watchId]);
-    const old = this.polls.get(key);
-    if (old) return old.then(() => this.poll(i, signal));
-    const operation = this.tracked(async () => {
-      const duplicate = this.records.request(i);
-      if (duplicate) return duplicate;
-      const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
-      if (
-        !watch ||
-        watch.state !== "active" ||
-        watch.revision !== i.expectedRevision
-      )
-        prFail("PR_WATCH_STALE");
-      this.current(watch.preview);
-      if (watch.nextPollAt && Date.parse(watch.nextPollAt) > Date.now())
-        return this.records.gap(i, "PR_RATE_LIMIT", watch.nextPollAt);
-      const abort = signal
-        ? AbortSignal.any([signal, this.lifetime])
-        : this.lifetime;
-      let snapshot: PrRemoteSnapshot;
-      try {
-        snapshot = await this.reader(watch.preview).snapshot(
-          watch.preview.repository,
-          watch.preview.policy,
-          abort,
-        );
-      } catch (error) {
-        if (abort.aborted) prFail("CANCELLED");
-        return this.records.gap(
-          i,
-          error instanceof PrHttpError ? error.code : "PR_REMOTE_GAP",
-          error instanceof PrHttpError ? error.retryAt : null,
-        );
-      }
-      if (abort.aborted) prFail("CANCELLED");
-      this.current(watch.preview);
-      const watermarks = this.records.checkWatermarks(
-        i.sessionId,
-        i.watchId,
-        snapshot.head,
+    return this.queue(this.pollInput(input), signal, true);
+  }
+  /** Runs one poll per watch at a time; a queued poll runs on its own merits after the previous one settles. */
+  private queue(
+    i: PollPrWatchInput,
+    signal: AbortSignal | undefined,
+    durable: boolean,
+  ): Promise<PrPollResult> {
+    const key = knowledgeHash([i.workspaceId, i.sessionId, i.watchId]),
+      run = () => this.tracked(() => this.observe(i, signal, durable)),
+      old = this.polls.get(key),
+      operation = old ? old.then(run, run) : run();
+    this.polls.set(key, operation);
+    const settle = () => {
+      if (this.polls.get(key) === operation) this.polls.delete(key);
+    };
+    void operation.then(settle, settle);
+    return operation;
+  }
+  /** A non-durable (loop) poll writes nothing when it observes no change: no repeated gap and no duplicate event. */
+  private async observe(
+    i: PollPrWatchInput,
+    signal: AbortSignal | undefined,
+    durable: boolean,
+  ): Promise<PrPollResult> {
+    const duplicate = this.records.request(i);
+    if (duplicate) return duplicate;
+    const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
+    if (
+      !watch ||
+      watch.state !== "active" ||
+      watch.revision !== i.expectedRevision
+    )
+      prFail("PR_WATCH_STALE");
+    this.current(watch.preview);
+    if (watch.nextPollAt && Date.parse(watch.nextPollAt) > Date.now())
+      return this.records.gap(i, "PR_RATE_LIMIT", watch.nextPollAt, durable);
+    const abort = signal
+      ? AbortSignal.any([signal, this.lifetime])
+      : this.lifetime;
+    let snapshot: PrRemoteSnapshot;
+    try {
+      snapshot = await this.reader(watch.preview).snapshot(
+        watch.preview.repository,
+        watch.preview.policy,
+        abort,
       );
-      if (
-        snapshot.checks.some(
-          (c) =>
-            c.id <
-            (watermarks.get(knowledgeHash([c.kind, c.name, c.appId])) ?? 0),
-        )
+    } catch (error) {
+      if (abort.aborted) prFail("CANCELLED");
+      return this.records.gap(
+        i,
+        error instanceof PrHttpError ? error.code : "PR_REMOTE_GAP",
+        error instanceof PrHttpError ? error.retryAt : null,
+        durable,
+      );
+    }
+    if (abort.aborted) prFail("CANCELLED");
+    this.current(watch.preview);
+    const watermarks = this.records.checkWatermarks(
+      i.sessionId,
+      i.watchId,
+      snapshot.head,
+    );
+    if (
+      snapshot.checks.some(
+        (c) =>
+          c.id <
+          (watermarks.get(knowledgeHash([c.kind, c.name, c.appId])) ?? 0),
       )
-        return this.records.gap(i, "PR_OUT_OF_ORDER", null);
-      const original = this.issue(this.snapshots, { watch, snapshot });
-      try {
-        return this.records.consume(original, i, {
+    )
+      return this.records.gap(i, "PR_OUT_OF_ORDER", null, durable);
+    const original = this.issue(this.snapshots, { watch, snapshot });
+    try {
+      return this.records.consume(
+        original,
+        i,
+        {
           readSnapshot: (o) =>
             structuredClone(this.original(this.snapshots, o).snapshot),
           assertCurrent: (o, r) => {
@@ -464,17 +491,12 @@ export class PrFeedbackHost {
           acceptAtomic: (o, prompt, id) => this.accept(o, prompt, id),
           readAccepted: (o) => structuredClone(this.original(this.accepted, o)),
           releaseAccepted: (o) => this.release(o),
-        });
-      } finally {
-        this.release(original);
-      }
-    });
-    this.polls.set(key, operation);
-    void operation.then(
-      () => this.polls.delete(key),
-      () => this.polls.delete(key),
-    );
-    return operation;
+        },
+        durable,
+      );
+    } finally {
+      this.release(original);
+    }
   }
   acceptWebhook(
     input: PollPrWatchInput & {
@@ -715,18 +737,39 @@ export class PrFeedbackHost {
     prInt(i.intervalMs, 3600000, PR_LIMITS.intervalMs);
     const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
     if (!watch || watch.state !== "active") prFail("PR_WATCH_STALE");
-    const key = knowledgeHash([i.workspaceId, i.sessionId, i.watchId]);
-    if (this.loops.has(key)) prFail("PR_WATCH_RUNNING");
+    const key = knowledgeHash([i.workspaceId, i.sessionId, i.watchId]),
+      prior = this.loops.get(key);
+    if (prior && "error" in prior) {
+      this.loops.delete(key);
+      throw prior.error;
+    }
+    if (prior) prFail("PR_WATCH_RUNNING");
     const controller = new AbortController(),
       signal = AbortSignal.any([controller.signal, this.lifetime]);
     // Register the original loop owner before its body can settle and release it.
-    const promise = Promise.resolve().then(async () => {
-      try {
-        while (!signal.aborted) {
-          const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
-          if (!watch || watch.state !== "active") break;
+    const loop: WatchLoop = {
+      controller,
+      promise: Promise.resolve().then(() => this.repeat(key, i, signal, loop)),
+    };
+    this.loops.set(key, loop);
+    return Object.freeze({ watchId: i.watchId });
+  }
+  private async repeat(
+    key: string,
+    i: Parameters<PrFeedbackHost["start"]>[0],
+    signal: AbortSignal,
+    loop: WatchLoop,
+  ) {
+    try {
+      while (!signal.aborted) {
+        const watch = this.records.get(i.workspaceId, i.sessionId, i.watchId);
+        if (!watch || watch.state !== "active") break;
+        const backoff = watch.nextPollAt
+          ? Math.min(Date.parse(watch.nextPollAt) - Date.now(), 3600000)
+          : 0;
+        if (!(backoff > 0))
           try {
-            await this.poll(
+            await this.queue(
               {
                 workspaceId: i.workspaceId,
                 sessionId: i.sessionId,
@@ -735,25 +778,32 @@ export class PrFeedbackHost {
                 expectedRevision: watch.revision,
               },
               signal,
+              false,
             );
           } catch (error) {
-            if (signal.aborted) break;
-            throw error;
+            if (
+              !(error instanceof EngineError) ||
+              error.code !== "PR_WATCH_STALE"
+            )
+              throw error;
           }
-          await delay(i.intervalMs, undefined, { signal });
-        }
-      } catch (error) {
-        if (!signal.aborted) throw error;
-      } finally {
-        this.loops.delete(key);
+        await delay(
+          backoff > i.intervalMs ? backoff : i.intervalMs,
+          undefined,
+          { signal },
+        );
       }
-    });
-    this.loops.set(key, { controller, promise });
-    void promise.catch(() => {});
-    return Object.freeze({ watchId: i.watchId });
+    } catch (error) {
+      if (!signal.aborted) loop.error = error;
+    } finally {
+      if (!("error" in loop)) this.loops.delete(key);
+    }
   }
   stop(ws: string, session: string, id: string) {
-    this.loops.get(knowledgeHash([ws, session, id]))?.controller.abort();
+    const key = knowledgeHash([ws, session, id]),
+      loop = this.loops.get(key);
+    if (loop && "error" in loop) this.loops.delete(key);
+    loop?.controller.abort();
   }
   release(original: object) {
     this.handles.delete(original);

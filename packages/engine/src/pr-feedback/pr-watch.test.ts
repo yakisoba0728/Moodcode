@@ -16,9 +16,10 @@ const hasCode = (code: string) => (error: unknown) =>
 
 /** Exercise the actual loop owner with inert storage and poll ports; no native queue or HTTP proof. */
 function fixture(t: TestContext) {
-  let watch: Pick<PrWatchRecord, "state" | "revision"> | null = null;
+  let watch: Pick<PrWatchRecord, "state" | "revision" | "nextPollAt"> | null = null;
   let enabled = true;
   let polls = 0;
+  let failure: EngineError | null = null;
   const lifetime = new AbortController();
   const host = new PrFeedbackHost(
     {} as ConstructorParameters<typeof PrFeedbackHost>[0],
@@ -34,15 +35,19 @@ function fixture(t: TestContext) {
     false,
     lifetime.signal,
   );
-  Object.defineProperty(host, "poll", {
+  Object.defineProperty(host, "queue", {
     configurable: true,
-    value: async () => { polls++; },
+    value: async () => {
+      polls++;
+      if (failure) throw failure;
+    },
   });
   t.after(() => host.close());
   return {
     host,
     lifetime,
-    register(state: PrWatchRecord["state"] = "active") { watch = { state, revision: 1 }; },
+    register(state: PrWatchRecord["state"] = "active", nextPollAt: string | null = null) { watch = { state, revision: 1, nextPollAt }; },
+    failPolls(code: string | null) { failure = code ? new EngineError(code, "Loop poll failed") : null; },
     disableFeature() { enabled = false; },
     enableFeature() { enabled = true; },
     polls: () => polls,
@@ -113,7 +118,7 @@ test("close aborts and drains the original loop poll before returning", async t 
   const abort = new Promise<void>(resolve => { aborted = resolve; });
   const cleaned = new Promise<void>(resolve => { cleanup = resolve; });
   let polls = 0;
-  Object.defineProperty(f.host, "poll", {
+  Object.defineProperty(f.host, "queue", {
     configurable: true,
     value: async (_input: unknown, signal: AbortSignal) => {
       polls++;
@@ -134,4 +139,41 @@ test("close aborts and drains the original loop poll before returning", async t 
   assert.equal(closed, true);
   assert.equal(polls, 1);
   assert.throws(() => f.host.start(input), hasCode("ENGINE_CLOSED"));
+});
+
+test("a stale revision keeps the loop running for the next tick", async t => {
+  const f = fixture(t);
+  f.register();
+  f.failPolls("PR_WATCH_STALE");
+  f.host.start(input);
+  await tick();
+  assert.equal(f.polls(), 1);
+  assert.throws(() => f.host.start(input), hasCode("PR_WATCH_RUNNING"));
+});
+
+test("a loop that stops on an error reports it to the next start, and stop clears it", async t => {
+  const f = fixture(t);
+  f.register();
+  f.failPolls("PR_STORAGE_LIMIT");
+  f.host.start(input);
+  await tick();
+  assert.equal(f.polls(), 1);
+  assert.throws(() => f.host.start(input), hasCode("PR_STORAGE_LIMIT"));
+  assert.deepEqual(f.host.start(input), { watchId: "watch" });
+  await tick();
+  assert.equal(f.polls(), 2);
+  f.host.stop("workspace", "session", "watch");
+  f.failPolls(null);
+  assert.deepEqual(f.host.start(input), { watchId: "watch" });
+  await tick();
+  assert.equal(f.polls(), 3);
+});
+
+test("a loop in rate-limit back-off sleeps until the deadline instead of polling", async t => {
+  const f = fixture(t);
+  f.register("active", new Date(Date.now() + 60000).toISOString());
+  f.host.start(input);
+  await tick();
+  assert.equal(f.polls(), 0);
+  assert.throws(() => f.host.start(input), hasCode("PR_WATCH_RUNNING"));
 });

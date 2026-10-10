@@ -82,7 +82,14 @@ interface Header {
   workspace_id: string;
 }
 const same = (a: unknown, b: unknown) => knowledgeHash(a) === knowledgeHash(b);
-function caps(db: DatabaseSync) {
+/** PR events a write must leave free: ordinary writes keep room to disable and import-pause every watch once; disable keeps room for the import pause. */
+const eventReserve = (op: string) =>
+  op === "import"
+    ? 0
+    : op === "disable"
+      ? PR_LIMITS.watches
+      : 2 * PR_LIMITS.watches;
+function caps(db: DatabaseSync, reserve = 0) {
   const unknown = db
     .prepare(
       "SELECT kind FROM session_documents WHERE kind GLOB 'pr.*' LIMIT 513",
@@ -112,7 +119,7 @@ function caps(db: DatabaseSync) {
     )
     .get()!;
   if (
-    Number(e.n) > PR_LIMITS.requests ||
+    Number(e.n) > PR_LIMITS.requests - reserve ||
     Number(e.bytes) > 33554432 ||
     Number(e.max) > PR_LIMITS.rowBytes + 4096
   )
@@ -733,7 +740,7 @@ export class PrFeedbackStorage {
         occurrenceId,
       }),
     );
-    caps(this.db);
+    caps(this.db, eventReserve(op));
     return r;
   }
   get(ws: string, session: string, id: string): PrWatchRecord | null {
@@ -977,6 +984,7 @@ export class PrFeedbackStorage {
     original: object,
     input: PollPrWatchInput,
     producer: PrFeedbackPorts,
+    durable = true,
   ): PrPollResult {
     const i = prJson(input);
     return this.ports.writeTx(() => {
@@ -998,19 +1006,21 @@ export class PrFeedbackStorage {
       const id = knowledgeHash([prev.preview.sha256, s.semanticSha256]),
         prior = this.occurrence(i.workspaceId, i.sessionId, id);
       if (prior) {
-        this.ports.appendEvent(
-          i.sessionId,
-          "pr.request.duplicate",
-          prData({
-            id: i.watchId,
-            requestId: i.requestId,
-            requestSha256: knowledgeHash(i),
-            expectedRevision: i.expectedRevision,
-            record: prev,
-            occurrenceId: prior.id,
-          }),
-        );
-        caps(this.db);
+        if (durable) {
+          this.ports.appendEvent(
+            i.sessionId,
+            "pr.request.duplicate",
+            prData({
+              id: i.watchId,
+              requestId: i.requestId,
+              requestSha256: knowledgeHash(i),
+              expectedRevision: i.expectedRevision,
+              record: prev,
+              occurrenceId: prior.id,
+            }),
+          );
+          caps(this.db, eventReserve("duplicate"));
+        }
         return { kind: "duplicate", watch: prev, occurrence: prior };
       }
       if (headers(this.db, "pr.feedback.*").length >= PR_LIMITS.occurrences)
@@ -1107,6 +1117,7 @@ export class PrFeedbackStorage {
     input: PollPrWatchInput,
     code: string,
     nextPollAt: string | null,
+    durable = true,
   ): PrPollResult {
     const i = prJson(input);
     return this.ports.writeTx(() => {
@@ -1115,6 +1126,8 @@ export class PrFeedbackStorage {
       const p = this.get(i.workspaceId, i.sessionId, i.watchId);
       if (!p || p.state !== "active" || p.revision !== i.expectedRevision)
         prFail("PR_WATCH_STALE");
+      if (!durable && p.gap === code && p.nextPollAt === nextPollAt)
+        return { kind: "gap", watch: p, occurrence: null };
       const r = prSign({
         ...p,
         revision: p.revision + 1,

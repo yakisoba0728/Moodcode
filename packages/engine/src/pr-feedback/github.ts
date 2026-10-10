@@ -249,13 +249,14 @@ export class GitHubPrReader {
         ].includes(String(r.status))
       )
         prFail("PR_HTTP_SCHEMA");
+      // Neutral passes. A skipped run verified nothing, so it stays pending: neither green nor a repair trigger.
       const conclusion = r.conclusion === null ? null : text(r.conclusion, 64),
         state =
-          r.status === "completed"
-            ? conclusion === "success"
+          r.status !== "completed" || conclusion === "skipped"
+            ? "pending"
+            : conclusion === "success" || conclusion === "neutral"
               ? "passed"
-              : "failed"
-            : "pending";
+              : "failed";
       const key = "check:" + appId + ":" + name,
         old = choices.get(key),
         output = r.output as Record<string, unknown> | null;
