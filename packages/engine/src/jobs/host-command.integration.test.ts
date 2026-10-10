@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
-import { existsSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -18,6 +25,7 @@ import { jobCommand, jobFixture, jobUntil } from "./fixtures/job.js";
 import {
   validateHostCommandDatabase,
   type HostCommandRecord,
+  type HostCommandStorage,
 } from "./host-command-records.js";
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
@@ -231,7 +239,7 @@ test(
 );
 
 test(
-  "deny, copied Original, accessors and stale policy all reject before independent process effects",
+  "deny, copied Original, accessors, removed cwd and stale policy all reject before independent process effects",
   posix,
   async (t) => {
     const f = await fixture(t),
@@ -281,6 +289,28 @@ test(
     const denied = await f.start(original, false);
     assert.equal(denied.state, "denied");
     assert.equal(denied.pid, null);
+    mkdirSync(join(f.root, "host-cwd"));
+    const removed = await f.engine.previewHostCommand({
+        workspaceId: f.workspace.id,
+        sessionId: f.session.id,
+        command: "true",
+        cwd: "host-cwd",
+        limits: { maxDurationMs: 1000, maxOutputBytes: 1000 },
+      }),
+      removedFingerprint = f.engine.readHostCommandPreview(removed).fingerprint;
+    rmSync(join(f.root, "host-cwd"), { recursive: true });
+    assert.throws(
+      () => f.engine.readHostCommandPreview(removed),
+      code("HOST_COMMAND_TARGET_STALE"),
+    );
+    await assert.rejects(
+      f.engine.startHostCommand({
+        ...input,
+        preview: removed,
+        fingerprint: removedFingerprint,
+      }),
+      code("HOST_COMMAND_TARGET_STALE"),
+    );
     f.engine.toolRuntime.policy.replace([
       { tool: "run_command", decision: "deny" },
     ]);
@@ -421,6 +451,48 @@ test(
 );
 
 test(
+  "a start failure after the approved commit reports CLEANUP_UNCERTAIN with no spawn and keeps the quarantine",
+  posix,
+  async (t) => {
+    const f = await fixture(t),
+      original = await f.preview(),
+      controller = new AbortController(),
+      native = Reflect.get(
+        Reflect.get(f.engine, "hostCommands"),
+        "native",
+      ) as HostCommandStorage,
+      append = native.append.bind(native);
+    native.append = (body) => {
+      const appended = append(body);
+      if (body.kind === "approved") controller.abort();
+      return appended;
+    };
+    await assert.rejects(
+      f.engine.startHostCommand({
+        workspaceId: f.workspace.id,
+        requestId: randomUUID(),
+        preview: original,
+        fingerprint: f.engine.readHostCommandPreview(original).fingerprint,
+        approved: true,
+        signal: controller.signal,
+      }),
+      code("CLEANUP_UNCERTAIN"),
+    );
+    assert.equal(existsSync(f.marker), false);
+    assert.equal(
+      f.engine.inspectHostCommands(f.workspace.id)[0]!.state,
+      "uncertain",
+    );
+    assert.throws(
+      () => f.engine.coordinator.assertWorkspaceCleanupConfirmed(f.workspace.id),
+      code("CLEANUP_PENDING"),
+    );
+    await assert.rejects(f.engine.close(), code("CLEANUP_UNCERTAIN"));
+    f.engines.delete(f.engine);
+  },
+);
+
+test(
   "approval and closed journals keep workspace file contents out while historical closed witnesses still validate",
   posix,
   async (t) => {
@@ -556,7 +628,7 @@ test(
 );
 
 test(
-  "same-byte sealed artifact inode substitution rejects new physical observation while a previously frozen output page remains advisory DATA",
+  "same-byte sealed artifact inode substitution or removal rejects new physical observation while a previously frozen output page remains advisory DATA",
   posix,
   async (t) => {
     const f = await fixture(t),
@@ -588,6 +660,23 @@ test(
       code("HOST_COMMAND_ARTIFACT_STALE"),
     );
     assert.deepEqual(f.engine.readHostCommandOutput(original), page);
+    rmSync(path);
+    assert.throws(
+      () =>
+        f.engine.readHostCommandArtifacts({
+          workspaceId: f.workspace.id,
+          jobId: started.jobId,
+        }),
+      code("HOST_COMMAND_ARTIFACT_STALE"),
+    );
+    assert.throws(
+      () =>
+        f.engine.captureHostCommandOutput({
+          workspaceId: f.workspace.id,
+          jobId: started.jobId,
+        }),
+      code("HOST_COMMAND_ARTIFACT_STALE"),
+    );
   },
 );
 

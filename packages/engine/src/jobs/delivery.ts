@@ -371,7 +371,11 @@ export class JobDelivery {
     }
   }
   release(original: object): void {
-    if (this.targets.delete(original)) this.ports.input.release(original);
+    if (!this.targets.delete(original)) return;
+    // Released targets fail JOB_ORIGINAL_REQUIRED first; store dedupe blocks replay.
+    for (const [key, request] of this.requests)
+      if (request.original === original) this.requests.delete(key);
+    this.ports.input.release(original);
   }
   close(): void {
     if (this.closed) return;

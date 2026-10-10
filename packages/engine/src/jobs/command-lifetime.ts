@@ -397,13 +397,7 @@ export class CommandLifetimeService {
         const handler = () => {
           if (this.engine.store.getRun(context.runId).state !== "completed")
             abort.abort(parentSignal.reason);
-          else if (f?.parentAbort) {
-            f.parentAbort.signal.removeEventListener(
-              "abort",
-              f.parentAbort.handler,
-            );
-            f.parentAbort = undefined;
-          }
+          else if (f) this.unbindParent(f);
         };
         f.parentAbort = { signal: parentSignal, handler };
         parentSignal.addEventListener("abort", handler, { once: true });
@@ -448,6 +442,7 @@ export class CommandLifetimeService {
         );
         if (!f.control || started.pid !== f.control.groupPid)
           fail("COMMAND_LIFETIME_SOURCE_STALE");
+        if (f.record.mode === "background") this.unbindForeground(f);
         f.done = this.finish(f);
         void f.done.catch(() => {});
         return structuredClone(f.record);
@@ -465,8 +460,13 @@ export class CommandLifetimeService {
               knowledgeHash("admission failure"),
               false,
             );
-          } catch {}
+            f.done = Promise.resolve(f.record);
+          } catch {
+            f.done = Promise.reject(error);
+            void f.done.catch(() => {});
+          }
           this.engine.coordinator.quarantineWorkspace(hp.workspaceId);
+          this.detach(f);
         }
         throw error;
       }
@@ -490,6 +490,18 @@ export class CommandLifetimeService {
       );
       f.foregroundAbort = undefined;
     }
+  }
+  private unbindParent(f: Flight) {
+    if (f.parentAbort) {
+      f.parentAbort.signal.removeEventListener("abort", f.parentAbort.handler);
+      f.parentAbort = undefined;
+    }
+  }
+  private detach(f: Flight) {
+    this.unbindForeground(f);
+    this.unbindParent(f);
+    for (const wake of f.wake) wake();
+    f.wake.clear();
   }
   private async finish(f: Flight): Promise<CommandLifetimeRecord> {
     try {
@@ -531,16 +543,7 @@ export class CommandLifetimeService {
       this.engine.coordinator.quarantineWorkspace(f.record.workspaceId);
       throw error;
     } finally {
-      this.unbindForeground(f);
-      if (f.parentAbort) {
-        f.parentAbort.signal.removeEventListener(
-          "abort",
-          f.parentAbort.handler,
-        );
-        f.parentAbort = undefined;
-      }
-      for (const wake of f.wake) wake();
-      f.wake.clear();
+      this.detach(f);
     }
   }
   previewTransfer(input: {

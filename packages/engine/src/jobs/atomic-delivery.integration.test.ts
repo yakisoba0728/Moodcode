@@ -370,3 +370,60 @@ test(
     assert.equal(f.providerCalls.length, 0);
   },
 );
+
+test(
+  "released delivery targets free their cached requests so later deliveries are not capped",
+  posix,
+  async (t) => {
+    const f = await jobFixture(t),
+      attached = f.attach();
+    await f.finish();
+    const settled = jobInvoke<JobRequestResult<CommandJob>>(
+      f.engine,
+      "settleTerminalJob",
+      attached.original,
+      {
+        workspaceId: f.workspace.id,
+        jobId: attached.result.record.jobId,
+        requestId: randomUUID(),
+        expectedRevision: 1,
+      },
+    );
+    await jobCommand(f.engine, "session.pause", { sessionId: f.session.id });
+    const deliver = () => {
+      const target = jobInvoke<object>(
+        f.engine,
+        "captureCommandJobDeliveryTarget",
+        {
+          workspaceId: f.workspace.id,
+          jobId: settled.record.jobId,
+          config: f.config,
+        },
+      );
+      try {
+        return jobInvoke<JobRequestResult<JobDelivery>>(
+          f.engine,
+          "deliverCommandJobResult",
+          {
+            workspaceId: f.workspace.id,
+            requestId: randomUUID(),
+            expectedRevision: 0,
+            target,
+            approved: true,
+          },
+        );
+      } finally {
+        jobInvoke(f.engine, "releaseCommandJobHandle", target);
+      }
+    };
+    assert.equal(deliver().record.state, "accepted");
+    for (let attempt = 0; attempt < 128; attempt++)
+      assert.throws(
+        deliver,
+        (error) =>
+          error instanceof EngineError && error.code === "JOB_DELIVERY_EXISTS",
+      );
+    assert.equal(counts(f.dbPath).inputs, 1);
+    assert.equal(f.providerCalls.length, 0);
+  },
+);

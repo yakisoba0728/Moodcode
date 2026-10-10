@@ -43,6 +43,7 @@ import {
   jobIdentifier,
   jobJson,
   jobObject,
+  jobPathGone,
   signJobData,
 } from "./validation.js";
 
@@ -111,14 +112,19 @@ function fail(code: string): never {
   );
 }
 function cwdIdentity(path: string): string {
-  const st = lstatSync(path, { bigint: true });
-  if (!st.isDirectory() || st.isSymbolicLink() || realpathSync(path) !== path)
-    fail("HOST_COMMAND_TARGET_STALE");
-  return knowledgeHash({
-    path,
-    dev: st.dev.toString(),
-    ino: st.ino.toString(),
-  });
+  try {
+    const st = lstatSync(path, { bigint: true });
+    if (!st.isDirectory() || st.isSymbolicLink() || realpathSync(path) !== path)
+      fail("HOST_COMMAND_TARGET_STALE");
+    return knowledgeHash({
+      path,
+      dev: st.dev.toString(),
+      ino: st.ino.toString(),
+    });
+  } catch (error) {
+    if (jobPathGone(error)) fail("HOST_COMMAND_TARGET_STALE");
+    throw error;
+  }
 }
 /** Content-free before-effects manifest; capture may include ignored files. */
 function checkpointBefore(before: WorkspaceCapture): JsonObject {
@@ -583,20 +589,22 @@ export class HostCommandService {
             this.engine.coordinator.quarantineWorkspace(input.workspaceId);
           return closed;
         } catch (error) {
-          reject(error);
-          if (flight) {
-            try {
-              flight.record = this.native.control(flight.record, "recovery", {
-                reason: "HOST_COMMAND_EXECUTION_UNCERTAIN",
-              });
-            } catch {}
-            this.engine.coordinator.quarantineWorkspace(input.workspaceId);
-            throw new EngineError(
-              "CLEANUP_UNCERTAIN",
-              "Independent command completion remains unconfirmed in its native evidence",
-            );
+          if (!flight) {
+            reject(error);
+            throw error;
           }
-          throw error;
+          try {
+            flight.record = this.native.control(flight.record, "recovery", {
+              reason: "HOST_COMMAND_EXECUTION_UNCERTAIN",
+            });
+          } catch {}
+          this.engine.coordinator.quarantineWorkspace(input.workspaceId);
+          const uncertain = new EngineError(
+            "CLEANUP_UNCERTAIN",
+            "Independent command completion remains unconfirmed in its native evidence",
+          );
+          reject(uncertain);
+          throw uncertain;
         }
       },
     );
@@ -691,6 +699,9 @@ export class HostCommandService {
           !exact(lstatSync(d.path, { bigint: true }))
         )
           fail("HOST_COMMAND_ARTIFACT_STALE");
+      } catch (error) {
+        if (jobPathGone(error)) fail("HOST_COMMAND_ARTIFACT_STALE");
+        throw error;
       } finally {
         if (fd !== undefined) closeSync(fd);
       }

@@ -212,3 +212,27 @@ test(
     assert.equal(f.providerCalls.length, 0);
   },
 );
+test(
+  "a host start signal aborted after background admission leaves the lifetime to its own owner",
+  posix,
+  async (t) => {
+    const f = await fixture(t, "background"),
+      controller = new AbortController(),
+      started = await f.start(true, controller.signal);
+    assert.equal(started.mode, "background");
+    controller.abort();
+    await f.input(started.jobId, "", true);
+    const host = await f.engine.waitForHostCommand({
+      workspaceId: f.workspace.id,
+      jobId: started.jobId,
+    });
+    assert.equal(host.state, "completed");
+    assert.equal(host.completion!.outcome.cancelled, false);
+    const settled = await f.engine.waitForCommandLifetime({
+      workspaceId: f.workspace.id,
+      jobId: started.jobId,
+    });
+    assert.equal(settled.state, "settled");
+    assert.equal(settled.stdinEof, true);
+  },
+);

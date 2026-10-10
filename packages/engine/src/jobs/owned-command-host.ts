@@ -29,7 +29,12 @@ import {
   type CommandOutputStream,
 } from "../tools/command/observation.js";
 import { jobHostRecord } from "./host.js";
-import { jobIdentifier, jobJson, signJobData } from "./validation.js";
+import {
+  jobIdentifier,
+  jobJson,
+  jobPathGone,
+  signJobData,
+} from "./validation.js";
 import {
   ownedCommandJobId,
   validateOwnedCommandJob,
@@ -255,19 +260,17 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   ): void {
     for (const value of [completion.stdout, completion.stderr]) {
       const descriptor = validateCommandArtifactDescriptor(value),
-        path = descriptor.path,
-        before = lstatSync(path, { bigint: true });
-      if (
-        !before.isFile() ||
-        before.isSymbolicLink() ||
-        realpathSync(path) !== path
-      )
-        fail("COMMAND_JOB_ARTIFACT_STALE");
-      const fd = openSync(
-        path,
-        constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-      );
+        path = descriptor.path;
+      let fd: number | undefined;
       try {
+        const before = lstatSync(path, { bigint: true });
+        if (
+          !before.isFile() ||
+          before.isSymbolicLink() ||
+          realpathSync(path) !== path
+        )
+          fail("COMMAND_JOB_ARTIFACT_STALE");
+        fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
         const opened = fstatSync(fd, { bigint: true });
         for (const st of [before, opened])
           if (
@@ -306,8 +309,11 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
           named.mtimeNs !== opened.mtimeNs
         )
           fail("COMMAND_JOB_ARTIFACT_STALE");
+      } catch (error) {
+        if (jobPathGone(error)) fail("COMMAND_JOB_ARTIFACT_STALE");
+        throw error;
       } finally {
-        closeSync(fd);
+        if (fd !== undefined) closeSync(fd);
       }
     }
   }

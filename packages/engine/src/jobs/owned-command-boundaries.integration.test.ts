@@ -330,7 +330,7 @@ BEGIN SELECT RAISE(ABORT,'Actual owned source admission failed'); END;`);
 );
 
 test(
-  "same-byte completed artifact inode replacement rejects new physical capture while an original frozen output page remains data",
+  "same-byte completed artifact inode replacement or removal rejects new physical capture while an original frozen output page remains data",
   posix,
   async (t) => {
     const f = await boundaryFixture(t),
@@ -385,6 +385,17 @@ test(
           handle,
         ),
         frozen,
+      );
+      rmSync(artifact.path);
+      assert.throws(
+        () =>
+          jobInvoke(f.engine, "captureOwnedCommandJobOutput", {
+            workspaceId: f.workspace.id,
+            jobId: completed.jobId,
+          }),
+        (error) =>
+          error instanceof EngineError &&
+          error.code === "COMMAND_JOB_ARTIFACT_STALE",
       );
       assert.equal(f.inspect()[0]!.state, "completed");
       assert.equal(f.rows("session_events").length, events);

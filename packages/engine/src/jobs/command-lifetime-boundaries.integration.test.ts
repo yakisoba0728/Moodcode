@@ -50,6 +50,29 @@ test(
   },
 );
 test(
+  "a host admission failure settles lifetime waiters on the durable uncertain record",
+  posix,
+  async (t) => {
+    const f = await lifetimeFixture(t),
+      db = new DatabaseSync(f.dbPath);
+    db.exec(
+      "CREATE TRIGGER host_admission_fault BEFORE INSERT ON host_command_revisions WHEN NEW.kind='approved' BEGIN SELECT RAISE(ABORT,'fixture host admission fault'); END",
+    );
+    await assert.rejects(f.start());
+    db.exec("DROP TRIGGER host_admission_fault");
+    db.close();
+    assert.equal(existsSync(f.marker), false);
+    const [record] = f.engine.inspectCommandLifetimes(f.workspace.id);
+    assert.equal(record!.state, "uncertain");
+    const waited = await f.engine.waitForCommandLifetime({
+      workspaceId: f.workspace.id,
+      jobId: record!.jobId,
+    });
+    assert.equal(waited.state, "uncertain");
+    assert.equal(waited.sha256, record!.sha256);
+  },
+);
+test(
   "native transfer receipt failure cleans the genuine same process but keeps durable uncertainty across reopen",
   posix,
   async (t) => {

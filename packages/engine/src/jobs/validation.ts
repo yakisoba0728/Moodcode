@@ -16,6 +16,15 @@ type ObjectValue = Record<string, unknown>;
 export function jobError(code: string, message: string): never {
   throw new EngineError(code, message);
 }
+/** A checked path or one of its parents was removed or replaced. */
+export function jobPathGone(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    ["ENOENT", "ENOTDIR", "ELOOP"].includes(
+      String((error as NodeJS.ErrnoException).code),
+    )
+  );
+}
 function invalid(message: string): never {
   return jobError("INVALID_JOB", message);
 }

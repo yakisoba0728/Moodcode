@@ -5,7 +5,10 @@ import { DatabaseSync } from "node:sqlite";
 import type { TestContext } from "node:test";
 import { jobFixture } from "./job.js";
 const quote = (s: string) => `'${s.replaceAll("'", "'\\''")}'`;
-export async function lifetimeFixture(t: TestContext) {
+export async function lifetimeFixture(
+  t: TestContext,
+  mode: "foreground" | "background" = "foreground",
+) {
   const f = await jobFixture(t, {
     createTerminal: false,
     engine: { hostCommands: true, commandLifetimes: true },
@@ -20,16 +23,17 @@ export async function lifetimeFixture(t: TestContext) {
     workspaceId: f.workspace.id,
     sessionId: f.session.id,
     command: `exec ${quote(process.execPath)} ${quote(script)}`,
-    mode: "foreground",
+    mode,
     limits: { maxDurationMs: 10000, maxOutputBytes: 65536 },
   });
-  const start = async (approved = true) =>
+  const start = async (approved = true, signal?: AbortSignal) =>
     f.engine.startCommandLifetime({
       workspaceId: f.workspace.id,
       requestId: randomUUID(),
       preview,
       fingerprint: f.engine.readCommandLifetimePreview(preview).fingerprint,
       approved,
+      ...(signal ? { signal } : {}),
     });
   const transfer = (jobId: string, mode: "foreground" | "background") => {
     const original = f.engine.previewCommandLifetimeTransfer({
