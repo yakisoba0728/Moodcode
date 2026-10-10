@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { once } from 'node:events';
-import { chmodSync, copyFileSync, ftruncateSync, lstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { chmodSync, copyFileSync, existsSync, ftruncateSync, lstatSync, mkdirSync, mkdtempSync, openSync, closeSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
@@ -121,6 +121,34 @@ test('dead owned PID and process group are required before the active marker can
   try { assert.equal(db.prepare('SELECT active FROM command_execution').get()?.active, 0); } finally { db.close(); }
 });
 
+test('an owner PID reused after the audit commit keeps the marker and is reported with the committed acknowledgments', async t => {
+  const f = fixture(t), pid = await stoppedPid(t);
+  marker(f.effect, pid, pid);
+  const status = await getRecoveryStatus(f.options);
+  const audited = (): boolean => {
+    try { const db = new DatabaseSync(f.ledger, { readOnly: true }); try { return Number(db.prepare('SELECT count(*) AS count FROM recovery_audit').get()?.count) > 0; } finally { db.close(); } }
+    catch { return false; }
+  };
+  const originalKill = process.kill.bind(process);
+  const reused = t.mock.method(process, 'kill', (observed: number, signal: NodeJS.Signals | number = 'SIGTERM') => signal === 0 && observed === pid && audited() ? true : originalKill(observed, signal));
+  const result = await recoverEngine({ ...f.options, fingerprint: status.fingerprint!, acknowledged: true });
+  assert.equal(result.restoredAcknowledgments, 1);
+  assert.equal(result.effectMarkerCleared, false);
+  assert.equal(result.effectMarkerBlocker, 'PROCESS_OWNER_ALIVE');
+  const effect = new DatabaseSync(f.effect, { readOnly: true });
+  try { assert.equal(effect.prepare('SELECT active FROM command_execution').get()?.active, 1); } finally { effect.close(); }
+  assert.equal(isRestoreAcknowledged(f.interrupted, readRecoveryAcknowledgments(f.options)), true);
+  const blocked = await getRecoveryStatus(f.options);
+  assert.ok(blocked.blockers.includes('PROCESS_OWNER_ALIVE'));
+  assert.equal(blocked.pendingRestoreCount, 0);
+  reused.mock.restore();
+  const stopped = await getRecoveryStatus(f.options);
+  assert.equal(stopped.state, 'recoverable');
+  const cleared = await recoverEngine({ ...f.options, fingerprint: stopped.fingerprint!, acknowledged: true });
+  assert.equal(cleared.effectMarkerCleared, true);
+  assert.equal(cleared.effectMarkerBlocker, undefined);
+});
+
 test('live owned child blocks recovery without signaling or stopping that child', async t => {
   const f = fixture(t), instance = await child(t, "process.stdout.write('ready');setInterval(()=>{},1000)", [], true);
   marker(f.effect, instance.pid!, instance.pid!);
@@ -220,6 +248,17 @@ test('metadata permission failure leaves active effects and original interrupted
   assert.deepEqual(readFileSync(f.review), before);
   assert.deepEqual(readRecoveryAcknowledgments(f.options), []);
   chmodSync(f.ledger, 0o600);
+});
+
+test('a recovery failure inside the ledger transaction keeps its code and commits no acknowledgment', async t => {
+  const f = fixture(t), status = await getRecoveryStatus(f.options);
+  const now = performance.now.bind(performance);
+  // The DELETE-mode ledger journal exists only while the audit transaction is open.
+  const clock = t.mock.method(performance, 'now', () => existsSync(f.ledger + '-journal') ? Number.MAX_SAFE_INTEGER : now());
+  await assert.rejects(recoverEngine({ ...f.options, fingerprint: status.fingerprint!, acknowledged: true }), hasCode('RECOVERY_LIMIT_EXCEEDED'));
+  clock.mock.restore();
+  assert.deepEqual(readRecoveryAcknowledgments(f.options), []);
+  assert.equal((await getRecoveryStatus(f.options)).pendingRestoreCount, 1);
 });
 
 test('path aliases, oversized files, unsupported owner WAL and corrupt DBs remain bounded readonly blockers', async t => {

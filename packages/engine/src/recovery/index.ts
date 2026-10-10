@@ -69,7 +69,11 @@ export interface RecoveryStatus {
   activeRunCount: number;
 }
 export interface RecoverEngineOptions extends RecoveryOptions { fingerprint: string; acknowledged: true }
-export interface RecoveryResult { recoveryId: string; restoredAcknowledgments: number; effectMarkerCleared: boolean; backupVerified: true }
+export interface RecoveryResult {
+  recoveryId: string; restoredAcknowledgments: number; effectMarkerCleared: boolean; backupVerified: true;
+  /** Why an active marker stayed set after the acknowledgments were committed. */
+  effectMarkerBlocker?: RecoveryBlocker;
+}
 interface Marker { ownerPid: number; groupPid: number | null; active: boolean; updatedAt: string }
 interface Inspection {
   status: RecoveryStatus;
@@ -87,6 +91,13 @@ function observe(pid: number, group: boolean): 'absent' | 'alive' | 'unknown' {
   if (group && process.platform === 'win32') return 'unknown';
   try { process.kill(group ? -pid : pid, 0); return 'alive'; }
   catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown'; }
+}
+function processBlocker(marker: Marker): RecoveryBlocker | undefined {
+  if (marker.groupPid === null) return 'PROCESS_GROUP_NOT_RECORDED';
+  const owner = observe(marker.ownerPid, false), group = observe(marker.groupPid, true);
+  if (owner === 'alive') return 'PROCESS_OWNER_ALIVE';
+  if (group === 'alive') return 'PROCESS_GROUP_ALIVE';
+  return owner === 'absent' && group === 'absent' ? undefined : 'PROCESS_CLEANUP_UNVERIFIED';
 }
 function ownershipBusy(file: string): boolean {
   const before = regular(file);
@@ -367,23 +378,32 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
       verify();
       if (!sameIdentity(ledgerIdentity, regular(paths.ledger))) fail('RECOVERY_SOURCE_CHANGED');
       ledger.exec('COMMIT');
-    } catch { fail('RECOVERY_METADATA_FAILED'); }
-    let cleared = false;
+    } catch (error) {
+      if (error instanceof EngineError && error.code.startsWith('RECOVERY_')) throw error;
+      fail('RECOVERY_METADATA_FAILED');
+    }
+    // The audit is durable now, so a marker that cannot be cleared is reported instead of thrown.
+    let cleared = false, markerBlocker: RecoveryBlocker | undefined;
     if (inspection.marker?.active) {
       const marker = inspection.marker;
-      // Repeat real OS observations immediately before the only effect-marker mutation.
-      if (observe(marker.ownerPid, false) !== 'absent' || marker.groupPid === null || observe(marker.groupPid, true) !== 'absent') fail('RECOVERY_BLOCKED');
-      verify();
-      const lock = locks.find(item => item.file === paths.effect);
-      if (!lock) fail('RECOVERY_EFFECT_BUSY');
-      const changes = lock.db.prepare('UPDATE command_execution SET active=0,updated_at=? WHERE id=1 AND active=1 AND owner_pid=? AND group_pid IS ? AND updated_at=?')
-        .run(new Date().toISOString(), marker.ownerPid, marker.groupPid, marker.updatedAt).changes;
-      if (changes !== 1) fail('RECOVERY_SOURCE_CHANGED');
-      lock.db.exec('COMMIT');
-      cleared = true;
+      try {
+        // Repeat real OS observations immediately before the only effect-marker mutation.
+        markerBlocker = processBlocker(marker);
+        if (!markerBlocker) {
+          verify();
+          const lock = locks.find(item => item.file === paths.effect);
+          if (!lock) fail('RECOVERY_EFFECT_BUSY');
+          const changes = lock.db.prepare('UPDATE command_execution SET active=0,updated_at=? WHERE id=1 AND active=1 AND owner_pid=? AND group_pid IS ? AND updated_at=?')
+            .run(new Date().toISOString(), marker.ownerPid, marker.groupPid, marker.updatedAt).changes;
+          if (changes !== 1) fail('RECOVERY_SOURCE_CHANGED');
+          lock.db.exec('COMMIT');
+          cleared = true;
+        }
+      } catch (error) { markerBlocker = safeError(error).code as RecoveryBlocker; }
     }
     assertIdentities(locks, paths, inspection.snapshot);
-    return { recoveryId: id, restoredAcknowledgments: acknowledgments.length, effectMarkerCleared: cleared, backupVerified: true };
+    return { recoveryId: id, restoredAcknowledgments: acknowledgments.length, effectMarkerCleared: cleared, backupVerified: true,
+      ...(markerBlocker ? { effectMarkerBlocker: markerBlocker } : {}) };
   } catch (error) { throw safeError(error); }
   finally {
     try { ledger?.close(); }
