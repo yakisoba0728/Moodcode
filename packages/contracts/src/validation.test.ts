@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { DEFAULT_LIMITS, EngineError } from './index.js';
 import type { RunLimits } from './index.js';
-import { normalizeSubmitInput, validateCommand } from './validation.js';
+import { normalizeRunConfig, normalizeSubmitInput, validateCommand } from './validation.js';
 
 const submit = { sessionId: 'session-1', requestId: 'request-1', prompt: '  Explain this code.\n' };
 const envelope = (type: string, payload: unknown) => ({ schemaVersion: 1, commandId: 'command-1', type, payload });
@@ -137,6 +137,17 @@ test('submission rejects missing, blank, wrong-type, oversized and non-JSON conf
   rejects(() => normalizeSubmitInput({ ...submit, prompt: '가'.repeat(43_691) }));
   assert.equal(normalizeSubmitInput({ ...submit, prompt: 'x'.repeat(131_072) }).prompt.length, 131_072);
   assert.equal(normalizeSubmitInput({ ...submit, prompt: '가'.repeat(43_690) }).prompt.length, 43_690);
+});
+
+test('standalone run config normalizes like a submit config and keeps payload.config errors', () => {
+  const defaults = { providerId: 'fixture', mode: 'build' as const, limits: { maxTurns: 4 } };
+  for (const config of [{}, { modelId: 'model-2', limits: { maxDurationMs: 10 } }]) {
+    assert.deepEqual(normalizeRunConfig(config), normalizeSubmitInput({ ...submit, config }).config);
+    assert.deepEqual(normalizeRunConfig(config, defaults), normalizeSubmitInput({ ...submit, config }, defaults).config);
+  }
+  for (const config of [null, [], true, 'scripted', undefined]) rejects(() => normalizeRunConfig(config), 'INVALID_INPUT', 'payload.config');
+  rejects(() => normalizeRunConfig({ mode: 'auto' }), 'INVALID_INPUT', 'payload.config.mode');
+  rejects(() => normalizeRunConfig({ limits: { maxTurns: 0 } }), 'INVALID_INPUT', 'payload.config.limits.maxTurns');
 });
 
 test('every budget requires a positive bounded safe integer', () => {

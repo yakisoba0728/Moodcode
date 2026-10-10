@@ -2,7 +2,7 @@ import { constants } from 'node:fs';
 import { lstat, open } from 'node:fs/promises';
 import { dirname, join, parse, relative, resolve, sep } from 'node:path';
 import { EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
-import { normalizeSubmitInput } from '@moodcode/contracts/validation';
+import { normalizeRunConfig } from '@moodcode/contracts/validation';
 import { providerURLAllowed } from '../provider/helpers.js';
 
 const MAX_CONFIG_BYTES = 65_536;
@@ -93,7 +93,7 @@ function dataObject(value: unknown, source: Source, field: string, allowed?: rea
 
 function validateRun(value: unknown, source: Source): RunConfig {
   try {
-    return normalizeSubmitInput({ sessionId: 'config', requestId: 'config', prompt: 'config', config: value }).config;
+    return normalizeRunConfig(value);
   } catch (error) {
     // Forward a known schema path, never the offending value or a native exception.
     const path = error instanceof EngineError ? error.details?.path : undefined;

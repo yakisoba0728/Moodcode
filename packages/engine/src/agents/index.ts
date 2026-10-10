@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { EngineError, type JsonObject, type ReasoningEffort, type RunConfig } from '@moodcode/contracts';
-import { normalizeEngineBudgets, normalizeSubmitInput } from '@moodcode/contracts/validation';
+import { normalizeEngineBudgets, normalizeRunConfig } from '@moodcode/contracts/validation';
 import { boundedJson } from '../artifacts/validation.js';
 import type { SessionDocumentStore } from '../session-state/index.js';
 
@@ -26,7 +26,7 @@ export class AgentProfiles {
       || profile.turnAllowance !== undefined && (!Number.isSafeInteger(profile.turnAllowance) || profile.turnAllowance < 1 || profile.turnAllowance > 10_000)) throw new EngineError('INVALID_AGENT_PROFILE', 'Profile identity, instructions, tools or allowance are invalid');
     if (profile.model !== undefined) {
       if (profile.model !== null && typeof profile.model === 'object' && !Array.isArray(profile.model) && Object.keys(profile.model).some(key => !MODEL_KEYS.includes(key))) throw new EngineError('INVALID_AGENT_PROFILE', 'Profile model accepts only providerId, modelId and reasoningEffort');
-      normalizeSubmitInput({ sessionId: 'validation', requestId: 'validation', prompt: 'validation', config: profile.model });
+      normalizeRunConfig(profile.model);
     }
     if (!this.profiles.has(profile.id) && this.profiles.size >= 32) throw new EngineError('AGENT_PROFILE_LIMIT', 'Host agent profile registry is full');
     const revision = createHash('sha256').update(JSON.stringify(profile)).digest('hex');
@@ -46,7 +46,7 @@ export class AgentProfiles {
     const model = Object.fromEntries(Object.entries(profile.model ?? {}).filter(([key]) => MODEL_KEYS.includes(key)));
     const merged = { ...config, ...model, agentProfileId: profile.id, agentProfileRevision: profile.revision,
       budgets: { ...normalizeEngineBudgets(config.budgets), ...(profile.turnAllowance === undefined ? {} : { turnAllowance: Math.min(profile.turnAllowance, config.limits.maxTurns) }) } };
-    return normalizeSubmitInput({ sessionId, requestId: 'profile-validation', prompt: 'profile-validation', config: merged }).config;
+    return normalizeRunConfig(merged);
   }
   forRun(sessionId: string, config: RunConfig): AgentProfile | undefined {
     if (!config.agentProfileId) return undefined;

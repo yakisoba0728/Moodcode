@@ -148,6 +148,12 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
   };
 }
 
+/** Validate and copy a standalone run config; errors keep the payload.config paths. */
+export function normalizeRunConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
+  if (value === undefined) invalid('payload.config', 'must be a JSON object');
+  return normalizeConfig(value, defaults);
+}
+
 /** Validate and copy a submit payload; omitted config fields receive stable defaults. */
 export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput): SubmitInput {
   const payload = object(value, 'payload', ['sessionId', 'requestId', 'prompt', 'config', 'attachments', 'documents', 'media']);
