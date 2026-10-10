@@ -194,6 +194,15 @@ export class ActualChildTeamBridge {
       stale();
   }
 
+  /** Checked before a delivery is dispatched, so a rejection here leaves no uncertain input. */
+  assertAdmissible(target: ChildTeamTarget): void {
+    this.assertCurrent(target);
+    this.resolve(
+      target.rootSessionId,
+      target.childTaskId,
+    ).resident?.assertAdmissible();
+  }
+
   accept(
     target: ChildTeamTarget,
     input: { requestId: string; prompt: string },
@@ -213,13 +222,7 @@ export class ActualChildTeamBridge {
     const current = this.current(target.rootSessionId, target.childTaskId);
     if (JSON.stringify(current.target) !== original) stale();
     if (current.execution.resident) {
-      let admitted: ReturnType<import("./resident.js").ResidentChild["accept"]>;
-      try {
-        admitted = current.execution.resident.accept(exactInput);
-      } catch (error) {
-        current.execution.resident.abandon();
-        throw error;
-      }
+      const admitted = current.execution.resident.accept(exactInput);
       const evidence: ChildTeamInputEvidence = {
         ...target,
         childRunId: admitted.run.id,

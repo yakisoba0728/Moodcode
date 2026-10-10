@@ -574,3 +574,125 @@ test("new actual child inherits the current parent path-specific denial and neve
   parentRelease.resolve();
   assert.equal((await f.engine.waitForRun(receipt.runId)).state, "completed");
 });
+
+test("settled child admissions stop counting toward the engine bound of 32", async (t) => {
+  const parentEntered = deferred(),
+    parentRelease = deferred();
+  const provider: ProviderAdapter = {
+    id: "fixture",
+    async *streamTurn(request, signal) {
+      if (request.messages.some((message) => message.content === "parent")) {
+        parentEntered.resolve();
+        yield { type: "progress" };
+        await releaseOrAbort(parentRelease, signal);
+      } else yield { type: "text.delta", delta: "Child settled." };
+      yield { type: "finish", reason: "stop" };
+    },
+  };
+  const f = await fixture(t, provider),
+    first = await f.engine.createWorktree(f.sessionId, "first-child"),
+    last = await f.engine.createWorktree(f.sessionId, "last-child");
+  t.after(parentRelease.resolve);
+  const receipt = f.engine.scheduler.submitLegacy({
+    sessionId: f.sessionId,
+    requestId: "parent",
+    prompt: "parent",
+    config: f.engine.getCapabilities().defaults,
+  });
+  await parentEntered.promise;
+  const request = {
+    sessionId: f.sessionId,
+    requestId: "child-0",
+    parentRunId: receipt.runId,
+    worktreeId: first.id,
+    prompt: "child",
+    tools: ["read_file"],
+    allocation: { turns: 1, toolCalls: 1, outputBytes: 1024, durationMs: 5000 },
+  };
+  const settled = await f.engine.startChildTask(request);
+  assert.equal(
+    (await f.engine.children.tasks.wait(f.sessionId, settled.id)).state,
+    "completed",
+  );
+  for (let index = 1; index < 32; index++)
+    await assert.rejects(
+      f.engine.startChildTask({
+        ...request,
+        requestId: `child-${index}`,
+        worktreeId: "missing-worktree",
+      }),
+      (error) =>
+        error instanceof EngineError && error.code === "WORKTREE_NOT_FOUND",
+    );
+  await new Promise((resolve) => setImmediate(resolve));
+  const next = await f.engine.startChildTask({
+    ...request,
+    requestId: "child-32",
+    worktreeId: last.id,
+  });
+  assert.equal(
+    (await f.engine.children.tasks.wait(f.sessionId, next.id)).state,
+    "completed",
+  );
+  parentRelease.resolve();
+  assert.equal((await f.engine.waitForRun(receipt.runId)).state, "completed");
+});
+
+test("exact child retry after restart returns a task that failed before dispatch", async (t) => {
+  const parentEntered = deferred(),
+    parentRelease = deferred();
+  const provider: ProviderAdapter = {
+    id: "fixture",
+    async *streamTurn(_request, signal) {
+      parentEntered.resolve();
+      yield { type: "progress" };
+      await releaseOrAbort(parentRelease, signal);
+      yield { type: "finish", reason: "stop" };
+    },
+  };
+  const f = await fixture(t, provider),
+    worktree = await f.engine.createWorktree(f.sessionId, "foreign-owner");
+  t.after(parentRelease.resolve);
+  f.engine.children.worktrees.claimOwnership(
+    f.sessionId,
+    worktree.id,
+    "foreign-owner",
+  );
+  const receipt = f.engine.scheduler.submitLegacy({
+    sessionId: f.sessionId,
+    requestId: "parent",
+    prompt: "parent",
+    config: f.engine.getCapabilities().defaults,
+  });
+  await parentEntered.promise;
+  const request = {
+    sessionId: f.sessionId,
+    requestId: "busy-worktree-child",
+    parentRunId: receipt.runId,
+    worktreeId: worktree.id,
+    prompt: "child",
+    tools: ["read_file"],
+    allocation: { turns: 1, toolCalls: 1, outputBytes: 1024, durationMs: 5000 },
+  };
+  const failed = await f.engine.startChildTask(request);
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.errorCode, "WORKTREE_BUSY");
+  parentRelease.resolve();
+  assert.equal((await f.engine.waitForRun(receipt.runId)).state, "completed");
+  await f.engine.close();
+  const restarted = createEngine({
+    dbPath: join(f.root, "engine.sqlite"),
+    providers: [provider],
+    defaults: { providerId: provider.id, modelId: "fixture", mode: "build" },
+  });
+  try {
+    assert.deepEqual(await restarted.startChildTask(request), failed);
+    await assert.rejects(
+      restarted.startChildTask({ ...request, prompt: "changed" }),
+      (error) =>
+        error instanceof EngineError && error.code === "CHILD_REQUEST_CONFLICT",
+    );
+  } finally {
+    await restarted.close();
+  }
+});

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { residentFixture, residentUntil } from "./fixtures/resident.js";
-import { failure, readDatabase } from "./fixtures/engine-team.js";
+import { failure, gate, readDatabase } from "./fixtures/engine-team.js";
 import { createEngine } from "../engine.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { ProviderEvent } from "../ports.js";
@@ -137,6 +137,117 @@ test("SQL ACK failure after genuine child admission launches no next provider an
   assert.throws(
     () => f.engine.children.teamBridge.capture(f.session.id, f.task.id),
     failure("TEAM_CHILD_STALE"),
+  );
+});
+test("busy resident rejects an early delivery before dispatch and keeps its live child, cursor and next turn", async (t) => {
+  const busy = gate();
+  t.after(busy.resolve);
+  const f = await residentFixture(t, {
+    streamChild: async function* (request, signal): AsyncIterable<ProviderEvent> {
+      yield { type: "progress" };
+      if (
+        request.messages.some(
+          (x) =>
+            x.role === "user" && x.content.startsWith("[Moodcode team mailbox"),
+        )
+      )
+        await busy.promise;
+      if (!signal.aborted) yield { type: "finish", reason: "stop" };
+    },
+  });
+  f.deliver("busy-first").invoke();
+  assert.equal(
+    f.engine.inspectResidentChildTask(f.session.id, f.task.id)?.state,
+    "running",
+  );
+  const inputs = f.child.store.listInputs(f.member.owner.sessionId).inputs
+    .length;
+  assert.throws(
+    () => f.deliver("busy-early").invoke(),
+    failure("RESIDENT_BUSY"),
+  );
+  assert.equal(
+    f.engine.inspectResidentChildTask(f.session.id, f.task.id)?.state,
+    "running",
+  );
+  assert.equal(
+    f.engine.children.tasks.get(f.session.id, f.task.id).state,
+    "running",
+  );
+  assert.equal(
+    f.child.store.listInputs(f.member.owner.sessionId).inputs.length,
+    inputs,
+  );
+  assert.equal(
+    readDatabase(
+      f.dbPath,
+      (db) =>
+        db
+          .prepare("SELECT state FROM team_deliveries WHERE request_id=?")
+          .get("busy-early")!.state,
+    ),
+    "cancelled",
+  );
+  busy.resolve();
+  await residentUntil(
+    () =>
+      f.engine.inspectResidentChildTask(f.session.id, f.task.id)?.state ===
+      "idle",
+    "busy resident must settle its first mailbox Run",
+  );
+  const next = f.deliver("busy-next");
+  assert.equal(next.page.messages.length, 2);
+  assert.equal(next.invoke().record.state, "delivered");
+});
+test("ACK and cancel failures after resident admission still release the child target", async (t) => {
+  const f = await residentFixture(t);
+  const db = new DatabaseSync(f.dbPath);
+  db.exec(
+    "CREATE TRIGGER fail_resident_ack BEFORE INSERT ON team_delivery_receipts BEGIN SELECT RAISE(ABORT,'real receipt fault'); END",
+  );
+  db.exec(
+    "CREATE TRIGGER fail_resident_cancel BEFORE UPDATE ON team_deliveries WHEN NEW.state='uncertain' BEGIN SELECT RAISE(ABORT,'real cancel fault'); END",
+  );
+  assert.throws(
+    () => f.deliver("ack-and-cancel").invoke(),
+    /real receipt fault/,
+  );
+  db.exec("DROP TRIGGER fail_resident_ack");
+  db.exec("DROP TRIGGER fail_resident_cancel");
+  db.close();
+  await residentUntil(
+    () =>
+      f.engine.children.tasks.get(f.session.id, f.task.id).state ===
+      "uncertain",
+    "released target must abandon the unconfirmed resident",
+  );
+  assert.equal(
+    f.engine.inspectResidentChildTask(f.session.id, f.task.id)?.state,
+    "uncertain",
+  );
+});
+test("failed resident previews leave no retained slot", async (t) => {
+  const f = await residentFixture(t);
+  const request = {
+    sessionId: f.session.id,
+    requestId: "late-resident-preview",
+    parentRunId: f.parent.runId,
+    worktreeId: f.worktree.id,
+    prompt: "late resident",
+    tools: ["read_file"],
+    allocation: { turns: 2, toolCalls: 1, outputBytes: 4096, durationMs: 5000 },
+  };
+  for (let index = 0; index < 32; index++)
+    assert.throws(
+      () =>
+        f.engine.previewResidentChildTask({
+          ...request,
+          worktreeId: "missing-worktree",
+        }),
+      failure("WORKTREE_NOT_FOUND"),
+    );
+  f.engine.releaseResidentChildTaskPreview(
+    f.engine.previewResidentChildTask(request),
   );
 });
 test("actual Root close joins a resident lifetime and reopen/default-off returns history without original actor or provider replay", async (t) => {

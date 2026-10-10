@@ -510,13 +510,8 @@ export class ResidentChild {
       });
     void this.pending.catch(() => {});
   }
-  accept(input: { requestId: string; prompt: string }): {
-    run: Run;
-    input: import("@moodcode/contracts").InputRecord;
-    admittedSeq: number;
-    inputSha256: string;
-    release(): void;
-  } {
+  /** Rejects a new Run before any input exists; it never abandons the resident. */
+  assertAdmissible(): ChildBudget {
     this.assertCurrent();
     if (this.record.runs.length >= 32)
       throw new EngineError(
@@ -539,6 +534,16 @@ export class ResidentChild {
         "RESIDENT_BUDGET_EXCEEDED",
         "Resident allocation is exhausted",
       );
+    return r;
+  }
+  accept(input: { requestId: string; prompt: string }): {
+    run: Run;
+    input: import("@moodcode/contracts").InputRecord;
+    admittedSeq: number;
+    inputSha256: string;
+    release(): void;
+  } {
+    const r = this.assertAdmissible();
     const budget = normalizeEngineBudgets(this.config.budgets);
     const config = {
       ...this.config,
@@ -563,47 +568,52 @@ export class ResidentChild {
       delivery: "queue" as const,
       config,
     };
-    const receipt = this.engine.store.acceptInput(accepted);
-    if (receipt.duplicate)
-      throw new EngineError(
-        "RESIDENT_REQUEST_REUSED",
-        "Resident input already exists and must be inspected",
-      );
-    const promoted = this.engine.store.promoteInput(receipt.inputId);
-    const native = this.engine.store.getInput(receipt.inputId);
-    this.save({
-      state: "running",
-      runs: [
-        ...this.record.runs,
-        {
-          runId: promoted.run.id,
-          inputId: native.id,
-          inputSha256: knowledgeHash(accepted),
-          configSha256: knowledgeHash(config),
-          promptSha256: knowledgeHash(promoted.run.prompt),
-          state: "running",
-          usage: null,
-          outcomeSha256: null,
+    try {
+      const receipt = this.engine.store.acceptInput(accepted);
+      if (receipt.duplicate)
+        throw new EngineError(
+          "RESIDENT_REQUEST_REUSED",
+          "Resident input already exists and must be inspected",
+        );
+      const promoted = this.engine.store.promoteInput(receipt.inputId);
+      const native = this.engine.store.getInput(receipt.inputId);
+      this.save({
+        state: "running",
+        runs: [
+          ...this.record.runs,
+          {
+            runId: promoted.run.id,
+            inputId: native.id,
+            inputSha256: knowledgeHash(accepted),
+            configSha256: knowledgeHash(config),
+            promptSha256: knowledgeHash(promoted.run.prompt),
+            state: "running",
+            usage: null,
+            outcomeSha256: null,
+          },
+        ],
+      });
+      clearTimeout(this.idleTimer);
+      this.idleDeadline = null;
+      this.ports.admitted(promoted.run);
+      // No native scheduler wake occurs until the caller has saved its Team receipt/ACK.
+      return {
+        run: promoted.run,
+        input: native,
+        admittedSeq: receipt.admittedSeq,
+        inputSha256: knowledgeHash(accepted),
+        release: () => {
+          if (this.stopping) return;
+          this.assertProvider(promoted.run);
+          void this.engine.coordinator.startPromoted(promoted.run.id);
+          this.watch(promoted.run.id);
+          void this.engine.scheduler.wake(native.sessionId).catch(() => {});
         },
-      ],
-    });
-    clearTimeout(this.idleTimer);
-    this.idleDeadline = null;
-    this.ports.admitted(promoted.run);
-    // No native scheduler wake occurs until the caller has saved its Team receipt/ACK.
-    return {
-      run: promoted.run,
-      input: native,
-      admittedSeq: receipt.admittedSeq,
-      inputSha256: knowledgeHash(accepted),
-      release: () => {
-        if (this.stopping) return;
-        this.assertProvider(promoted.run);
-        void this.engine.coordinator.startPromoted(promoted.run.id);
-        this.watch(promoted.run.id);
-        void this.engine.scheduler.wake(native.sessionId).catch(() => {});
-      },
-    };
+      };
+    } catch (error) {
+      this.abandon();
+      throw error;
+    }
   }
   async stop(
     state: "completed" | "failed" | "cancelled" = "cancelled",

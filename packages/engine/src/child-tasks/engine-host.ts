@@ -95,6 +95,7 @@ export class EngineChildren {
     { request: EngineChildRequest; idleTimeoutMs: number; sourceSha256: string }
   >();
   private readonly admissions = new Map<string, Admission>();
+  private readonly liveAdmissions = new Set<string>();
   private readonly executions = new Map<string, Execution>();
   private readonly workflowStages=new Map<string,WorkflowStageSpec>();
   private readonly workflowAdmissionGuards = new Map<string, () => void>();
@@ -357,12 +358,13 @@ private readonly recoveredSessions = new Set<string>();
         "RESIDENT_PREVIEW_LIMIT",
         "Original resident previews require explicit release after bounded capture",
       );
+    const sourceSha256 = this.residentSource(data);
     const original = Object.freeze({});
     this.retainedResidentPreviews.add(original);
     this.residentPreviews.set(original, {
       request: data,
       idleTimeoutMs,
-      sourceSha256: this.residentSource(data),
+      sourceSha256,
     });
     return original;
   }
@@ -561,7 +563,7 @@ private readonly recoveredSessions = new Set<string>();
         "Prior child reservation exists without a settled dispatch record",
       );
     this.recover(request.sessionId);
-    if (this.admissions.size >= 32)
+    if (this.liveAdmissions.size >= 32)
       throw new EngineError(
         "CHILD_TASK_LIMIT",
         "Engine child admission bound exceeded",
@@ -668,8 +670,13 @@ const slot = this.batchSlots.get(
       const accepted = this.tasks
         .list(request.sessionId)
         .find((task) => task.requestId === request.requestId);
-      if (accepted) return accepted;
-      throw error;
+      if (!accepted) throw error;
+      // A task that failed before beforeDispatch still binds its request for an exact retry after restart.
+      if (!this.root.store.getSessionDocument(request.sessionId, documentKey))
+        this.root.store.putSessionDocument(request.sessionId, documentKey, 0, {
+          fingerprint,
+        });
+      return accepted;
     });
     this.admissions.set(key, {
       fingerprint,
@@ -679,6 +686,15 @@ const slot = this.batchSlots.get(
       confirmed,
       confirm,
     });
+    // An admission counts toward the engine bound until its task is terminal and its child engine close has settled.
+    this.liveAdmissions.add(key);
+    void done
+      .then(async (task) => {
+        await this.tasks.wait(request.sessionId, task.id);
+        await this.executions.get(task.id)?.wait();
+      })
+      .catch(() => {})
+      .finally(() => this.liveAdmissions.delete(key));
     return done;
   }
   private async execute(

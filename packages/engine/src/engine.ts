@@ -879,6 +879,7 @@ private readonly workflowRecords: WorkflowStorage;
         capture: (sessionId,taskId) => this.children.teamBridge.capture(sessionId,taskId),
         readTarget: original => this.children.teamBridge.readTarget(original as ChildTeamTarget),
         assertCurrent: original => this.children.teamBridge.assertCurrent(original as ChildTeamTarget),
+        assertAdmissible: original => this.children.teamBridge.assertAdmissible(original as ChildTeamTarget),
         accept: (original,input) => this.children.teamBridge.accept(original as ChildTeamTarget,input),
         readAccepted: (original,accepted) => {
           const proof = this.children.teamBridge.readAccepted(original as ChildTeamTarget,accepted as ChildTeamInputEvidence);

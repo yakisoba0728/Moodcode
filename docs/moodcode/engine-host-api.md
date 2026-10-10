@@ -105,7 +105,7 @@ const terminal = await engine.children.tasks.wait(sessionId, task.id);
 await engine.children.tasks.deliver(sessionId, terminal.id);
 ```
 
-반환한 task는 starting/running일 수 있다. 각 child는 독립 MoodcodeEngine·DB·artifact 저장소에서 실제 Run 하나를 실행한다. 부모 profile·mode·현재 deny policy·context/producer/attempt 상한을 상속하며 grant는 별도로 소유한다. root→child 예약은 root에서, child→grandchild 예약은 즉시 부모인 child에서 차감하여 root에 두 번 청구하지 않는다. 실패한 사전 검증은 부모 예산을 차감하지 않으며 dispatch 뒤 예약은 자동 환급하지 않는다. 현재 depth 3·engine admission 32개 상한과 양수 tool/output allocation을 요구한다.
+반환한 task는 starting/running일 수 있다. 각 child는 독립 MoodcodeEngine·DB·artifact 저장소에서 실제 Run 하나를 실행한다. 부모 profile·mode·현재 deny policy·context/producer/attempt 상한을 상속하며 grant는 별도로 소유한다. root→child 예약은 root에서, child→grandchild 예약은 즉시 부모인 child에서 차감하여 root에 두 번 청구하지 않는다. 실패한 사전 검증은 부모 예산을 차감하지 않으며 dispatch 뒤 예약은 자동 환급하지 않는다. 현재 depth 3·진행 중인 engine admission 32개 상한(task가 종료되고 child engine close가 끝난 admission은 cleanup 확인 여부와 관계없이 세지 않는다)과 양수 tool/output allocation을 요구한다.
 
 nested 요청은 `parentTaskId`와 실제 childRunId인 `parentRunId`를 함께 사용한다. host는 running task record에 childRunId가 기록된 뒤 이를 읽는다. 종료한 child를 live parent로 재사용할 수 없다. parent waitForRun만으로 child cleanup이 완료됐다고 판단하지 않고 task wait 또는 전체 engine.close를 기다린다. 재시작 이후 task 상태를 읽기 전에 `children.recover(sessionId)`를 호출한다. 기존 task dispatch나 효과를 자동 재개하지 않는다.
 

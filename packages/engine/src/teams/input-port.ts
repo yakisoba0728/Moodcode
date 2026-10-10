@@ -37,6 +37,8 @@ export interface TeamChildInputPort {
   capture(rootSessionId: string, childTaskId: string): object;
   readTarget(original: object): TeamChildInputTarget;
   assertCurrent(original: object): void;
+  /** assertCurrent plus whether the child can admit new input right now. */
+  assertAdmissible(original: object): void;
   accept(
     original: object,
     input: { readonly requestId: string; readonly prompt: string },

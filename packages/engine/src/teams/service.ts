@@ -432,7 +432,8 @@ export class TeamService {
       member.owner.childTaskId,
     );
     let capture: TeamDeliveryCapture | undefined,
-      dispatched = false;
+      dispatched = false,
+      failed = false;
     try {
       const described = this.ports.input.readTarget(target);
       if (
@@ -472,7 +473,7 @@ export class TeamService {
       };
       this.deliveries.set(capture, state);
       teamHostAbort(input.signal);
-      this.ports.input.assertCurrent(target);
+      this.ports.input.assertAdmissible(target);
       this.ports.host.assertMemberOwnerCurrent(page.owner, member);
       this.ports.native.dispatchDelivery(capture);
       dispatched = true;
@@ -492,25 +493,32 @@ export class TeamService {
       this.releasePage(page.original);
       return result;
     } catch (error) {
-      if (capture !== undefined) {
-        this.ports.native.cancelDelivery(
-          capture,
-          dispatched ? "TEAM_DELIVERY_UNCERTAIN" : "TEAM_DELIVERY_CANCELLED",
-        );
-        const history = this.ports.native.getDeliveryHistory(
-          input.workspaceId,
-          capture.deliveryId,
-        );
-        if (history) {
-          page.deliveryRequestId = input.requestId;
-          page.delivery = teamHostData({ ...history, duplicate: false });
-          this.releasePage(page.original);
-        }
-      }
+      failed = true;
+      if (capture !== undefined)
+        try {
+          this.ports.native.cancelDelivery(
+            capture,
+            dispatched ? "TEAM_DELIVERY_UNCERTAIN" : "TEAM_DELIVERY_CANCELLED",
+          );
+          const history = this.ports.native.getDeliveryHistory(
+            input.workspaceId,
+            capture.deliveryId,
+          );
+          if (history) {
+            page.deliveryRequestId = input.requestId;
+            page.delivery = teamHostData({ ...history, duplicate: false });
+            this.releasePage(page.original);
+          }
+        } catch {}
       throw error;
     } finally {
-      if (capture !== undefined) this.ports.native.releaseDelivery(capture);
-      this.ports.input.release(target);
+      try {
+        if (capture !== undefined) this.ports.native.releaseDelivery(capture);
+      } catch (releaseError) {
+        if (!failed) throw releaseError;
+      } finally {
+        this.ports.input.release(target);
+      }
     }
   }
   readAcceptedInput(
