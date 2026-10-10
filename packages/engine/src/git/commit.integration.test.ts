@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { execFileSync } from "node:child_process";
 import {
   chmod,
   readFile,
@@ -7,6 +8,7 @@ import {
   mkdir,
   mkdtemp,
   realpath,
+  rm,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
@@ -17,7 +19,12 @@ import {
   validateGitCommitDatabase,
 } from "./commit-receipts.js";
 import { gitSha } from "./types.js";
-import { entriesFor, fileBytes, objectOid } from "./commit-preview.js";
+import {
+  entriesFor,
+  fileBytes,
+  indexProjection,
+  objectOid,
+} from "./commit-preview.js";
 const code = (expected: string) => (error: unknown) =>
   (error as { code: string }).code === expected;
 test(
@@ -80,6 +87,83 @@ test(
         "original other",
       );
     }
+  },
+);
+test(
+  "tree and index readers reject a non-UTF-8 path instead of hashing it lossily",
+  { skip: process.platform === "win32", timeout: 10000 },
+  async (t) => {
+    const root = await realpath(
+      await mkdtemp(join(tmpdir(), "moodcode-git-utf8-")),
+    );
+    t.after(() => rm(root, { recursive: true, force: true }));
+    gitFixture(root, "init", "--quiet", "--template=");
+    gitFixture(root, "config", "user.name", "Moodcode Fixture");
+    gitFixture(root, "config", "user.email", "fixture@example.invalid");
+    await writeFile(join(root, "a.txt"), "original\n");
+    const oid = gitFixture(root, "hash-object", "-w", "a.txt");
+    gitFixture(root, "add", "a.txt");
+    execFileSync("git", ["-C", root, "update-index", "-z", "--index-info"], {
+      env: {
+        ...process.env,
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        GIT_CONFIG_NOSYSTEM: "1",
+      },
+      input: Buffer.concat([
+        Buffer.from(`100644 ${oid}\tlatin1-caf`),
+        Buffer.from([0xe9, 0]),
+      ]),
+    });
+    gitFixture(root, "commit", "--quiet", "-m", "Latin-1 path");
+    await writeFile(join(root, "a.txt"), "selected\n");
+    gitFixture(root, "add", "a.txt");
+    await assert.rejects(indexProjection(root), code("GIT_COMMIT_PATH"));
+    await assert.rejects(
+      entriesFor(
+        root,
+        {
+          sessionId: "actual-session",
+          runId: "actual-run",
+          requestId: "actual-latin1",
+          paths: ["a.txt"],
+          message: "Selected",
+          selection: "staged",
+        },
+        "sha1",
+      ),
+      code("GIT_COMMIT_PATH"),
+    );
+  },
+);
+test(
+  "a temporary index that differs from the approved tree stops before Git commit",
+  { skip: process.platform === "win32", timeout: 30000 },
+  async (t) => {
+    const f = await commitFixture(t);
+    await writeFile(
+      join(f.root, ".git", "hooks", "post-index-change"),
+      [
+        "#!/bin/sh",
+        'case "$GIT_INDEX_FILE" in',
+        "*/git-commit-*/index)",
+        '  [ -e "$GIT_INDEX_FILE.hooked" ] && exit 0',
+        '  : > "$GIT_INDEX_FILE.hooked"',
+        "  git update-index --add other.ts",
+        "  ;;",
+        "esac",
+        "",
+      ].join("\n"),
+      { mode: 0o755 },
+    );
+    const original = await f.preview(),
+      result = await f.engine.commitReviewedChanges(
+        original,
+        f.input(original),
+      );
+    assert.equal(result.receipt.state, "failed", JSON.stringify(result));
+    assert.equal(result.receipt.errorCode, "GIT_COMMIT_STALE");
+    assert.equal(result.receipt.outcome!.started, false);
+    assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "1");
   },
 );
 for (const selection of ["staged", "working-tree"] as const)

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { chmod, readFile, writeFile } from "node:fs/promises";
+import { chmod, readFile, rm, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -129,6 +129,103 @@ test(
     assert.equal(reconciled.reconciled, true);
     assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "2");
     assert.equal(f.engine.store.hasUncertainGitCommit(f.workspace.id), false);
+  },
+);
+test(
+  "working-tree commit whose real index update failed reconciles the landed commit only on its own branch",
+  { skip: process.platform === "win32", timeout: 30000 },
+  async (t) => {
+    const f = await commitFixture(t);
+    gitFixture(f.root, "restore", "--staged", "a.ts");
+    await writeFile(
+      join(f.root, ".git", "hooks", "post-commit"),
+      "#!/bin/sh\n: > .git/index.lock\n",
+      { mode: 0o755 },
+    );
+    const original = await f.preview(undefined, "working-tree"),
+      input = f.input(original),
+      result = await f.engine.commitReviewedChanges(original, input),
+      reconcile = () =>
+        f.engine.reconcileGitCommit({
+          workspaceId: f.workspace.id,
+          sessionId: f.session.id,
+          requestId: input.requestId,
+          expectedRevision: result.receipt.revision,
+        });
+    assert.equal(result.receipt.state, "uncertain", JSON.stringify(result));
+    assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "2");
+    await rm(join(f.root, ".git", "index.lock"));
+    const branch = gitFixture(f.root, "symbolic-ref", "HEAD");
+    gitFixture(f.root, "checkout", "--quiet", "--detach", "HEAD~1");
+    await assert.rejects(
+      reconcile(),
+      (e: unknown) =>
+        (e as { code: string }).code === "GIT_COMMIT_RECONCILIATION_CONFLICT",
+    );
+    assert.equal(f.engine.store.hasUncertainGitCommit(f.workspace.id), true);
+    gitFixture(f.root, "symbolic-ref", "HEAD", branch);
+    const reconciled = await reconcile();
+    assert.equal(reconciled.state, "committed");
+    assert.equal(reconciled.commitSha, gitFixture(f.root, "rev-parse", "HEAD"));
+    assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "2");
+    assert.equal(f.engine.store.hasUncertainGitCommit(f.workspace.id), false);
+  },
+);
+test(
+  "hook output with NUL and escaped control bytes still settles within the receipt cap",
+  { skip: process.platform === "win32", timeout: 30000 },
+  async (t) => {
+    const f = await commitFixture(t);
+    await writeFile(
+      join(f.root, ".git", "hooks", "pre-commit"),
+      "#!/bin/sh\nprintf 'nul\\000byte\\n' >&2\nhead -c 30000 /dev/zero | tr '\\000' '\\033' >&2\nexit 1\n",
+      { mode: 0o755 },
+    );
+    const original = await f.preview(),
+      result = await f.engine.commitReviewedChanges(
+        original,
+        f.input(original),
+      ),
+      stderr = result.receipt.outcome!.stderr;
+    assert.equal(result.receipt.state, "failed", JSON.stringify(result));
+    assert.ok(stderr.startsWith("nulbyte\n\x1b"));
+    assert.ok(!stderr.includes("\0"));
+    assert.ok(
+      Buffer.byteLength(JSON.stringify(stderr)) - 2 <=
+        result.receipt.preview.maxOutputBytes,
+    );
+    assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "1");
+    assert.equal(f.engine.store.hasUncertainGitCommit(f.workspace.id), false);
+  },
+);
+test(
+  "a failed process group record stops and joins that group before settling",
+  { skip: process.platform === "win32", timeout: 30000 },
+  async (t) => {
+    const f = await commitFixture(t),
+      effect = join(f.root, "leaked-hook-effect");
+    await writeFile(
+      join(f.root, ".git", "hooks", "post-index-change"),
+      `#!/bin/sh\nsleep 1\nprintf leaked > '${effect}'\n`,
+      { mode: 0o755 },
+    );
+    const original = await f.preview(),
+      input = f.input(original),
+      lock = new DatabaseSync(`${f.dbPath}.effects.sqlite`);
+    lock.exec(
+      "CREATE TRIGGER fail_group BEFORE UPDATE OF group_pid ON command_execution WHEN NEW.group_pid IS NOT NULL BEGIN SELECT RAISE(ABORT,'group record fault'); END",
+    );
+    lock.close();
+    const result = await f.engine.commitReviewedChanges(original, input);
+    assert.equal(result.receipt.state, "uncertain", JSON.stringify(result));
+    assert.equal(result.receipt.outcome!.cleanupConfirmed, false);
+    assert.equal(result.receipt.outcome!.started, false);
+    await delay(1500);
+    await assert.rejects(
+      readFile(effect),
+      (e: unknown) => (e as { code: string }).code === "ENOENT",
+    );
+    assert.equal(gitFixture(f.root, "rev-list", "--count", "HEAD"), "1");
   },
 );
 test(

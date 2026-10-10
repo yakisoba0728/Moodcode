@@ -12,9 +12,14 @@ import { gitFixture } from "./fixtures/commit.js";
 import { retainCrashFixture } from "./fixtures/crash-retention.js";
 import type { ProviderAdapter, ProviderEvent } from "../ports.js";
 import type { CommitReviewedChangesInput } from "./types.js";
-for (const boundary of ["before", "after"] as const)
+for (const [boundary, selection] of [
+  ["before", "staged"],
+  ["after", "staged"],
+  ["before", "working-tree"],
+  ["after", "working-tree"],
+] as const)
   test(
-    `actual SIGKILL ${boundary} Git commit leaves uncertain native intent and no repeated commit`,
+    `actual SIGKILL ${boundary} ${selection} Git commit leaves uncertain native intent and no repeated commit`,
     { timeout: 30000, skip: process.platform === "win32" },
     async (t) => {
       const path = fileURLToPath(
@@ -23,7 +28,7 @@ for (const boundary of ["before", "after"] as const)
             import.meta.url,
           ),
         ),
-        child = fork(path, [boundary], {
+        child = fork(path, [boundary, selection], {
           silent: true,
           execArgv: import.meta.url.endsWith(".ts")
             ? ["--import", fileURLToPath(import.meta.resolve("tsx"))]

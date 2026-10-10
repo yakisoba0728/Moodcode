@@ -10,7 +10,10 @@ const cleanups: Array<() => void | Promise<void>> = [],
     },
   } as unknown as TestContext;
 const f = await commitFixture(scope),
-  boundary = process.argv[2] ?? "after";
+  boundary = process.argv[2] ?? "after",
+  selection = process.argv[3] === "working-tree" ? "working-tree" : "staged";
+if (selection === "working-tree")
+  gitFixture(f.root, "restore", "--staged", "a.ts");
 if (boundary === "before") {
   const path = join(f.root, ".git", "hooks", "pre-commit");
   await writeFile(
@@ -19,7 +22,7 @@ if (boundary === "before") {
   );
   await chmod(path, 0o755);
 }
-const preview = await f.preview(),
+const preview = await f.preview(undefined, selection),
   input = f.input(preview),
   original = f.engine.store.commitGitCommitObservation;
 Reflect.set(

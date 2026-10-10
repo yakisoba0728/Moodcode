@@ -29,6 +29,16 @@ export async function gitRead(
 }
 const text = async (root: string, args: string[], signal?: AbortSignal) =>
   (await gitRead(root, args, signal)).toString("utf8").trim();
+const utf8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
+/** Splits `-z` output; a non-UTF-8 path would hash lossily, so it fails closed. */
+function gitRecords(output: Buffer): string[] {
+  try {
+    return utf8.decode(output).split("\0").filter(Boolean);
+  } catch {
+    gitCommitError("GIT_COMMIT_PATH", "Git paths must be valid UTF-8");
+  }
+}
+const recordPath = (record: string) => record.slice(record.indexOf("\t") + 1);
 async function identity(path: string): Promise<string> {
   const st = await lstat(path, { bigint: true });
   if (
@@ -206,12 +216,13 @@ export async function entriesFor(
     new Set(paths).size !== paths.length
   )
     gitCommitError("GIT_COMMIT_SELECTION");
-  const records = (
-      await gitRead(root, ["ls-files", "--stage", "-z", "--", ...paths], signal)
-    )
-      .toString("utf8")
-      .split("\0")
-      .filter(Boolean),
+  const records = gitRecords(
+      await gitRead(
+        root,
+        ["ls-files", "--stage", "-z", "--", ...paths],
+        signal,
+      ),
+    ),
     indexed = new Map<string, { mode: string; oid: string }>();
   for (const record of records) {
     const m = /^(\d{6}) ([a-f0-9]+) (\d)\t(.+)$/.exec(record);
@@ -270,10 +281,11 @@ export function objectOid(
 export async function treeEntries(
   root: string,
   signal?: AbortSignal,
+  revision = "HEAD",
 ): Promise<Map<string, { mode: string; oid: string }>> {
-  const output = await gitRead(root, ["ls-tree", "-r", "-z", "HEAD"], signal),
+  const output = await gitRead(root, ["ls-tree", "-r", "-z", revision], signal),
     map = new Map<string, { mode: string; oid: string }>();
-  for (const record of output.toString("utf8").split("\0").filter(Boolean)) {
+  for (const record of gitRecords(output)) {
     const m = /^(\d{6}) \w+ ([a-f0-9]+)\t(.+)$/.exec(record);
     if (!m || map.size >= GIT_COMMIT_LIMITS.treeEntries)
       gitCommitError("GIT_COMMIT_LIMIT");
@@ -367,16 +379,51 @@ export async function indexProjection(
   entries: readonly GitCommitEntry[] = [],
   signal?: AbortSignal,
 ): Promise<string> {
-  const records = (await gitRead(root, ["ls-files", "--stage", "-z"], signal))
-    .toString("utf8")
-    .split("\0")
-    .filter(Boolean);
+  return projection(await indexRecords(root, signal), entries);
+}
+/**
+ * The real index before the worker's working-tree update: every unrelated row is
+ * unchanged and each selected row still equals its row in `head` or is absent.
+ */
+export async function indexBeforeUpdate(
+  root: string,
+  head: string,
+  entries: readonly GitCommitEntry[],
+  expectedProjectionSha256: string,
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const records = await indexRecords(root, signal),
+    base = await treeEntries(root, signal, head),
+    selected = new Set(entries.map((e) => e.path));
+  return (
+    projection(records, entries) === expectedProjectionSha256 &&
+    records.every((record) => {
+      const path = recordPath(record),
+        row = base.get(path);
+      return (
+        !selected.has(path) ||
+        (row !== undefined && record === `${row.mode} ${row.oid} 0\t${path}`)
+      );
+    })
+  );
+}
+async function indexRecords(
+  root: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const records = gitRecords(
+    await gitRead(root, ["ls-files", "--stage", "-z"], signal),
+  );
   if (records.length > GIT_COMMIT_LIMITS.treeEntries)
     gitCommitError("GIT_COMMIT_LIMIT");
+  return records;
+}
+function projection(
+  records: readonly string[],
+  entries: readonly GitCommitEntry[],
+): string {
   const replaced = new Set(entries.map((e) => e.path)),
-    remaining = records.filter(
-      (record) => !replaced.has(record.slice(record.indexOf("\t") + 1)),
-    );
+    remaining = records.filter((record) => !replaced.has(recordPath(record)));
   for (const entry of entries)
     if (entry.oid)
       remaining.push(`${entry.mode} ${entry.oid} 0\t${entry.path}`);

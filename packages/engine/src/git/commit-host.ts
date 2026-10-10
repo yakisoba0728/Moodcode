@@ -13,6 +13,7 @@ import {
   entriesFor,
   expectedTree,
   indexProjection,
+  indexBeforeUpdate,
   fileBytes,
   objectOid,
   inspectCommit,
@@ -444,14 +445,20 @@ export class GitCommitHost {
   }
   private matches(p: GitCommitPreview, o: GitCommitOutcome): boolean {
     return (
+      this.landed(p, o) &&
+      (p.selection === "staged"
+        ? o.indexAfterSha256 === p.repository.indexSha256
+        : o.indexAfterProjectionSha256 === p.expectedIndexProjectionSha256)
+    );
+  }
+  /** The approved commit is HEAD and the selected sources are unchanged. */
+  private landed(p: GitCommitPreview, o: GitCommitOutcome): boolean {
+    return (
       o.afterHead !== p.repository.head &&
       o.afterHead !== null &&
       o.parent === p.repository.head &&
       o.tree === p.expectedTree &&
       o.message === p.message &&
-      (p.selection === "staged"
-        ? o.indexAfterSha256 === p.repository.indexSha256
-        : o.indexAfterProjectionSha256 === p.expectedIndexProjectionSha256) &&
       knowledgeHash(o.selectedAfter) ===
         knowledgeHash(
           p.entries.map((e) => ({ path: e.path, fileSha256: e.fileSha256 })),
@@ -521,20 +528,36 @@ export class GitCommitHost {
         )
           gitCommitError("GIT_COMMIT_BINDING_STALE");
         verifyExecutionIdle(this.ports.executionLockPath);
-        const actual = await inspectCommit(r.preview.binding.root, signal);
-        const repository = await repositoryPin(r.preview.binding.root, signal);
+        const p = r.preview,
+          root = p.binding.root,
+          actual = await inspectCommit(root, signal),
+          repository = await repositoryPin(root, signal);
         if (
-          repository.gitDirIdentity !== r.preview.repository.gitDirIdentity ||
-          repository.commonDirIdentity !==
-            r.preview.repository.commonDirIdentity ||
-          (r.preview.selection === "staged"
-            ? repository.indexSha256 !== r.preview.repository.indexSha256
-            : (await indexProjection(r.preview.binding.root, [], signal)) !==
-              r.preview.expectedIndexProjectionSha256)
+          repository.gitDirIdentity !== p.repository.gitDirIdentity ||
+          repository.commonDirIdentity !== p.repository.commonDirIdentity ||
+          repository.symbolicHead !== p.repository.symbolicHead
         )
           gitCommitError("GIT_COMMIT_RECONCILIATION_CONFLICT");
+        const moved = actual.head !== p.repository.head,
+          indexAfterProjectionSha256 = await indexProjection(root, [], signal);
+        // The worker updates a working-tree index only after the commit: a moved
+        // HEAD accepts it before or after that update, an unchanged HEAD only before.
+        const indexKept =
+          p.selection === "staged"
+            ? repository.indexSha256 === p.repository.indexSha256
+            : (moved &&
+                indexAfterProjectionSha256 ===
+                  p.expectedIndexProjectionSha256) ||
+              (await indexBeforeUpdate(
+                root,
+                p.repository.head,
+                p.entries,
+                p.expectedIndexProjectionSha256,
+                signal,
+              ));
+        if (!indexKept) gitCommitError("GIT_COMMIT_RECONCILIATION_CONFLICT");
         const evidence = this.ports.store.readGitCommitProcessEvidence(
-          r.preview.sessionId,
+          p.sessionId,
           r.id,
         );
         if (evidence.groupPid !== null && groupExists(evidence.groupPid))
@@ -557,14 +580,10 @@ export class GitCommitHost {
           groupPid: evidence.groupPid,
           supervisorPid: evidence.supervisorPid,
           indexAfterSha256: repository.indexSha256,
-          indexAfterProjectionSha256: await indexProjection(
-            r.preview.binding.root,
-            [],
-            signal,
-          ),
+          indexAfterProjectionSha256,
           selectedAfter: await Promise.all(
-            r.preview.entries.map(async (e) => {
-              const bytes = await fileBytes(r.preview.binding.root, e.path);
+            p.entries.map(async (e) => {
+              const bytes = await fileBytes(root, e.path);
               return {
                 path: e.path,
                 fileSha256: bytes === null ? null : gitSha(bytes),
@@ -573,24 +592,22 @@ export class GitCommitHost {
           ),
           stdout: "",
           stderr: "",
-          beforeHead: r.preview.repository.head,
+          beforeHead: p.repository.head,
           afterHead: actual.head,
           parent: actual.parent,
           tree: actual.tree,
           message: actual.message,
           errorCode: "GIT_COMMIT_RECONCILED",
         };
-        if (
-          !this.matches(r.preview, outcome) &&
-          actual.head !== r.preview.repository.head
-        )
+        const committed = this.landed(p, outcome);
+        if (!committed && moved)
           gitCommitError("GIT_COMMIT_RECONCILIATION_CONFLICT");
         this.ports.store.commitGitCommitObservation(
-          r.preview.sessionId,
+          p.sessionId,
           "git.commit.reconciled",
           {
             id: r.id,
-            previewSha256: r.preview.sha256,
+            previewSha256: p.sha256,
             outcome:
               outcome as unknown as import("@moodcode/contracts").JsonObject,
           },
@@ -599,11 +616,9 @@ export class GitCommitHost {
           signedCommit({
             ...r,
             revision: r.revision + 1,
-            state: this.matches(r.preview, outcome)
-              ? ("committed" as const)
-              : ("failed" as const),
+            state: committed ? ("committed" as const) : ("failed" as const),
             outcome,
-            commitSha: this.matches(r.preview, outcome) ? actual.head : null,
+            commitSha: committed ? actual.head : null,
             reconciled: true,
             errorCode: null,
             updatedAt: new Date().toISOString(),

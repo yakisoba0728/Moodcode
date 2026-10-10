@@ -21,6 +21,7 @@ import {
 } from "./commit-preview.js";
 import {
   gitSha,
+  GIT_COMMIT_LIMITS,
   type GitCommitPreview,
   type GitCommitOutcome,
 } from "./types.js";
@@ -38,6 +39,22 @@ let input: Input | undefined,
 const send = (message: object) => {
   if (process.connected) process.send?.(message);
 };
+/** Receipt fields outside the preview and outcome, plus later outcome error codes. */
+const RECEIPT_RESERVE_BYTES = 2048;
+const escapedBytes = (text: string) =>
+  Buffer.byteLength(JSON.stringify(text)) - 2;
+/** Keeps output within `room` JSON-escaped bytes so the receipt passes commitJson. */
+function retain(text: string, room: number): string {
+  const clean = text.replaceAll("\0", "");
+  if (escapedBytes(clean) <= room) return clean;
+  let kept = "";
+  for (const ch of clean) {
+    room -= escapedBytes(ch);
+    if (room < 0) break;
+    kept += ch;
+  }
+  return kept;
+}
 process.on("disconnect", () => {
   stopped = true;
   controller.abort();
@@ -141,7 +158,12 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     };
     if (child.pid) {
       group = child.pid;
-      lock!.recordGroup(group);
+      try {
+        lock!.recordGroup(group);
+      } catch {
+        cleanup = false;
+        stop();
+      }
       if (commit) {
         started = true;
         commitPid = group;
@@ -196,6 +218,15 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     if (cancelled || timedOut || errorCode || !cleanup) throw Error("stopped");
     return commit ? (exitCode ?? 1) : (child.exitCode ?? 1);
   }
+  async function gitText(args: string[], stdin?: Buffer) {
+    const before = stdout;
+    stdout = "";
+    try {
+      return (await git(args, stdin)) === 0 ? stdout.trim() : null;
+    } finally {
+      stdout = before;
+    }
+  }
   try {
     dir = await mkdtemp(join(i.artifactDir, "git-commit-"));
     const actual = await repositoryPin(root, controller.signal);
@@ -212,15 +243,13 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
       if (p.selection === "working-tree" && e.oid) {
         const b = await fileBytes(root, e.path);
         if (!b || gitSha(b) !== e.fileSha256) throw Error("stale");
-        const old = stdout;
-        stdout = "";
         if (
-          (await git(["hash-object", "-w", "--stdin", "--no-filters"], b)) !==
-            0 ||
-          stdout.trim() !== e.oid
+          (await gitText(
+            ["hash-object", "-w", "--stdin", "--no-filters"],
+            b,
+          )) !== e.oid
         )
           throw Error("prepare");
-        stdout = old;
       }
     const updates = Buffer.from(
       p.entries
@@ -232,6 +261,8 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     );
     if ((await git(["update-index", "-z", "--index-info"], updates)) !== 0)
       throw Error("prepare");
+    if ((await gitText(["write-tree"])) !== p.expectedTree)
+      throw Error("stale");
     if (
       knowledgeHash(await repositoryPin(root, controller.signal)) !==
       knowledgeHash(p.repository)
@@ -309,7 +340,7 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     await rm(dir, { recursive: true, force: true }).catch(() => {
       errorCode ??= "GIT_COMMIT_ARTIFACT_CLEANUP_FAILED";
     });
-  return {
+  const outcome: GitCommitOutcome = {
     exitCode,
     signal,
     cancelled,
@@ -321,8 +352,8 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     indexAfterSha256: afterRepository?.indexSha256 ?? null,
     indexAfterProjectionSha256,
     selectedAfter,
-    stdout,
-    stderr,
+    stdout: "",
+    stderr: "",
     beforeHead: p.repository.head,
     afterHead: actual?.head ?? null,
     parent: actual?.parent ?? null,
@@ -330,4 +361,14 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     message: actual?.message ?? null,
     errorCode,
   };
+  let room = Math.min(
+    p.maxOutputBytes,
+    GIT_COMMIT_LIMITS.recordBytes -
+      RECEIPT_RESERVE_BYTES -
+      Buffer.byteLength(JSON.stringify({ preview: p, outcome })),
+  );
+  outcome.stdout = retain(stdout, room);
+  room -= escapedBytes(outcome.stdout);
+  outcome.stderr = retain(stderr, room);
+  return outcome;
 }
