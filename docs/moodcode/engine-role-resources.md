@@ -22,7 +22,7 @@ MC2-11의 역할 규칙·판단 기록·사전 검사 port를 기존 엔진의 p
 
 deny가 allow와 ask보다 우선한다. Plan의 효과 제한, 기존 `ToolPolicy`의 ask, producer의 `requiresApproval`, registration의 exact approval을 role/preflight allow로 낮추지 않는다. 추가 정책이 ask이면 기존 scoped grant로 새 판단을 건너뛰지 않는다.
 
-모든 실제 리소스가 역할의 allowance에 포함되어야 allow다. 알려지지 않은 효과·리소스, 결속되지 않은 profile은 ask다. host 리소스 선언 callback이 실패하면 실행 요청을 발급하지 않는다. 명시한 `all` selector도 unknown 리소스를 allowance로 바꾸지 않는다.
+모든 실제 리소스가 역할의 allowance에 포함되어야 allow다. 알려지지 않은 효과·리소스, 결속되지 않은 profile은 ask다. host 리소스 선언 callback이 실패하면 실행 요청을 발급하지 않는다. 명시한 `all` selector도 unknown 리소스를 allowance로 바꾸지 않는다. deny·ask `all` selector는 unknown 리소스에도 적용된다.
 
 리소스 callback은 실행 가능한 원본 요청 대신 깊게 동결된 사본과 host identity·producer scope를 받는다. callback은 host 코드이며, 모델 인자나 MCP 설명문의 권한 주장을 승인 근거로 삼지 않아야 한다.
 

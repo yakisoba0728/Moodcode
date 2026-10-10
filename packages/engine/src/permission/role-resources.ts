@@ -113,8 +113,7 @@ async function resolveFile(root: string, path: string): Promise<ResolvedRoleFile
 }
 function pathMatches(rule: Extract<RoleResourceSelector, { kind: 'file' }>, path: string): boolean { return path === rule.path || rule.descendants === true && (rule.path === '.' || path.startsWith(`${rule.path}/`)); }
 function resourceMatches(selector: RoleResourceSelector, resource: ResolvedRoleResource, decision: PolicyDecision): boolean {
-  if (resource.kind === 'unknown') return false;
-  if (selector.kind === 'all') return true;
+  if (selector.kind === 'all') return resource.kind !== 'unknown' || decision !== 'allow';
   if (selector.kind === 'file' && resource.kind === 'file') return pathMatches(selector, resource.canonicalPath) || decision !== 'allow' && pathMatches(selector, resource.path);
   return selector.kind === 'mcp' && resource.kind === 'mcp' && selector.serverId === resource.serverId && selector.connectionId === resource.connectionId && selector.catalogueRevision === resource.catalogueRevision && selector.uri === resource.uri;
 }

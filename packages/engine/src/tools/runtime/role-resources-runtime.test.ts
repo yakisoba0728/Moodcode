@@ -73,6 +73,14 @@ test('role deny and unknown ask narrow a configured allow and existing grants', 
   await assert.rejects(narrowed.executeApproved(prepared, context, approval('denied')), { code: 'TOOL_APPROVAL_DENIED' }); assert.equal(edit.source.calls, 0); assert.equal(narrowed.grants.find(scope, policy.version)?.id, grant.id);
 });
 
+test('role deny-all covers the default unknown resource declaration of an approval-bound command', async t => {
+  const { root, context } = await fixture(t); const source = tool('run_command', true);
+  const runtime = new ScopedToolRuntime({ roleResources: roles([{ id: 'no-shell', roleId: 'editor', toolName: 'run_command', resource: { kind: 'all' }, decision: 'deny' }]) }); runtime.register('engine', source.source);
+  let failure: unknown; try { await runtime.resolve(runtime.catalogue('engine', 'build', undefined, profile), 'run_command').prepare({ command: 'printf safe', cwd: root }, context); } catch (error) { failure = error; }
+  assert.equal((failure as { code: string }).code, 'ROLE_RESOURCE_DENIED'); const receipt = runtime.getPolicyDecisionFailure(failure)!.roleResource!;
+  assert.equal(receipt.reason, 'role_denied'); assert.deepEqual(receipt.resources, [{ kind: 'unknown', label: 'Host resource identity unavailable' }]); assert.equal(source.source.calls, 0);
+});
+
 test('missing host profile or resource declaration requires approval; disabled roles preserve legacy behavior', async t => {
   const { context } = await fixture(t);
   for (const options of [{ roleResources: roles(), resolveRoleResources: fileResources }, { roleResources: roles() }]) {

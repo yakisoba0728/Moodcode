@@ -47,6 +47,20 @@ test('unknown resources, unmatched role/tool/effect and explicit ask cannot beco
   assert.equal((await policy([rule('allow', 'allow'), rule('ask', 'ask')]).evaluate(input)).reason, 'role_approval_required');
 });
 
+test('deny-all and ask-all selectors cover unknown resources; allow-all does not', async t => {
+  const { input } = await fixture(t); const unknown = { ...input, resources: [{ kind: 'unknown' as const, label: 'Host resource identity unavailable' }] };
+  const all = (decision: 'allow' | 'ask' | 'deny') => policy([{ id: `${decision}-all`, roleId: 'editor', resource: { kind: 'all' }, decision }]);
+  const command = { ...unknown, toolName: 'run_command', effect: 'execute' as const, requiresApproval: true };
+  for (const request of [unknown, command, { ...command, baseDecision: { decision: 'ask' as const, version: 1, reason: 'execute effect' } }]) {
+    const denied = await all('deny').evaluate(request);
+    assert.equal(denied.decision, 'deny'); assert.equal(denied.reason, 'role_denied'); assert.deepEqual(denied.matchedRules, [{ id: 'deny-all', resourceIndex: 0, decision: 'deny' }]);
+  }
+  const asked = await all('ask').evaluate(unknown);
+  assert.equal(asked.decision, 'ask'); assert.equal(asked.reason, 'role_approval_required'); assert.deepEqual(asked.matchedRules, [{ id: 'ask-all', resourceIndex: 0, decision: 'ask' }]);
+  const commandAsk = await all('ask').evaluate(command); assert.equal(commandAsk.decision, 'ask'); assert.equal(commandAsk.reason, 'prepared_approval_required'); assert.equal(commandAsk.matchedRules.length, 1);
+  const allowed = await all('allow').evaluate(unknown); assert.equal(allowed.decision, 'ask'); assert.equal(allowed.reason, 'unknown_resource'); assert.deepEqual(allowed.matchedRules, []);
+});
+
 test('MCP authority is exact server, connection, catalogue revision and URI', async t => {
   const { input } = await fixture(t); const mcp = { kind: 'mcp' as const, serverId: 'server', connectionId: 'connection', catalogueRevision: 3, uri: 'custom://record?id=one' };
   const roles = policy([{ id: 'read-mcp', roleId: 'editor', resource: mcp, decision: 'allow' }]); const exact = { ...input, resources: [mcp] };
