@@ -15,12 +15,13 @@ import type {
   JobDeliveryTargetProof,
 } from "./delivery.js";
 import { formatJobResult } from "./delivery.js";
-import type {
-  JobOwnerProof,
-  TerminalJobSourceProof,
-  TerminalClosedOutcomeProof,
-  JobOutputPage,
-  JobOutputCursor,
+import {
+  JOB_LIMITS,
+  type JobOwnerProof,
+  type TerminalJobSourceProof,
+  type TerminalClosedOutcomeProof,
+  type JobOutputPage,
+  type JobOutputCursor,
 } from "./types.js";
 import {
   jobJson,
@@ -55,6 +56,24 @@ export const JOB_STORAGE_LIMITS = Object.freeze({
   rowBytes: 65536,
   inputBytes: 262144,
 });
+/** Operations that may use the headroom ordinary writes leave for every job and delivery head. */
+const RESERVED_OPERATIONS = new Set([
+  "settle",
+  "cancel-watch",
+  "recover",
+  "pause-import",
+  "delivery-cancel",
+  "delivery-uncertain",
+]);
+/** Bounds one rewrite's record growth (outcome proof, error code) plus its receipt. */
+const REWRITE_SLACK_BYTES = 2 * JOB_LIMITS.metadataBytes;
+/** An attached, prepared or dispatching head can still be retired once and then paused by import. */
+function pendingRewrites(state: unknown): number {
+  if (state === "paused-import") return 0;
+  return ["attached", "prepared", "dispatching"].includes(String(state))
+    ? 2
+    : 1;
+}
 export interface JobStoragePorts {
   writeTx<T>(operation: () => T): T;
   getWorkspace(workspaceId: string): Workspace;
@@ -907,7 +926,7 @@ export class JobStorage {
     if (limit < 1) fail("INVALID_JOB_INPUT");
     const hs = this.db
       .prepare(
-        "SELECT id FROM job_revisions WHERE workspace_id=? AND kind='output' AND job_id=? ORDER BY created_at,id LIMIT ? OFFSET ?",
+        "SELECT id FROM job_revisions WHERE workspace_id=? AND kind='output' AND job_id=? ORDER BY json_extract(data,'$.page.nextCursor.eventSeq'),json_extract(data,'$.page.nextCursor.byteOffset'),id LIMIT ? OFFSET ?",
       )
       .all(id(ws), jobId, limit, afterRevision);
     return hs.map((h) =>
@@ -1069,11 +1088,16 @@ export class JobStorage {
       requestInput: x as unknown as JsonObject,
       createdAt: at,
     });
+    const reserve = RESERVED_OPERATIONS.has(op)
+      ? { rows: 0, bytes: 0 }
+      : this.reserve(r);
     if (
+      Number(total.n) + 2 + reserve.rows > JOB_STORAGE_LIMITS.rows ||
       Number(total.bytes) +
         Buffer.byteLength(JSON.stringify(r)) +
-        Buffer.byteLength(JSON.stringify(receipt)) >
-      JOB_STORAGE_LIMITS.bytes
+        Buffer.byteLength(JSON.stringify(receipt)) +
+        reserve.bytes >
+        JOB_STORAGE_LIMITS.bytes
     )
       fail("JOB_LIMIT");
     const insert = this.db.prepare(
@@ -1135,6 +1159,27 @@ export class JobStorage {
         )
         .run(x.workspaceId, kind, eid, rid, r.revision, r.sha256);
     return json({ record: r, receipt, duplicate: false });
+  }
+  /** Rows and bytes every job and delivery head still needs once `after` is its entity's head. */
+  private reserve(after: JobRecord): { rows: number; bytes: number } {
+    const heads = this.db
+      .prepare(
+        "SELECT json_extract(r.data,'$.state') state,length(CAST(r.data AS BLOB)) bytes FROM job_heads h JOIN job_revisions r ON r.id=h.revision_id WHERE h.kind IN ('job','delivery') AND NOT (h.workspace_id=? AND h.kind=? AND h.entity_id=?)",
+      )
+      .all(after.workspaceId, after.kind, after.entityId);
+    if (after.kind !== "output")
+      heads.push({
+        state: after.state,
+        bytes: Buffer.byteLength(JSON.stringify(after)),
+      });
+    let rows = 0,
+      bytes = 0;
+    for (const h of heads) {
+      const n = pendingRewrites(h.state);
+      rows += 2 * n;
+      bytes += n * (Number(h.bytes) + REWRITE_SLACK_BYTES);
+    }
+    return { rows, bytes };
   }
   private mustJob(ws: string, jid: string): CommandJob {
     const r = this.getJob(ws, jid);
@@ -1225,14 +1270,19 @@ export class JobStorage {
       );
       if (dup) return dup;
       const before = this.mustJob(x.workspaceId, x.jobId);
-      if (before.revision !== x.expectedRevision || before.state !== "attached")
+      if (
+        before.revision !== x.expectedRevision ||
+        before.state !== "attached" ||
+        this.head(x.workspaceId, "output", x.outputId)
+      )
         fail("JOB_REVISION_CONFLICT");
       const p = validateJobOutputPage(this.ports.readOutput(original));
       this.original(original, before.source, "observe");
       if (
         p.jobId !== before.jobId ||
         p.jobRevisionId !== before.sourceRevisionId ||
-        p.sourceSha256 !== before.sourceSha256
+        p.sourceSha256 !== before.sourceSha256 ||
+        (!p.gap && !p.fragments.length)
       )
         fail("JOB_OUTPUT_STALE");
       assertOutputProgress(before.cursor, p);

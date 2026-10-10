@@ -33,7 +33,7 @@ export function captureCommandReadSource(
       !job ||
       job.sourceSha256 !== proof.sha256 ||
       job.workspaceId !== workspaceId ||
-      ["uncertain", "paused-import", "detached"].includes(job.state)
+      ["uncertain", "paused-import"].includes(job.state)
     )
       fail();
     const current = () => {
@@ -43,7 +43,7 @@ export function captureCommandReadSource(
         !j ||
         !same(p, proof) ||
         j.sourceSha256 !== proof.sha256 ||
-        ["uncertain", "paused-import", "detached"].includes(j.state)
+        ["uncertain", "paused-import"].includes(j.state)
       )
         fail();
       return j;

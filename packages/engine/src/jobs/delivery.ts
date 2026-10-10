@@ -107,10 +107,6 @@ export interface JobDeliveryNativePort {
     jobId: string,
     revisionId?: string,
   ): CommandJob | undefined;
-  getDelivery(
-    workspaceId: string,
-    deliveryId: string,
-  ): NativeJobDelivery | undefined;
   prepareJobDelivery(
     originalTarget: object,
     input: PrepareJobDeliveryInput,

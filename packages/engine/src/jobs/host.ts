@@ -6,13 +6,11 @@ import type {
   ReadJobOutputInput,
   TerminalClosedOutcomeProof,
   TerminalJobSourceProof,
-  TerminalObservationProof,
 } from "./types.js";
 import type {
   AttachTerminalJobInput,
   CancelCommandJobWatchInput,
   CommandJob,
-  JobOutputRevision,
   JobRequestResult,
   RecordJobOutputInput,
   SettleTerminalJobInput,
@@ -40,7 +38,6 @@ export interface ActualTerminalJobPort {
   ): void;
   captureOutput(originalSource: object, input: ReadJobOutputInput): object;
   readOutput(originalPage: object): JobOutputPage;
-  readObservation(originalPage: object): TerminalObservationProof;
   captureClosedOutcome(originalSource: object): object;
   readClosedOutcome(originalOutcome: object): TerminalClosedOutcomeProof;
   release(original: object): void;
@@ -54,20 +51,12 @@ export interface JobHostNativePort {
   recordJobOutput(
     original: object,
     input: RecordJobOutputInput,
-  ): JobRequestResult<CommandJob> & { readonly output?: JobOutputRevision };
+  ): JobRequestResult<CommandJob>;
   settleTerminalJob(
     original: object,
     input: SettleTerminalJobInput,
   ): JobRequestResult<CommandJob>;
   cancelWatch(input: CancelCommandJobWatchInput): JobRequestResult<CommandJob>;
-  getJob(workspaceId: string, jobId: string): CommandJob | undefined;
-  inspectJobs(workspaceId: string): readonly CommandJob[];
-  readOutputs(
-    workspaceId: string,
-    jobId: string,
-    afterRevision?: number,
-    limit?: number,
-  ): readonly JobOutputRevision[];
 }
 
 /** Watches retain observation sources. Closing a watch never controls its user PTY. */
@@ -195,7 +184,7 @@ export class JobHost {
   recordJobOutput(
     original: object,
     input: RecordJobOutputInput,
-  ): JobRequestResult<CommandJob> & { readonly output?: JobOutputRevision } {
+  ): JobRequestResult<CommandJob> {
     this.open();
     this.readOutput(original);
     return structuredClone(this.ports.native.recordJobOutput(original, input));
@@ -220,24 +209,6 @@ export class JobHost {
   ): JobRequestResult<CommandJob> {
     this.open();
     return structuredClone(this.ports.native.cancelWatch(input));
-  }
-  getCommandJob(workspaceId: string, jobId: string): CommandJob | undefined {
-    jobIdentifier(workspaceId);
-    jobIdentifier(jobId);
-    const job = this.ports.native.getJob(workspaceId, jobId);
-    return job && structuredClone(job);
-  }
-  inspectCommandJobs(workspaceId: string): readonly CommandJob[] {
-    jobIdentifier(workspaceId);
-    return structuredClone(this.ports.native.inspectJobs(workspaceId));
-  }
-  readCommandJobOutputs(
-    workspaceId: string,
-    jobId: string,
-  ): readonly JobOutputRevision[] {
-    jobIdentifier(workspaceId);
-    jobIdentifier(jobId);
-    return structuredClone(this.ports.native.readOutputs(workspaceId, jobId));
   }
   release(original: object): void {
     if (!this.handles.delete(original)) return;

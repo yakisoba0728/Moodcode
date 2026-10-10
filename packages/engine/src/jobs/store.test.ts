@@ -16,6 +16,7 @@ import type {
   JobOwnerProof,
   TerminalJobSourceProof,
   TerminalClosedOutcomeProof,
+  JobOutputCursor,
   JobOutputPage,
   JobOutputSnapshot,
 } from "./types.js";
@@ -148,20 +149,39 @@ function fixture(t: test.TestContext) {
         requestId,
         expectedRevision: 0,
       });
-  function page(jobId: string, jobRevisionId: string) {
-    const snapshot = signJobData(
-      {
-        version: 1 as const,
-        source,
-        throughSeq: 1,
-        oldestSeq: 1,
-        observedBytes: 6,
-        retainedBytes: 6,
-        output: [{ seq: 1, data: "한글", bytes: 6 }],
-      },
-      4194304,
-    ) as JobOutputSnapshot;
-    const p = readJobOutput(snapshot, { jobId, jobRevisionId });
+  const snapshots = new Map<number, JobOutputSnapshot>();
+  function page(
+    jobId: string,
+    jobRevisionId: string,
+    events = 1,
+    cursor?: JobOutputCursor | null,
+  ) {
+    let snapshot = snapshots.get(events);
+    if (!snapshot) {
+      snapshot = signJobData(
+        {
+          version: 1 as const,
+          source,
+          throughSeq: events,
+          oldestSeq: 1,
+          observedBytes: 6 * events,
+          retainedBytes: 6 * events,
+          output: Array.from({ length: events }, (_, i) => ({
+            seq: i + 1,
+            data: "한글",
+            bytes: 6,
+          })),
+        },
+        4194304,
+      ) as JobOutputSnapshot;
+      snapshots.set(events, snapshot);
+    }
+    const p = readJobOutput(snapshot, {
+      jobId,
+      jobRevisionId,
+      maxFragments: 1,
+      ...(cursor ? { cursor } : {}),
+    });
     const handle = {};
     originals.set(handle, { source, owner, page: p });
     emit("terminal.output_observed", {
@@ -471,4 +491,84 @@ test("watchers enforce session and global historical caps and missing heads cann
       code("JOB_DATABASE_INVALID"),
     );
   });
+});
+
+test("outputs read in recording order; empty pages and reused output ids write nothing", (t) => {
+  const f = fixture(t),
+    events = 6;
+  let job = f.attach().record;
+  const record = (outputId: string, requestId = outputId) =>
+    f.native.recordJobOutput(
+      f.page("job", job.sourceRevisionId, events, job.cursor),
+      {
+        workspaceId: "workspace",
+        jobId: "job",
+        outputId,
+        requestId,
+        expectedRevision: job.revision,
+      },
+    ).record;
+  for (let i = 0; i < events - 1; i++) job = record(`output-${i}`);
+  assert.throws(
+    () => record("output-0", "reused"),
+    code("JOB_REVISION_CONFLICT"),
+  );
+  job = record(`output-${events - 1}`);
+  assert.deepEqual(
+    f.native.readOutputs("workspace", "job").map((o) => o.outputId),
+    Array.from({ length: events }, (_, i) => `output-${i}`),
+  );
+  const rows = f.db.prepare("SELECT count(*) n FROM job_revisions").get()!.n;
+  assert.throws(() => record("empty"), code("JOB_OUTPUT_STALE"));
+  assert.equal(
+    f.db.prepare("SELECT count(*) n FROM job_revisions").get()!.n,
+    rows,
+  );
+  assert.equal(f.native.getJob("workspace", "job")!.revision, job.revision);
+  validateJobDatabase(f.db);
+});
+
+test("ordinary job writes leave settle and cancel room for every attached watch", (t) => {
+  const f = fixture(t);
+  const a = f.attach("a", "attach-a").record;
+  f.attach("b", "attach-b");
+  f.db
+    .prepare(
+      "WITH RECURSIVE k(i) AS (SELECT 1 UNION ALL SELECT i+1 FROM k WHERE i<8184) INSERT INTO job_revisions(id,workspace_id,kind,entity_id,job_id,created_at,revision,session_id,terminal_id,source_sha256,owner_epoch,request_scope,request_id,request_sha256,sha256,data) SELECT 'pad-'||i,'workspace','transition','pad-'||i,'pad','2026-10-08T00:00:00.000Z',1,'session','terminal','pad','pad','pad','pad-'||i,'pad','pad','{}' FROM k",
+    )
+    .run();
+  const rows = () =>
+    Number(f.db.prepare("SELECT count(*) n FROM job_revisions").get()!.n);
+  assert.equal(rows(), 8188);
+  assert.throws(
+    () =>
+      f.native.recordJobOutput(f.page("a", a.sourceRevisionId), {
+        workspaceId: "workspace",
+        jobId: "a",
+        outputId: "output",
+        requestId: "output",
+        expectedRevision: 1,
+      }),
+    code("JOB_LIMIT"),
+  );
+  assert.throws(() => f.attach("c", "attach-c"), code("JOB_LIMIT"));
+  assert.equal(rows(), 8188);
+  assert.equal(
+    f.native.settleTerminalJob(f.closed(), {
+      workspaceId: "workspace",
+      jobId: "a",
+      requestId: "settle",
+      expectedRevision: 1,
+    }).record.state,
+    "completed",
+  );
+  f.native.cancelWatch({
+    workspaceId: "workspace",
+    jobId: "b",
+    requestId: "cancel",
+    expectedRevision: 1,
+  });
+  assert.equal(rows(), 8192);
+  f.db.prepare("DELETE FROM job_revisions WHERE id GLOB 'pad-*'").run();
+  validateJobDatabase(f.db);
 });

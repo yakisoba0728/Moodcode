@@ -29,6 +29,7 @@ import { readJobOutput } from "./output.js";
 import { jobJson, signJobData, validateJobOutputCursor } from "./validation.js";
 import type {
   JobOutputPage,
+  JobOutputSnapshot,
   JobOwnerProof,
   ReadJobOutputInput,
   TerminalClosedOutcomeProof,
@@ -42,11 +43,12 @@ interface Source {
   readonly binding: KnowledgeHostBinding;
   readonly journal: string;
   readonly snapshots: Map<string, object>;
+  readonly modelSnapshots: Set<object>;
+  readonly pages: Set<Page>;
 }
 interface Page {
   readonly source: Source;
   readonly page: JobOutputPage;
-  readonly snapshot: object;
 }
 interface Closed {
   readonly source: Source;
@@ -209,6 +211,8 @@ export class EngineJobProducer {
         binding,
         journal,
         snapshots: new Map(),
+        modelSnapshots: new Set(),
+        pages: new Set(),
       });
     } catch (error) {
       this.engine.terminals.releaseReadHandle(terminal);
@@ -256,15 +260,64 @@ export class EngineJobProducer {
   }
   /** No native source event or cursor mutation: an actual retained terminal snapshot for readonly model DATA. */
   captureModelSnapshot(original: object, jobId: string): object {
-    this.enabled(); const source=this.original(this.sources,original);this.assertSource(source);
-    const job=this.native().getJob(source.proof.workspaceId,jobId);
-    if(!job||job.sourceSha256!==source.proof.sha256||job.owner.sha256!==source.owner.sha256||['uncertain','paused-import','detached'].includes(job.state))fail('JOB_OUTPUT_STALE');
-    const snapshot=this.engine.terminals.captureReadSnapshot(source.terminal);
-    const data=this.engine.terminals.readReadSnapshot(snapshot);source.snapshots.set('model:'+randomUUID(),snapshot);return snapshot;
+    this.enabled();
+    const source = this.original(this.sources, original);
+    this.assertSource(source);
+    const job = this.native().getJob(source.proof.workspaceId, jobId);
+    if (
+      !job ||
+      job.sourceSha256 !== source.proof.sha256 ||
+      job.owner.sha256 !== source.owner.sha256 ||
+      ["uncertain", "paused-import"].includes(job.state)
+    )
+      fail("JOB_OUTPUT_STALE");
+    const snapshot = this.engine.terminals.captureReadSnapshot(source.terminal);
+    this.engine.terminals.readReadSnapshot(snapshot);
+    source.modelSnapshots.add(snapshot);
+    return snapshot;
   }
-  readModelSnapshot(originalSource:object,originalSnapshot:object){this.enabled();const source=this.original(this.sources,originalSource);this.assertSource(source);const data=this.engine.terminals.readReadSnapshot(originalSnapshot);if(data.source.sha256!==source.proof.sha256||![...source.snapshots.values()].includes(originalSnapshot))fail('JOB_OUTPUT_STALE');return structuredClone(data);}
-  releaseModelSnapshot(originalSource:object,originalSnapshot:object){const source=this.sources.get(originalSource);if(!source)return;for(const[key,value]of source.snapshots)if(value===originalSnapshot){source.snapshots.delete(key);this.engine.terminals.releaseReadHandle(originalSnapshot);}}
-
+  readModelSnapshot(
+    originalSource: object,
+    originalSnapshot: object,
+  ): JobOutputSnapshot {
+    this.enabled();
+    const source = this.original(this.sources, originalSource);
+    this.assertSource(source);
+    const data = this.engine.terminals.readReadSnapshot(originalSnapshot);
+    if (
+      data.source.sha256 !== source.proof.sha256 ||
+      !source.modelSnapshots.has(originalSnapshot)
+    )
+      fail("JOB_OUTPUT_STALE");
+    return structuredClone(data);
+  }
+  releaseModelSnapshot(originalSource: object, originalSnapshot: object): void {
+    if (
+      this.sources.get(originalSource)?.modelSnapshots.delete(originalSnapshot)
+    )
+      this.engine.terminals.releaseReadHandle(originalSnapshot);
+  }
+  /** Releases output snapshots no live page or attached job's unfinished cursor still names. */
+  private prune(source: Source): void {
+    const used = new Set(
+      [...source.pages].map((entry) => entry.page.snapshotSha256),
+    );
+    const idle = [...source.snapshots.keys()].filter((sha) => !used.has(sha));
+    if (!idle.length) return;
+    for (const job of this.native().inspectJobs(source.proof.workspaceId))
+      if (
+        job.state === "attached" &&
+        job.sourceSha256 === source.proof.sha256 &&
+        job.cursor &&
+        job.cursor.eventSeq <= job.cursor.throughSeq
+      )
+        used.add(job.cursor.snapshotSha256);
+    for (const sha of idle)
+      if (!used.has(sha)) {
+        this.engine.terminals.releaseReadHandle(source.snapshots.get(sha)!);
+        source.snapshots.delete(sha);
+      }
+  }
   captureOutput(original: object, input: ReadJobOutputInput): object {
     this.enabled();
     const source = this.original(this.sources, original);
@@ -275,7 +328,7 @@ export class EngineJobProducer {
       job.sourceSha256 !== source.proof.sha256 ||
       job.owner.sha256 !== source.owner.sha256 ||
       job.sourceRevisionId !== input.jobRevisionId ||
-      !["attached", "observing"].includes(job.state)
+      job.state !== "attached"
     )
       fail("JOB_OUTPUT_STALE");
     let snapshot: object,
@@ -287,6 +340,7 @@ export class EngineJobProducer {
       if (!retained) fail("JOB_OUTPUT_SNAPSHOT_EXPIRED");
       snapshot = retained;
     } else {
+      this.prune(source);
       snapshot = this.engine.terminals.captureReadSnapshot(source.terminal);
       const data = this.engine.terminals.readReadSnapshot(snapshot);
       const previous = source.snapshots.get(data.sha256);
@@ -306,11 +360,16 @@ export class EngineJobProducer {
           byteOffset: job.cursor.byteOffset,
         });
     }
-    const page = readJobOutput(
-      this.engine.terminals.readReadSnapshot(snapshot),
-      { ...input, ...(cursor ? { cursor } : {}) },
-    );
-    return this.issue(this.pages, { source, page, snapshot });
+    const entry = {
+      source,
+      page: readJobOutput(this.engine.terminals.readReadSnapshot(snapshot), {
+        ...input,
+        ...(cursor ? { cursor } : {}),
+      }),
+    };
+    const handle = this.issue(this.pages, entry);
+    source.pages.add(entry);
+    return handle;
   }
   readOutput(original: object): JobOutputPage {
     const entry = this.original(this.pages, original);
@@ -331,11 +390,6 @@ export class EngineJobProducer {
       this.pageEvents.add(original);
     }
     return structuredClone(entry.page);
-  }
-  readObservation(original: object) {
-    const entry = this.original(this.pages, original);
-    this.assertSource(entry.source);
-    return this.engine.terminals.readReadObservation(entry.snapshot);
   }
   captureClosedOutcome(original: object): object {
     this.enabled();
@@ -612,7 +666,6 @@ export class EngineJobProducer {
         this.assertSourceCurrent(original, expected, phase),
       captureOutput: (original, input) => this.captureOutput(original, input),
       readOutput: (original) => this.readOutput(original),
-      readObservation: (original) => this.readObservation(original),
       captureClosedOutcome: (original) => this.captureClosedOutcome(original),
       readClosedOutcome: (original) => this.readClosedOutcome(original),
       release: (original) => this.release(original),
@@ -632,11 +685,16 @@ export class EngineJobProducer {
   }
   release(original: object): void {
     const source = this.sources.get(original),
+      page = this.pages.get(original),
       closed = this.outcomes.get(original);
     if (source) {
-      for (const snapshot of source.snapshots.values())
+      for (const snapshot of [
+        ...source.snapshots.values(),
+        ...source.modelSnapshots,
+      ])
         this.engine.terminals.releaseReadHandle(snapshot);
       source.snapshots.clear();
+      source.modelSnapshots.clear();
       this.engine.terminals.releaseReadHandle(source.terminal);
     }
     if (closed) this.engine.terminals.releaseReadHandle(closed.terminal);
@@ -647,6 +705,8 @@ export class EngineJobProducer {
     this.inputs.delete(original);
     this.accepted.delete(original);
     this.retained.delete(original);
+    if (page?.source.pages.delete(page) && !this.closed && !this.isClosing())
+      this.prune(page.source);
   }
   close(): void {
     for (const original of this.retained) this.release(original);

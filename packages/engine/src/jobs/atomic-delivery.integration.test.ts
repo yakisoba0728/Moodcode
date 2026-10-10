@@ -272,7 +272,6 @@ test(
       input: production.ports.input,
       native: {
         getJob: (...args) => native.getJob(...args),
-        getDelivery: (...args) => native.getDelivery(...args),
         prepareJobDelivery: (...args) => native.prepareJobDelivery(...args),
         dispatchJobDelivery: (...args) => native.dispatchJobDelivery(...args),
         completeJobDelivery: (...args) => native.completeJobDelivery(...args),

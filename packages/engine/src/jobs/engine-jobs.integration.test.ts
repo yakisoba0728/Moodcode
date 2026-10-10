@@ -288,6 +288,48 @@ test(
 );
 
 test(
+  "end-of-snapshot captures release consumed snapshots but keep another watch's unfinished snapshot",
+  posix,
+  async (t) => {
+    const f = await jobFixture(t),
+      watched = f.attach(),
+      source = watched.original;
+    let job = watched.result.record,
+      other = f.attach(source).result.record;
+    const partial = jobInvoke<object>(f.engine, "captureJobOutput", source, {
+      jobId: other.jobId,
+      jobRevisionId: other.sourceRevisionId,
+      maxBytes: 4,
+    });
+    other = record(f, partial, other).record;
+    jobInvoke(f.engine, "releaseCommandJobHandle", partial);
+    assert.ok(other.cursor!.eventSeq <= other.cursor!.throughSeq);
+    for (let i = 0; i < 70; i++) {
+      const line = `cycle-${String(i).padStart(2, "0")}`;
+      await f.write(line);
+      await jobUntil(
+        () => f.text().includes(`JOB_ECHO:${line}`),
+        "The cycle output did not arrive",
+      );
+      let current = page(f, source, job);
+      for (;;) {
+        job = record(f, current.original, job).record;
+        jobInvoke(f.engine, "releaseCommandJobHandle", current.original);
+        if (!current.data.hasMore) break;
+        current = page(f, source, job, current.data.nextCursor);
+      }
+    }
+    assert.equal(job.cursor!.eventSeq, job.cursor!.throughSeq + 1);
+    const resumed = page(f, source, other);
+    assert.equal(resumed.data.snapshotSha256, other.cursor!.snapshotSha256);
+    assert.equal(
+      record(f, resumed.original, other).record.revision,
+      other.revision + 1,
+    );
+  },
+);
+
+test(
   "explicit completed job result delivery queues one exact native input and cached result copies cannot alter its receipt",
   posix,
   async (t) => {
