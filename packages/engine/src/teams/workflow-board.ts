@@ -3,7 +3,7 @@ import { randomUUID, createHash } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { ToolContext } from "../ports.js";
-import type { TeamMemberRevision } from "./types.js";
+import type { TeamMemberRevision, TeamTaskRevision } from "./types.js";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
@@ -189,6 +189,17 @@ export class TeamWorkflowBoard {
       input: import("./service.js").TeamTaskMutationInput,
     ) => unknown,
   ) {}
+  /** Board documents live in the claimant's root session, whoever acts on them. */
+  private boardSession(member: TeamMemberRevision, task: TeamTaskRevision) {
+    const claimant =
+      task.owner &&
+      this.engine.getTeamMember(
+        member.workspaceId,
+        member.teamId,
+        task.owner.memberId,
+      );
+    return (claimant || member).owner.rootSessionId;
+  }
   private current(member: TeamMemberRevision, taskId: string) {
     const task = this.engine.getTeamTask(
       member.workspaceId,
@@ -200,8 +211,9 @@ export class TeamWorkflowBoard {
         "TEAM_MODEL_TASK_STALE",
         "Board task is unavailable",
       );
+    const sessionId = this.boardSession(member, task);
     const doc = this.engine.store.getSessionDocument(
-      member.owner.rootSessionId,
+      sessionId,
       teamBoardKind(member.teamId, taskId),
     );
     const record = doc ? validateTeamBoardRecord(doc.data) : undefined;
@@ -210,7 +222,7 @@ export class TeamWorkflowBoard {
         "TEAM_WORKFLOW_PAUSED",
         "Imported submissions are historical",
       );
-    return { task, doc, record };
+    return { task, sessionId, record };
   }
   read(member: TeamMemberRevision, input: TeamModelInput = {}): JsonObject {
     const i = input as { afterTaskId?: string; limit?: number };
@@ -226,7 +238,7 @@ export class TeamWorkflowBoard {
       nextTaskId: page.nextTaskId,
       tasks: page.tasks.map((task) => {
         const doc = this.engine.store.getSessionDocument(
-          member.owner.rootSessionId,
+          this.boardSession(member, task),
           teamBoardKind(member.teamId, task.taskId),
         );
         const record = doc ? validateTeamBoardRecord(doc.data) : undefined;
@@ -354,7 +366,7 @@ export class TeamWorkflowBoard {
       verdict?: "accept" | "request_changes";
     };
     this.prepare(member, operation, input);
-    const { task, record } = this.current(member, data.taskId);
+    const { task, sessionId, record } = this.current(member, data.taskId);
     const requestSha256 = knowledgeHash({
       operation,
       data,
@@ -433,7 +445,7 @@ export class TeamWorkflowBoard {
       taskId: task.taskId,
       taskRevisionId: task.id,
       taskSha256: task.sha256,
-      rootSessionId: member.owner.rootSessionId,
+      rootSessionId: sessionId,
       revision: (record?.revision ?? 0) + 1,
       state:
         operation === "submit_team_task"
@@ -446,7 +458,7 @@ export class TeamWorkflowBoard {
       sha256: knowledgeHash(body),
     });
     this.engine.store.commitTeamWorkflow(
-      member.owner.rootSessionId,
+      sessionId,
       teamBoardKind(member.teamId, task.taskId),
       record?.revision ?? 0,
       next as unknown as JsonObject,

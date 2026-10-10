@@ -269,7 +269,8 @@ export function validateResidentTeamDatabase(
           if (
             m.memberId !== actor!.memberId ||
             m.owner.sha256 !== actor!.ownerSha256 ||
-            m.owner.sessionId !== actor!.native.sessionId
+            m.owner.sessionId !== actor!.native.sessionId ||
+            (actor === x && m.owner.rootSessionId !== r.rootSessionId)
           )
             fail();
           if (m.owner.kind === "root") {
@@ -305,11 +306,7 @@ export function validateResidentChildHistory(
   const record = validateResidentRecord(JSON.parse(String(doc.data)));
   if (record.storageSha256 !== source.sha256) fail();
   for (const h of rows(primary)) {
-    if (
-      !String(h.kind).startsWith(TEAM_WORKFLOW_PREFIX) ||
-      h.session_id !== record.rootSessionId
-    )
-      continue;
+    if (!String(h.kind).startsWith(TEAM_WORKFLOW_PREFIX)) continue;
     const row = primary
       .prepare(
         "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
