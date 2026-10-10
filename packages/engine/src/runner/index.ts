@@ -628,6 +628,11 @@ export class RunCoordinator implements CoordinatorPort {
         'The original catalogue does not contain this effect',
       );
     this.originalProviderRequest(request, 'dispatch');
+    if (this.remainingChildBudget(owner).toolCalls < 1)
+      throw new EngineError(
+        'TOOL_CALL_LIMIT',
+        'The original Run tool budget is exhausted',
+      );
     owner.budget.reserveToolCalls(1);
     const toolCallId = randomUUID(),
       call: ProviderToolCall = { id: input.callId, name, input: toolInput },
@@ -674,11 +679,16 @@ export class RunCoordinator implements CoordinatorPort {
       signal: effectSignal,
       dispatched: actualStart,
       gate: async () => {
-        await abortable(
-          () => gate,
-          effectSignal,
-          'Exact client effect dispatch',
-        );
+        await new Promise<void>((resolve, reject) => {
+          const cancel = () => reject(effectSignal.reason);
+          if (effectSignal.aborted) return cancel();
+          effectSignal.addEventListener('abort', cancel, { once: true });
+          void gate.then(() => {
+            effectSignal.removeEventListener('abort', cancel);
+            resolve();
+          });
+        });
+        checkAbort(effectSignal);
         this.originalProviderRequest(request, 'dispatch');
       },
       approved: (approval) => {
@@ -695,7 +705,7 @@ export class RunCoordinator implements CoordinatorPort {
           approvalId: approval?.id ?? null,
           allowed: true,
         };
-        permission = immutableKnowledgeJson({
+        const granted: BackendClientPermissionProof = immutableKnowledgeJson({
           ...body,
           sha256: knowledgeHash(body),
         });
@@ -707,9 +717,10 @@ export class RunCoordinator implements CoordinatorPort {
         this.options.store.commitRunObservation(
           owner.run.id,
           'backend.client_permission',
-          { permission: permission as unknown as JsonValue },
+          { permission: granted as unknown as JsonValue },
           { turnId: proof.turnId, attemptId: proof.attemptId },
         );
+        permission = granted;
         ready();
       },
     };
@@ -748,16 +759,17 @@ export class RunCoordinator implements CoordinatorPort {
           approvalId: null,
           allowed: false,
         };
-        permission = immutableKnowledgeJson({
+        const denied: BackendClientPermissionProof = immutableKnowledgeJson({
           ...body,
           sha256: knowledgeHash(body),
         });
         this.options.store.commitRunObservation?.(
           owner.run.id,
           'backend.client_permission',
-          { permission: permission as unknown as JsonValue },
+          { permission: denied as unknown as JsonValue },
           { turnId: proof.turnId, attemptId: proof.attemptId },
         );
+        permission = denied;
         ready();
       }
       let result: JsonValue | null = null;
@@ -862,11 +874,9 @@ export class RunCoordinator implements CoordinatorPort {
       this.clientReadCompletions.set(original, completion);
       this.retainedClientReads.add(original);
       return original;
-    })();
-    // A denied preparation settles immediately. Rejection remains observable to waitEffect.
-    void done.catch(() => {
-      ready();
-    });
+    })().finally(ready);
+    // Rejection remains observable to waitEffect.
+    void done.catch(() => {});
     await admitted;
     if (!permission) {
       await done;
@@ -1989,7 +1999,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       this.options.beforeProviderDispatch?.(owner.run);
       iterator = owner.turn!.stream(provider, request, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
-        const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream');
+        const item = await abortable(() => iterator!.next(), owner.abort.signal, 'Provider stream', PROVIDER_CLEANUP_GRACE_MS);
         this.assertLive(owner);
         if (item.done) break;
         const event = item.value;

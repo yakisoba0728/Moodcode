@@ -366,3 +366,19 @@ test("actual fixed peer source replacement after approval cannot dispatch a clie
   assert.equal(existsSync(join(f.root, "effect.txt")), false);
   assert.equal(f.engine.store.listCheckpoints(f.runId).length, 0);
 });
+test("approved effect abandoned before its wire request settles cancelled with confirmed cleanup", async (t) => {
+  const f = await approved(t, "permission-abandon");
+  await decide(f);
+  const run = await f.done;
+  assert.equal(run.error?.code, "BACKEND_EFFECT_UNSETTLED");
+  assert.equal(existsSync(join(f.root, "effect.txt")), false);
+  assert.equal(f.engine.store.listCheckpoints(f.runId).length, 0);
+  const e = f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!;
+  assert.equal(e.permission?.allowed, true);
+  assert.equal(e.state, "failed");
+  assert.equal(e.completion?.cleanupConfirmed, true);
+  assert.equal(e.completion?.errorCode, "BACKEND_CLIENT_EFFECT_FAILED");
+  const [tool] = f.engine.store.getSnapshot(f.session.id).tools;
+  assert.equal(tool?.state, "failed");
+  assert.match(tool?.error ?? "", /"code":"CANCELLED"/);
+});

@@ -43,6 +43,46 @@ test("native dispatch source anchor SQL failure after exact approval causes zero
   assert.equal(f.engine.store.listCheckpoints(f.runId).length, 0);
   db.exec("DROP TRIGGER effect_dispatch_fault");
 });
+test("native allowed permission journal SQL failure falls back to a journaled denial with zero physical effect", async (t) => {
+  const f = await approvedEffect(t, "permission-write");
+  const db = nativeDb(f);
+  db.exec(
+    `CREATE TEMP TRIGGER effect_permission_fault BEFORE INSERT ON session_events WHEN NEW.type='backend.client_permission' AND instr(NEW.data,'"allowed":true')>0 BEGIN SELECT RAISE(ABORT,'actual permission fault');END`,
+  );
+  await decideEffect(f);
+  const run = await f.done;
+  db.exec("DROP TRIGGER effect_permission_fault");
+  assert.equal(run.state, "completed", JSON.stringify(run.error));
+  assert.equal(existsSync(join(f.root, "effect.txt")), false);
+  assert.equal(f.engine.store.listCheckpoints(f.runId).length, 0);
+  const effect = f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!;
+  assert.equal(effect.permission?.allowed, false);
+  assert.ok(effect.completion);
+  assert.ok(effect.delivery);
+  const response = f.logs().find((v) => v.message?.id === "permission")?.message
+    ?.result as { outcome: { optionId?: string } } | undefined;
+  assert.equal(response?.outcome.optionId, "reject");
+});
+test("persistent native permission journal SQL failure settles preparation without granting the effect", async (t) => {
+  const f = await approvedEffect(t, "permission-write");
+  const db = nativeDb(f);
+  db.exec(
+    "CREATE TEMP TRIGGER effect_permission_fault BEFORE INSERT ON session_events WHEN NEW.type='backend.client_permission' BEGIN SELECT RAISE(ABORT,'actual permission fault');END",
+  );
+  await decideEffect(f);
+  const run = await f.done;
+  db.exec("DROP TRIGGER effect_permission_fault");
+  assert.notEqual(run.error?.code, "CLEANUP_UNCERTAIN");
+  assert.equal(existsSync(join(f.root, "effect.txt")), false);
+  assert.equal(f.engine.store.listCheckpoints(f.runId).length, 0);
+  const effect = f.engine.inspectAgentBackendEffects(f.workspace.id)[0]!;
+  assert.equal(effect.state, "uncertain");
+  assert.equal(effect.permission, null);
+  assert.equal(
+    f.logs().some((v) => v.message?.id === "permission"),
+    false,
+  );
+});
 test("actual physical write followed by persistent receipt SQL fault remains uncertain and is never replayed on reopen", async (t) => {
   const f = await approvedEffect(t, "direct-write");
   const db = nativeDb(f);

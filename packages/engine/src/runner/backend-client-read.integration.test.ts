@@ -95,6 +95,7 @@ async function fixture(
     content?: string;
     mode?: "plan" | "build";
     registry?: EngineOptions["lifecycleHookRegistry"];
+    tools?: ToolDefinition[];
   } = {},
 ): Promise<Fixture> {
   const base = realpathSync(
@@ -123,6 +124,7 @@ async function fixture(
             },
           },
   );
+  tools.push(...(options.tools ?? []));
   const provider: ProviderAdapter = {
     id: "actual-backend-native-read",
     async *streamTurn(request, signal): AsyncGenerator<ProviderEvent> {
@@ -659,6 +661,59 @@ test("client reads share the original tool budget and distinct IDs cannot alloca
   assert.equal(f.executions(), 1);
   assert.equal(f.originals.length, 1);
   assert.equal(f.snapshot().tools.length, 1);
+});
+
+test("client effects cannot spend tool calls reserved for child Runs", async (t) => {
+  let prepared = 0;
+  const patch: ToolDefinition = {
+    name: "apply_patch",
+    description: "Counted patch stub",
+    inputSchema: { type: "object" },
+    async prepare() {
+      prepared++;
+      throw new EngineError(
+        "TOOL_ERROR",
+        "The budget check must precede preparation",
+      );
+    },
+    async execute() {
+      throw new EngineError(
+        "TOOL_ERROR",
+        "The budget check must precede execution",
+      );
+    },
+  };
+  const f = await fixture(
+    t,
+    async (actual, request, signal) => {
+      const runner = actual.engine.coordinator;
+      runner.reserveChildRun(request.runId, {
+        turns: 1,
+        toolCalls: 2,
+        outputBytes: 0,
+        durationMs: 1000,
+      });
+      await assert.rejects(
+        runner.prepareProviderClientEffect(
+          request,
+          {
+            callId: "reserved-effect",
+            method: "fs/write_text_file",
+            path: join(actual.root, "effect.txt"),
+            content: "reserved for children\n",
+          },
+          signal,
+        ),
+        failure("TOOL_CALL_LIMIT"),
+      );
+      assert.equal(actual.snapshot().tools.length, 0);
+    },
+    { maxToolCalls: 2, mode: "build", tools: [patch] },
+  );
+  const receipt = await f.submit();
+  assert.equal((await f.finish(receipt)).state, "completed");
+  assert.equal(prepared, 0);
+  assert.equal(f.snapshot().tools.length, 0);
 });
 
 test("original client read rejects host lifecycle file and range rewrites before a native file executes", async (t) => {

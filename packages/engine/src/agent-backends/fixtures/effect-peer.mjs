@@ -110,7 +110,8 @@ lines.on("line", (text) => {
     send({ jsonrpc: "2.0", id: promptId, result: { stopReason: "cancelled" } });
   } else if (v.id === "permission") {
     if (v.result?.outcome?.optionId === "once") {
-      if (mode === "permission-mutate")
+      if (mode === "permission-abandon") finish();
+      else if (mode === "permission-mutate")
         request("write", "fs/write_text_file", {
           ...write,
           content: "Mutated content requires another approval.\n",

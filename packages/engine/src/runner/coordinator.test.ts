@@ -694,6 +694,24 @@ test('unconfirmed cleanup fails cancellation and rejects checkpoints after the t
   } finally { release.resolve(); await runner.close(); }
 });
 
+test('cancellation waits for the attempt to confirm a slow provider close', { timeout: 10_000 }, async () => {
+  const started = deferred<void>();
+  let returned = false;
+  const provider = new FakeProvider(() => ({ [Symbol.asyncIterator]: () => ({
+    next: () => { started.resolve(); return new Promise<IteratorResult<ProviderEvent>>(() => {}); },
+    async return() { await new Promise(resolve => setTimeout(resolve, 500)); returned = true; return { done: true as const, value: undefined }; },
+  }) }));
+  const { runner, input } = fixture(provider);
+  try {
+    const receipt = runner.submit(input());
+    await started.promise;
+    runner.cancel(receipt.runId);
+    const final = await runner.waitForRun(receipt.runId);
+    assert.equal(returned, true);
+    assert.equal(final.state, 'cancelled', JSON.stringify(final.error));
+  } finally { await runner.close(); }
+});
+
 test('a tool reporting cleanup uncertainty cannot become a successful cancellation', { timeout: 5_000 }, async (t) => {
   const outcomes: JsonObject[] = [{ cleanupConfirmed: false }, { cleanupUncertain: true }];
   for (const data of outcomes) {
