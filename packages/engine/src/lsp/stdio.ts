@@ -210,9 +210,18 @@ export class StdioLspConnection implements LspConnection {
     );
   }
   private receive(bytes: Buffer): void {
-    if (!Buffer.from(bytes.toString("utf8")).equals(bytes))
+    const text = bytes.toString("utf8");
+    if (!Buffer.from(text).equals(bytes))
       throw new EngineError("INVALID_LSP_MESSAGE", "LSP body must be UTF-8");
-    const value = boundedJson(JSON.parse(bytes.toString("utf8")), MAX);
+    let value = JSON.parse(text) as JsonValue;
+    // The frame byte cap is fatal; a parsed message over the JSON shape caps fails only itself.
+    let oversized = false;
+    try {
+      value = boundedJson(value, MAX);
+    } catch (error) {
+      if (!(error instanceof EngineError)) throw error;
+      oversized = true;
+    }
     if (
       !value ||
       typeof value !== "object" ||
@@ -239,6 +248,7 @@ export class StdioLspConnection implements LspConnection {
         }).catch(() => {});
         return;
       }
+      if (oversized) return;
       for (const listener of this.listeners) {
         try {
           listener(value.method, value.params ?? null);
@@ -260,7 +270,14 @@ export class StdioLspConnection implements LspConnection {
       );
     this.pending.delete(value.id as number);
     pending.clean();
-    if ("error" in value)
+    if (oversized)
+      pending.reject(
+        new EngineError(
+          "LSP_FRAME_LIMIT",
+          "LSP response exceeds its JSON shape limit",
+        ),
+      );
+    else if ("error" in value)
       pending.reject(
         new EngineError(
           "LSP_RPC_ERROR",

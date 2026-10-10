@@ -86,6 +86,7 @@ interface Entry {
   unsubscribe?: () => void;
   queue: Promise<void>;
   closed: boolean;
+  closedAt?: number;
   projectSourceSha256?: string;
 }
 function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -136,6 +137,7 @@ function endPosition(text: string): { line: number; character: number } {
 export class LspManager {
   private factories = new Map<string, LspFactory>();
   private entries = new Map<string, Entry>();
+  private retiring = new Set<Entry>();
   private closing = false;
   private navigationQueries = 0;
   private projectQueues = new Map<string, Promise<void>>();
@@ -176,13 +178,78 @@ export class LspManager {
         "LSP_TIMEOUT",
       );
     } catch (error) {
-      entry.closed = true;
-      entry.controller.abort();
-      await bounded(entry.connection!.close(), this.cleanupTimeout).catch(
-        () => {},
-      );
+      await this.retire(entry).catch(() => {});
       throw error;
     }
+  }
+  private async request(
+    entry: Entry,
+    method: string,
+    params: JsonValue,
+    signal: AbortSignal,
+  ): Promise<JsonValue> {
+    try {
+      return await bounded(
+        abortable(
+          entry.connection!.request(
+            method,
+            params,
+            signal,
+            this.requestTimeout,
+          ),
+          signal,
+        ),
+        this.requestTimeout,
+        "LSP_TIMEOUT",
+      );
+    } catch (error) {
+      // A closed connection fails every later request, so a later call restarts the server.
+      if (error instanceof EngineError && error.code === "LSP_DISCONNECTED")
+        await this.retire(entry).catch(() => {});
+      throw error;
+    }
+  }
+  /** Stops new work on an entry and closes its connection; drain first lets its startup settle and asks the server to exit. */
+  private async retire(
+    entry: Entry,
+    { drain = false }: { drain?: boolean } = {},
+  ): Promise<void> {
+    entry.closed = true;
+    entry.closedAt ??= Date.now();
+    entry.controller.abort();
+    entry.unsubscribe?.();
+    entry.documents.clear();
+    if (drain) {
+      await bounded(
+        entry.ready.catch(() => {}),
+        this.cleanupTimeout,
+      );
+      if (entry.factorySettled)
+        await bounded(
+          entry.factorySettled.catch(() => {}),
+          this.cleanupTimeout,
+        );
+      if (entry.connection) {
+        const deadline = Math.min(250, this.requestTimeout);
+        try {
+          await bounded(
+            entry.connection.request(
+              "shutdown",
+              null,
+              new AbortController().signal,
+              deadline,
+            ),
+            deadline,
+          );
+          await bounded(
+            entry.connection.notify("exit", null),
+            this.requestTimeout,
+          );
+        } catch {}
+      }
+    }
+    if (entry.connection)
+      await bounded(entry.connection.close(), this.cleanupTimeout);
   }
   register(serverId: string, factory: LspFactory): void {
     if (
@@ -268,19 +335,12 @@ export class LspManager {
             "LSP project synchronization cancelled",
           );
         const previous = this.entries.get(key);
-        if (previous && previous.projectSourceSha256 !== source.sha256) {
-          previous.closed = true;
-          previous.controller.abort();
-          previous.unsubscribe?.();
-          await bounded(
-            previous.ready.catch(() => {}),
-            this.cleanupTimeout,
-          );
-          if (previous.factorySettled)
-            await bounded(previous.factorySettled, this.cleanupTimeout);
-          if (previous.connection)
-            await bounded(previous.connection.close(), this.cleanupTimeout);
-          previous.documents.clear();
+        if (
+          previous &&
+          !previous.closed &&
+          previous.projectSourceSha256 !== source.sha256
+        ) {
+          await this.retire(previous, { drain: true });
           if (this.entries.get(key) === previous) this.entries.delete(key);
         }
         const current = await this.entry(workspace, serverId, signal);
@@ -310,8 +370,21 @@ export class LspManager {
       );
     const key = JSON.stringify([workspace.id, workspace.root, serverId]);
     let entry = this.entries.get(key);
+    if (entry?.closed && Date.now() - entry.closedAt! >= this.cleanupTimeout) {
+      // A failed server restarts after its cleanup deadline; close() drains it until teardown is confirmed.
+      const failed = entry;
+      this.entries.delete(key);
+      this.retiring.add(failed);
+      void Promise.allSettled([failed.ready, failed.factorySettled])
+        .then(() => failed.connection?.close())
+        .then(
+          () => this.retiring.delete(failed),
+          () => {},
+        );
+      entry = undefined;
+    }
     if (!entry) {
-      if (this.entries.size >= 32)
+      if (this.entries.size + this.retiring.size >= 32)
         throw new EngineError(
           "LSP_SERVER_LIMIT",
           "LSP workspace/server count exceeded",
@@ -328,9 +401,7 @@ export class LspManager {
       this.entries.set(key, entry);
       const owned = entry;
       entry.ready = this.initialize(owned, factory).catch(async (error) => {
-        owned.closed = true;
-        owned.controller.abort();
-        await owned.connection?.close();
+        await this.retire(owned).catch(() => {});
         throw error instanceof EngineError
           ? error
           : new EngineError("LSP_START_FAILED", "LSP host factory failed");
@@ -376,39 +447,32 @@ export class LspManager {
         this.receiveDiagnostics(entry, params);
     });
     const uri = pathToFileURL(entry.workspace.root).href;
-    const result = await bounded(
-      abortable(
-        connection.request(
-          "initialize",
-          {
-            processId: process.pid,
-            clientInfo: { name: "Moodcode" },
-            rootUri: uri,
-            workspaceFolders: [{ uri, name: entry.workspace.id }],
-            capabilities: {
-              general: { positionEncodings: ["utf-16"] },
-              textDocument: {
-                synchronization: { dynamicRegistration: false },
-                publishDiagnostics: { versionSupport: true },
-                formatting: { dynamicRegistration: false },
-                documentSymbol: {
-                  dynamicRegistration: false,
-                  hierarchicalDocumentSymbolSupport: true,
-                },
-                definition: { dynamicRegistration: false, linkSupport: true },
-                references: { dynamicRegistration: false },
-              },
-              workspace: { applyEdit: false },
+    const result = await this.request(
+      entry,
+      "initialize",
+      {
+        processId: process.pid,
+        clientInfo: { name: "Moodcode" },
+        rootUri: uri,
+        workspaceFolders: [{ uri, name: entry.workspace.id }],
+        capabilities: {
+          general: { positionEncodings: ["utf-16"] },
+          textDocument: {
+            synchronization: { dynamicRegistration: false },
+            publishDiagnostics: { versionSupport: true },
+            formatting: { dynamicRegistration: false },
+            documentSymbol: {
+              dynamicRegistration: false,
+              hierarchicalDocumentSymbolSupport: true,
             },
-            trace: "off",
+            definition: { dynamicRegistration: false, linkSupport: true },
+            references: { dynamicRegistration: false },
           },
-          entry.controller.signal,
-          this.requestTimeout,
-        ),
-        entry.controller.signal,
-      ),
-      this.requestTimeout,
-      "LSP_TIMEOUT",
+          workspace: { applyEdit: false },
+        },
+        trace: "off",
+      },
+      entry.controller.signal,
     );
     if (
       !result ||
@@ -515,38 +579,31 @@ export class LspManager {
         version: (prior?.version ?? 0) + 1,
       };
       entry.documents.set(path, doc);
-      try {
-        if (!prior)
-          await this.notify(entry, "textDocument/didOpen", {
-            textDocument: {
-              uri: doc.uri,
-              languageId,
-              version: doc.version,
-              text: doc.content,
-            },
-          });
-        else
-          await this.notify(entry, "textDocument/didChange", {
-            textDocument: { uri: doc.uri, version: doc.version },
-            contentChanges: [
-              sync.kind === 2
-                ? {
-                    range: {
-                      start: { line: 0, character: 0 },
-                      end: endPosition(prior.content),
-                    },
-                    text: doc.content,
-                  }
-                : { text: doc.content },
-            ],
-          });
-        result = { version: doc.version, hash: doc.hash };
-      } catch (error) {
-        entry.closed = true;
-        entry.controller.abort();
-        await entry.connection!.close();
-        throw error;
-      }
+      if (!prior)
+        await this.notify(entry, "textDocument/didOpen", {
+          textDocument: {
+            uri: doc.uri,
+            languageId,
+            version: doc.version,
+            text: doc.content,
+          },
+        });
+      else
+        await this.notify(entry, "textDocument/didChange", {
+          textDocument: { uri: doc.uri, version: doc.version },
+          contentChanges: [
+            sync.kind === 2
+              ? {
+                  range: {
+                    start: { line: 0, character: 0 },
+                    end: endPosition(prior.content),
+                  },
+                  text: doc.content,
+                }
+              : { text: doc.content },
+          ],
+        });
+      result = { version: doc.version, hash: doc.hash };
     });
     entry.queue = operation.catch(() => {});
     await abortable(operation, signal);
@@ -650,27 +707,25 @@ export class LspManager {
         "LSP_FORMAT_UNSUPPORTED",
         "LSP server did not advertise document formatting",
       );
-    const doc = entry.documents.get(path)!;
+    const doc = entry.documents.get(path);
+    if (!doc)
+      throw new EngineError(
+        "FORMAT_PREIMAGE_STALE",
+        "File or synchronized document changed during formatting",
+      );
     const version = doc.version;
     const hash = doc.hash;
-    const edits = await bounded(
-      abortable(
-        entry.connection!.request(
-          "textDocument/formatting",
-          {
-            textDocument: { uri: doc.uri },
-            options: {
-              tabSize: options.tabSize ?? 2,
-              insertSpaces: options.insertSpaces ?? true,
-            },
-          },
-          signal,
-          this.requestTimeout,
-        ),
-        signal,
-      ),
-      this.requestTimeout,
-      "LSP_TIMEOUT",
+    const edits = await this.request(
+      entry,
+      "textDocument/formatting",
+      {
+        textDocument: { uri: doc.uri },
+        options: {
+          tabSize: options.tabSize ?? 2,
+          insertSpaces: options.insertSpaces ?? true,
+        },
+      },
+      signal,
     );
     const current = await readExactText(entry.workspace, path, signal);
     if (
@@ -755,7 +810,12 @@ export class LspManager {
           "LSP_NAVIGATION_UNSUPPORTED",
           "The host server did not advertise this navigation capability",
         );
-      const doc = entry.documents.get(path)!;
+      const doc = entry.documents.get(path);
+      if (!doc)
+        throw new EngineError(
+          "LSP_NAVIGATION_STALE",
+          "The synchronized document changed during navigation",
+        );
       const version = doc.version,
         hash = doc.hash;
       const source = { content: doc.content, hash };
@@ -764,35 +824,28 @@ export class LspManager {
         operationSignal,
         entry.controller.signal,
       ]);
-      const raw = await bounded(
-        abortable(
-          entry.connection!.request(
-            kind === "symbols"
-              ? "textDocument/documentSymbol"
-              : kind === "definition"
-                ? "textDocument/definition"
-                : "textDocument/references",
-            {
-              textDocument: { uri: doc.uri },
-              ...(position
-                ? {
-                    position: {
-                      line: position.line,
-                      character: position.character,
-                    },
-                  }
-                : {}),
-              ...(kind === "references"
-                ? { context: { includeDeclaration: true } }
-                : {}),
-            },
-            activeSignal,
-            this.requestTimeout,
-          ),
-          activeSignal,
-        ),
-        this.requestTimeout,
-        "LSP_TIMEOUT",
+      const raw = await this.request(
+        entry,
+        kind === "symbols"
+          ? "textDocument/documentSymbol"
+          : kind === "definition"
+            ? "textDocument/definition"
+            : "textDocument/references",
+        {
+          textDocument: { uri: doc.uri },
+          ...(position
+            ? {
+                position: {
+                  line: position.line,
+                  character: position.character,
+                },
+              }
+            : {}),
+          ...(kind === "references"
+            ? { context: { includeDeclaration: true } }
+            : {}),
+        },
+        activeSignal,
       );
       const result = await projectNavigation(
         {
@@ -926,12 +979,11 @@ export class LspManager {
   async close(): Promise<void> {
     this.closing = true;
     this.projectSourceController.abort();
-    const entries = [...this.entries.values()];
-    for (const entry of entries) {
-      entry.closed = true;
-      entry.controller.abort();
-      entry.unsubscribe?.();
-    }
+    const retired = Promise.allSettled(
+      [...this.entries.values(), ...this.retiring].map((entry) =>
+        this.retire(entry, { drain: true }),
+      ),
+    );
     const sourceDrain = Promise.allSettled(
       [...this.pendingProjectSources, ...this.projectQueues.values()].map(
         (pending) =>
@@ -941,35 +993,10 @@ export class LspManager {
           ),
       ),
     );
-    const results = await Promise.allSettled(
-      entries.map(async (entry) => {
-        await bounded(
-          entry.ready.catch(() => {}),
-          this.cleanupTimeout,
-        );
-        if (entry.factorySettled)
-          await bounded(
-            entry.factorySettled.catch(() => {}),
-            this.cleanupTimeout,
-          );
-        if (entry.connection) {
-          const signal = new AbortController().signal;
-          try {
-            await entry.connection.request(
-              "shutdown",
-              null,
-              signal,
-              Math.min(250, this.requestTimeout),
-            );
-            await this.notify(entry, "exit", null);
-          } catch {}
-          await bounded(entry.connection.close(), this.cleanupTimeout);
-        }
-        entry.documents.clear();
-      }),
-    );
+    const results = await retired;
     const sourceResults = await sourceDrain;
     this.entries.clear();
+    this.retiring.clear();
     if (
       results.some((r) => r.status === "rejected") ||
       sourceResults.some((r) => r.status === "rejected")

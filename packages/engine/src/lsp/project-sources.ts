@@ -49,6 +49,14 @@ function eligible(path: string): boolean {
     /(?:^|\/)\.(?:gitignore|ignore)$/.test(path)
   );
 }
+function isExactPath(path: string): boolean {
+  try {
+    exactPath(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
 /** Bounded host read: content-addressed workspace sources, never native compiler cache or provider execution. */
 export async function captureTypeScriptProjectSources(
   workspace: Workspace,
@@ -77,6 +85,7 @@ export async function captureTypeScriptProjectSources(
       );
     const directories = new Map<string, string>();
     const paths: string[] = [];
+    const omitted: string[] = [];
     let entries = 0;
     async function walk(relative: string): Promise<void> {
       check(observedSignal);
@@ -107,15 +116,16 @@ export async function captureTypeScriptProjectSources(
           );
         if (excludedDirectory(entry.name)) continue;
         const path = relative ? `${relative}/${entry.name}` : entry.name;
-        if (entry.isDirectory())
-          children.push({ path: exactPath(path), directory: true });
-        else if (eligible(path)) {
+        const isDirectory = entry.isDirectory();
+        if (!isDirectory && !eligible(path)) continue;
+        // Names outside the exact-path grammar cannot be read or served, so the digest records them as omitted.
+        if (!isExactPath(path)) omitted.push(isDirectory ? `${path}/` : path);
+        else
           children.push({
-            path: exactPath(path),
-            directory: false,
+            path,
+            directory: isDirectory,
             ordinary: entry.isFile() && !entry.isSymbolicLink(),
           });
-        }
       }
       children.sort((a, b) => a.path.localeCompare(b.path, "en"));
       const ignored = workspace.gitRoot
@@ -146,6 +156,7 @@ export async function captureTypeScriptProjectSources(
     }
     await walk("");
     paths.sort();
+    omitted.sort();
     let cursor = 0,
       bytes = 0;
     const files = new Array<{ path: string; hash: string }>(paths.length);
@@ -222,6 +233,7 @@ export async function captureTypeScriptProjectSources(
           physicalRoot: { dev: root.dev.toString(), ino: root.ino.toString() },
           scope: "workspace-typescript-files",
           files,
+          ...(omitted.length ? { omitted } : {}),
         }),
       )
       .digest("hex");

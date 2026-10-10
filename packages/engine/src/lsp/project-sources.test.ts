@@ -102,6 +102,30 @@ test("project snapshot excludes Git-ignored and generated/dependency trees and b
   assert.notEqual(included.sha256, first.sha256);
 });
 
+test(
+  "names outside the exact-path grammar are recorded as digest omissions instead of failing the capture",
+  { skip: process.platform === "win32" },
+  async (t) => {
+    const f = await fixture(t);
+    await writeFile(join(f.root, ".gitignore"), "tmp:old/\n");
+    await writeFile(join(f.root, "a.ts"), "export const value = 1;");
+    await writeFile(join(f.root, "b:c.ts"), "export const odd = 1;");
+    for (const name of ["tmp:old", "Notes 1:2"]) {
+      await mkdir(join(f.root, name));
+      await writeFile(join(f.root, name, "hidden.ts"), "export {};");
+    }
+    const first = await captureTypeScriptProjectSources(f.workspace, signal());
+    assert.equal(first.fileCount, 2);
+    await rm(join(f.root, "Notes 1:2"), { recursive: true });
+    const without = await captureTypeScriptProjectSources(
+      f.workspace,
+      signal(),
+    );
+    assert.equal(without.fileCount, 2);
+    assert.notEqual(without.sha256, first.sha256);
+  },
+);
+
 test("physical source aliases and non-UTF8 compiler sources do not become semantic provenance", async (t) => {
   const f = await fixture(t);
   await writeFile(join(f.root, "a.ts"), "export const value = 1;");

@@ -138,6 +138,14 @@ function receive(request: ObjectValue): void {
     case "fixture/oversize":
       process.stdout.write("Content-Length: 1048577\r\n\r\n");
       break;
+    case "fixture/wide": {
+      const wide = Array.from({ length: 10_001 }, () => 0);
+      send({ jsonrpc: "2.0", method: "fixture/wide", params: wide });
+      reply(request.id, wide);
+      break;
+    }
+    case "fixture/crash":
+      process.exit(1);
     case "fixture/descendant": {
       const child = spawn(
         process.execPath,

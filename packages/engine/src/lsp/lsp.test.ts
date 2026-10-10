@@ -25,7 +25,11 @@ const code = (expected: string) => (e: unknown) => {
   assert.equal((e as { code: string }).code, expected);
   return true;
 };
-async function fixture(t: test.TestContext) {
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+async function fixture(
+  t: test.TestContext,
+  options?: ConstructorParameters<typeof LspManager>[0],
+) {
   const root = await realpath(await mkdtemp(join(tmpdir(), "moodcode-lsp-")));
   const workspace = {
     id: "w",
@@ -35,7 +39,7 @@ async function fixture(t: test.TestContext) {
     createdAt: new Date().toISOString(),
   };
   await writeFile(join(root, "a.ts"), "\ufeffbad\r\n😀bad\r\n");
-  const lsp = new LspManager();
+  const lsp = new LspManager(options);
   const connections: StdioLspConnection[] = [];
   lsp.register("fixture", async (workspace) => {
     const connection = await StdioLspConnection.open({
@@ -210,6 +214,44 @@ test("LSP timeout/cancel remains usable and malformed or oversized frames discon
     other.request("fixture/oversize", {}, signal()),
     code("LSP_FRAME_LIMIT"),
   );
+});
+test("LSP reply over the JSON shape cap fails only its request and an oversized notification is dropped", async (t) => {
+  const { workspace } = await fixture(t);
+  const connection = await StdioLspConnection.open({
+    command: process.execPath,
+    args: [serverFile],
+    cwd: workspace.root,
+  });
+  t.after(() => connection.close());
+  const methods: string[] = [];
+  connection.onNotification((method) => methods.push(method));
+  await assert.rejects(
+    connection.request("fixture/wide", {}, signal()),
+    code("LSP_FRAME_LIMIT"),
+  );
+  assert.deepEqual(methods, []);
+  const state = (await connection.request("fixture/state", {}, signal())) as {
+    initialized: boolean;
+  };
+  assert.equal(state.initialized, false);
+});
+test("crashed stdio LSP server is retired and a call after its cleanup deadline starts a new one", async (t) => {
+  const { workspace, lsp, connections } = await fixture(t, {
+    cleanupTimeoutMs: 50,
+  });
+  const format = () =>
+    lsp.formatting(workspace, "fixture", "a.ts", "typescript", signal());
+  await format();
+  await assert.rejects(
+    connections[0]!.request("fixture/crash", {}, signal()),
+    code("LSP_DISCONNECTED"),
+  );
+  await assert.rejects(format(), code("LSP_DISCONNECTED"));
+  await delay(60);
+  const proposal = await format();
+  assert.equal(connections.length, 2);
+  assert.equal(proposal.documentVersion, 1);
+  assert.equal(proposal.content, "\ufeffgood\r\n😀bad\r\n");
 });
 test("LSP server cannot apply workspace effects and receives no inherited fixture secret", async (t) => {
   const previous = process.env.MOODCODE_LSP_FIXTURE_SECRET;
@@ -417,6 +459,32 @@ test("noncooperative LSP startup returns timeout and close reports uncertain unt
     code("LSP_START_TIMEOUT"),
   );
   await assert.rejects(lsp.close(), code("LSP_CLEANUP_UNCERTAIN"));
+  late(connection);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(connection.closed, true);
+});
+test("failed LSP startup restarts only after its cleanup deadline and close still drains the replaced startup", async (t) => {
+  const { workspace } = await fixture(t);
+  const lsp = new LspManager({ startupTimeoutMs: 10, cleanupTimeoutMs: 50 });
+  let calls = 0;
+  let late!: (connection: LspConnection) => void;
+  lsp.register("flaky", () =>
+    calls++ === 0
+      ? new Promise((resolve) => {
+          late = resolve;
+        })
+      : Promise.resolve(fake()),
+  );
+  const update = () =>
+    lsp.updateFile(workspace, "flaky", "a.ts", "typescript", signal());
+  await assert.rejects(update(), code("LSP_START_TIMEOUT"));
+  await assert.rejects(update(), code("LSP_START_TIMEOUT"));
+  assert.equal(calls, 1);
+  await delay(60);
+  assert.equal((await update()).version, 1);
+  assert.equal(calls, 2);
+  await assert.rejects(lsp.close(), code("LSP_CLEANUP_UNCERTAIN"));
+  const connection = fake();
   late(connection);
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(connection.closed, true);
