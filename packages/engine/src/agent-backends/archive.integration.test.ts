@@ -169,3 +169,43 @@ test("cancelled actual backend prompt imports its unknown terminal outcome and c
   assert.deepEqual(f.logs(), logs);
   assert.deepEqual(revisionRows(imported.dbPath), importedRows);
 });
+
+test("an imported backend history exports and imports again, pausing only the backend a second time", async (t) => {
+  const { f, engine, imported, importedRows } = await importedFixture(t, false);
+  await engine.close();
+  f.engines.delete(engine);
+  const archive = await exportEngineArchive({
+      dbPath: imported.dbPath,
+      artifactDir: imported.artifactDir,
+      destination: join(f.base, "actual-backend-archive-again"),
+    }),
+    reimported = await importEngineArchive({
+      directory: archive.directory,
+      destination: join(f.base, "actual-backend-import-again"),
+    });
+  const rows = revisionRows(reimported.dbPath);
+  for (const row of importedRows)
+    assert.deepEqual(
+      rows.find((current) => current.id === row.id),
+      row,
+    );
+  assert.equal(rows.length, importedRows.length + 2);
+  const again = createEngine({
+    ...f.configuration,
+    dbPath: reimported.dbPath,
+    artifactDir: reimported.artifactDir,
+    agentBackends: false,
+  });
+  f.engines.add(again);
+  assert.equal(
+    again.getAgentBackend(f.workspace.id, f.backendId)!.enabled,
+    false,
+  );
+  for (const record of [
+    ...again.inspectAgentBackendConnections(f.workspace.id),
+    ...again.inspectAgentBackendRequests(f.workspace.id),
+    ...again.inspectAgentBackendEffects(f.workspace.id),
+  ])
+    assert.equal(record.state, "paused-import");
+  assert.deepEqual(revisionRows(reimported.dbPath), rows);
+});

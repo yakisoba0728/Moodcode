@@ -435,6 +435,52 @@ function ownerOf(value: AgentBackendRecord): BackendTurnProof | null {
 function entity(value: AgentBackendRecord): string {
   return value.entityId;
 }
+function recoverable(kind: string, value: unknown): boolean {
+  return kind === "connection"
+    ? ["launched", "initialized", "session-ready", "closing"].includes(
+        value as string,
+      )
+    : kind === "request"
+      ? ["prepared", "dispatching", "dispatched"].includes(value as string)
+      : kind === "client-effect" && value === "prepared";
+}
+function pausable(kind: string, value: unknown): boolean {
+  return kind === "backend" || value !== "paused-import";
+}
+/** Upper bound of a receipt plus the state fields an administrative revision changes. */
+const ADMINISTRATIVE_REVISION_BYTES = 4096;
+/** Rows and bytes that recover and a later pause-import still need once `next` heads its entity. */
+function administrativeReserve(
+  db: DatabaseSync,
+  next: AgentBackendRecord,
+): { rows: number; bytes: number } {
+  let rows = 0,
+    bytes = 0;
+  const add = (kind: string, value: unknown, n: number, size: number) => {
+    const writes =
+      Number(recoverable(kind, value)) + Number(pausable(kind, value));
+    rows += 2 * writes * n;
+    bytes += writes * (size + n * ADMINISTRATIVE_REVISION_BYTES);
+  };
+  for (const g of db
+    .prepare(
+      "SELECT h.kind,json_extract(r.data,'$.state') state,count(*) n,coalesce(sum(length(CAST(r.data AS BLOB))),0) bytes FROM backend_heads h JOIN backend_revisions r ON r.id=h.revision_id WHERE NOT (h.workspace_id=? AND h.kind=? AND h.entity_id=?) GROUP BY 1,2",
+    )
+    .all(next.workspaceId, next.kind, next.entityId))
+    add(String(g.kind), g.state, Number(g.n), Number(g.bytes));
+  add(next.kind, state(next), 1, Buffer.byteLength(JSON.stringify(next)));
+  return { rows, bytes };
+}
+/** Wall-clock time clamped to the newest head, because the validator orders revisions by createdAt. */
+function backendClock(db: DatabaseSync, now: number): string {
+  const at = new Date(integer(now, 8640000000000000)).toISOString(),
+    last = db
+      .prepare(
+        "SELECT max(json_extract(r.data,'$.createdAt')) at FROM backend_heads h JOIN backend_revisions r ON r.id=h.revision_id",
+      )
+      .get()?.at;
+  return typeof last === "string" && last > at ? last : at;
+}
 /** Native SQLite owns history; all live execution authorization remains in ORIGINAL Root producers. */
 export class AgentBackendStorage {
   constructor(
@@ -442,9 +488,7 @@ export class AgentBackendStorage {
     private readonly ports: AgentBackendStoragePorts,
   ) {}
   private time(): string {
-    return new Date(
-      integer(this.ports.now?.() ?? Date.now(), 8640000000000000),
-    ).toISOString();
+    return backendClock(this.db, this.ports.now?.() ?? Date.now());
   }
   private row(ws: string, rid: string): Row | undefined {
     const h = this.db
@@ -675,8 +719,6 @@ export class AgentBackendStorage {
         "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM backend_revisions",
       )
       .get()!;
-    if (Number(total.n) + 2 > AGENT_BACKEND_STORAGE_LIMITS.rows)
-      fail("BACKEND_LIMIT");
     const rid = randomUUID(),
       receiptId = randomUUID(),
       at = this.time();
@@ -692,11 +734,14 @@ export class AgentBackendStorage {
       operation: op,
       createdAt: at,
     });
+    const reserve = administrativeReserve(this.db, record);
     if (
+      Number(total.n) + 2 + reserve.rows > AGENT_BACKEND_STORAGE_LIMITS.rows ||
       Number(total.bytes) +
         Buffer.byteLength(JSON.stringify(record)) +
-        Buffer.byteLength(JSON.stringify(receipt)) >
-      AGENT_BACKEND_STORAGE_LIMITS.bytes
+        Buffer.byteLength(JSON.stringify(receipt)) +
+        reserve.bytes >
+        AGENT_BACKEND_STORAGE_LIMITS.bytes
     )
       fail("BACKEND_LIMIT");
     const owner = ownerOf(record),
@@ -3240,9 +3285,9 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
   if (r.kind === "connection") {
     const headers = db
       .prepare(
-        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.launch_reserved' LIMIT 513",
+        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.launch_reserved' AND json_extract(data,'$.payload.ownerSha256')=? AND json_extract(data,'$.payload.launchSha256')=? LIMIT 513",
       )
-      .all();
+      .all(r.proof.ownerSha256, r.proof.launchSha256);
     if (headers.length > 512) fail("BACKEND_LIMIT");
     const anchor = headers.some((h) => {
       if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
@@ -3265,9 +3310,9 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
     if (!anchor) fail("BACKEND_CONNECTION_OWNER_INVALID");
     const admissions = db
       .prepare(
-        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.connection_admitted' LIMIT 513",
+        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.connection_admitted' AND json_extract(data,'$.payload.connectionId')=? AND json_extract(data,'$.payload.ownerSha256')=? LIMIT 513",
       )
-      .all();
+      .all(r.connectionId, r.proof.ownerSha256);
     if (admissions.length > 512) fail("BACKEND_LIMIT");
     const hasAdmission = admissions.some((h) => {
       if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
@@ -4065,19 +4110,11 @@ function currentBodies(
 }
 export function recoverAgentBackends(
   db: DatabaseSync,
-  at = new Date().toISOString(),
+  at = backendClock(db, Date.now()),
 ): number {
   validateAgentBackendDatabase(db);
   const records = currentBodies(db).filter((r) =>
-    r.kind === "connection"
-      ? ["launched", "initialized", "session-ready", "closing"].includes(
-          r.state,
-        )
-      : r.kind === "request"
-        ? ["prepared", "dispatching", "dispatched"].includes(r.state)
-        : r.kind === "client-effect"
-          ? r.state === "prepared"
-          : false,
+    recoverable(r.kind, state(r)),
   );
   for (const r of records) appendAdministrative(db, r, "recover", at);
   return records.length;
@@ -4089,14 +4126,10 @@ export function markImportedAgentBackendsPaused(
 ): void {
   if (!/^[a-f0-9]{64}$/.test(archiveSha)) fail();
   validateAgentBackendDatabase(db);
+  const at = backendClock(db, Date.now());
   for (const r of currentBodies(db, workspaceId))
-    appendAdministrative(
-      db,
-      r,
-      "pause-import",
-      new Date().toISOString(),
-      archiveSha,
-    );
+    if (pausable(r.kind, state(r)))
+      appendAdministrative(db, r, "pause-import", at, archiveSha);
 }
 export function hasAgentBackendBlocker(
   db: DatabaseSync,
