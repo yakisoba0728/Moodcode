@@ -139,31 +139,34 @@ test("LSP format proposal applies only through approved checkpoint patch and pre
 test("real stdio navigation synchronizes UTF16 documents and returns bounded source-checked symbols and locations", async (t) => {
   const { workspace, lsp } = await fixture(t);
   await runGit(workspace.root, ["init", "-q"]);
-  const symbols = await lsp.querySymbols(
+  const symbols = await lsp.queryNavigation(
     workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   assert.equal(symbols.items[0]?.name, "fixtureDocument");
   assert.equal(symbols.items[0]?.hash, symbols.documentHash);
-  const definition = await lsp.queryDefinitions(
+  const definition = await lsp.queryNavigation(
     workspace,
     "fixture",
     "a.ts",
     "typescript",
-    { line: 1, character: 2 },
+    "definition",
     signal(),
+    { line: 1, character: 2 },
   );
   assert.equal(definition.items[0]?.path, "a.ts");
-  const references = await lsp.queryReferences(
+  const references = await lsp.queryNavigation(
     workspace,
     "fixture",
     "a.ts",
     "typescript",
-    { line: 0, character: 1 },
+    "references",
     signal(),
+    { line: 0, character: 1 },
   );
   assert.equal(references.complete, true);
   assert.equal(references.documentVersion, 1);

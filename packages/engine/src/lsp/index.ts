@@ -686,19 +686,7 @@ export class LspManager {
     path: string,
     languageId: string,
     signal: AbortSignal,
-    options: { tabSize?: number; insertSpaces?: boolean } = {},
   ): Promise<FormatProposal> {
-    if (
-      !Number.isSafeInteger(options.tabSize ?? 2) ||
-      (options.tabSize ?? 2) < 1 ||
-      (options.tabSize ?? 2) > 16 ||
-      (options.insertSpaces !== undefined &&
-        typeof options.insertSpaces !== "boolean")
-    )
-      throw new EngineError(
-        "INVALID_FORMAT_OPTIONS",
-        "Formatting options must be bounded",
-      );
     await this.synchronizeProject(workspace, serverId, signal);
     await this.updateFile(workspace, serverId, path, languageId, signal);
     const entry = await this.entry(workspace, serverId, signal);
@@ -720,10 +708,7 @@ export class LspManager {
       "textDocument/formatting",
       {
         textDocument: { uri: doc.uri },
-        options: {
-          tabSize: options.tabSize ?? 2,
-          insertSpaces: options.insertSpaces ?? true,
-        },
+        options: { tabSize: 2, insertSpaces: true },
       },
       signal,
     );
@@ -883,58 +868,6 @@ export class LspManager {
       clearTimeout(timer);
       this.navigationQueries--;
     }
-  }
-  querySymbols(
-    workspace: Workspace,
-    serverId: string,
-    path: string,
-    languageId: string,
-    signal: AbortSignal,
-  ): Promise<LspNavigationSnapshot> {
-    return this.queryNavigation(
-      workspace,
-      serverId,
-      path,
-      languageId,
-      "symbols",
-      signal,
-    );
-  }
-  queryDefinitions(
-    workspace: Workspace,
-    serverId: string,
-    path: string,
-    languageId: string,
-    position: TextPosition,
-    signal: AbortSignal,
-  ): Promise<LspNavigationSnapshot> {
-    return this.queryNavigation(
-      workspace,
-      serverId,
-      path,
-      languageId,
-      "definition",
-      signal,
-      position,
-    );
-  }
-  queryReferences(
-    workspace: Workspace,
-    serverId: string,
-    path: string,
-    languageId: string,
-    position: TextPosition,
-    signal: AbortSignal,
-  ): Promise<LspNavigationSnapshot> {
-    return this.queryNavigation(
-      workspace,
-      serverId,
-      path,
-      languageId,
-      "references",
-      signal,
-      position,
-    );
   }
   async fileChanged(
     workspace: Workspace,

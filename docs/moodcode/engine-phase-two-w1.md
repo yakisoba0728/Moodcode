@@ -4,7 +4,7 @@
 
 ## 저장소 문맥
 
-`RepositoryContextService`와 `LspManager.querySymbols/queryDefinitions/queryReferences`를 엔진에 연결했다. host가 서버·언어·revision을 등록하며 모델은 실행 파일이나 서버를 선택하지 못한다. host API `getRepositoryContext`는 항상 현재 파일을 다시 관측한다. `repositoryContextTools: true`를 선택하면 read 도구 `repository_context`가 captured profile/eager/discovery 경로에 들어간다. 기본 core21 노출은 유지한다.
+`RepositoryContextService`와 `LspManager.queryNavigation`(symbols/definition/references)를 엔진에 연결했다. host가 서버·언어·revision을 등록하며 모델은 실행 파일이나 서버를 선택하지 못한다. host API `getRepositoryContext`는 항상 현재 파일을 다시 관측한다. `repositoryContextTools: true`를 선택하면 read 도구 `repository_context`가 captured profile/eager/discovery 경로에 들어간다. 기본 core21 노출은 유지한다.
 
 현재 기능은 명시적으로 선택한 파일과 LSP 관계의 구조 관측이다. snapshot에는 source hash·document version·Git head/branch·host parser routing revision·실효 ignore 결과·generation과 omission을 고정한다. 서로 다른 동시 관측이 winning generation을 덮어쓰지 못한다. 재시작 뒤 cache를 현재 source 증거로 재사용하지 않는다. 파일 선택 최대8개, source 최대4MiB, navigation 최대64 locations/16 source files/16KiB, 전체 query 15초를 제한한다. symlink·workspace 밖 URI·Git/dependency metadata·무시된 파일은 읽기 권한이 되지 않는다. UTF-16 selection/enclosing/origin 범위와 현재 hash를 검사한다.
 

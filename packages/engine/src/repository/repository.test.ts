@@ -84,11 +84,11 @@ test("symbol and definition selection ranges must remain inside validated enclos
   const f = await fixture(t);
   const narrow = { start: { line: 0, character: 1 }, end: { line: 0, character: 3 } };
   f.peer.handler = async () => [{ ...symbol(), range: narrow }];
-  await assert.rejects(f.lsp.querySymbols(f.workspace, "fixture", "a.ts", "typescript", signal()), code("INVALID_LSP_NAVIGATION_RESULT"));
+  await assert.rejects(f.lsp.queryNavigation(f.workspace, "fixture", "a.ts", "typescript", "symbols", signal()), code("INVALID_LSP_NAVIGATION_RESULT"));
   f.peer.handler = async () => [{ targetUri: pathToFileURL(join(f.root, "b.ts")).href, targetRange: narrow, targetSelectionRange: range }];
-  await assert.rejects(f.lsp.queryDefinitions(f.workspace, "fixture", "a.ts", "typescript", { line: 0, character: 0 }, signal()), code("INVALID_LSP_NAVIGATION_RESULT"));
+  await assert.rejects(f.lsp.queryNavigation(f.workspace, "fixture", "a.ts", "typescript", "definition", signal(), { line: 0, character: 0 }), code("INVALID_LSP_NAVIGATION_RESULT"));
   f.peer.handler = async () => [{ targetUri: pathToFileURL(join(f.root, "b.ts")).href, targetRange: range, targetSelectionRange: range, originSelectionRange: { start: { line: 0, character: 7 }, end: { line: 0, character: 8 } } }];
-  await assert.rejects(f.lsp.queryDefinitions(f.workspace, "fixture", "a.ts", "typescript", { line: 0, character: 0 }, signal()), code("INVALID_LSP_NAVIGATION_RESULT"));
+  await assert.rejects(f.lsp.queryNavigation(f.workspace, "fixture", "a.ts", "typescript", "definition", signal(), { line: 0, character: 0 }), code("INVALID_LSP_NAVIGATION_RESULT"));
 });
 test("concurrent different observations require a fresh generation instead of overwriting the winning cache", { timeout: 5000 }, async (t) => {
   const f = await fixture(t), started = deferred<void>(), release = deferred<void>();
@@ -173,11 +173,12 @@ test("hierarchical symbols and cross-file definition links carry immutable sourc
             targetSelectionRange: range,
           },
         ];
-  const symbols = await f.lsp.querySymbols(
+  const symbols = await f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   assert.deepEqual(
@@ -188,13 +189,14 @@ test("hierarchical symbols and cross-file definition links carry immutable sourc
     ],
   );
   assert.equal(symbols.documentVersion, 1);
-  const definition = await f.lsp.queryDefinitions(
+  const definition = await f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
-    { line: 0, character: 2 },
+    "definition",
     signal(),
+    { line: 0, character: 2 },
   );
   assert.equal(definition.items[0]?.path, "b.ts");
   assert.equal(definition.sources.length, 2);
@@ -216,13 +218,14 @@ test("navigation deduplicates locations and never returns external, ignored or s
     { uri: uri("hidden.ts"), range },
     { uri: uri("linked.ts"), range },
   ];
-  const result = await f.lsp.queryReferences(
+  const result = await f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
-    { line: 0, character: 1 },
+    "references",
     signal(),
+    { line: 0, character: 1 },
   );
   assert.deepEqual(
     result.items.map((x) => x.path),
@@ -238,13 +241,14 @@ test("unsupported capabilities do not send navigation requests and source mutati
   const f = await fixture(t);
   f.peer.capabilities.definitionProvider = false;
   await assert.rejects(
-    f.lsp.queryDefinitions(
+    f.lsp.queryNavigation(
       f.workspace,
       "fixture",
       "a.ts",
       "typescript",
-      { line: 0, character: 0 },
+      "definition",
       signal(),
+      { line: 0, character: 0 },
     ),
     code("LSP_NAVIGATION_UNSUPPORTED"),
   );
@@ -255,11 +259,12 @@ test("unsupported capabilities do not send navigation requests and source mutati
     ready.resolve();
     return response.promise;
   };
-  const pending = f.lsp.querySymbols(
+  const pending = f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   await ready.promise;
@@ -275,11 +280,12 @@ test("same content across a newer synchronized version is still rejected as a st
     ready.resolve();
     return response.promise;
   };
-  const pending = f.lsp.querySymbols(
+  const pending = f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   await ready.promise;
@@ -313,21 +319,23 @@ test("caller cancellation and peer timeout ignore late results and preserve host
     return response.promise;
   };
   const controller = new AbortController();
-  const pending = f.lsp.querySymbols(
+  const pending = f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     controller.signal,
   );
   await ready.promise;
   controller.abort();
   await assert.rejects(pending, code("CANCELLED"));
-  const timed = f.lsp.querySymbols(
+  const timed = f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   await assert.rejects(timed, code("LSP_TIMEOUT"));
@@ -338,13 +346,14 @@ test("caller cancellation and peer timeout ignore late results and preserve host
 test("malformed ranges, split UTF16 surrogate positions and bounded response overflow are rejected", async (t) => {
   const f = await fixture(t);
   await assert.rejects(
-    f.lsp.queryDefinitions(
+    f.lsp.queryNavigation(
       f.workspace,
       "fixture",
       "a.ts",
       "typescript",
-      { line: 0, character: 7 },
+      "definition",
       signal(),
+      { line: 0, character: 7 },
     ),
     code("INVALID_FORMAT_RANGE"),
   );
@@ -359,12 +368,26 @@ test("malformed ranges, split UTF16 surrogate positions and bounded response ove
     },
   ];
   await assert.rejects(
-    f.lsp.querySymbols(f.workspace, "fixture", "a.ts", "typescript", signal()),
+    f.lsp.queryNavigation(
+      f.workspace,
+      "fixture",
+      "a.ts",
+      "typescript",
+      "symbols",
+      signal(),
+    ),
     code("INVALID_LSP_NAVIGATION_RESULT"),
   );
   f.peer.handler = async () => "x".repeat(65_537);
   await assert.rejects(
-    f.lsp.querySymbols(f.workspace, "fixture", "a.ts", "typescript", signal()),
+    f.lsp.queryNavigation(
+      f.workspace,
+      "fixture",
+      "a.ts",
+      "typescript",
+      "symbols",
+      signal(),
+    ),
     code("LSP_NAVIGATION_LIMIT"),
   );
 });
@@ -372,11 +395,12 @@ test("symbol response count, depth and UTF8 byte caps expose omissions instead o
   const f = await fixture(t);
   f.peer.handler = async () =>
     Array.from({ length: 100 }, (_, i) => symbol("심볼".repeat(30) + i));
-  const result = await f.lsp.querySymbols(
+  const result = await f.lsp.queryNavigation(
     f.workspace,
     "fixture",
     "a.ts",
     "typescript",
+    "symbols",
     signal(),
   );
   assert(result.items.length < 64);
@@ -386,7 +410,14 @@ test("symbol response count, depth and UTF8 byte caps expose omissions instead o
   for (let i = 0; i < 18; i++) tree = { ...symbol(), children: [tree] };
   f.peer.handler = async () => [tree];
   await assert.rejects(
-    f.lsp.querySymbols(f.workspace, "fixture", "a.ts", "typescript", signal()),
+    f.lsp.queryNavigation(
+      f.workspace,
+      "fixture",
+      "a.ts",
+      "typescript",
+      "symbols",
+      signal(),
+    ),
     code("LSP_NAVIGATION_LIMIT"),
   );
 });

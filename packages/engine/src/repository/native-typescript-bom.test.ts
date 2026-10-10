@@ -25,13 +25,13 @@ test('actual native TS7 preserves raw BOM UTF16 locations for disk targets, open
   manager.register('native-bom', createTypeScriptNativeLspFactory({ executable: nativeExecutable, expectedVersion: '7.0.2' }));
   t.after(async () => { await manager.close(); await rm(root, { recursive: true, force: true }); });
   const signal = new AbortController().signal;
-  const disk = await manager.queryDefinitions(workspace, 'native-bom', 'importer.ts', 'typescript', authoredRange(importer, 'όνομα', 1).start, signal);
-  const opened = await manager.queryDefinitions(workspace, 'native-bom', 'unicode.ts', 'typescript', authoredRange(text, 'όνομα', 1).start, signal);
-  const references = await manager.queryReferences(workspace, 'native-bom', 'unicode.ts', 'typescript', authoredRange(text, 'όνομα', 1).start, signal);
-  const symbols = await manager.querySymbols(workspace, 'native-bom', 'unicode.ts', 'typescript', signal);
+  const disk = await manager.queryNavigation(workspace, 'native-bom', 'importer.ts', 'typescript', 'definition', signal, authoredRange(importer, 'όνομα', 1).start);
+  const opened = await manager.queryNavigation(workspace, 'native-bom', 'unicode.ts', 'typescript', 'definition', signal, authoredRange(text, 'όνομα', 1).start);
+  const references = await manager.queryNavigation(workspace, 'native-bom', 'unicode.ts', 'typescript', 'references', signal, authoredRange(text, 'όνομα', 1).start);
+  const symbols = await manager.queryNavigation(workspace, 'native-bom', 'unicode.ts', 'typescript', 'symbols', signal);
   const changed = text.replace('value + astral.length', 'value + 1 + astral.length');
   await writeFile(join(root, 'unicode.ts'), changed);
-  const updated = await manager.queryDefinitions(workspace, 'native-bom', 'unicode.ts', 'typescript', authoredRange(changed, 'όνομα', 1).start, signal);
+  const updated = await manager.queryNavigation(workspace, 'native-bom', 'unicode.ts', 'typescript', 'definition', signal, authoredRange(changed, 'όνομα', 1).start);
   t.diagnostic(JSON.stringify({ disk: disk.items, opened: opened.items, references: references.items, symbols: symbols.items, updated: updated.items, rawSha256: createHash('sha256').update(text).digest('hex') }));
   for (const observation of [disk, opened]) {
     assert.equal(observation.complete, true); assert.equal(observation.items.length, 1);
