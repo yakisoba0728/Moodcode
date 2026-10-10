@@ -58,6 +58,8 @@ callback throw·invalid result·timeout에는 등록된 `failurePolicy`를 적�
 | stage 전체 dispatch deadline ms | 1,000 | 30,000 |
 | Run capture별 invocation IDs | 1,024 | 8,192 |
 
+Coordinator는 Run limits와 함께 capture한다. 그 capture의 invocation 상한은 `35 × maxTurns + 3 × maxToolCalls + 3`과 설정값 중 큰 값이며 8,192를 넘지 않는다. limits 없이 만든 capture는 설정값을 쓴다.
+
 JSON depth는 8, 전체 nodes는 512, 각 array/object 멤버는 64 이하다. 각 callback은 남은 stage deadline을 공유한다. 순수 host callback을 JavaScript에서 강제 선점할 수는 없지만, 동기 callback이 deadline을 초과한 뒤 반환한 결과도 거절한다. callback deadline/abort는 외부 process·HTTP effect의 물리 종료 증거가 아니다. 외부 실행 hook은 이 port에 암묵적으로 추가하지 않는다.
 
 ## Coordinator 연결 경계
@@ -75,9 +77,9 @@ JSON depth는 8, 전체 nodes는 512, 각 array/object 멤버는 64 이하다. �
 
 ## 검증과 남은 범위
 
-`lifecycle.test.ts`의 21개 검사는 registration/revision/order, caps, Run identity/opaque capture, immutable metadata/results, duplicate invocation, failure policies, deadline, synchronous overrun, 취소/release, stale callback, late resolve/reject, stage별 metadata와 post-effect deny 거절을 확인한다.
+`lifecycle.test.ts`의 22개 검사는 registration/revision/order, caps, Run limits 기반 invocation 상한, Run identity/opaque capture, immutable metadata/results, duplicate invocation, failure policies, deadline, synchronous overrun, 취소/release, stale callback, late resolve/reject, stage별 metadata와 post-effect deny 거절을 확인한다.
 
-`engine-lifecycle.test.ts`의 17개 검사는 실제 Engine/SQLite/Coordinator에서 pre-native deny의 producer/Attempt/cleanup 0, logical request digest와 동일 Turn retry, confirmed native cleanup 뒤 after-model, exact approval, durable effect/checkpoint 뒤 stop, approval 대기 중 registry 변경, cancel/timeout/late 결과, producer uncertainty 보존, capture release, eager/discovery schemas와 실제 owned child policy 상속을 확인한다. 모델은 authored synthetic adapter이며 외부 API를 호출하지 않는다.
+`engine-lifecycle.test.ts`의 18개 검사는 실제 Engine/SQLite/Coordinator에서 pre-native deny의 producer/Attempt/cleanup 0, logical request digest와 동일 Turn retry, confirmed native cleanup 뒤 after-model, exact approval, durable effect/checkpoint 뒤 stop, approval 대기 중 registry 변경, cancel/timeout/late 결과, producer uncertainty 보존, capture release와 Run limits 전달, eager/discovery schemas와 실제 owned child policy 상속을 확인한다. 모델은 authored synthetic adapter이며 외부 API를 호출하지 않는다.
 
 `storage/phase-two-observations.test.ts`의 9개 검사는 두 journal의 payload/scope 일치와 실패 rollback/cursor 보존, foreign ref/terminal late receipt 거절을 확인한다. W2 준비용 active Run document publication도 CAS, cancelling/terminal owner 차단, journal 실패 시 rollback을 검사한다.
 

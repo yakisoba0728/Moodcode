@@ -1,4 +1,8 @@
-import { EngineError, type JsonValue } from "@moodcode/contracts";
+import {
+  EngineError,
+  type JsonValue,
+  type RunLimits,
+} from "@moodcode/contracts";
 import { types } from "node:util";
 import {
   LIFECYCLE_STAGES,
@@ -51,6 +55,41 @@ export function lifecycleLimits(
       "Lifecycle identity limit must cover the active hook limit",
     );
   return Object.freeze(result);
+}
+/** Per model turn: before-model, after-model and model-context for the turn's
+ * context and each of its bounded steer and catalogue rebuilds (16 each). */
+const RUN_TURN_INVOCATIONS = 35;
+/** Per tool call: tool-prepare, tool-prepared and tool-settled. */
+const RUN_TOOL_INVOCATIONS = 3;
+/** Completed, post-continuation and failure before-stop. */
+const RUN_STOP_INVOCATIONS = 3;
+/** A Run capture admits the invocations its turn and tool limits imply, no fewer than the configured bound and no more than its maximum. */
+export function lifecycleInvocationLimit(
+  limits: Readonly<LifecycleLimits>,
+  run?: Readonly<Pick<RunLimits, "maxTurns" | "maxToolCalls">>,
+): number {
+  if (run === undefined) return limits.maxInvocationsPerCapture;
+  const turns = run?.maxTurns,
+    toolCalls = run?.maxToolCalls;
+  if (
+    !Number.isSafeInteger(turns) ||
+    !Number.isSafeInteger(toolCalls) ||
+    turns < 0 ||
+    toolCalls < 0
+  )
+    throw new EngineError(
+      "INVALID_LIFECYCLE_LIMIT",
+      "Lifecycle Run limits must be nonnegative integers",
+    );
+  return Math.min(
+    LIMIT_MAXIMA.maxInvocationsPerCapture,
+    Math.max(
+      limits.maxInvocationsPerCapture,
+      RUN_TURN_INVOCATIONS * turns +
+        RUN_TOOL_INVOCATIONS * toolCalls +
+        RUN_STOP_INVOCATIONS,
+    ),
+  );
 }
 export function freezeLifecycle<T>(value: T): T {
   if (value && typeof value === "object" && !Object.isFrozen(value)) {

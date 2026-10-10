@@ -1578,7 +1578,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     try {
       this.assertLive(owner);
       this.options.store.commit(run.id, 'run.started', {}, { run: { state: 'running' } });
-      owner.lifecycle = this.options.lifecycleHooks?.capture({ workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id });
+      owner.lifecycle = this.options.lifecycleHooks?.capture({ workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id }, run.config.limits);
       if (this.options.onRunStarted) await abortable(() => this.options.onRunStarted!(run, owner.abort.signal), owner.abort.signal, 'Host Run initialization');
       this.assertLive(owner);
       const provider = this.options.providers.get(run.config.providerId);

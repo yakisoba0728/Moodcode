@@ -1,4 +1,4 @@
-import { EngineError } from "@moodcode/contracts";
+import { EngineError, type RunLimits } from "@moodcode/contracts";
 import { types } from "node:util";
 import { dispatchLifecycleHooks } from "./dispatch.js";
 import {
@@ -6,6 +6,7 @@ import {
   boundedLifecycleJson,
   freezeLifecycle,
   lifecycleIdentity,
+  lifecycleInvocationLimit,
   lifecycleLimits,
 } from "./validation.js";
 import {
@@ -28,6 +29,7 @@ export interface LifecycleCapturedHook {
 export interface LifecycleCaptureState {
   readonly hooks: readonly LifecycleCapturedHook[];
   readonly abort: AbortController;
+  readonly maxInvocations: number;
   readonly invocations: Map<
     string,
     { canonical: string; promise: Promise<LifecycleDispatchOutcome> }
@@ -184,8 +186,12 @@ export class LifecycleHookRegistry {
       }
     };
   }
-  capture(identity: LifecycleRunIdentity): LifecycleCapture {
-    const hooks = this.ordered();
+  capture(
+    identity: LifecycleRunIdentity,
+    runLimits?: Readonly<Pick<RunLimits, "maxTurns" | "maxToolCalls">>,
+  ): LifecycleCapture {
+    const hooks = this.ordered(),
+      maxInvocations = lifecycleInvocationLimit(this.limits, runLimits);
     const capture = freezeLifecycle({
       identity: lifecycleIdentity(identity),
       registryRevision: this.generation,
@@ -194,6 +200,7 @@ export class LifecycleHookRegistry {
     this.captures.set(capture, {
       hooks,
       abort: new AbortController(),
+      maxInvocations,
       invocations: new Map(),
       released: false,
     });

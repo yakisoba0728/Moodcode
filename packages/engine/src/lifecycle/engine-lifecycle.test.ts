@@ -179,6 +179,15 @@ test('successful terminal observation runs before terminal commit and every Run 
   await f.engine.close(); assert.throws(() => f.engine.registerLifecycleHook(hook('closed', ['before-model'], () => {})), { code: 'ENGINE_CLOSED' });
 });
 
+test('Run captures carry the Run turn and tool limits that size their invocation bound', async t => {
+  const provider: ProviderAdapter = { id: 'authored-capture-limits', async *streamTurn() { yield stop; } };
+  const f = await fixture(t, provider, { lifecycleHooks: [hook('observer', ['before-model'], () => {})] });
+  const capture = f.engine.lifecycleHooks.capture.bind(f.engine.lifecycleHooks); let limits: Parameters<typeof capture>[1];
+  f.engine.lifecycleHooks.capture = (identity, runLimits) => { limits = runLimits; return capture(identity, runLimits); };
+  const run = await f.engine.waitForRun((await f.submit()).runId); assert.equal(run.state, 'completed');
+  assert.equal(limits?.maxTurns, 4); assert.deepEqual(limits, run.config.limits);
+});
+
 test('explicit shared registry option applies dynamic host registration and rejects ambiguous setup before storage', async t => {
   const registry = new LifecycleHookRegistry(); let invokes = 0;
   const provider: ProviderAdapter = { id: 'authored-shared', async *streamTurn() { invokes++; yield stop; } };

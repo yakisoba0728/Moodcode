@@ -123,7 +123,7 @@ export function dispatchLifecycleHooks(
       );
     return previous.promise;
   }
-  if (state.invocations.size >= registry.limits.maxInvocationsPerCapture)
+  if (state.invocations.size >= state.maxInvocations)
     throw new EngineError(
       "LIFECYCLE_INVOCATION_LIMIT",
       "Lifecycle Run capture reached its bounded invocation limit",

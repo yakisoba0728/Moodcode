@@ -52,6 +52,26 @@ test('active registry, revision identity and invocation caches have independent 
   assert.throws(() => registry.dispatch(capture, invocation('second'), signal()), code('LIFECYCLE_INVOCATION_LIMIT'));
 });
 
+test('Run captures bound invocations by their own turn and tool limits within the hard maximum', async () => {
+  const admitted = async (registry: LifecycleHookRegistry, capture: LifecycleCapture) => {
+    let count = 0;
+    for (;; count++) {
+      try { await registry.dispatch(capture, invocation(`invoke-${count}`), signal()); }
+      catch (error) { assert.equal(code('LIFECYCLE_INVOCATION_LIMIT')(error), true); return count; }
+    }
+  };
+  const registry = new LifecycleHookRegistry(); registry.register(hook('observer', () => {}));
+  assert.equal(await admitted(registry, registry.capture(identity)), 1_024);
+  assert.equal(await admitted(registry, registry.capture(identity, { maxTurns: 128, maxToolCalls: 1_024 })), 35 * 128 + 3 * 1_024 + 3);
+  assert.equal(await admitted(registry, registry.capture(identity, { maxTurns: 1, maxToolCalls: 1 })), 1_024);
+  assert.equal(await admitted(registry, registry.capture(identity, { maxTurns: Number.MAX_SAFE_INTEGER, maxToolCalls: Number.MAX_SAFE_INTEGER })), 8_192);
+  const small = new LifecycleHookRegistry({ maxInvocationsPerCapture: 8 });
+  assert.equal(await admitted(small, small.capture(identity, { maxTurns: 0, maxToolCalls: 0 })), 8);
+  assert.equal(await admitted(small, small.capture(identity, { maxTurns: 1, maxToolCalls: 2 })), 35 + 6 + 3);
+  for (const limits of [{ maxTurns: -1, maxToolCalls: 1 }, { maxTurns: 1.5, maxToolCalls: 1 }, { maxTurns: 1, maxToolCalls: NaN }, { maxTurns: 1 }, null])
+    assert.throws(() => registry.capture(identity, limits as never), code('INVALID_LIFECYCLE_LIMIT'));
+});
+
 test('forged captures, cross-registry handles, other Run identities and stale captures are rejected before callbacks', () => {
   let called = 0;
   const registry = new LifecycleHookRegistry(); registry.register(hook('observer', () => { called++; }));
