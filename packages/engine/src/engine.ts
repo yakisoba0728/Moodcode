@@ -940,6 +940,7 @@ private readonly workflowRecords: WorkflowStorage;
           commitChild: (o, r) => this.workflowEffects.commitChild(o, r),
           release: (o) => this.workflowEffects.release(o),
           transaction: (op) => this.store.withWorkflowEffectsTransaction(op),
+          mergePending: (r) => this.workflowEffects.mergePending(r),
         },
       });
       this.workflowRecords.recoverInterrupted();

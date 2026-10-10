@@ -7,8 +7,10 @@ import {
   readWorkflowResult,
   validateWorkflowSchema,
   validateWorkflowSpec,
+  validateNewWorkflowWorktreeSharing,
   validateWorkflowStageResult,
   validateWorkflowValue,
+  validateWorkflowWorktreeSharing,
   workflowTopologicalOrder,
   WORKFLOW_LIMITS,
 } from "./spec.js";
@@ -578,6 +580,38 @@ test("all role specs require explicit pins and advisory roles cannot request eff
       () => validateWorkflowSpec(spec([invalid as WorkflowStageSpec])),
       code("INVALID_WORKFLOW_SPEC", "WORKFLOW_LIMIT"),
     );
+});
+
+test("a new instance rejects a validator that shares an editor worktree without joining all, while stored instances still load", () => {
+  const sharing = (join: "all" | "any") =>
+      validateWorkflowSpec(
+        spec([
+          stage("plan"),
+          { ...stage("edit"), role: "editor", tools: ["apply_patch"] },
+          {
+            ...stage("check", ["edit", "plan"]),
+            role: "validator",
+            join,
+            tools: ["run_command", "verify_changes"],
+            verification: {
+              checkIds: ["host-check"],
+              sourcePaths: ["src/foo.ts"],
+              maxRepairs: 0,
+            },
+          },
+        ]),
+      ),
+    selected = { plan: "plan-tree", edit: "edit-tree", check: "edit-tree" };
+  assert.throws(
+    () => validateNewWorkflowWorktreeSharing(sharing("any"), selected),
+    code("WORKFLOW_WORKTREE_SELECTION_INVALID"),
+  );
+  validateWorkflowWorktreeSharing(sharing("any"), selected);
+  validateNewWorkflowWorktreeSharing(sharing("all"), selected);
+  validateNewWorkflowWorktreeSharing(sharing("any"), {
+    ...selected,
+    check: "check-tree",
+  });
 });
 
 test("selected result stage and its exact object schema must agree with the workflow result contract", () => {

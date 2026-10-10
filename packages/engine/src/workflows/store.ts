@@ -20,6 +20,7 @@ import {
   workflowInteger,
   workflowObject,
   workflowSha,
+  validateNewWorkflowWorktreeSharing,
   validateWorkflowWorktreeSharing,
 } from "./spec.js";
 import {
@@ -1010,7 +1011,7 @@ export class WorkflowStorage {
         syncVoid(this.ports.assertWorktreeCurrent(original, pin));
         worktrees[stage.id] = pin;
       }
-      validateWorkflowWorktreeSharing(spec.spec,Object.fromEntries(Object.entries(worktrees).map(([id,pin])=>[id,pin.id])));
+      validateNewWorkflowWorktreeSharing(spec.spec,Object.fromEntries(Object.entries(worktrees).map(([id,pin])=>[id,pin.id])));
       if (
         Number(
           this.db
@@ -1393,6 +1394,7 @@ export class WorkflowStorage {
     operation: WorkflowTransitionReceipt["operation"],
     eventFactory: (before: WorkflowInstanceRevision) => WorkflowTransitionEvent,
     settling = false,
+    atCurrent = false,
   ): WorkflowRequestResult<WorkflowInstanceRevision> {
     const safeInput = json(input);
     const allowed =
@@ -1416,10 +1418,10 @@ export class WorkflowStorage {
       workspaceId = workflowIdentifier(data.workspaceId),
       instanceId = workflowIdentifier(data.instanceId),
       requestId = workflowIdentifier(data.requestId),
-      requestInput = { ...data, operation } as JsonObject,
-      digest = knowledgeHash(requestInput),
       scope = `instance:${instanceId}`;
-    workflowInteger(data.expectedRevision);
+    let requestInput = { ...data, operation } as JsonObject,
+      digest = knowledgeHash(requestInput);
+    const expectedRevision = workflowInteger(data.expectedRevision);
     const duplicate = this.duplicate<WorkflowInstanceRevision>(
       workspaceId,
       scope,
@@ -1444,8 +1446,17 @@ export class WorkflowStorage {
       )
         workflowError("WORKFLOW_REQUEST_CONFLICT");
       const before = this.getInstance(workspaceId, instanceId);
-      if (!before || before.revision !== data.expectedRevision)
+      if (
+        !before ||
+        (atCurrent
+          ? before.revision < expectedRevision
+          : before.revision !== expectedRevision)
+      )
         workflowError("WORKFLOW_STALE");
+      if (before.revision !== expectedRevision) {
+        requestInput = { ...requestInput, expectedRevision: before.revision };
+        digest = knowledgeHash(requestInput);
+      }
       if (original !== null) this.assertOwner(original, before.owner, settling);
       const event = eventFactory(before),
         spec = this.spec(before).spec;
@@ -1534,6 +1545,7 @@ export class WorkflowStorage {
       };
     });
   }
+  /** Commits at the current revision, never below expectedRevision; the reducer rejects a stage no longer dispatching this child. */
   admitStage(
     original: object,
     originalChild: object,
@@ -1570,6 +1582,7 @@ export class WorkflowStorage {
         this.childSQL(before, proof);
         return { operation: "admit", stageId: input.stageId, child: proof };
       },
+      true,
       true,
     );
   }

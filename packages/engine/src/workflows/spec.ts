@@ -670,3 +670,21 @@ export function validateWorkflowWorktreeSharing(
         workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
     }
 }
+/** A new instance's shared-worktree validator also waits for all dependencies, so it never runs before or beside its editor. */
+export function validateNewWorkflowWorktreeSharing(
+  spec: WorkflowSpec,
+  selected: Readonly<Record<string, string>>,
+): void {
+  validateWorkflowWorktreeSharing(spec, selected);
+  for (const validator of spec.stages)
+    if (
+      validator.role === "validator" &&
+      validator.join !== "all" &&
+      spec.stages.some(
+        (stage) =>
+          stage.role === "editor" &&
+          selected[stage.id] === selected[validator.id],
+      )
+    )
+      workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
+}

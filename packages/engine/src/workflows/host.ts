@@ -20,7 +20,7 @@ import {
   workflowInteger,
   workflowJson,
   WORKFLOW_READ_TOOLS,
-  validateWorkflowWorktreeSharing,
+  validateNewWorkflowWorktreeSharing,
 } from "./spec.js";
 
 export function workflowHostRecord(
@@ -276,7 +276,7 @@ export class WorkflowHost {
       false /* Sequential dependency-linked stages may share one actual worktree. */
     )
       workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
-    validateWorkflowWorktreeSharing(spec, selection.stageWorktrees);
+    validateNewWorkflowWorktreeSharing(spec, selection.stageWorktrees);
     for (const id of Object.values(selection.stageWorktrees))
       workflowIdentifier(id);
     if (this.retained.size >= 32) workflowError("WORKFLOW_LIMIT");

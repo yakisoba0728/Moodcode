@@ -7,7 +7,11 @@ import { EngineError } from "@moodcode/contracts";
 import type { WorkflowStartPreview } from "./host.js";
 import type { WorkflowInstanceRevision } from "./reducer.js";
 import type { WorkflowService } from "./service.js";
-import type { WorkflowRequestResult, WorkflowSpecRevision } from "./store.js";
+import type {
+  WorkflowRequestResult,
+  WorkflowSpecRevision,
+  WorkflowStorage,
+} from "./store.js";
 import type { WorkflowSpecInput } from "./types.js";
 import {
   workflowFixture,
@@ -341,6 +345,87 @@ test(
     );
     (await f.waitChild()).release.resolve();
     assert.equal((await observe(f, admitted.record)).record.state, "completed");
+  },
+);
+
+test(
+  "a stage admitted after another stage moved the instance revision keeps its running child and replays",
+  { timeout: 25000 },
+  async (t) => {
+    const f = await workflowFixture(t),
+      spec = await f.spec([{ id: "first" }, { id: "second" }]),
+      created = start(f, await preview(f, spec)),
+      first = stage(f, created.record, "first"),
+      prepared = inspect(f, created.record.instanceId),
+      second = stage(f, prepared, "second");
+    assert.equal(prepared.revision, created.record.revision + 1);
+    await Promise.all([first, second]);
+    const admitted = inspect(f, created.record.instanceId);
+    assert.equal(admitted.state, "running");
+    assert.deepEqual(
+      admitted.stages.map((item) => item.state),
+      ["running", "running"],
+    );
+    assert.equal(f.children.length, 2);
+    for (const index of [0, 1]) (await f.waitChild(index)).release.resolve();
+    const settled = await observe(f, admitted, "first"),
+      completed = await observe(f, settled.record, "second");
+    assert.equal(completed.record.state, "completed");
+    (Reflect.get(f.engine, "workflowRecords") as WorkflowStorage).validate();
+    const service = Reflect.get(f.engine, "workflowService") as WorkflowService;
+    assert.ok(
+      (Reflect.get(service, "owners") as Map<string, unknown>).has(
+        created.record.instanceId,
+      ),
+    );
+  },
+);
+
+test(
+  "an admission refused after its child started cancels that child and releases the terminal owner",
+  { timeout: 25000 },
+  async (t) => {
+    const f = await workflowFixture(t),
+      spec = await f.spec([{ id: "first" }, { id: "second" }]),
+      created = start(f, await preview(f, spec)),
+      first = stage(f, created.record, "first"),
+      prepared = inspect(f, created.record.instanceId),
+      abort = new AbortController(),
+      second = workflowInvoke<Promise<InstanceResult>>(
+        f.engine,
+        "startWorkflowStage",
+        {
+          workspaceId: f.workspace.id,
+          instanceId: created.record.instanceId,
+          stageId: "second",
+          requestId: "start:second",
+          expectedRevision: prepared.revision,
+          approved: true,
+          signal: abort.signal,
+        },
+      );
+    abort.abort();
+    await assert.rejects(second);
+    await assert.rejects(first, code("WORKFLOW_TERMINAL"));
+    assert.equal(inspect(f, created.record.instanceId).state, "uncertain");
+    await workflowUntil(
+      () =>
+        f.engine.children.tasks
+          .list(f.session.id)
+          .every((task) => task.state === "cancelled"),
+      "A child whose admission was refused kept running",
+      5000,
+    );
+    const service = Reflect.get(f.engine, "workflowService") as WorkflowService;
+    assert.equal((Reflect.get(service, "owners") as Map<string, unknown>).size, 0);
+    assert.equal(
+      (Reflect.get(service, "stageRequests") as Map<string, unknown>).size,
+      0,
+    );
+    assert.equal(
+      (Reflect.get(service.ports.owner, "retained") as Set<object>).size,
+      0,
+    );
   },
 );
 

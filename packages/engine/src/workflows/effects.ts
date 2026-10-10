@@ -222,6 +222,30 @@ batchPolicy?: {
       stageId,
     );
   }
+  /** An observed editor with an observed validator on its worktree can still be merged. */
+  mergePending(record: WorkflowInstanceRevision): boolean {
+    const spec = this.engine.getWorkflow(
+        record.workspaceId,
+        record.workflowId,
+        record.specRevisionId,
+      )!.spec,
+      state = (stageId: string) =>
+        this.native.read(record.owner.sessionId, record.instanceId, stageId)
+          ?.state;
+    return spec.stages.some(
+      (editor) =>
+        editor.role === "editor" &&
+        ["observed", "merge-dispatching"].includes(state(editor.id) ?? "") &&
+        spec.stages.some(
+          (validator) =>
+            validator.role === "validator" &&
+            validator.dependsOn.includes(editor.id) &&
+            record.worktrees[validator.id]?.id ===
+              record.worktrees[editor.id]?.id &&
+            state(validator.id) === "observed",
+        ),
+    );
+  }
 private closed = false;
   private readonly merge: ToolDefinition;
   constructor(
@@ -966,6 +990,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     } finally {
       this.release(o);
       this.pendingMerge.delete(id);
+      this.service().reclaim(p.record.instanceId);
     }
   }
   toolSettled(tool: ToolCallRecord): void {
@@ -1015,6 +1040,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
         this.batchPolicy?.settled(record);
       });
       this.pendingMerge.delete(tool.id);
+      this.service().reclaim(record.instanceId);
     } finally {
       this.release(o);
     }

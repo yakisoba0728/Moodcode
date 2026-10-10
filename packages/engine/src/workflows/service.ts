@@ -101,6 +101,7 @@ export interface ObserveWorkflowStageInput extends WorkflowStageMutationInput {
   readonly signal?: AbortSignal;
 }
 interface InstanceOwner {
+  readonly workspaceId: string;
   readonly original: object;
   readonly children: Map<string, object>;
 }
@@ -115,10 +116,11 @@ export class WorkflowService {
       result: WorkflowRequestResult<WorkflowInstanceRevision>;
     }
   >();
-  private readonly pending = new Set<Promise<unknown>>();
+  private readonly pending = new Map<Promise<unknown>, string>();
   private readonly stageRequests = new Map<
     string,
     {
+      instanceId: string;
       sha256: string;
       operation: Promise<WorkflowRequestResult<WorkflowInstanceRevision>>;
     }
@@ -156,6 +158,7 @@ export class WorkflowService {
         commitChild(original: object, settled: WorkflowInstanceRevision): void;
         release(original: object): void;
         transaction<T>(op: () => T): T;
+        mergePending(record: WorkflowInstanceRevision): boolean;
       };
     },
   ) {}
@@ -249,6 +252,7 @@ export class WorkflowService {
     if (existing) this.ports.owner.release(state.originalOwner);
     else
       this.owners.set(result.record.instanceId, {
+        workspaceId: result.record.workspaceId,
         original: state.originalOwner,
         children: new Map(),
       });
@@ -304,9 +308,12 @@ export class WorkflowService {
           ? AbortSignal.any([signal, this.lifetime.signal])
           : this.lifetime.signal,
       });
-      this.stageRequests.set(key, { sha256, operation });
-      this.pending.add(operation);
-      operation.finally(() => this.pending.delete(operation)).catch(() => {});
+      this.stageRequests.set(key, {
+        instanceId: input.instanceId,
+        sha256,
+        operation,
+      });
+      this.track(input.instanceId, operation);
       return operation.then((result) => structuredClone(result));
     } catch (error) {
       return Promise.reject(error);
@@ -398,6 +405,7 @@ const prepared = this.ports.native.prepareStage(owner.original, {
         workflowError("WORKFLOW_DISPATCH_UNCERTAIN");
       return prepared;
     }
+    const attempt = new AbortController();
     let originalChild: object | undefined;
     try {
       workflowAbort(input.signal);
@@ -415,7 +423,9 @@ const prepared = this.ports.native.prepareStage(owner.original, {
           tools: [...stage.tools],
           allocation: stage.allocation,
         },
-        input.signal,
+        input.signal
+          ? AbortSignal.any([input.signal, attempt.signal])
+          : attempt.signal,
         stage,
       );
       const admitted = this.ports.native.admitStage(
@@ -432,6 +442,7 @@ const prepared = this.ports.native.prepareStage(owner.original, {
       owner.children.set(input.stageId, originalChild);
       return admitted;
     } catch (error) {
+      attempt.abort();
       if (originalChild) this.ports.children.release(originalChild);
       try {
         const current = this.ports.native.inspectWorkflow(
@@ -474,8 +485,7 @@ const prepared = this.ports.native.prepareStage(owner.original, {
           ? AbortSignal.any([signal, this.lifetime.signal])
           : this.lifetime.signal,
       });
-      this.pending.add(operation);
-      operation.finally(() => this.pending.delete(operation)).catch(() => {});
+      this.track(input.instanceId, operation);
       return operation.then((result) => structuredClone(result));
     } catch (error) {
       return Promise.reject(error);
@@ -568,12 +578,53 @@ const prepared = this.ports.native.prepareStage(owner.original, {
   ): { record: WorkflowInstanceRevision; owner: InstanceOwner } {
     return this.owned(workspaceId, instanceId);
   }
+  private track(instanceId: string, operation: Promise<unknown>): void {
+    this.pending.set(operation, instanceId);
+    operation
+      .finally(() => {
+        this.pending.delete(operation);
+        this.reclaim(instanceId);
+      })
+      .catch(() => {});
+  }
+  /** A failed, cancelled or uncertain instance with no stage operation and no mergeable editor effect releases its owner. Completed instances stay deliverable. */
+  reclaim(instanceId: string): void {
+    const owner = this.owners.get(instanceId);
+    if (
+      this.closed ||
+      !owner ||
+      [...this.pending.values()].includes(instanceId)
+    )
+      return;
+    try {
+      const record = this.ports.native.inspectWorkflow(
+        owner.workspaceId,
+        instanceId,
+      );
+      if (
+        !record ||
+        !["failed", "cancelled", "uncertain", "paused-import"].includes(
+          record.state,
+        ) ||
+        this.ports.effects?.mergePending(record)
+      )
+        return;
+    } catch {
+      return;
+    }
+    this.owners.delete(instanceId);
+    for (const child of owner.children.values())
+      this.ports.children.release(child);
+    this.ports.owner.release(owner.original);
+    for (const [key, request] of this.stageRequests)
+      if (request.instanceId === instanceId) this.stageRequests.delete(key);
+  }
   async close(): Promise<void> {
     if (this.closed) return;
     this.closed = true;
     this.lifetime.abort();
     this.ports.host.close();
-    await Promise.allSettled([...this.pending]);
+    await Promise.allSettled([...this.pending.keys()]);
     for (const owner of this.owners.values()) {
       for (const child of owner.children.values())
         this.ports.children.release(child);
