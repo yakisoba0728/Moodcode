@@ -4,7 +4,7 @@ import { setImmediate as tick } from 'node:timers/promises';
 import { DEFAULT_LIMITS } from '@moodcode/contracts';
 import type { ToolContext, ToolDefinition } from '../ports.js';
 import { ScopedToolRuntime } from '../tools/runtime/index.js';
-import { EnginePluginManager, observePluginTool } from './index.js';
+import { EnginePluginManager, observePluginTool, type EnginePlugin } from './index.js';
 const signal = () => new AbortController().signal; const code = (expected: string) => (e: unknown) => { assert.equal((e as { code: string }).code, expected); return true; };
 function tool(name = 'custom'): ToolDefinition { return { name, description: 'fixture tool', inputSchema: { type: 'object' }, async prepare(input) { return { name, input: input as never, fingerprint: 'fixture', requiresApproval: false, preview: {} }; }, async execute() { return { content: 'fixture result' }; } }; }
 function context(): ToolContext { return { workspace: { id: 'w', root: '/w', gitRoot: '/w', branch: null, createdAt: new Date().toISOString() }, sessionId: 's', runId: 'r', toolCallId: 'call', signal: signal(), limits: { ...DEFAULT_LIMITS }, artifactDir: '/a', recordCheckpoint() {} }; }
@@ -97,4 +97,18 @@ test('cancelled late factory disposal failure remains owned after settlement', a
   const replacementError = await manager.activate({ id: 'late', async activate() { replacements++; return { tools: [] }; } }, signal()).then(() => undefined, error => error as { code: string });
   const closeError = await manager.close().then(() => undefined, error => error as { code: string });
   assert.deepEqual({ replacement: replacementError?.code, close: closeError?.code, replacements, disposed }, { replacement: 'PLUGIN_ALREADY_ACTIVE', close: 'PLUGIN_CLEANUP_FAILED', replacements: 0, disposed: 1 });
+});
+
+test('synchronous and empty factory results settle activation', async () => {
+  const manager = new EnginePluginManager(new ScopedToolRuntime()); let disposed = 0;
+  const synchronous = (() => ({ tools: [tool()], dispose() { disposed++; } })) as unknown as EnginePlugin['activate'];
+  const active = await manager.activate({ id: 'sync', activate: synchronous }, signal());
+  assert.deepEqual(active.toolNames, ['custom']);
+  await manager.deactivate('sync'); assert.equal(disposed, 1);
+  const empty = (() => undefined) as unknown as EnginePlugin['activate'];
+  await assert.rejects(manager.activate({ id: 'empty', activate: empty }, signal()), code('INVALID_ENGINE_PLUGIN'));
+  await tick();
+  const retried = await manager.activate({ id: 'empty', async activate() { return { tools: [] }; } }, signal());
+  assert.equal(retried.id, 'empty');
+  await manager.close();
 });

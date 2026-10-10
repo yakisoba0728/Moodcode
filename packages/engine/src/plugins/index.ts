@@ -28,7 +28,7 @@ export class EnginePluginManager {
     let activation: PluginActivation | undefined; const disposers: (() => void)[] = []; let published = false;
     try {
       if (combined.aborted) throw new EngineError('PLUGIN_CANCELLED', 'Plugin activation cancelled');
-      const task = plugin.activate({ id: plugin.id, signal: combined }); let cancelled = false; factoryTracked = true;
+      const task = Promise.resolve(plugin.activate({ id: plugin.id, signal: combined })); let cancelled = false; factoryTracked = true;
       let detach = () => {};
       const interruption = new Promise<never>((_resolve, reject) => { const abort = () => { cancelled = true; reject(new EngineError('PLUGIN_CANCELLED', 'Plugin activation cancelled')); }; combined.addEventListener('abort', abort, { once: true }); detach = () => combined.removeEventListener('abort', abort); if (combined.aborted) abort(); });
       void task.then(async late => { if (cancelled) await this.disposeOnce(late); }, () => {}).catch(() => { settlement.failed = true; }).finally(factoryDone);
@@ -66,7 +66,7 @@ export class EnginePluginManager {
 }
 export interface ToolHookMetadata { pluginId: string; toolName: string; runId: string; toolCallId: string; fingerprint?: string; outcome?: 'completed' | 'failed' }
 export interface PluginToolHooks { prepared?(metadata: ToolHookMetadata): Promise<void> | void; settled?(metadata: ToolHookMetadata): Promise<void> | void }
-/** Hooks observe metadata; they cannot rewrite the prepared fingerprint or receive host credentials. */
+/** Host-facing utility: hooks observe metadata; they cannot rewrite the prepared fingerprint or receive host credentials. */
 export function observePluginTool(pluginId: string, source: ToolDefinition, hooks: PluginToolHooks): ToolDefinition {
   return { name: source.name, description: source.description, inputSchema: structuredClone(source.inputSchema), ...(source.effectClass ? { effectClass: source.effectClass } : {}),
     async prepare(input, context) { const prepared = await source.prepare(input, context); await hooks.prepared?.({ pluginId, toolName: source.name, runId: context.runId, toolCallId: context.toolCallId, fingerprint: prepared.fingerprint }); return prepared; },
