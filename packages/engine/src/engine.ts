@@ -1987,9 +1987,10 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
     this.runtimeProviders.set(providerId, this.backendHost.provider(result.record)); this.backendProviderIds.add(providerId);
     return result;
   }
+  /** Native disabled state fences dispatch; original Attempt owners retain observation authority. */
   disableAgentBackend(input: DisableAgentBackendInput) {
     this.assertAgentBackendsEnabled(); const result = this.backendRecords.disableBackend(input);
-    this.backendProducer.deactivate(result.record.backendId); const providerId = `acp:${result.record.backendId}`;
+    const providerId = `acp:${result.record.backendId}`;
     if (this.backendProviderIds.has(providerId)) this.runtimeProviders.delete(providerId);
     return result;
   }

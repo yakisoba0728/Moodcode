@@ -471,9 +471,6 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       record: agentBackendJson(record),
     });
   }
-  deactivate(_backendId: string): void {
-    /* Native disabled state fences dispatch; original Attempt owners retain observation authority. */
-  }
   readOwner(original: object): BackendTurnProof {
     if (this.closed) fail("ENGINE_CLOSED");
     const request = original as TurnRequest;

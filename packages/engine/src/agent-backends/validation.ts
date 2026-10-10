@@ -8,6 +8,7 @@ import {
 import type {
   AgentBackendCredentialReference,
   AgentBackendLaunch,
+  AgentBackendSessionLoad,
   AgentBackendSpec,
   AgentBackendTargetPin,
 } from "./types.js";
@@ -28,6 +29,13 @@ export const AGENT_BACKEND_LIMITS = Object.freeze({
   requestIdBytes: 256,
   authMethods: 16,
 });
+const CONTROL = /[\u0000-\u001f\u007f]/u;
+const ALLOCATION_KEYS = [
+  "maxTurns",
+  "maxToolCalls",
+  "maxOutputBytes",
+  "maxDurationMs",
+] as const;
 export function agentBackendError(code = "INVALID_AGENT_BACKEND"): never {
   throw new EngineError(
     code,
@@ -92,7 +100,7 @@ export function agentBackendText(
 }
 export function agentBackendIdentifier(input: unknown): string {
   const result = agentBackendText(input);
-  if (/[\u0000-\u001f\u007f]/u.test(result)) agentBackendError();
+  if (CONTROL.test(result)) agentBackendError();
   return result;
 }
 export function agentBackendSha(input: unknown): string {
@@ -116,22 +124,20 @@ export function agentBackendInteger(
 }
 export function agentBackendAbsolutePath(input: unknown): string {
   const value = agentBackendText(input, 4096);
-  if (
-    !isAbsolute(value) ||
-    resolve(value) !== value ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
+  if (!isAbsolute(value) || resolve(value) !== value || CONTROL.test(value))
     agentBackendError("AGENT_BACKEND_PATH_INVALID");
+  return value;
+}
+function audienceText(input: unknown, code?: string): string {
+  const value = agentBackendText(input, 2048);
+  if (CONTROL.test(value)) agentBackendError(code);
   return value;
 }
 function credential(input: unknown): AgentBackendCredentialReference {
   const value = agentBackendObject(input, ["id", "audience"]);
   const id = agentBackendIdentifier(value.id),
-    audience = agentBackendText(value.audience, 2048);
-  if (
-    !/^host:[A-Za-z0-9_.-]{1,128}$/u.test(id) ||
-    /[\u0000-\u001f\u007f]/u.test(audience)
-  )
+    audience = audienceText(value.audience, "AGENT_BACKEND_CREDENTIAL_INVALID");
+  if (!/^host:[A-Za-z0-9_.-]{1,128}$/u.test(id))
     agentBackendError("AGENT_BACKEND_CREDENTIAL_INVALID");
   return { id, audience };
 }
@@ -195,19 +201,9 @@ export function validateAgentBackendTarget(
     agentBackendError("AGENT_BACKEND_LIMIT");
   const tools = value.tools.map(agentBackendIdentifier).sort();
   if (new Set(tools).size !== tools.length) agentBackendError();
-  const allocation = agentBackendObject(value.allocation, [
-    "maxTurns",
-    "maxToolCalls",
-    "maxOutputBytes",
-    "maxDurationMs",
-  ]);
+  const allocation = agentBackendObject(value.allocation, ALLOCATION_KEYS);
   const limits = normalized.limits;
-  for (const key of [
-    "maxTurns",
-    "maxToolCalls",
-    "maxOutputBytes",
-    "maxDurationMs",
-  ] as const)
+  for (const key of ALLOCATION_KEYS)
     if (
       agentBackendInteger(allocation[key], Number.MAX_SAFE_INTEGER, 1) !==
       limits[key]
@@ -223,15 +219,11 @@ export function validateAgentBackendTarget(
     config: normalized,
     runConfigSha256: knowledgeHash(normalized),
     tools,
-    allocation: {
-      maxTurns: limits.maxTurns,
-      maxToolCalls: limits.maxToolCalls,
-      maxOutputBytes: limits.maxOutputBytes,
-      maxDurationMs: limits.maxDurationMs,
-    },
+    allocation: Object.fromEntries(
+      ALLOCATION_KEYS.map((key) => [key, limits[key]]),
+    ) as AgentBackendTargetPin["allocation"],
   });
 }
-export const validateAgentBackendTargetPin = validateAgentBackendTarget;
 export function validateAgentBackendLaunch(input: unknown): AgentBackendLaunch {
   const launch = agentBackendObject(input, [
     "kind",
@@ -305,7 +297,7 @@ export function validateAgentBackendSpec(input: unknown): AgentBackendSpec {
     agentBackendError("ACP_VERSION_UNSUPPORTED");
   if (value.contextOwner !== "engine" && value.contextOwner !== "agent")
     agentBackendError("AGENT_BACKEND_CONTEXT_UNSUPPORTED");
-  let sessionLoad: import("./types.js").AgentBackendSessionLoad | undefined;
+  let sessionLoad: AgentBackendSessionLoad | undefined;
   if (value.contextOwner === "agent") {
     const selected = agentBackendObject(value.sessionLoad, [
       "sourceBackendId",
@@ -340,8 +332,7 @@ export function validateAgentBackendSpec(input: unknown): AgentBackendSpec {
   } else if (value.sessionLoad !== undefined)
     agentBackendError("AGENT_BACKEND_CONTEXT_UNSUPPORTED");
   const launch = validateAgentBackendLaunch(value.launch);
-  const endpointAudience = agentBackendText(value.endpointAudience, 2048);
-  if (/[\u0000-\u001f\u007f]/u.test(endpointAudience)) agentBackendError();
+  const endpointAudience = audienceText(value.endpointAudience);
   const credentialReference =
     value.credentialReference === null
       ? null

@@ -10,7 +10,6 @@ const sseErrors = { frameLimit: messageLimit, malformed: () => new EngineError('
 export function headerValue(value: string): string { return /^[\x20-\x7e]*$/.test(value) && value.trim() === value && !(value.startsWith('=?base64?') && value.endsWith('?=')) ? value : `=?base64?${Buffer.from(value).toString('base64')}?=`; }
 /** POST JSON/SSE transport. Legacy sessions are supported only under the explicit 2025 pin. */
 export class HttpMcpTransport implements McpTransport {
-  readonly dispatchBoundary = 'before-send-v1' as const;
   readonly kind = 'http' as const; readonly url: string; private started = false; private closed = false; private sessionId?: string; private version: McpProtocolVersion;
   private receive?: (message: JsonRpcMessage) => void; private disconnected?: (error?: EngineError) => void; private active = new Map<number | string, AbortController>(); private notifications = new Set<AbortController>(); private closePromise?: Promise<void>;
   constructor(private readonly options: HttpMcpOptions) {

@@ -108,7 +108,6 @@ export class AgentBackendRemote implements ProviderAdapter {
     let nativeEffects: BackendNativeEffects | undefined;
     let capabilities:
       import("./types.js").AcpV1NegotiatedCapabilities | undefined;
-    let cancelSent = false;
     const observe = (
       original: object,
       state: "initialized" | "session-ready" | "observe",
@@ -634,10 +633,8 @@ export class AgentBackendRemote implements ProviderAdapter {
         process &&
         remoteSessionId &&
         (originalSession || originalSessionWrite) &&
-        !settled &&
-        !cancelSent
+        !settled
       ) {
-        cancelSent = true;
         try {
           const message = {
             jsonrpc: "2.0" as const,

@@ -302,6 +302,22 @@ test("only host credential references and exact endpoint audience can be seriali
       }),
     fails("AGENT_BACKEND_CREDENTIAL_AUDIENCE_MISMATCH"),
   );
+  assert.throws(
+    () =>
+      validateAgentBackendSpec({
+        ...value,
+        credentialReference: { ...ref, audience: "local:\u007freader" },
+      }),
+    fails("AGENT_BACKEND_CREDENTIAL_INVALID"),
+  );
+  assert.throws(
+    () =>
+      validateAgentBackendSpec({
+        ...value,
+        endpointAudience: "local:\nreader",
+      }),
+    fails("INVALID_AGENT_BACKEND"),
+  );
 });
 test("getters, proxies, serializers, sparse arrays and cycles are rejected without evaluation", () => {
   let accessed = 0;

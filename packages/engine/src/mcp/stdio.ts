@@ -11,7 +11,6 @@ import { encodeMessage, markMcpDispatchTransport, MCP_LIMITS, parseMessage, type
 export interface StdioMcpOptions { command: string; args?: readonly string[]; cwd: string; env?: Readonly<Record<string, string>>; sandbox?:(message?:JsonRpcMessage)=>SandboxLaunch; observer?:{beforeStart():void;started(pid:number):void;closed(outcome:{exitCode:number|null;cleanupConfirmed:boolean;started:boolean}):void} }
 /** Starts only an explicit executable/argv and never inherits account credentials by default. */
 export class StdioMcpTransport implements McpTransport {
-  readonly dispatchBoundary = 'before-send-v1' as const;
   readonly kind = 'stdio' as const; private child?: ChildProcessWithoutNullStreams; private closed = false; private finished = false; private closePromise?: Promise<void>;
   private onClose?: (error?: EngineError) => void; private exitCode:number|null=null; private effectPid?:number; private sandboxOutcome?:{exitCode:number|null;cleanupConfirmed:boolean;started:boolean};
   constructor(private readonly options: StdioMcpOptions) {

@@ -28,23 +28,7 @@ import {
 } from "./validation.js";
 
 export const ACP_PROTOCOL_VERSION = 1 as const;
-export const ACP_V1_METHODS = Object.freeze([
-  "initialize",
-  "session/new",
-  "session/load",
-  "session/prompt",
-  "session/cancel",
-  "session/update",
-  "fs/read_text_file",
-  "fs/write_text_file",
-  "session/request_permission",
-  "terminal/create",
-  "terminal/output",
-  "terminal/wait_for_exit",
-  "terminal/kill",
-  "terminal/release",
-] as const);
-export function validateAcpV1Id(value: unknown): AcpV1Id {
+function validateAcpV1Id(value: unknown): AcpV1Id {
   if (typeof value === "number")
     return agentBackendInteger(value, Number.MAX_SAFE_INTEGER, 0);
   return agentBackendIdentifier(value);
@@ -111,9 +95,7 @@ export function validateAcpV1InitializeParams(
   metadata(value._meta);
   return value as unknown as AcpV1InitializeParams;
 }
-export function validateAcpV1InitializeResult(
-  input: unknown,
-): AcpV1InitializeResult {
+function validateAcpV1InitializeResult(input: unknown): AcpV1InitializeResult {
   const value = agentBackendObject(
     input,
     ["protocolVersion", "agentCapabilities"],
@@ -216,9 +198,7 @@ export function negotiateAcpV1Capabilities(
   };
   return agentBackendJson({ ...body, sha256: knowledgeHash(body) });
 }
-export function validateAcpV1NewSessionParams(
-  input: unknown,
-): AcpV1NewSessionParams {
+function validateAcpV1NewSessionParams(input: unknown): AcpV1NewSessionParams {
   const value = agentBackendObject(input, ["cwd", "mcpServers"], ["_meta"]);
   agentBackendAbsolutePath(value.cwd);
   if (!Array.isArray(value.mcpServers) || value.mcpServers.length !== 0)
@@ -226,7 +206,7 @@ export function validateAcpV1NewSessionParams(
   metadata(value._meta);
   return value as unknown as AcpV1NewSessionParams;
 }
-export function validateAcpV1PromptParams(input: unknown): AcpV1PromptParams {
+function validateAcpV1PromptParams(input: unknown): AcpV1PromptParams {
   const value = agentBackendObject(input, ["sessionId", "prompt"], ["_meta"]);
   agentBackendIdentifier(value.sessionId);
   if (

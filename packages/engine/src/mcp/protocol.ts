@@ -4,7 +4,7 @@ export type McpProtocolVersion = '2026-07-28' | '2025-11-25';
 export interface JsonRpcRequest { jsonrpc: '2.0'; id?: number | string; method: string; params?: JsonObject }
 export type JsonRpcMessage = JsonRpcRequest | { jsonrpc: '2.0'; id: number | string; result: JsonValue } | { jsonrpc: '2.0'; id: number | string; error: { code: number; message: string; data?: JsonValue } };
 export interface McpTransportSendObservation { beforeSend(): void }
-export interface McpTransport { readonly kind: 'stdio' | 'http'; readonly dispatchBoundary?: 'before-send-v1'; start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void>; send(message: JsonRpcMessage, signal?: AbortSignal, headers?: Readonly<Record<string, string>>, observation?: McpTransportSendObservation): Promise<void>; cancel(requestId: number): Promise<void>; close(): Promise<void>; }
+export interface McpTransport { readonly kind: 'stdio' | 'http'; start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void>; send(message: JsonRpcMessage, signal?: AbortSignal, headers?: Readonly<Record<string, string>>, observation?: McpTransportSendObservation): Promise<void>; cancel(requestId: number): Promise<void>; close(): Promise<void>; }
 const dispatchTransports = new WeakMap<McpTransport, McpTransport['send']>();
 /** Internal builtin brand: a custom flag or overridden method cannot assert no-send proof. */
 export function markMcpDispatchTransport(transport: McpTransport, implementation: McpTransport['send']): void { dispatchTransports.set(transport, implementation); }

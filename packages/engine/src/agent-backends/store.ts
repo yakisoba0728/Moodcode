@@ -37,7 +37,10 @@ import {
   type BackendRequestState,
   type BackendEffectState,
 } from "./reducer.js";
-import { validateAgentBackendSpec } from "./validation.js";
+import {
+  AGENT_BACKEND_LIMITS,
+  validateAgentBackendSpec,
+} from "./validation.js";
 import {
   validateAcpV1Message,
   encodeAcpV1Message,
@@ -49,13 +52,6 @@ import {
   validateAcpV1TerminalCreateParams,
   validateAcpV1PermissionParams,
 } from "./protocol.js";
-export type {
-  BackendConnectionProof,
-  BackendPeerObservationProof,
-  BackendWriteProof,
-  BackendDisposalProof,
-} from "./process.js";
-export type { BackendClientReadProof } from "./client-effects.js";
 export interface BackendTurnProof {
   readonly workspaceId: string;
   readonly sessionId: string;
@@ -403,7 +399,7 @@ function id(value: unknown): string {
   if (
     typeof value !== "string" ||
     !value ||
-    Buffer.byteLength(value) > 256 ||
+    Buffer.byteLength(value) > AGENT_BACKEND_LIMITS.requestIdBytes ||
     /[\u0000-\u001f\u007f]/u.test(value)
   )
     fail("INVALID_BACKEND_INPUT");
@@ -441,9 +437,6 @@ function ownerOf(value: AgentBackendRecord): BackendTurnProof | null {
   return value.kind === "request" || value.kind === "client-effect"
     ? value.owner
     : null;
-}
-function entity(value: AgentBackendRecord): string {
-  return value.entityId;
 }
 function recoverable(kind: string, value: unknown): boolean {
   return kind === "connection"
@@ -584,7 +577,7 @@ export class AgentBackendStorage {
     }
     return this.head(ws, "backend", backendId);
   }
-  getConnection(
+  private getConnection(
     ws: string,
     connectionId: string,
     revisionId?: string,
@@ -634,7 +627,7 @@ export class AgentBackendStorage {
     )
       fail("BACKEND_LOAD_SOURCE_INVALID");
   }
-  getClientEffect(
+  private getClientEffect(
     ws: string,
     effectId: string,
   ): BackendClientEffectRevision | undefined {
@@ -1078,7 +1071,7 @@ export class AgentBackendStorage {
         this.getConnection(x.workspaceId, x.connectionId),
       );
       const b = this.required(this.getBackend(x.workspaceId, before.backendId));
-      const owner = this.owner(originalTurn, "dispatch");
+      const owner = this.owner(originalTurn);
       const message = validateAcpV1Message(x.message);
       if (
         !b.enabled ||
@@ -1214,7 +1207,7 @@ export class AgentBackendStorage {
       const cp = digest(this.ports.readConnection(originalConnection));
       sync(this.ports.assertConnectionCurrent(originalConnection));
       if (cp.sha256 !== c.proof.sha256) fail("BACKEND_CONNECTION_STALE");
-      const owner = this.owner(originalTurn, "dispatch");
+      const owner = this.owner(originalTurn);
       if (
         owner.workspaceId !== x.workspaceId ||
         owner.sessionId !== b.spec.target.sessionId ||
@@ -1283,7 +1276,7 @@ export class AgentBackendStorage {
       const before = this.required(
           this.getRequest(x.workspaceId, x.remoteRequestId),
         ),
-        p = this.owner(originalTurn, "dispatch");
+        p = this.owner(originalTurn);
       if (p.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
       this.liveConnection(before);
       return this.append(
@@ -1348,7 +1341,7 @@ export class AgentBackendStorage {
       );
       if (before.state !== "initialized" || before.capabilities)
         fail("BACKEND_CONNECTION_STALE");
-      const owner = this.owner(originalTurn, "dispatch");
+      const owner = this.owner(originalTurn);
       if (owner.sha256 !== before.proof.ownerSha256)
         fail("BACKEND_OWNER_INVALID");
       const frame = this.frame(originalFrame, before);
@@ -1451,7 +1444,7 @@ export class AgentBackendStorage {
         this.getRequest(x.workspaceId, x.remoteRequestId),
       );
       if (r.state !== "dispatched") fail("BACKEND_REQUEST_STALE");
-      const owner = this.owner(originalTurn, "dispatch");
+      const owner = this.owner(originalTurn);
       if (owner.sha256 !== r.owner.sha256) fail("BACKEND_OWNER_INVALID");
       const c = this.liveConnection(r),
         frame = this.frame(originalFrame, c);
@@ -1565,7 +1558,7 @@ export class AgentBackendStorage {
         before.executionFrame
       )
         fail("BACKEND_EFFECT_STALE");
-      const owner = this.owner(originalTurn, "dispatch");
+      const owner = this.owner(originalTurn);
       if (owner.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
       const request = this.required(
           this.getRequest(x.workspaceId, before.remoteRequestId),
@@ -1678,7 +1671,7 @@ export class AgentBackendStorage {
     )
       fail("BACKEND_TERMINAL_STALE");
     if ((before.controls?.length ?? 0) >= 32) fail("BACKEND_LIMIT");
-    if (this.owner(originalTurn, "dispatch").sha256 !== before.owner.sha256)
+    if (this.owner(originalTurn).sha256 !== before.owner.sha256)
       fail("BACKEND_OWNER_INVALID");
     const parent = this.required(
         this.getRequest(x.workspaceId, before.remoteRequestId),
@@ -2022,12 +2015,9 @@ export class AgentBackendStorage {
       });
     });
   }
-  private owner(
-    original: object,
-    phase: "dispatch" | "observe",
-  ): BackendTurnProof {
+  private owner(original: object): BackendTurnProof {
     const p = digest(this.ports.readOwner(original));
-    sync(this.ports.assertOwnerCurrent(original, p, phase));
+    sync(this.ports.assertOwnerCurrent(original, p, "dispatch"));
     validateTurnSql(this.db, p);
     return p;
   }
@@ -2077,9 +2067,6 @@ export class AgentBackendStorage {
     integer(p.writeOrdinal);
     integer(p.writtenBytes);
     if (p.writeOrdinal < 1 || p.writtenBytes < 1) fail();
-  }
-  hasUncertain(workspaceId: string): boolean {
-    return hasAgentBackendBlocker(this.db, workspaceId);
   }
   recoverInterrupted(): number {
     return this.ports.writeTx(() => recoverAgentBackends(this.db, this.time()));
@@ -2143,7 +2130,7 @@ function readPrimary(
 function validateSessionLoadSourceSql(
   db: DatabaseSync,
   spec: AgentBackendSpec,
-  target?: BackendTargetProof,
+  target: BackendTargetProof,
 ):
   | {
       backend: AgentBackendRevision;
@@ -2247,28 +2234,24 @@ function validateSessionLoadSourceSql(
     header.session_id !== spec.target.sessionId
   )
     fail("BACKEND_LOAD_SOURCE_INVALID");
-  if (target) {
-    function manifest(value: string | undefined): JsonObject {
-      if (typeof value !== "string" || Buffer.byteLength(value) > 32768)
-        fail("BACKEND_LOAD_SOURCE_INVALID");
-      return json(JSON.parse(value)) as JsonObject;
-    }
-    const old = manifest(backend.target.capabilitiesManifest),
-      current = manifest(target.capabilitiesManifest);
-    if (
-      knowledgeHash(old) !== backend.spec.target.capabilitiesSha256 ||
-      knowledgeHash(current) !== spec.target.capabilitiesSha256 ||
-      !Array.isArray(old.providerIds) ||
-      !Array.isArray(current.providerIds) ||
-      knowledgeHash({ ...current, providerIds: old.providerIds }) !==
-        knowledgeHash(old) ||
-      knowledgeHash(current.providerIds) !==
-        knowledgeHash(
-          [...new Set([...old.providerIds, `acp:${spec.id}`])].sort(),
-        )
-    )
+  function manifest(value: string | undefined): JsonObject {
+    if (typeof value !== "string" || Buffer.byteLength(value) > 32768)
       fail("BACKEND_LOAD_SOURCE_INVALID");
+    return json(JSON.parse(value)) as JsonObject;
   }
+  const old = manifest(backend.target.capabilitiesManifest),
+    current = manifest(target.capabilitiesManifest);
+  if (
+    knowledgeHash(old) !== backend.spec.target.capabilitiesSha256 ||
+    knowledgeHash(current) !== spec.target.capabilitiesSha256 ||
+    !Array.isArray(old.providerIds) ||
+    !Array.isArray(current.providerIds) ||
+    knowledgeHash({ ...current, providerIds: old.providerIds }) !==
+      knowledgeHash(old) ||
+    knowledgeHash(current.providerIds) !==
+      knowledgeHash([...new Set([...old.providerIds, `acp:${spec.id}`])].sort())
+  )
+    fail("BACKEND_LOAD_SOURCE_INVALID");
   return { backend, request, connection };
 }
 function validateSessionLoadBody(r: BackendConnectionRevision): void {
