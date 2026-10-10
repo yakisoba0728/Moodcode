@@ -140,6 +140,7 @@ export function validateCommandLifetimeRecord(
   for (const k of ["createdAt", "updatedAt"])
     if (
       typeof r[k] !== "string" ||
+      !Number.isFinite(Date.parse(r[k] as string)) ||
       new Date(r[k] as string).toISOString() !== r[k]
     )
       fail();

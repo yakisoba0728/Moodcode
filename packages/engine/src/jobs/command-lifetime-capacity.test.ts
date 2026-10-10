@@ -66,6 +66,14 @@ function next(
   });
 }
 
+test("lifetime records reject non-date times with the evidence code", () => {
+  const { sha256: _, ...body } = admit("job");
+  for (const field of ["createdAt", "updatedAt"])
+    assert.throws(
+      () => sign({ ...body, [field]: "x".repeat(24) }),
+      code("COMMAND_LIFETIME_EVIDENCE_INVALID"),
+    );
+});
 test("lifetime writes leave each lifetime its import revision and each live lifetime its recovery revision", (t) => {
   const resources = sqliteFixtureDirectory(t, "moodcode-lifetime-capacity-"),
     store = resources.openStore(),

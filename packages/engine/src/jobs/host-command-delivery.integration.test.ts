@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { randomUUID } from "node:crypto";
 import { DatabaseSync } from "node:sqlite";
+import { EngineError } from "@moodcode/contracts";
 import { hostDeliveryFixture } from "./fixtures/host-command-delivery.js";
+import { validateHostCommandDeliveryRecord } from "./host-command-delivery-records.js";
 import { jobCommand } from "./fixtures/job.js";
 import { createEngine } from "../engine.js";
 import {
@@ -184,3 +186,32 @@ test(
     assert.equal(f.providerCalls.length, 0);
   },
 );
+test("host delivery records reject non-date times with the delivery code", () => {
+  const digest = "a".repeat(64);
+  assert.throws(
+    () =>
+      validateHostCommandDeliveryRecord({
+        version: 1,
+        id: "delivery",
+        revision: 1,
+        state: "accepted",
+        workspaceId: "workspace",
+        jobId: "job",
+        settled: null,
+        target: null,
+        targetSha256: digest,
+        prompt: "result",
+        inputRequestId: "input",
+        requestId: "request",
+        requestSha256: digest,
+        accepted: null,
+        createdAt: "x".repeat(24),
+        updatedAt: "x".repeat(24),
+        importArchiveSha256: null,
+        sha256: digest,
+      }),
+    (error: unknown) =>
+      error instanceof EngineError &&
+      error.code === "HOST_COMMAND_DELIVERY_INVALID",
+  );
+});

@@ -25,6 +25,7 @@ import {
   readOwnedCommandDeliveries,
   readOwnedCommandDelivery,
   validateOwnedCommandDeliveryDatabase,
+  validateOwnedCommandDeliveryRecord,
   type OwnedCommandDeliveryInput,
   type OwnedCommandDeliveryPorts,
   type OwnedCommandDeliveryRecord,
@@ -718,3 +719,33 @@ for (const [name, mutation] of [
       0,
     );
   });
+
+test("owned delivery records reject non-date times with the delivery code", () => {
+  const digest = "a".repeat(64);
+  assert.throws(
+    () =>
+      validateOwnedCommandDeliveryRecord({
+        version: 1,
+        id: "delivery",
+        revision: 1,
+        state: "accepted",
+        workspaceId: "workspace",
+        jobId: "job",
+        settled: null,
+        target: null,
+        targetSha256: digest,
+        prompt: "result",
+        inputRequestId: "input",
+        requestId: "request",
+        requestSha256: digest,
+        accepted: null,
+        createdAt: "x".repeat(24),
+        updatedAt: "x".repeat(24),
+        importArchiveSha256: null,
+        sha256: digest,
+      }),
+    (error: unknown) =>
+      error instanceof EngineError &&
+      error.code === "OWNED_COMMAND_DELIVERY_INVALID",
+  );
+});

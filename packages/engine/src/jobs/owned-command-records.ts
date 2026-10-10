@@ -1,13 +1,13 @@
 import type { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import { isAbsolute } from "node:path";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { CommandArtifactDescriptor } from "../tools/command/observation.js";
 import { validateCommandArtifactDescriptor } from "../tools/command/observation.js";
 import type { ProcessOutcome } from "../tools/command/process-control.js";
 import type { SessionDocument } from "../storage/native-records.js";
-import { knowledgeHash } from "../knowledge/validation.js";
+import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import {
+  isCanonicalJobTime,
   jobJson,
   jobIdentifier,
   jobInteger,
@@ -112,13 +112,7 @@ function parsed(raw: unknown): Record<string, unknown> {
   }
 }
 const stamp = (value: unknown): string => {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    fail();
+  if (!isCanonicalJobTime(value)) fail();
   return value;
 };
 function object(
@@ -552,16 +546,14 @@ function sourceSql(
     ...(preview.sandbox?{sandbox:preview.sandbox}:{}),
   };
   const innerData = { workspaceRoot, sessionId: s.sessionId, ...(preview.sandbox?{sandbox:preview.sandbox}:{}) };
-  const fingerprint = createHash("sha256")
-    .update(
-      JSON.stringify({
-        version: 1,
-        name: "run_command",
-        preview: innerPreview,
-        data: innerData,
-      }),
-    )
-    .digest("hex");
+  const fingerprint = sha256(
+    JSON.stringify({
+      version: 1,
+      name: "run_command",
+      preview: innerPreview,
+      data: innerData,
+    }),
+  );
   if (
     s.preparedFingerprint !== fingerprint ||
     s.preparedSha256 !==
@@ -765,7 +757,7 @@ function read(db: DatabaseSync, h: DocumentHeader): OwnedCommandJobRecord {
     h.kind !== ownedCommandJobKind(r.jobId)
   )
     fail("OWNED_COMMAND_DOCUMENT_INVALID");
-  const sha = createHash("sha256").update(raw).digest("hex");
+  const sha = sha256(raw);
   const anchors = events(
     db,
     "session_events",

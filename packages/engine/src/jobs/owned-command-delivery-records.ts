@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
@@ -6,7 +5,7 @@ import {
   normalizeAcceptInput,
   validateInputRecord,
 } from "@moodcode/contracts/validation";
-import { knowledgeHash } from "../knowledge/validation.js";
+import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import { requestIdentity } from "../storage/native-schema.js";
 import type { SessionDocument } from "../storage/native-records.js";
 import type { ScheduleTargetPin } from "../schedules/types.js";
@@ -24,6 +23,7 @@ import {
   type OwnedCommandDeliveryTargetProof,
 } from "./owned-command-result.js";
 import {
+  isCanonicalJobTime,
   jobJson,
   jobObject,
   jobIdentifier,
@@ -110,8 +110,6 @@ function fail(code = "OWNED_COMMAND_DELIVERY_INVALID"): never {
     "Command result delivery does not match its bounded native admission evidence",
   );
 }
-const rawSha = (value: string) =>
-  createHash("sha256").update(value).digest("hex");
 const same = (left: unknown, right: unknown) =>
   knowledgeHash(left) === knowledgeHash(right);
 function parsed(value: unknown): unknown {
@@ -122,12 +120,7 @@ function parsed(value: unknown): unknown {
   }
 }
 function stamp(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    new Date(value).toISOString() !== value
-  )
-    fail();
+  if (!isCanonicalJobTime(value)) fail();
   return value;
 }
 function synchronous(value: unknown): void {
@@ -394,16 +387,12 @@ function documentAnchor(
   revision: number,
   encoded: string,
 ): void {
-  const sha256 = rawSha(encoded);
+  const sha = sha256(encoded);
   if (
-    eventBodies(db, sessionId, "session.document.updated", sha256).filter(
-      (e) => {
-        const p = e.payload as Record<string, unknown>;
-        return (
-          p?.kind === kind && p.revision === revision && p.sha256 === sha256
-        );
-      },
-    ).length !== 1
+    eventBodies(db, sessionId, "session.document.updated", sha).filter((e) => {
+      const p = e.payload as Record<string, unknown>;
+      return p?.kind === kind && p.revision === revision && p.sha256 === sha;
+    }).length !== 1
   )
     fail("OWNED_COMMAND_DELIVERY_DOCUMENT_INVALID");
 }

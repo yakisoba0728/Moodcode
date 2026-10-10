@@ -161,15 +161,18 @@ export function jobSha256(value: unknown): string {
     invalid("Job digests require lowercase SHA-256");
   return value as string;
 }
+export function isCanonicalJobTime(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length === 24 &&
+    Number.isFinite(Date.parse(value)) &&
+    new Date(value).toISOString() === value
+  );
+}
 function stamp(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
+  if (!isCanonicalJobTime(value))
     invalid("Job time requires canonical UTC ISO text");
-  return value as string;
+  return value;
 }
 function nullableText(value: unknown): void {
   if (value !== null) jobIdentifier(value);

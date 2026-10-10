@@ -338,6 +338,23 @@ test("native backend graph rejects valid older-head rewind and fully rehashed di
   validateAgentBackendDatabase(a.native.db);
 });
 
+test("native backend graph rejects a rehashed non-date createdAt with the database code", async (t) => {
+  const a = await actual(t);
+  rollback(a.native, () => {
+    const { sha256: _sha, ...record } = a.registered.record,
+      body = { ...record, createdAt: "x".repeat(24) },
+      forged = { ...body, sha256: knowledgeHash(body) };
+    a.native.db
+      .prepare("UPDATE backend_revisions SET data=?,sha256=? WHERE id=?")
+      .run(JSON.stringify(forged), forged.sha256, forged.id);
+    assert.throws(
+      () => validateAgentBackendDatabase(a.native.db),
+      code("BACKEND_DATABASE_INVALID"),
+    );
+  });
+  validateAgentBackendDatabase(a.native.db);
+});
+
 test("native archive registration append is disabled, workspace scoped, and preserves original history without caps", async (t) => {
   const a = await actual(t),
     originalData = a.native.db

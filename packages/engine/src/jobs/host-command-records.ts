@@ -1,9 +1,8 @@
 import {sandboxDigest} from '../sandbox/types.js';
-import { createHash } from "node:crypto";
 import { isAbsolute, posix } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
-import { knowledgeHash } from "../knowledge/validation.js";
+import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import {
   jobIdentifier,
   jobJson,
@@ -360,7 +359,7 @@ function validateCompletion(value: unknown): void {
           ? sha !== null
           : typeof body !== "string" ||
             Buffer.byteLength(body) > 8192 ||
-            createHash("sha256").update(body).digest("hex") !== sha
+            sha256(body) !== sha
       )
         failure();
     }

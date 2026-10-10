@@ -3007,7 +3007,11 @@ function validateBody(r: AgentBackendRecord): void {
   if (r.revision < 1) fail();
   if (r.previousId !== null) id(r.previousId);
   id(r.lastReceiptId);
-  if (new Date(r.createdAt).toISOString() !== r.createdAt) fail();
+  if (
+    !Number.isFinite(Date.parse(r.createdAt)) ||
+    new Date(r.createdAt).toISOString() !== r.createdAt
+  )
+    fail();
   const base = [
     "id",
     "kind",

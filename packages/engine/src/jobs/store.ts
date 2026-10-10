@@ -24,6 +24,7 @@ import {
   type JobOutputCursor,
 } from "./types.js";
 import {
+  isCanonicalJobTime,
   jobJson,
   jobIdentifier,
   jobInteger,
@@ -273,13 +274,7 @@ function input<T extends JobMutationInput>(
   return x;
 }
 function stamp(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    fail();
+  if (!isCanonicalJobTime(value)) fail();
   return value;
 }
 const mutationFields = [
