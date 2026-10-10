@@ -425,6 +425,7 @@ export class SqliteStore implements SessionEngineStore {
     if (this.db.isTransaction && this.postCommitCallbacks) this.publishAfterCommit(() => this.notify(input.sessionId));
     return receipt;
   }
+  findInputByRequest(sessionId: string, requestId: string): InputRecord | undefined { return this.native.findInputByRequest(sessionId, requestId); }
   lookupInputReceipt(input: AcceptInput): ExistingInputReceipt | undefined { return this.native.lookupInputReceipt(input); }
   lookupRunReceipt(input: SubmitInput): RunReceipt | undefined { return this.native.lookupRunReceipt(input); }
   getInput(id: string): InputRecord { return this.native.getInput(id); }

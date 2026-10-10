@@ -272,6 +272,14 @@ export class WorkspaceChangeHub {
     if (afterSeq < (entry.history[0]?.event.seq ?? entry.seq + 1) - 1) throw fail('WORKSPACE_CHANGE_CURSOR_EXPIRED', 'Workspace change history no longer retains this cursor');
     return entry.history.filter(item => item.event.seq > afterSeq).slice(0, limit).map(item => clone(item.event));
   }
+  /** A restarted subscriber's cursor: afterSeq while its retained replay fits one subscriber queue, otherwise the current head. */
+  resumeCursor(workspaceId: string, afterSeq: number): number {
+    const entry = this.get(workspaceId);
+    if (afterSeq < (entry.history[0]?.event.seq ?? entry.seq + 1) - 1) return entry.seq;
+    let bytes = 0;
+    for (const item of entry.history) if (item.event.seq > afterSeq && (bytes += item.bytes) > this.limits.subscriberBytes) return entry.seq;
+    return afterSeq;
+  }
   subscribe(workspaceId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterableIterator<WorkspaceChangeEvent> {
     const entry = this.get(workspaceId);
     if (entry.closed || this.closing) throw fail('ENGINE_CLOSED', 'Workspace change hub is closed');

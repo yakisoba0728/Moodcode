@@ -153,6 +153,22 @@ test('history byte limits cannot retain an unbounded rejected change index or ab
   assert.equal(f.hub.getDocument(f.workspace.id, 'tracked.txt')!.hash, hash('9'));
 });
 
+test('a restarted subscriber resumes after its cursor only while the retained replay fits one queue', async t => {
+  const f = await fixture(t, { observer: { intervalMs: 60_000 }, limits: { historyEvents: 3, subscriberBytes: 900 } });
+  for (const [index, content] of ['one', 'two', 'three', 'four'].entries()) {
+    await writeFile(join(f.root, 'tracked.txt'), content);
+    await f.record(f.checkpoint(index === 0 ? 'before' : ['one', 'two', 'three'][index - 1]!, content, 'tracked.txt', `c${index}`));
+  }
+  assert.deepEqual(f.hub.replay(f.workspace.id, 1).map(event => event.seq), [2, 3, 4]);
+  assert.equal(f.hub.resumeCursor(f.workspace.id, 4), 4);
+  assert.equal(f.hub.resumeCursor(f.workspace.id, 3), 3);
+  assert.equal(f.hub.resumeCursor(f.workspace.id, 1), 4, 'a retained replay larger than one queue resumes at the head');
+  assert.equal(f.hub.resumeCursor(f.workspace.id, 0), 4, 'an expired cursor resumes at the head');
+  const resumed = f.hub.subscribe(f.workspace.id, f.hub.resumeCursor(f.workspace.id, 3));
+  assert.equal((await resumed.next()).value.seq, 4);
+  await resumed.return?.();
+});
+
 test('root replacement and symlink files cannot produce fabricated deletions or tool attribution', async t => {
   const f = await fixture(t, { observer: { intervalMs: 60_000 } });
   await writeFile(join(f.temporary, 'outside.txt'), 'after');

@@ -22,7 +22,7 @@ import { HostCommandService } from './jobs/host-command-service.js';
 import { GitCommitHost } from './git/commit-host.js';
 import { ConversationForkHost } from './sessions/fork-host.js';
 import type { CaptureForkPreviewInput, ForkCommitInput } from './sessions/fork-types.js';
-import { constants, lstatSync, mkdirSync, mkdtempSync, realpathSync, statSync } from 'node:fs';
+import { constants, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
@@ -421,6 +421,7 @@ export class MoodcodeEngine {
   private readonly pendingImages = new Set<Promise<unknown>>();
   private readonly pendingStorage = new Set<Promise<unknown>>();
   private readonly storagePaths: { artifactDir: string; dbPath?: string };
+  private readonly ownedArtifactDir: string | undefined;
   private readonly childStorageIdentity: ChildStorageHostIdentity;
   private readonly verifyChildStorageIdentity: () => void;
   private readonly executionObserver: EngineExecutionObserver;
@@ -522,7 +523,7 @@ private readonly workflowRecords: WorkflowStorage;
   private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
   readonly changes: WorkspaceChangeHub;
-  private readonly watchConsumers = new Map<string, Promise<void>>();
+  private readonly watchConsumers = new Map<string, { seq: number; running: boolean; done: Promise<void> }>();
   private readonly languageServers = new Map<string, (path: string) => string | null>();
   private readonly languageServerRevisions = new Map<string, string>();
   private readonly pendingRepository = new Set<Promise<RepositorySnapshot>>();
@@ -642,14 +643,15 @@ private readonly workflowRecords: WorkflowStorage;
     const documentHistoryPolicy = options.documentHistoryPolicy === undefined ? undefined : validateDocumentHistoryPolicy(options.documentHistoryPolicy);
     const toolDiscoveryPolicy = options.toolDiscoveryPolicy === undefined ? undefined : validateToolDiscoveryPolicy(options.toolDiscoveryPolicy);
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
-    const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir)
-      : dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : resolve(`${options.dbPath}.artifacts`);
+    this.ownedArtifactDir = options.artifactDir === undefined && dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : undefined;
+    const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir) : this.ownedArtifactDir ?? resolve(`${options.dbPath}.artifacts`);
     if (dbPath !== ':memory:') mkdirSync(dirname(dbPath), { recursive: true });
     mkdirSync(artifactDir, { recursive: true, mode: 0o700 });
-    this.store = new SqliteStore(dbPath, this.defaults.budgets);
+    let store: SqliteStore | undefined;
     let reviewJournal: ReviewJournal | undefined;
     let terminalJournal: SqliteTerminalJournal | undefined;
     try {
+      this.store = store = new SqliteStore(dbPath, this.defaults.budgets);
       const canonicalDbPath = dbPath === ':memory:' ? undefined : realpathSync(dbPath);
       this.storagePaths = { artifactDir: realpathSync(artifactDir), ...(canonicalDbPath ? { dbPath: canonicalDbPath } : {}) };
       const physicalIdentity = (path: string) => {
@@ -1480,11 +1482,21 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         if (!isRestoreAcknowledged(operation, recoveryAcknowledgments)) this.coordinator.quarantineWorkspace(operation.workspaceId);
       }
     } catch (error) {
-      terminalJournal?.close();
-      try { reviewJournal?.close(); }
-      finally { this.store.close(); }
+      try { terminalJournal?.close(); }
+      finally { try { reviewJournal?.close(); }
+      finally { try { store?.close(); }
+      finally { this.removeOwnedArtifactDir(); } } }
       throw error;
     }
+  }
+
+  private removeOwnedArtifactDir(): void {
+    if (this.ownedArtifactDir) try { rmSync(this.ownedArtifactDir, { recursive: true, force: true, maxRetries: 3 }); } catch {}
+  }
+
+  private applyProfile(input: { sessionId: string; requestId: string; config: RunConfig }): void {
+    const admitted = input.config.agentProfileId ? this.store.findInputByRequest(input.sessionId, input.requestId)?.config : undefined;
+    input.config = this.profiles.apply(input.sessionId, input.config, admitted);
   }
 
   private assertOptionalBoolean(options: EngineOptions, key: keyof EngineOptions, message: string): void {
@@ -1512,7 +1524,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         case 'engine.getCapabilities': result = this.getCapabilities(); break;
         case 'input.accept': {
           const input = normalizeAcceptInput(payload, this.defaults);
-          input.config = this.profiles.apply(input.sessionId, input.config);
+          this.applyProfile(input);
           if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupInputReceipt(input)) {
             await this.validateFreshMediaInput(input);
           }
@@ -1534,7 +1546,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         case 'session.getContext': result = this.context.diagnostics(payload.sessionId as string); break;
         case 'session.getDiagnostics': {
           const session = this.store.getSession(payload.sessionId as string);
-          result = { metrics: this.store.getNativeMetrics(session.id), context: this.context.diagnostics(session.id), workspaceObservation: { failure: this.observationFailures.get(session.workspaceId) ?? null, active: this.watchConsumers.has(session.workspaceId) } }; break;
+          result = { metrics: this.store.getNativeMetrics(session.id), context: this.context.diagnostics(session.id), workspaceObservation: { failure: this.observationFailures.get(session.workspaceId) ?? null, active: this.watchConsumers.get(session.workspaceId)?.running === true } }; break;
         }
         case 'session.searchHistory': result = this.store.searchHistory(payload.sessionId as string, { query: payload.query as string, beforeMessageId: payload.beforeMessageId as string | undefined, limit: payload.limit as number, maxBytes: payload.maxBytes as number }); break;
         case 'session.setTasks': result = this.tasks.replace(payload.sessionId as string, payload.expectedRevision as number, payload.tasks); break;
@@ -1618,7 +1630,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         case 'run.submit':
           {
             const input = normalizeSubmitInput(payload);
-            input.config = this.profiles.apply(input.sessionId, input.config);
+            this.applyProfile(input);
             if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupRunReceipt(input)) {
               await this.validateFreshMediaInput(input);
             }
@@ -1878,16 +1890,28 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
   async watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
     const workspace = this.store.getWorkspace(workspaceId), watch = await this.changes.watch(workspace, { signal: this.hostResources.signal });
-    if (!this.watchConsumers.has(workspaceId)) {
-      const consumer = (async () => {
-        try { for await (const event of this.changes.subscribe(workspaceId, 0, this.hostResources.signal)) {
-          if (event.type === 'change') await this.syncLanguageServers(event.change);
-          else if (event.type === 'incomplete') this.observationFailures.set(workspaceId, event.code);
-        } } catch (error) { if (!this.hostResources.signal.aborted) this.observationFailures.set(workspaceId, error instanceof EngineError ? error.code : 'WORKSPACE_OBSERVATION_FAILED'); }
-      })();
+    const consumer = this.watchConsumers.get(workspaceId) ?? { seq: 0, running: false, done: Promise.resolve() };
+    if (!consumer.running) {
       this.watchConsumers.set(workspaceId, consumer);
+      consumer.running = true;
+      consumer.done = this.consumeWorkspaceChanges(workspaceId, consumer);
     }
     return watch;
+  }
+
+  /** A failed consumer restarts on the next watch after its last processed event, or at the head when that replay no longer fits. */
+  private async consumeWorkspaceChanges(workspaceId: string, consumer: { seq: number; running: boolean }): Promise<void> {
+    try {
+      const from = this.changes.resumeCursor(workspaceId, consumer.seq);
+      if (from !== consumer.seq && !this.observationFailures.has(workspaceId)) this.observationFailures.set(workspaceId, 'WORKSPACE_CHANGE_CURSOR_EXPIRED');
+      consumer.seq = from;
+      for await (const event of this.changes.subscribe(workspaceId, from, this.hostResources.signal)) {
+        if (event.type === 'change') await this.syncLanguageServers(event.change);
+        else if (event.type === 'incomplete') this.observationFailures.set(workspaceId, event.code);
+        consumer.seq = event.seq;
+      }
+    } catch (error) { if (!this.hostResources.signal.aborted) this.observationFailures.set(workspaceId, error instanceof EngineError ? error.code : 'WORKSPACE_OBSERVATION_FAILED'); }
+    finally { consumer.running = false; }
   }
 
   private syncLanguageServers(change: WorkspaceFileChange): Promise<void> {
@@ -2820,7 +2844,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.ownedCommandDelivery.close();
         this.hostCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...this.watchConsumers.values(), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...[...this.watchConsumers.values()].map(consumer => consumer.done), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       }
@@ -2828,7 +2852,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         await this.executionObserver.close();
         try { this.terminalJournal.close(); }
         finally { try { this.reviewJournal.close(); }
-        finally { await this.codeModeHost.close(); this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { try { await this.codeModeHost.close(); this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
+        finally { this.removeOwnedArtifactDir(); } }
         }
       }
     })().then(resolve, reject);

@@ -194,3 +194,43 @@ test('review restoration synchronizes the current hash and LSP document after it
   assert.equal(f.engine.changes.replay(f.workspace.id).filter(event => event.type === 'change' && event.change.path === 'a.ts').length, 2);
   await changes.return?.();
 });
+
+async function observation(f: Awaited<ReturnType<typeof fixture>>) {
+  const response = await f.engine.dispatchSession({ schemaVersion: 2, commandId: randomUUID(), type: 'session.getDiagnostics', payload: { sessionId: f.session.id } });
+  assert.equal(response.ok, true); return (response.result as unknown as { workspaceObservation: { failure: string | null; active: boolean } }).workspaceObservation;
+}
+const finish: ProviderAdapter = { id: 'language-fixture', async *streamTurn() { yield { type: 'finish', reason: 'stop' }; } };
+
+test('a workspace change consumer that cannot subscribe reports inactive and restarts on the next watch', { timeout: 15000 }, async t => {
+  const f = await fixture(t, finish);
+  await f.engine.changes.watch(f.workspace);
+  const held = Array.from({ length: 16 }, () => f.engine.changes.subscribe(f.workspace.id));
+  await f.engine.watchWorkspace(f.workspace.id);
+  assert.deepEqual(await observation(f), { failure: 'WORKSPACE_CHANGE_SUBSCRIBER_LIMIT', active: false });
+  await held.pop()!.return?.();
+  await f.engine.watchWorkspace(f.workspace.id);
+  assert.deepEqual(await observation(f), { failure: 'WORKSPACE_CHANGE_SUBSCRIBER_LIMIT', active: true });
+  for (const subscriber of held) await subscriber.return?.();
+});
+
+test('a workspace change consumer closed by backpressure restarts at the head and forwards later edits to the LSP', { timeout: 30000 }, async t => {
+  const f = await fixture(t, finish); f.register();
+  await f.engine.watchWorkspace(f.workspace.id); await f.engine.lsp.updateFile(f.workspace, 'fixture', 'a.ts', 'typescript', new AbortController().signal);
+  const changes = f.engine.changes.subscribe(f.workspace.id);
+  f.state.holdUpdates = true;
+  await writeFile(join(f.root, 'a.ts'), 'export const held = 1;\n'); await deadline(f.state.update.promise);
+  // While the consumer waits on didChange, more than one subscriber queue of
+  // external changes arrives and the hub closes its subscription.
+  const bulk = Array.from({ length: 300 }, (_, index) => `bulk-${String(index).padStart(3, '0')}.txt`);
+  for (const name of bulk) await writeFile(join(f.root, name), name);
+  await nextPath(changes, bulk.at(-1)!);
+  f.state.holdUpdates = false; f.state.release.resolve();
+  await until(async () => !(await observation(f)).active);
+  assert.equal((await observation(f)).failure, 'WORKSPACE_CHANGE_BACKPRESSURE');
+  await f.engine.watchWorkspace(f.workspace.id);
+  const external = 'export const restarted = 2;\n';
+  await writeFile(join(f.root, 'a.ts'), external);
+  await until(async () => f.doc(await f.readState()).text === external);
+  assert.deepEqual(await observation(f), { failure: 'WORKSPACE_CHANGE_BACKPRESSURE', active: true });
+  await changes.return?.();
+});

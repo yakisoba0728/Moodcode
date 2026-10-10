@@ -92,6 +92,12 @@ export class NativeSessionStorage {
   private inputReceipt(input: InputRecord, duplicate: boolean): InputReceipt {
     return { inputId: input.id, admittedSeq: input.admittedSeq, state: input.state, duplicate, ...(input.runId ? { runId: input.runId } : {}) };
   }
+  /** The stored input of a request identity, read before a retry resolves its agent profile. */
+  findInputByRequest(sessionId: string, requestId: string): InputRecord | undefined {
+    this.hooks.assertOpen();
+    const row = this.database.prepare('SELECT id FROM session_inputs WHERE session_id=? AND request_id=?').get(sessionId, requestId);
+    return row ? this.getInput(String(row.id)) : undefined;
+  }
   /** Identity lookup only: never backfills a legacy request or allocates an event seq. */
   lookupInputReceipt(value: AcceptInput): ExistingInputReceipt | undefined {
     const accepted=normalizeAcceptInput(value);

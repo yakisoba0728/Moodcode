@@ -19,6 +19,22 @@ test('profile model, instructions, tools and allowance have an immutable revisio
   assert.throws(() => profiles.register({ id: 'bad', description: '', instructions: '', tools: ['read_file', 'read_file'] }));
 });
 
+test('a request-id retry resolves the persisted revision its stored input was admitted with', t => {
+  const store = new SqliteStore(':memory:'); t.after(() => store.close()); const createdAt = new Date().toISOString();
+  store.putWorkspace({ id: 'w', root: process.cwd(), gitRoot: process.cwd(), branch: null, createdAt }); store.createSession({ id: 's', workspaceId: 'w', title: 'profiles', createdAt });
+  const profiles = new AgentProfiles(store, [{ id: 'review', description: 'Read changes', instructions: 'First', model: { providerId: 'fixture', modelId: 'first-model' }, turnAllowance: 3 }]);
+  const config: RunConfig = { providerId: 'scripted', modelId: 'local', mode: 'build', limits: { ...DEFAULT_LIMITS }, agentProfileId: 'review' };
+  const admitted = profiles.apply('s', config);
+  const current = profiles.register({ id: 'review', description: 'Read changes', instructions: 'Second', model: { providerId: 'fixture', modelId: 'second-model' } });
+  assert.deepEqual(profiles.apply('s', config, admitted), admitted);
+  assert.deepEqual(profiles.apply('s', { ...config, agentProfileRevision: admitted.agentProfileRevision }, admitted), admitted);
+  assert.throws(() => profiles.apply('s', { ...config, agentProfileRevision: admitted.agentProfileRevision }), { code: 'AGENT_PROFILE_STALE' });
+  const fresh = profiles.apply('s', config);
+  assert.equal(fresh.agentProfileRevision, current.revision); assert.equal(fresh.modelId, 'second-model');
+  assert.deepEqual(profiles.apply('s', { ...config, agentProfileRevision: current.revision }, admitted), fresh);
+  assert.deepEqual(profiles.apply('s', config, { ...admitted, agentProfileId: 'other' }), fresh);
+});
+
 test('profile model accepts only provider, model and reasoning, so Plan mode and user limits survive selection', t => {
   const store = new SqliteStore(':memory:'); t.after(() => store.close()); const createdAt = new Date().toISOString();
   store.putWorkspace({ id: 'w', root: process.cwd(), gitRoot: process.cwd(), branch: null, createdAt }); store.createSession({ id: 's', workspaceId: 'w', title: 'profiles', createdAt });

@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import type { InputReceipt, RunReceipt } from '@moodcode/contracts';
 import { createEngine, type EngineOptions } from './engine.js';
 import { acquireExecutionLock } from './tools/command/execution-lock.js';
 import { createCommandEnvironment } from './tools/command/process-control.js';
@@ -202,6 +203,51 @@ test('constructor registers valid credentialEnvNames for child environments and 
   const f = await fixture({ credentialEnvNames: ['ENGINE_TEST_HOST_KEY'] });
   try { assert.deepEqual(createCommandEnvironment({ PATH: '/bin', ENGINE_TEST_HOST_KEY: 'fake' }), { PATH: '/bin' }); }
   finally { await f.cleanup(); }
+});
+
+test('a :memory: engine removes the temporary artifact directory it created on close and on constructor failure', async () => {
+  const temporary = await mkdtemp(join(tmpdir(), 'moodcode-memory-owner-')), keys = ['TMPDIR', 'TMP', 'TEMP'] as const;
+  const saved = keys.map(key => process.env[key]);
+  const owned = async () => (await readdir(temporary)).filter(name => name.startsWith('moodcode-memory-artifacts-'));
+  for (const key of keys) process.env[key] = temporary;
+  try {
+    const engine = createEngine({ dbPath: ':memory:', tools: [] });
+    assert.equal((await owned()).length, 1);
+    await engine.close();
+    assert.deepEqual(await owned(), []);
+    assert.throws(() => createEngine({ dbPath: ':memory:', tools: [], agentProfiles: [{ id: 'invalid id', description: '', instructions: '' }] }), { code: 'INVALID_AGENT_PROFILE' });
+    assert.deepEqual(await owned(), []);
+  } finally {
+    keys.forEach((key, index) => { if (saved[index] === undefined) delete process.env[key]; else process.env[key] = saved[index]; });
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test('a request-id retry returns its stored receipt after the agent profile is re-registered', async () => {
+  const f = await fixture({ agentProfiles: [{ id: 'review', description: 'Read changes', instructions: 'Original instructions' }] });
+  try {
+    const root = f.dbPath.slice(0, f.dbPath.lastIndexOf('/')), createdAt = new Date().toISOString();
+    f.engine.store.putWorkspace({ id: 'workspace', root, gitRoot: root, branch: null, createdAt });
+    for (const id of ['inbox', 'legacy']) f.engine.store.createSession({ id, workspaceId: 'workspace', title: id, createdAt });
+    const session = (type: string, payload: Record<string, unknown>) => f.engine.dispatchSession({ schemaVersion: 2, commandId: `${type}-${Math.random()}`, type, payload });
+    const legacy = (payload: Record<string, unknown>) => f.engine.dispatch({ schemaVersion: 1, commandId: `submit-${Math.random()}`, type: 'run.submit', payload });
+    assert.equal((await session('session.pause', { sessionId: 'inbox' })).ok, true);
+    const accept = { sessionId: 'inbox', requestId: 'accept', prompt: 'Review the change', delivery: 'queue', config: { agentProfileId: 'review' } };
+    const submit = { sessionId: 'legacy', requestId: 'submit', prompt: 'Review the change', config: { agentProfileId: 'review' } };
+    const accepted = (await session('input.accept', accept)).result as unknown as InputReceipt, submitted = (await legacy(submit)).result as unknown as RunReceipt;
+    assert.equal((await f.engine.waitForRun(submitted.runId)).state, 'completed');
+    const admitted = f.engine.store.getInput(accepted.inputId).config.agentProfileRevision;
+    const current = f.engine.profiles.register({ id: 'review', description: 'Read changes', instructions: 'Changed instructions' }).revision;
+    assert.notEqual(current, admitted);
+    for (const config of [{ agentProfileId: 'review' }, { agentProfileId: 'review', agentProfileRevision: admitted }]) {
+      assert.deepEqual((await session('input.accept', { ...accept, config })).result, { ...accepted, duplicate: true });
+      assert.deepEqual((await legacy({ ...submit, config })).result, { ...submitted, duplicate: true });
+    }
+    for (const changed of [{ prompt: 'Other prompt' }, { config: { agentProfileId: 'review', agentProfileRevision: current } }]) {
+      assert.equal((await session('input.accept', { ...accept, ...changed })).error?.code, 'REQUEST_ID_CONFLICT');
+      assert.equal((await legacy({ ...submit, ...changed })).error?.code, 'REQUEST_ID_CONFLICT');
+    }
+  } finally { await f.cleanup(); }
 });
 
 test('constructor undefined guards short circuit and retain interleaved dependency error priority', () => {

@@ -33,9 +33,12 @@ export class AgentProfiles {
     const result = { ...structuredClone(profile), revision }; this.profiles.set(profile.id, result); return structuredClone(result);
   }
   list(): AgentProfile[] { return [...this.profiles.values()].map(profile => structuredClone(profile)); }
-  apply(sessionId: string, config: RunConfig): RunConfig {
+  /** `admitted` is the stored config of a request with the same ID; its retry resolves the persisted revision it was admitted with. */
+  apply(sessionId: string, config: RunConfig, admitted?: RunConfig): RunConfig {
     if (!config.agentProfileId) return config;
-    const profile = this.profiles.get(config.agentProfileId);
+    const revision = admitted?.agentProfileId === config.agentProfileId ? admitted.agentProfileRevision : undefined;
+    const profile = revision && (config.agentProfileRevision ?? revision) === revision
+      ? this.forRun(sessionId, { ...config, agentProfileRevision: revision }) : this.profiles.get(config.agentProfileId);
     if (!profile) throw new EngineError('AGENT_PROFILE_NOT_FOUND', 'Requested agent profile is not registered by this host');
     if (config.agentProfileRevision && config.agentProfileRevision !== profile.revision) throw new EngineError('AGENT_PROFILE_STALE', 'Requested profile revision differs from the registered configuration');
     const stored = this.store.getSessionDocument(sessionId, key(profile.id, profile.revision));
