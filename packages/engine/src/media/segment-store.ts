@@ -48,7 +48,7 @@ export interface ImageDocuments {
     data: JsonObject,
   ): { revision: number; data: JsonObject };
 }
-export interface MediaSegmentStoreOptions {
+interface MediaSegmentStoreOptions {
   directory: string;
   documents: ImageDocuments;
   limits?: never;

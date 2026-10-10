@@ -82,7 +82,7 @@ function jsonRecord(
 function hash(value: unknown): string {
   return digest(Buffer.from(JSON.stringify(value)));
 }
-export interface MediaHistory {
+interface MediaHistory {
   sources: Array<InputMediaAttachment & { sessionId: string }>;
   outputs: Array<Extract<MessagePart, { type: "media" }>>;
 }

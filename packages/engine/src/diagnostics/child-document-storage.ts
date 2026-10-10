@@ -8,7 +8,7 @@ import type { InputDocumentIndexReport } from '../storage/input-document-index.j
 export interface ChildDocumentStorageLimits extends ChildDocumentReadLimits { maxReportBytes: number }
 export const DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS: Readonly<ChildDocumentStorageLimits> = Object.freeze({ ...CHILD_DOCUMENT_READ_LIMITS,maxChildren:8,maxReportBytes:32_768 });
 export interface ChildDocumentStorageRequest { sessionId:string;sourceRunId:string;taskIds:readonly string[];signal?:AbortSignal;limits?:Partial<ChildDocumentStorageLimits> }
-export interface ValidatedChildDocumentStorageRequest extends Omit<ChildDocumentStorageRequest,'limits'> { limits:Readonly<ChildDocumentStorageLimits> }
+interface ValidatedChildDocumentStorageRequest extends Omit<ChildDocumentStorageRequest,'limits'> { limits:Readonly<ChildDocumentStorageLimits> }
 export interface ChildDocumentStorageItem {
   taskId:string;status:'observed'|'unchecked';authorityStatus:string;reasons:string[];
   childSessionId?:string;childRunId?:string;indexComplete?:boolean;indexedReferences?:number|null;observedReferences?:number;declaredBytes?:number|null;

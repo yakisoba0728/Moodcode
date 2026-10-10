@@ -17,7 +17,7 @@ function gitEnvironment(): NodeJS.ProcessEnv {
 }
 
 /** Runs only caller-selected Git arguments, without a shell or raw error-message output. */
-export async function runDiagnosticGit(args: readonly string[], options: GitProbeOptions, cwd?: string, maxBytes = 65_536): Promise<GitProcessResult> {
+async function runDiagnosticGit(args: readonly string[], options: GitProbeOptions, cwd?: string, maxBytes = 65_536): Promise<GitProcessResult> {
   checkAbort(options.signal);
   return new Promise((resolveResult, reject) => {
     const detached = process.platform !== 'win32';

@@ -158,8 +158,8 @@ function identifier(value: unknown): asserts value is string {
   )
     fail("Native evidence requires a bounded owner identity");
 }
-/** Validate before any wrapper spreads optional fields or invokes its native reader. */
-export function validateNativeCodingEvidenceOptions(
+/** Validates before readNativeCodingEvidence destructures options. */
+function validateNativeCodingEvidenceOptions(
   input: NativeCodingEvidenceOptions,
 ): void {
   plain(input, [

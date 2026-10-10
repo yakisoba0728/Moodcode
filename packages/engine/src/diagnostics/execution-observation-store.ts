@@ -129,7 +129,7 @@ function sameIdentity(
 ): boolean {
   return IDENTITY_FIELDS.every((k) => a[k] === b[k]);
 }
-export function validateExecutionSourceSnapshot(
+function validateExecutionSourceSnapshot(
   input: unknown,
 ): ExecutionSourceSnapshot {
   const v = json(input);

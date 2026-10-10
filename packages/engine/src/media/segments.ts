@@ -26,7 +26,7 @@ export interface DecodedMediaAsset {
   bytes: Buffer;
   sha256: string;
 }
-export interface DecodedMedia {
+interface DecodedMedia {
   decoder: InputMediaAttachment["decoder"];
   durationMs: number;
   assets: DecodedMediaAsset[];
@@ -86,7 +86,7 @@ function one(values: Chunk[], id: string): Chunk {
   if (found.length !== 1) fail();
   return found[0]!;
 }
-export interface PcmWave {
+interface PcmWave {
   samples: Buffer;
   sampleRate: number;
   channels: number;

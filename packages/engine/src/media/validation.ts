@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { EngineError, type InputImageAttachment } from '@moodcode/contracts';
 
-export const INPUT_IMAGE_ID = /^img_[a-f0-9]{32}$/u;
+const INPUT_IMAGE_ID = /^img_[a-f0-9]{32}$/u;
 export const INPUT_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;
 export interface ImageLimits { maxImageBytes: number; maxInputImages: number; maxInputBytes: number; maxSessionImages: number; maxSessionBytes: number; maxDimension: number; maxPixels: number }
 /** Local protection budgets; these are not vendor API limits or image token estimates. */

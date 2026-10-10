@@ -25,7 +25,7 @@ export interface WorkspaceExecutionSourceLimits {
   readonly depth: number;
   readonly durationMs: number;
 }
-export const DEFAULT_EXECUTION_SOURCE_LIMITS: WorkspaceExecutionSourceLimits =
+const DEFAULT_EXECUTION_SOURCE_LIMITS: WorkspaceExecutionSourceLimits =
   Object.freeze({
     entries: 8192,
     files: 1024,
