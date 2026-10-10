@@ -30,7 +30,7 @@ Root 물리 binding/epoch, OS release, sandbox 실행파일과 현재 Node execu
 
 ## 저장·실패·복구
 
-DB23에 새 migration/table을 추가하지 않는다. `sandbox.record.<id hash>` SessionDocument CAS와 별도 `sandbox.record` native immutable event의 full signed snapshot을 같은 primary transaction에 저장한다. command source는 실제 Run/Turn/Attempt/Tool/allowed approval에 결속한다. 실제 started PID, 물리 outcome, sealed stdout/stderr, checkpoint 전체 SHA 및 partial file 목록을 저장하고 native checkpoint/header와 실제 owned-command closed event가 있으면 그 독립 증거까지 검증한다. 기록 256개, 이벤트 8192개, row 128KiB, 총 16MiB 및 metadata-first body bound를 둔다.
+DB23에 새 migration/table을 추가하지 않는다. `sandbox.record.<id hash>` SessionDocument CAS와 별도 `sandbox.record` native immutable event의 full signed snapshot을 같은 primary transaction에 저장한다. command source는 실제 Run/Turn/Attempt/Tool/allowed approval에 결속한다. 실제 started PID, 물리 outcome, sealed stdout/stderr, checkpoint 전체 SHA 및 partial file 목록을 저장하고 native checkpoint/header와 실제 owned-command closed event가 있으면 그 독립 증거까지 검증한다. 기록 256개, 이벤트 8192개, row 128KiB, 총 16MiB 및 metadata-first body bound를 둔다. 새 기록을 들이는 트랜잭션은 모든 head의 남은 revision과 `paused-import` revision을 쓸 여유가 남도록 MCP binding이 참조하지 않는 가장 오래된 `closed` 기록의 SessionDocument와 `sandbox.record` anchor를 함께 정리한다. `uncertain`·`paused-import`·grant·binding 기록은 정리하지 않고, 정리할 기록이 없으면 `SANDBOX_LIMIT`이다.
 
 `closed`는 물리 프로세스가 정리된 영수증이다. provider Run 성공을 의미하지 않는다. exit, cancellation, timeout, cleanup uncertainty와 checkpoint 부분 효과는 그대로 남긴다. stderr의 EPERM 텍스트는 untrusted process output이다. 특정 명령의 kernel denial 원인을 stderr만으로 확정하지 않아 `denialObserved:false`와 unknown classification을 저장한다. syscall 거부의 지원 증거는 독립 실제 probes/tests이고, 명령 실패 원인은 원래 output/exit로 조회한다. denied 이후 부분 쓰기를 자동 롤백·재실행하거나 scope를 확대하지 않는다.
 

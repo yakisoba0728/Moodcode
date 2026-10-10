@@ -3,9 +3,16 @@ import test from "node:test";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
 import { existsSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import type { JsonObject, Session } from "@moodcode/contracts";
 import { fixture } from "./fixtures/engine.js";
-import { sandboxSign, sandboxRecordKind, sandboxSha } from "./types.js";
-import { validateSandboxDatabase } from "./records.js";
+import {
+  sandboxSign,
+  sandboxRecordKind,
+  sandboxSha,
+  SANDBOX_LIMITS,
+  type SandboxRecord,
+} from "./types.js";
+import { validateSandboxDatabase, type SandboxRecordPorts } from "./records.js";
 const actual = { skip: process.platform !== "darwin", timeout: 45000 };
 test(
   "genuine completed checkpoint drift is rejected before sandbox history can claim its outcome",
@@ -270,5 +277,143 @@ test(
     assert.equal(f.calls.length, 0);
     assert.equal(existsSync(join(f.root, "unsafe-callback")), false);
     assert.equal(existsSync(join(f.root, "callback-bypass")), false);
+  },
+);
+
+test(
+  "full sandbox store admits commands by pruning the oldest closed chains only",
+  actual,
+  async (t) => {
+    const f = await fixture(t);
+    await f.grant();
+    await f.execute("printf first > first-effect");
+    const db = new DatabaseSync(f.dbPath);
+    t.after(() => db.close());
+    const storage = f.engine.store.createSandboxStorage(),
+      ports = Reflect.get(storage, "ports") as SandboxRecordPorts,
+      rows = f.engine.observeEnforcement(f.workspace.id),
+      grant = rows.find((r) => r.kind === "grant")!,
+      first = rows.find((r) => r.kind === "command")!,
+      anchors = (id: string) =>
+        Number(
+          db
+            .prepare(
+              "SELECT count(*) n FROM session_events WHERE type='sandbox.record' AND json_extract(data,'$.payload.record.id')=?",
+            )
+            .get(id)!.n,
+        ),
+      [starting, running, closed] = db
+        .prepare(
+          "SELECT data FROM session_events WHERE type='sandbox.record' AND json_extract(data,'$.payload.record.id')=? ORDER BY seq",
+        )
+        .all(first.id)
+        .map((e) => JSON.parse(String(e.data)).payload.record as SandboxRecord);
+    const chain = (id: string, revisions: SandboxRecord[], minutes: number) => {
+      const at = new Date(
+        Date.parse(first.updatedAt) - minutes * 60000,
+      ).toISOString();
+      let previousSha256: string | null = null;
+      return revisions.map((r) => {
+        const { sha256: _sha, ...body } = r;
+        const next = sandboxSign({
+          ...body,
+          id,
+          previousSha256,
+          createdAt: at,
+          updatedAt: at,
+        });
+        previousSha256 = next.sha256;
+        return next;
+      });
+    };
+    const grantIn = (sessionId: string, id: string) => {
+      const { sha256: _sha, ...body } = grant;
+      return sandboxSign({
+        ...body,
+        id,
+        requestId: id,
+        sessionId,
+        grant: sandboxSign({
+          ...grant.grant,
+          sessionId,
+          target: { ...grant.grant.target, sessionId },
+        }),
+      });
+    };
+    const uncertain = chain(
+        "seed-uncertain",
+        [starting!, { ...starting!, revision: 2, state: "uncertain" }],
+        60,
+      ),
+      older = chain("seed-closed", [starting!, running!, closed!], 30),
+      seeded: SandboxRecord[] = [...uncertain, ...older];
+    for (let i = rows.length + 2; i < SANDBOX_LIMITS.records; i++) {
+      const session = await f.dispatch<Session>("session.create", {
+        workspaceId: f.workspace.id,
+      });
+      seeded.push(grantIn(session.id, `seed-grant-${i}`));
+    }
+    ports.writeTx(() => {
+      for (const r of seeded) {
+        ports.writeDocument(
+          r.sessionId,
+          sandboxRecordKind(r.id),
+          r.revision - 1,
+          r as unknown as JsonObject,
+        );
+        ports.appendEvent(
+          r.sessionId,
+          "sandbox.record",
+          { record: r as unknown as JsonObject },
+          r.kind === "command"
+            ? {
+                runId: String(r.owner!.runId),
+                turnId: String(r.owner!.turnId),
+                attemptId: String(r.owner!.attemptId),
+              }
+            : undefined,
+        );
+      }
+    });
+    assert.equal(
+      f.engine.observeEnforcement(f.workspace.id).length,
+      SANDBOX_LIMITS.records,
+    );
+    await f.execute("printf second > second-effect");
+    assert.equal(readFileSync(join(f.root, "second-effect"), "utf8"), "second");
+    const after = f.engine.observeEnforcement(f.workspace.id),
+      second = after.find(
+        (r) =>
+          r.kind === "command" &&
+          r.id !== first.id &&
+          r.id.startsWith("sandbox-command-"),
+      )!;
+    assert.equal(after.length, SANDBOX_LIMITS.records);
+    assert.equal(second.state, "closed");
+    assert.equal(
+      after.some((r) => r.id === "seed-closed"),
+      false,
+    );
+    assert.equal(anchors("seed-closed"), 0);
+    assert.equal(after.find((r) => r.id === first.id)?.state, "closed");
+    assert.equal(
+      after.find((r) => r.id === "seed-uncertain")?.state,
+      "uncertain",
+    );
+    f.engine.store.validateSandboxes();
+    for (const id of ["extra-0", "extra-1"])
+      storage.write(grantIn(f.session.id, id), 0);
+    assert.equal(anchors(first.id), 0);
+    assert.equal(anchors(second.id), 0);
+    assert.throws(() => storage.write(grantIn(f.session.id, "extra-2"), 0), {
+      code: "SANDBOX_LIMIT",
+    });
+    const kept = f.engine.observeEnforcement(f.workspace.id);
+    assert.equal(kept.length, SANDBOX_LIMITS.records);
+    assert.deepEqual(
+      kept.filter((r) => r.kind !== "grant").map((r) => [r.id, r.state]),
+      [["seed-uncertain", "uncertain"]],
+    );
+    f.engine.store.validateSandboxes();
   },
 );

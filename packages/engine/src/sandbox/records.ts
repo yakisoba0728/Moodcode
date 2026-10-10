@@ -53,6 +53,67 @@ function caps(db: DatabaseSync): void {
       sandboxError("SANDBOX_LIMIT");
   }
 }
+/**
+ * Admission keeps room for the new head and for every head's remaining
+ * revisions plus one paused-import revision, pruning the oldest closed chains
+ * that no MCP binding references. Other states are never pruned.
+ */
+function reclaim(db: DatabaseSync, records: readonly SandboxRecord[]): void {
+  const { rowBytes, totalBytes } = SANDBOX_LIMITS,
+    need = { rows: 0, eventBytes: 0, headBytes: 0 },
+    reserve = (r: SandboxRecord | undefined, sign: number): void => {
+      if (r?.state === "paused-import") return;
+      const live = !r
+          ? 3
+          : ["starting", "running"].includes(r.state)
+            ? 3 - r.revision
+            : 0,
+        pause = live ? rowBytes : Buffer.byteLength(JSON.stringify(r));
+      need.rows += sign * (live + 1);
+      need.eventBytes += sign * ((live + 1) * 8192 + live * rowBytes + pause);
+      need.headBytes += sign * (live ? rowBytes : 8192);
+    },
+    usage = (table: string, where: string): [number, number] => {
+      const u = db
+        .prepare(
+          `SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM ${table} WHERE ${where}`,
+        )
+        .get()!;
+      return [Number(u.n), Number(u.bytes)];
+    },
+    linked = new Set(
+      records.flatMap((r) =>
+        r.kind === "mcp-binding" ? [String(r.owner!.connectionId)] : [],
+      ),
+    ),
+    victims = records
+      .filter((r) => r.state === "closed" && !linked.has(r.id))
+      .sort((a, b) => Date.parse(a.updatedAt) - Date.parse(b.updatedAt));
+  for (const r of [undefined, ...records]) reserve(r, 1);
+  for (;;) {
+    const [heads, headBytes] = usage(
+        "session_documents",
+        "kind LIKE 'sandbox.record.%'",
+      ),
+      [events, eventBytes] = usage("session_events", "type='sandbox.record'");
+    if (
+      heads < SANDBOX_LIMITS.records &&
+      events + need.rows <= SANDBOX_LIMITS.events &&
+      eventBytes + need.eventBytes <= totalBytes &&
+      headBytes + need.headBytes <= totalBytes
+    )
+      return;
+    const r = victims.shift();
+    if (!r) sandboxError("SANDBOX_LIMIT");
+    db.prepare(
+      "DELETE FROM session_documents WHERE session_id=? AND kind=?",
+    ).run(r.sessionId, sandboxRecordKind(r.id));
+    db.prepare(
+      "DELETE FROM session_events WHERE session_id=? AND type='sandbox.record' AND json_extract(data,'$.payload.record.id')=?",
+    ).run(r.sessionId, r.id);
+    reserve(r, -1);
+  }
+}
 const hex = (value: unknown): boolean =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 function path(value: unknown): boolean {
@@ -601,8 +662,7 @@ export class SandboxStorage {
         r.previousSha256 !== (previous?.sha256 ?? null)
       )
         sandboxError("SANDBOX_CAS");
-      if (!previous && this.list().length >= SANDBOX_LIMITS.records)
-        sandboxError("SANDBOX_LIMIT");
+      if (!previous) reclaim(this.db, this.list());
       this.ports.writeDocument(
         r.sessionId,
         sandboxRecordKind(r.id),
