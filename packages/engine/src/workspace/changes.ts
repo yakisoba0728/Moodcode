@@ -20,13 +20,13 @@ export interface WorkspaceChangeHubOptions { observer?: Omit<WorkspaceObserverOp
 export const WORKSPACE_CHANGE_LIMITS = Object.freeze({ maxWorkspaces: 8, maxDocuments: 4096, maxCheckpointFiles: 128, maxCheckpointBytes: 8_388_608, maxPending: 64, maxSubscribers: 16, historyEvents: 1024, historyBytes: 262_144, subscriberBytes: 65_536, processedCheckpoints: 32 });
 type Limits = { -readonly [K in keyof typeof WORKSPACE_CHANGE_LIMITS]: number };
 interface Entry {
-  workspace: Workspace; observer: WorkspaceObserver; controller: AbortController; root?: { dev: bigint; ino: bigint };
+  workspace: Workspace; observer?: WorkspaceObserver; controller: AbortController; root?: { dev: bigint; ino: bigint };
+  signals: Map<AbortSignal, () => void>;
   documents: Map<string, WorkspaceDocumentState>; changes: Map<string, WorkspaceFileChange>;
   processed: Map<string, { fingerprint: string; ids: string[] }>;
   history: { event: WorkspaceChangeEvent; bytes: number }[]; historyBytes: number; seq: number;
-  subscribers: Set<ChangeQueue>; pending: number; queue: Promise<void>; worker?: Promise<void>;
-  ready: Promise<void>; resolveReady(): void; rejectReady(error: unknown): void;
-  started: boolean; closed: boolean; stop?: Promise<void>; lastIncomplete?: string;
+  subscribers: Set<ChangeQueue>; pending: number; queue: Promise<void>; worker?: Promise<void>; ready: Promise<void>;
+  started: boolean; failed: boolean; closed: boolean; stop?: Promise<void>; lastIncomplete?: string;
 }
 const clone = <T>(value: T): T => structuredClone(value);
 const fail = (code: string, message: string) => new EngineError(code, message);
@@ -92,39 +92,45 @@ export class WorkspaceChangeHub {
     if (entry) {
       if (entry.workspace.root !== workspace.root || entry.workspace.gitRoot !== workspace.gitRoot) throw fail('WORKSPACE_CHANGE_SCOPE_MISMATCH', 'Workspace watcher identity was reused with another root');
       if (entry.closed) throw fail('WORKSPACE_WATCH_CLOSED', 'A closed workspace watch cannot restart');
+      if (entry.failed) this.observe(entry);
     } else {
       if (this.entries.size >= this.limits.maxWorkspaces) throw fail('WORKSPACE_WATCH_LIMIT', 'Workspace watcher capacity was reached');
-      const controller = new AbortController(); let resolveReady!: () => void, rejectReady!: (error: unknown) => void;
-      const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; }); void ready.catch(() => {});
-      const observer = new WorkspaceObserver(workspace, { intervalMs: 1000, ...this.options.observer, signal: controller.signal,
-        capture: { ...this.options.observer?.capture, maxFiles: Math.min(this.options.observer?.capture?.maxFiles ?? this.limits.maxDocuments, this.limits.maxDocuments),
-          maxFileBytes: Math.min(this.options.observer?.capture?.maxFileBytes ?? 1_048_576, 1_048_576), maxTotalBytes: Math.min(this.options.observer?.capture?.maxTotalBytes ?? 8_388_608, 8_388_608) } });
-      entry = { workspace: clone(workspace), observer, controller, documents: new Map(), changes: new Map(), processed: new Map(), history: [], historyBytes: 0, seq: 0,
-        subscribers: new Set(), pending: 0, queue: Promise.resolve(), ready, resolveReady, rejectReady, started: false, closed: false };
+      entry = { workspace: clone(workspace), controller: new AbortController(), signals: new Map(), documents: new Map(), changes: new Map(), processed: new Map(), history: [], historyBytes: 0, seq: 0,
+        subscribers: new Set(), pending: 0, queue: Promise.resolve(), ready: Promise.resolve(), started: false, failed: false, closed: false };
+      this.observe(entry);
       this.entries.set(workspace.id, entry);
-      const owned = entry;
-      entry.worker = (async () => {
-        try {
-          for await (const observation of observer) {
-            if (owned.closed) break;
-            await this.enqueue(owned, () => this.observation(owned, observation));
-            if (!owned.started) { owned.started = true; owned.resolveReady(); }
-          }
-          if (!owned.started) owned.rejectReady(fail('ABORTED', 'Workspace watch stopped before its initial observation'));
-        } catch (error) {
-          owned.rejectReady(error); this.incomplete(owned, 'WORKSPACE_OBSERVER_FAILED');
-          for (const subscriber of owned.subscribers) subscriber.close(fail('WORKSPACE_OBSERVER_FAILED', 'Workspace observer could not continue'));
-        }
-      })();
     }
-    const owned = entry;
-    const abort = () => { void this.stopEntry(owned); };
-    options.signal?.addEventListener('abort', abort, { once: true });
-    if (options.signal?.aborted) abort();
-    void entry.worker?.finally(() => options.signal?.removeEventListener('abort', abort));
-    await entry.ready;
+    const owned = entry, signal = options.signal;
+    if (signal && !entry.signals.has(signal)) {
+      const abort = () => { void this.stopEntry(owned); };
+      entry.signals.set(signal, abort); signal.addEventListener('abort', abort, { once: true });
+    }
+    if (!entry.started) await entry.ready;
     if (entry.closed || this.closing) throw fail('ABORTED', 'Workspace watch stopped before readiness');
     return { workspaceId: workspace.id, close: () => this.stopEntry(owned) };
+  }
+  /** A failed observer is replaced on the next watch(); the entry keeps its sequence and document versions. */
+  private observe(entry: Entry): void {
+    const observer = new WorkspaceObserver(entry.workspace, { intervalMs: 1000, ...this.options.observer, signal: entry.controller.signal,
+      capture: { ...this.options.observer?.capture, maxFiles: Math.min(this.options.observer?.capture?.maxFiles ?? this.limits.maxDocuments, this.limits.maxDocuments),
+        maxFileBytes: Math.min(this.options.observer?.capture?.maxFileBytes ?? 1_048_576, 1_048_576), maxTotalBytes: Math.min(this.options.observer?.capture?.maxTotalBytes ?? 8_388_608, 8_388_608) } });
+    let resolveReady!: () => void, rejectReady!: (error: unknown) => void;
+    const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; }); void ready.catch(() => {});
+    entry.observer = observer; entry.ready = ready; entry.failed = false;
+    entry.worker = (async () => {
+      let observed = false;
+      try {
+        for await (const observation of observer) {
+          if (entry.closed) break;
+          await this.enqueue(entry, () => this.observation(entry, observation));
+          if (!observed) { observed = entry.started = true; resolveReady(); }
+        }
+        if (!observed) rejectReady(fail('ABORTED', 'Workspace watch stopped before its initial observation'));
+      } catch (error) {
+        entry.failed = true; rejectReady(error); this.incomplete(entry, 'WORKSPACE_OBSERVER_FAILED');
+        for (const subscriber of entry.subscribers) subscriber.close(fail('WORKSPACE_OBSERVER_FAILED', 'Workspace observer could not continue'));
+      }
+    })();
   }
   private enqueue<T>(entry: Entry, operation: () => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (entry.closed || this.closing) return Promise.reject(fail('ENGINE_CLOSED', 'Workspace change hub is closed'));
@@ -180,7 +186,8 @@ export class WorkspaceChangeHub {
   private async observation(entry: Entry, sample: WorkspaceObservation): Promise<void> {
     if (sample.workspaceId !== entry.workspace.id) throw fail('WORKSPACE_CHANGE_SCOPE_MISMATCH', 'Workspace observation belongs to another owner');
     if (sample.incomplete) this.incomplete(entry, 'WORKSPACE_OBSERVATION_INCOMPLETE');
-    const paths = entry.started ? [...new Set(sample.changes.map(change => change.path))] : [...sample.files.keys()];
+    // A restarted observer's initial sample also reconciles documents changed or deleted while it was down.
+    const paths = sample.type === 'change' ? [...new Set(sample.changes.map(change => change.path))] : [...new Set([...sample.files.keys(), ...entry.documents.keys()])];
     for (const candidate of paths.slice(0, this.limits.maxDocuments)) {
       check(entry.controller.signal);
       let path: string; try { path = exactPath(candidate); } catch { this.incomplete(entry, 'WORKSPACE_FILE_UNOBSERVED'); continue; }
@@ -294,8 +301,10 @@ export class WorkspaceChangeHub {
   private stopEntry(entry: Entry): Promise<void> {
     if (entry.stop) return entry.stop;
     entry.closed = true; entry.controller.abort();
+    for (const [signal, abort] of entry.signals) signal.removeEventListener('abort', abort);
+    entry.signals.clear();
     for (const subscriber of entry.subscribers) subscriber.close();
-    entry.stop = (async () => { await entry.observer.stop(); await entry.worker; await entry.queue; })(); return entry.stop;
+    entry.stop = (async () => { await entry.observer?.stop(); await entry.worker; await entry.queue; })(); return entry.stop;
   }
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;

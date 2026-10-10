@@ -192,3 +192,41 @@ test('watch ownership, cancellation and registration caps are explicit', async t
   const pending = f.hub.subscribe(f.workspace.id).next(); signal.abort(); assert.equal((await deadline(pending)).done, true);
   await assert.rejects(f.hub.watch(f.workspace), errorCode('WORKSPACE_WATCH_CLOSED'));
 });
+
+test('repeated watches with one signal keep one abort listener until the hub closes', async t => {
+  const f = await fixture(t, { observer: { intervalMs: 60_000 } });
+  const controller = new AbortController();
+  for (let index = 0; index < 3; index++) await f.hub.watch(f.workspace, { signal: controller.signal });
+  assert.equal(getEventListeners(controller.signal, 'abort').length, 1);
+  await deadline(f.hub.close());
+  assert.equal(getEventListeners(controller.signal, 'abort').length, 0);
+});
+
+test('a failed observer restarts on the next watch and reconciles the gap without duplicates', async t => {
+  const f = await fixture(t); const failed = f.hub.subscribe(f.workspace.id);
+  const moved = join(f.temporary, 'moved'); await rename(f.root, moved);
+  await assert.rejects(deadline((async () => { for (;;) await failed.next(); })()), errorCode('WORKSPACE_OBSERVER_FAILED'));
+  await writeFile(join(moved, 'marker.txt'), '1'); await rm(join(moved, 'tracked.txt'));
+  await rename(moved, f.root);
+  await f.hub.watch(f.workspace);
+  const marker = f.hub.subscribe(f.workspace.id), tracked = f.hub.subscribe(f.workspace.id);
+  const [changed, deleted] = await Promise.all([nextChange(marker, 'marker.txt'), nextChange(tracked, 'tracked.txt')]);
+  assert.equal(changed.change.kind, 'changed'); assert.equal(changed.change.documentVersion, 2); assert.deepEqual(changed.change.sources, ['external']);
+  assert.equal(deleted.change.kind, 'deleted'); assert.equal(deleted.change.documentVersion, 2);
+  await writeFile(join(f.root, 'tracked.txt'), 'again');
+  const created = await nextChange(tracked, 'tracked.txt');
+  assert.equal(created.change.kind, 'created'); assert.equal(created.change.documentVersion, 3);
+  const events = f.hub.replay(f.workspace.id);
+  assert.ok(events.some(event => event.type === 'incomplete' && event.code === 'WORKSPACE_OBSERVER_FAILED'));
+  assert.equal(events.filter(event => event.type === 'change').length, 3);
+});
+
+test('an observer failure before the initial observation does not stick to later watches', async t => {
+  const f = await fixture(t, { observer: { intervalMs: 60_000 } });
+  const hub = new WorkspaceChangeHub({ observer: { intervalMs: 60_000 } }); t.after(() => hub.close());
+  const moved = join(f.temporary, 'moved'); await rename(f.root, moved);
+  await assert.rejects(deadline(hub.watch(f.workspace)), (error: unknown) => error instanceof Error && 'code' in error);
+  await rename(moved, f.root);
+  await deadline(hub.watch(f.workspace));
+  assert.equal(hub.getDocument(f.workspace.id, 'tracked.txt')!.documentVersion, 1);
+});
