@@ -40,25 +40,37 @@ import {
 function rawSha(v: Uint8Array | string) {
   return createHash("sha256").update(v).digest("hex");
 }
-function git(root: string, ...args: string[]): string {
+function gitBlob(root: string, args: string[], maxBuffer: number): Buffer {
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
     LANG: "C",
     GIT_CONFIG_NOSYSTEM: "1",
     GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_TERMINAL_PROMPT: "0",
+    GIT_OPTIONAL_LOCKS: "0",
   };
   try {
-    return execFileSync("git", ["--no-pager", "-C", root, ...args], {
-      encoding: "utf8",
-      timeout: 3000,
-      maxBuffer: 1048576,
-      env,
-      stdio: ["ignore", "pipe", "pipe"],
-    }).trim();
+    return execFileSync(
+      "git",
+      [
+        "--no-pager",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+        "-c",
+        "core.untrackedCache=false",
+        "-C",
+        root,
+        ...args,
+      ],
+      { timeout: 3000, maxBuffer, env, stdio: ["ignore", "pipe", "pipe"] },
+    );
   } catch {
     prFail("PR_LOCAL_GIT_INVALID");
   }
+}
+function git(root: string, ...args: string[]): string {
+  return gitBlob(root, args, 1048576).toString("utf8").trim();
 }
 function fileHash(root: string, path: string): string {
   if (
@@ -166,30 +178,17 @@ export class PrFeedbackHost {
           p.binding.root,
           "status",
           "--porcelain=v1",
-          "--untracked-files=normal",
+          "--untracked-files=no",
         ) !== ""
       )
         return false;
       for (const f of p.source.files) {
         if (fileHash(p.binding.root, f.path) !== f.hash) return false;
-        const oid = git(
-            p.binding.root,
-            "rev-parse",
-            p.source.head + ":" + f.path,
-          ),
-          blob = execFileSync(
-            "git",
-            ["-C", p.binding.root, "cat-file", "blob", oid],
-            {
-              timeout: 3000,
-              maxBuffer: 8388609,
-              env: {
-                PATH: process.env.PATH,
-                GIT_CONFIG_NOSYSTEM: "1",
-                GIT_CONFIG_GLOBAL: "/dev/null",
-              },
-            },
-          );
+        const blob = gitBlob(
+          p.binding.root,
+          ["cat-file", "blob", p.source.head + ":" + f.path],
+          8388609,
+        );
         if (rawSha(blob) !== f.hash) return false;
       }
       return true;

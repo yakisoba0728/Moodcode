@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { writeFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
+import { readFile, utimes, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { EngineError } from "@moodcode/contracts";
-import { prFixture } from "./fixtures/pr.js";
+import { fixtureGit, prFixture } from "./fixtures/pr.js";
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
   timeout: 20000,
@@ -342,5 +343,45 @@ test(
     f.remote.reviews[0]!.state = "DISMISSED";
     r = await f.engine.pollPrWatch(f.pollInput());
     assert.equal(r.watch.snapshot!.changesRequested, false);
+  },
+);
+test(
+  "source pin ignores untracked files outside its sources but not staged ones",
+  posix,
+  async (t) => {
+    const f = await prFixture(t);
+    await writeFile(join(f.root, ".DS_Store"), "finder\n");
+    assert.deepEqual(
+      f.engine.readPrWatchPreview(await f.preview()).source!.files.map(
+        (file) => file.path,
+      ),
+      ["a.ts"],
+    );
+    fixtureGit(f.root, "add", ".DS_Store");
+    await assert.rejects(
+      f.preview("staged"),
+      (err: unknown) =>
+        err instanceof EngineError && err.code === "PR_SOURCE_STALE",
+    );
+  },
+);
+test(
+  "source pin Git checks run no fsmonitor hook and leave the index untouched",
+  posix,
+  async (t) => {
+    const f = await prFixture(t),
+      marker = join(f.base, "fsmonitor-ran"),
+      hook = join(f.base, "fsmonitor.sh"),
+      index = join(f.root, ".git", "index");
+    await writeFile(hook, "#!/bin/sh\ntouch '" + marker + "'\n", {
+      mode: 0o755,
+    });
+    fixtureGit(f.root, "config", "core.fsmonitor", hook);
+    const later = new Date(Date.now() + 5000);
+    await utimes(join(f.root, "a.ts"), later, later);
+    const before = await readFile(index);
+    await f.preview();
+    assert.equal(existsSync(marker), false);
+    assert.deepEqual(await readFile(index), before);
   },
 );
