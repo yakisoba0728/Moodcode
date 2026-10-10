@@ -1,11 +1,6 @@
+import type { KnowledgeHostBinding } from '../workspace/trust.js';
+export type { KnowledgeHostBinding };
 /** These records describe host operations; none manufactures a Session or Run owner. */
-export interface KnowledgeHostBinding {
-  readonly workspaceId: string;
-  readonly root: string;
-  readonly rootDevice: string;
-  readonly rootInode: string;
-  readonly storageBindingSha256: string;
-}
 export interface TrustSourcePin {
   readonly path: string;
   readonly sha256: string;

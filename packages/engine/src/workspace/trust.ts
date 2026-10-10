@@ -1,10 +1,18 @@
 import { constants, closeSync, fstatSync, lstatSync, openSync, readSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import type { KnowledgeHostBinding, TrustRevision, TrustSourcePin } from '../knowledge/types.js';
+import type { TrustRevision, TrustSourcePin } from '../knowledge/types.js';
 import { KnowledgeStorage } from '../knowledge/store.js';
-import { KNOWLEDGE_LIMITS, exactKnowledgePath, immutableKnowledgeJson, knowledgeError, knowledgeHash, sha256, validateBinding } from '../knowledge/validation.js';
+import { KNOWLEDGE_LIMITS, exactKnowledgePath, immutableKnowledgeJson, knowledgeError, validateBinding } from '../knowledge/validation.js';
+import { sameCanonical, sealRecord, sha256Hex } from '../shared/canonical.js';
 
+export interface KnowledgeHostBinding {
+  readonly workspaceId: string;
+  readonly root: string;
+  readonly rootDevice: string;
+  readonly rootInode: string;
+  readonly storageBindingSha256: string;
+}
 /** Host-visible preview is descriptive; only this service's original object can authorize its exact sources. */
 export interface WorkspaceTrustPreview {
   readonly workspaceId: string;
@@ -46,7 +54,7 @@ function readPin(binding: KnowledgeHostBinding, relative: string): TrustSourcePi
       const body = output.subarray(0, bytes), text = body.toString('utf8');
       if (!Buffer.from(text).equals(body) || text.includes('\0')) knowledgeError('KNOWLEDGE_SOURCE_UNAVAILABLE', 'Trust sources must contain plain UTF-8 text');
       assertPhysicalKnowledgeRoot(binding);
-      return Object.freeze({ path: relative, sha256: sha256(text), bytes, device: after.dev.toString(), inode: after.ino.toString() });
+      return Object.freeze({ path: relative, sha256: sha256Hex(text), bytes, device: after.dev.toString(), inode: after.ino.toString() });
     } finally { closeSync(descriptor); }
   } catch (error) {
     if (error instanceof EngineError) throw error;
@@ -63,7 +71,7 @@ export function captureWorkspaceTrustSources(binding: KnowledgeHostBinding, path
 /** Suitable for KnowledgeStorage's synchronous freshness port inside its write transaction. */
 export function assertWorkspaceTrustSourcesCurrent(binding: KnowledgeHostBinding, sources: readonly TrustSourcePin[]): void {
   const observed = captureWorkspaceTrustSources(binding, sources.map(source => source.path));
-  if (knowledgeHash(observed) !== knowledgeHash(sources)) knowledgeError('KNOWLEDGE_SOURCE_CHANGED', 'Current instruction sources differ from the exact host-approved trust snapshot');
+  if (!sameCanonical(observed, sources)) knowledgeError('KNOWLEDGE_SOURCE_CHANGED', 'Current instruction sources differ from the exact host-approved trust snapshot');
 }
 export class WorkspaceTrustService {
   readonly #store: KnowledgeStorage;
@@ -71,8 +79,8 @@ export class WorkspaceTrustService {
   constructor(store: KnowledgeStorage) { this.#store = store; Object.freeze(this); }
   preview(workspaceId: string, paths: readonly string[]): WorkspaceTrustPreview {
     const binding = this.#store.readHostBinding(workspaceId), sources = captureWorkspaceTrustSources(binding, paths);
-    if (knowledgeHash(binding) !== knowledgeHash(this.#store.readHostBinding(workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Host binding changed while constructing its trust preview');
-    const body = { workspaceId, binding, sources }, preview = immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) }); this.#previews.add(preview); return preview;
+    if (!sameCanonical(binding, this.#store.readHostBinding(workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Host binding changed while constructing its trust preview');
+    const preview = sealRecord({ workspaceId, binding, sources }, immutableKnowledgeJson); this.#previews.add(preview); return preview;
   }
   set(input: { readonly workspaceId: string; readonly requestId: string; readonly expectedRevision: number; readonly decision: 'allow' | 'deny'; readonly preview?: WorkspaceTrustPreview; readonly expiresAt?: string | null }): TrustRevision {
     const normalized = immutableKnowledgeJson(input);

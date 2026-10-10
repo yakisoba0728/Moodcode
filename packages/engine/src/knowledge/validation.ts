@@ -1,7 +1,7 @@
-import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { types as nodeTypes } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { canonicalJson, canonicalSha256, sha256Hex, verifySealed } from '../shared/canonical.js';
 import type {
   KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeGenerationEvidence, KnowledgeGenerationPlan,
   KnowledgeHostBinding, KnowledgeSourceManifest, KnowledgeStorageTable, KnowledgeTarget, KnowledgeUsage,
@@ -10,7 +10,7 @@ import type {
 
 export const KNOWLEDGE_LIMITS = Object.freeze({ rowBytes: 65_536, bodyBytes: 16_384, sourceBytes: 262_144, trustFileBytes: 32_768, trustSources: 32, sourcePins: 64, pageRows: 32, pageBytes: 1_048_576, handles: 128 });
 export function knowledgeError(code: string, message: string): never { throw new EngineError(code, message); }
-export function sha256(value: string): string { return createHash('sha256').update(value).digest('hex'); }
+export { canonicalJson as canonicalKnowledge, canonicalSha256 as knowledgeHash, sha256Hex as sha256 };
 type ObjectValue = Record<string, unknown>;
 function object(value: unknown): ObjectValue {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Expected a plain knowledge object');
@@ -83,17 +83,10 @@ export function immutableKnowledgeJson<T>(input: T): T {
   if (Buffer.byteLength(JSON.stringify(result)) > KNOWLEDGE_LIMITS.rowBytes) knowledgeError('KNOWLEDGE_LIMIT', 'Serialized knowledge row exceeds its byte bound');
   return result;
 }
-export function canonicalKnowledge(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalKnowledge).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonicalKnowledge((value as ObjectValue)[key])}`).join(',')}}`;
-  return JSON.stringify(value);
-}
-export function knowledgeHash(value: unknown): string { return sha256(canonicalKnowledge(value)); }
 function assertHash(record: ObjectValue): void {
   if (Buffer.byteLength(JSON.stringify(record)) > KNOWLEDGE_LIMITS.rowBytes - 4_096) knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge record must leave room for its archive envelope');
   digest(record.sha256);
-  const { sha256: expected, ...body } = record;
-  if (knowledgeHash(body) !== expected) knowledgeError('KNOWLEDGE_HASH_MISMATCH', 'Knowledge record does not match its immutable digest');
+  verifySealed(record, () => knowledgeError('KNOWLEDGE_HASH_MISMATCH', 'Knowledge record does not match its immutable digest'));
 }
 export function validateBinding(value: unknown): KnowledgeHostBinding {
   const result = object(immutableKnowledgeJson(value)); fields(result, ['workspaceId', 'root', 'rootDevice', 'rootInode', 'storageBindingSha256']);
@@ -190,7 +183,7 @@ export function validateCandidate(value: unknown): KnowledgeCandidate {
   const binding = validateBinding(result.binding); if (binding.workspaceId !== result.workspaceId) knowledgeError('KNOWLEDGE_SCOPE_MISMATCH', 'Candidate belongs to another workspace binding');
   if (integer(result.trustRevision) < 1 || result.state !== 'pending' || result.toolCount !== 0 || result.cleanupConfirmed !== true) knowledgeError('INVALID_KNOWLEDGE', 'Candidates can only be pending tool-free observations');
   validateSource(result.source); validateTarget(result.target); validateUsage(result.usage); digest(result.requestSha256); digest(result.bodySha256); stamp(result.createdAt); stamp(result.expiresAt);
-  if (typeof result.body !== 'string' || !result.body.trim() || Buffer.byteLength(result.body) > KNOWLEDGE_LIMITS.bodyBytes || sha256(result.body) !== result.bodySha256 || Date.parse(stamp(result.expiresAt)) <= Date.parse(stamp(result.createdAt))) knowledgeError('KNOWLEDGE_HASH_MISMATCH', 'Candidate body/expiry does not match its bounded observation');
+  if (typeof result.body !== 'string' || !result.body.trim() || Buffer.byteLength(result.body) > KNOWLEDGE_LIMITS.bodyBytes || sha256Hex(result.body) !== result.bodySha256 || Date.parse(stamp(result.expiresAt)) <= Date.parse(stamp(result.createdAt))) knowledgeError('KNOWLEDGE_HASH_MISMATCH', 'Candidate body/expiry does not match its bounded observation');
   assertHash(result); return result as unknown as KnowledgeCandidate;
 }
 export const KNOWLEDGE_STORAGE_TABLES: readonly KnowledgeStorageTable[] = Object.freeze(['workspace_trust_revisions', 'workspace_trust_heads', 'knowledge_generation_plans', 'knowledge_candidates', 'knowledge_request_receipts', 'knowledge_import_pauses']);
