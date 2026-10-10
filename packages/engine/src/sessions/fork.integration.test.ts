@@ -233,6 +233,20 @@ test("compatible opaque history is preserved; mismatched opaque state requires e
       .find((e) => e.sessionId === sr.record.sessionId)!
       .messages.every((m) => !m.providerReplay && !m.toolCalls),
   );
+  assert.ok(r.record.preview.transcript.some((m) => m.providerReplay));
+  const lineage = f.engine.readForkPreview(
+    await f.engine.captureForkPreview({
+      sourceSessionId: r.record.sessionId,
+      prompt: "semantic-lineage",
+      config: { modelId: "other" },
+      disposition: "semantic",
+    }),
+  );
+  assert.equal(lineage.parent!.sha256, r.record.sha256);
+  const quoted = JSON.stringify(lineage.transcript);
+  assert.ok(quoted.includes("Frozen parent lineage quoted DATA"));
+  assert.ok(quoted.includes("actual effect preserved"));
+  assert.ok(!quoted.includes("providerReplay"));
 });
 test("native fork body tamper is rejected against independent materialization receipt", async (t) => {
   const f = await forkFixture(t),

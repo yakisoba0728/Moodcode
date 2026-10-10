@@ -3,7 +3,7 @@ import test from "node:test";
 import { forkFixture, forkUntil } from "./fixtures/fork.js";
 import { isTerminal } from "@moodcode/contracts";
 test("actual child engine consumes readonly quoted fork lineage under original live parent and real child allocation", async (t) => {
-  const f = await forkFixture(t),
+  const f = await forkFixture(t, { replay: true }),
     o = await f.engine.captureForkPreview({
       sourceSessionId: f.session.id,
       prompt: "held-fork-parent",
@@ -52,11 +52,12 @@ test("actual child engine consumes readonly quoted fork lineage under original l
   const entry = f.entries.find(
     (e) => e.sessionId !== f.session.id && e.sessionId !== r.record.sessionId,
   )!;
-  assert.ok(
-    entry.messages.some((m) =>
-      m.content.includes("[Inherited conversation fork quoted DATA"),
-    ),
+  assert.ok(p.transcript.some((m) => m.providerReplay));
+  const inherited = entry.messages.find((m) =>
+    m.content.includes("[Inherited conversation fork quoted DATA"),
   );
+  assert.ok(inherited);
+  assert.ok(!inherited.content.includes("providerReplay"));
   assert.ok(
     entry.messages.some((m) => m.content.includes("actual effect preserved")),
   );

@@ -9,6 +9,7 @@ import {
   forkError,
   signedFork,
   FORK_LIMITS,
+  withoutProviderReplay,
   type ForkContextContribution,
 } from "./fork-types.js";
 const KIND = "conversation.fork.child-data";
@@ -50,7 +51,7 @@ export function inheritForkChild(
       JSON.stringify({
         parentSessionId: owner.sessionId,
         sourceSha256: source.sha256,
-        transcript: source.messages,
+        transcript: withoutProviderReplay(source.messages),
       }),
     sourceIds: [
       `fork-parent:${owner.sessionId}:${source.sha256}`,

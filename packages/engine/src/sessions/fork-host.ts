@@ -24,6 +24,7 @@ import {
   forkId,
   forkError,
   signedFork,
+  withoutProviderReplay,
   type CaptureForkPreviewInput,
   type ForkPreview,
   type ForkCommitInput,
@@ -452,7 +453,7 @@ export class ConversationForkHost {
               JSON.stringify({
                 sessionId: parent.sessionId,
                 sha256: parent.sha256,
-                messages: parent.preview.transcript,
+                messages: withoutProviderReplay(parent.preview.transcript),
               }),
           },
           ...messages,

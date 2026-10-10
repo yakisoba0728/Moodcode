@@ -197,6 +197,11 @@ export interface ForkContextContribution {
   sourceIds: string[];
   messages: ProviderMessage[];
 }
+export function withoutProviderReplay(
+  messages: ProviderMessage[],
+): ProviderMessage[] {
+  return messages.map(({ providerReplay: _, ...entry }) => entry);
+}
 export function signedFork<T extends object>(value: T): T & { sha256: string } {
   const copy = { ...value } as T & { sha256?: string };
   delete copy.sha256;

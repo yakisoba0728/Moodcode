@@ -24,6 +24,7 @@ import {
   forkId,
   forkError,
   signedFork,
+  withoutProviderReplay,
   type ConversationFork,
   type FrozenHistoryManifest,
   type ForkSourcePin,
@@ -519,9 +520,7 @@ export function projectForkTranscript(
             role: "assistant" as const,
             content:
               "[Frozen conversation quoted DATA]\n" +
-              JSON.stringify(
-                messages.map(({ providerReplay: _, ...entry }) => entry),
-              ),
+              JSON.stringify(withoutProviderReplay(messages)),
           },
         ]
       : [notice, ...messages];
