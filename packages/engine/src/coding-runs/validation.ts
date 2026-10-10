@@ -18,6 +18,7 @@ import {
   validateWorkflowSpec,
 } from "../workflows/spec.js";
 import type { CodingBatchInput, CodingSourcePin } from "./types.js";
+export const NATIVE_RECORD_BYTES = 262144;
 export function batchFail(code = "CODING_BATCH_INVALID"): never {
   throw new EngineError(
     code,
@@ -70,7 +71,7 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
     v.limits.concurrency > 4 ||
     v.limits.maxDurationMs > 300000 ||
     v.limits.maxSourceBytes > 1048576 ||
-    v.limits.maxEvidenceBytes > 1048576 ||
+    v.limits.maxEvidenceBytes > NATIVE_RECORD_BYTES ||
     v.limits.maxExportBytes > 2097152 ||
     v.limits.maxTokens > 100000000 ||
     v.limits.maxCostMicros > 1000000000

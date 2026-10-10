@@ -4,7 +4,7 @@ import { knowledgeHash } from "../knowledge/validation.js";
 import { workflowJson } from "../workflows/spec.js";
 import { readWorkflowEffect } from "../workflows/effects-records.js";
 import type { CodingAttemptGroup, BatchCaseReceipt } from "./types.js";
-import { batchFail, signBatch } from "./validation.js";
+import { NATIVE_RECORD_BYTES, batchFail, signBatch } from "./validation.js";
 export const groupKind = (id: string) =>
   "coding.group." + knowledgeHash(id).slice(0, 40);
 export const caseKind = (group: string, id: string) =>
@@ -21,7 +21,8 @@ function body(db: DatabaseSync, session: string, kind: string): unknown {
     )
     .get(session, kind);
   if (!row) return null;
-  if (Number(row.bytes) > 262144) batchFail("CODING_EVIDENCE_LIMIT");
+  if (Number(row.bytes) > NATIVE_RECORD_BYTES)
+    batchFail("CODING_EVIDENCE_LIMIT");
   return JSON.parse(
     String(
       db
@@ -96,7 +97,7 @@ function effectAncestor(
         "SELECT data,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type='workflow.effect.recorded' AND json_extract(data,'$.payload.record.sha256')=? LIMIT 3",
       )
       .all(session, current.previousSha256);
-    if (rows.length !== 1 || Number(rows[0]!.bytes) > 262144)
+    if (rows.length !== 1 || Number(rows[0]!.bytes) > NATIVE_RECORD_BYTES)
       batchFail("CODING_EFFECT_LINEAGE_INVALID");
     const prior = signed<typeof current>(
       JSON.parse(String(rows[0]!.data)).payload.record,
@@ -287,7 +288,7 @@ export function validateCodingBatchDatabase(db: DatabaseSync): void {
     .all();
   if (rows.length > 256) batchFail("CODING_BATCH_LIMIT");
   for (const row of rows) {
-    if (Number(row.bytes) > 262144) batchFail();
+    if (Number(row.bytes) > NATIVE_RECORD_BYTES) batchFail();
     const value = JSON.parse(
       String(
         db

@@ -454,6 +454,104 @@ test("known skipped pending case is explicitly resumed with the same reserved sl
   assert.equal(second.usage.chargedCostMicros, 1000);
 });
 
+test("a case skipped while a run is live is never claimed, and a second live run is rejected", async (t) => {
+  const f = await batchFixture(t, { holdChild: true });
+  f.approveChildren();
+  const p = await f.engine.previewCodingAttemptGroup({
+      ...f.input,
+      limits: { ...f.input.limits, concurrency: 1 },
+    }),
+    g = f.engine.startCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      requestId: "start",
+      approved: true,
+      preview: p,
+    }),
+    running = f.engine.runCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      groupId: g.groupId,
+      requestId: "run",
+      expectedRevision: g.revision,
+      approved: true,
+    });
+  await batchUntil(
+    () =>
+      f.requests.some((r) =>
+        r.messages
+          .findLast((m) => m.role === "user")
+          ?.content.includes("BATCH_EDITOR A"),
+      ),
+    "case A editor holding",
+  );
+  const skipped = f.engine.skipCodingBatchCase({
+    workspaceId: f.workspace.id,
+    groupId: g.groupId,
+    caseId: "B",
+    requestId: "skip",
+    expectedRevision: f.engine.inspectBatchEvidence(f.workspace.id, g.groupId)
+      .revision,
+    approved: true,
+  });
+  assert.throws(
+    () =>
+      f.engine.runCodingAttemptGroup({
+        workspaceId: f.workspace.id,
+        groupId: g.groupId,
+        requestId: "second-run",
+        expectedRevision: skipped.revision,
+        approved: true,
+      }),
+    { code: "CODING_BATCH_STALE" },
+  );
+  f.releaseChildren();
+  const result = await running;
+  assert.deepEqual(
+    result.cases.map((c) => c.state),
+    ["verified", "skipped"],
+  );
+  assert.equal(f.children.length, 3);
+});
+
+test("unapproved run, skip and cancel report approval separately from a stale revision", async (t) => {
+  const f = await batchFixture(t),
+    p = await f.engine.previewCodingAttemptGroup(f.input),
+    g = f.engine.startCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      requestId: "start",
+      approved: true,
+      preview: p,
+    }),
+    unapproved = {
+      workspaceId: f.workspace.id,
+      groupId: g.groupId,
+      requestId: "unapproved",
+      expectedRevision: g.revision,
+      approved: false,
+    },
+    stale = { ...unapproved, expectedRevision: g.revision + 1, approved: true };
+  assert.throws(() => f.engine.runCodingAttemptGroup(unapproved), {
+    code: "CODING_BATCH_APPROVAL_REQUIRED",
+  });
+  assert.throws(
+    () => f.engine.skipCodingBatchCase({ ...unapproved, caseId: "B" }),
+    { code: "CODING_BATCH_APPROVAL_REQUIRED" },
+  );
+  assert.throws(() => f.engine.skipCodingBatchCase({ ...stale, caseId: "B" }), {
+    code: "CODING_BATCH_STALE",
+  });
+  await assert.rejects(f.engine.cancelCodingAttemptGroup(unapproved), {
+    code: "CODING_BATCH_APPROVAL_REQUIRED",
+  });
+  await assert.rejects(f.engine.cancelCodingAttemptGroup(stale), {
+    code: "CODING_BATCH_STALE",
+  });
+  assert.equal(
+    f.engine.inspectBatchEvidence(f.workspace.id, g.groupId).revision,
+    g.revision,
+  );
+  assert.equal(f.children.length, 0);
+});
+
 test("running cancellation joins actual child cleanup and pending cancellation never dispatches; no cancellation-as-success", async (t) => {
   const f = await batchFixture(t, { holdChild: true }),
     p = await f.engine.previewCodingAttemptGroup(f.input),
@@ -534,6 +632,13 @@ test("fixed source/token/cost/concurrency ceilings reject before any actual isol
       ...f.input,
       limits: { ...f.input.limits, concurrency: 5 },
     }),
+  );
+  await assert.rejects(
+    f.engine.previewCodingAttemptGroup({
+      ...f.input,
+      limits: { ...f.input.limits, maxEvidenceBytes: 262145 },
+    }),
+    { code: "CODING_BATCH_LIMIT" },
   );
   await assert.rejects(
     f.engine.previewCodingAttemptGroup({

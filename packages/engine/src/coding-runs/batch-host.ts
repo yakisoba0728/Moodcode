@@ -244,13 +244,22 @@ export class CodingBatchHost {
     );
     if (knowledgeHash(run.config) !== p.proof.configSha256)
       batchFail("CODING_BATCH_CONFIG_STALE");
-    this.consumedPreviews.add(input.preview);
     const allocations = p.proof.input.cases.flatMap((c) =>
-      c.spec.stages.map((s) => s.allocation),
-    );
-    let group!: CodingAttemptGroup;
-    const instances = this.engine.store.withWorkflowEffectsTransaction(() =>
-      p.originals.map(
+        c.spec.stages.map((s) => s.allocation),
+      ),
+      remaining = this.engine.coordinator.getRemainingChildBudget(run.id);
+    for (const key of [
+      "turns",
+      "toolCalls",
+      "outputBytes",
+      "durationMs",
+    ] as const)
+      if (allocations.reduce((n, a) => n + a[key], 0) > remaining[key])
+        batchFail("CHILD_BUDGET_EXCEEDED");
+    this.consumedPreviews.add(input.preview);
+    const slots = new Map<string, object>();
+    const group = this.engine.store.withWorkflowEffectsTransaction(() => {
+      const instances = p.originals.map(
         (preview, i) =>
           this.engine.startWorkflow({
             workspaceId: input.workspaceId,
@@ -258,48 +267,48 @@ export class CodingBatchHost {
             approved: true,
             preview,
           }).record,
-      ),
-    );
-    const originals = this.engine.coordinator.reserveChildRunGroup(
+      );
+      const originals = this.engine.coordinator.reserveChildRunGroup(
         run.id,
         allocations,
-      ),
-      slots = new Map<string, object>();
-    let cursor = 0;
-    for (const c of p.proof.input.cases)
-      for (const stage of c.spec.stages)
-        slots.set(`${c.id}:${stage.id}`, originals[cursor++]!);
-    group = signBatch({
-      version: 1 as const,
-      workspaceId: input.workspaceId,
-      sessionId: run.sessionId,
-      parentRunId: run.id,
-      groupId: p.proof.input.groupId,
-      revision: 1,
-      previousSha256: null,
-      requestId: input.requestId,
-      preview: p.proof,
-      state: "running" as const,
-      cases: p.proof.input.cases.map((c, i) => ({
-        id: c.id,
-        instanceId: instances[i]!.instanceId,
-        state: "pending" as const,
-        stage: 0,
-        errorCode: null,
-        receiptSha256: null,
-      })),
-      usage: {
-        requests: 0,
-        reservedTokens: p.proof.reservedTokens,
-        chargedCostMicros: 0,
-        measuredInputTokens: null,
-        measuredOutputTokens: null,
-        unknownUsageRequests: 0,
-      },
-      selection: null,
-      createdAt: new Date().toISOString(),
+      );
+      let cursor = 0;
+      for (const c of p.proof.input.cases)
+        for (const stage of c.spec.stages)
+          slots.set(`${c.id}:${stage.id}`, originals[cursor++]!);
+      const record = signBatch({
+        version: 1 as const,
+        workspaceId: input.workspaceId,
+        sessionId: run.sessionId,
+        parentRunId: run.id,
+        groupId: p.proof.input.groupId,
+        revision: 1,
+        previousSha256: null,
+        requestId: input.requestId,
+        preview: p.proof,
+        state: "running" as const,
+        cases: p.proof.input.cases.map((c, i) => ({
+          id: c.id,
+          instanceId: instances[i]!.instanceId,
+          state: "pending" as const,
+          stage: 0,
+          errorCode: null,
+          receiptSha256: null,
+        })),
+        usage: {
+          requests: 0,
+          reservedTokens: p.proof.reservedTokens,
+          chargedCostMicros: 0,
+          measuredInputTokens: null,
+          measuredOutputTokens: null,
+          unknownUsageRequests: 0,
+        },
+        selection: null,
+        createdAt: new Date().toISOString(),
+      });
+      this.native.put(record, 0);
+      return record;
     });
-    this.native.put(group, 0);
     this.live.set(knowledgeHash([group.workspaceId, group.groupId]), {
       preview: p.proof,
       catalogue: p.catalogue,
@@ -504,10 +513,10 @@ export class CodingBatchHost {
     );
     workflowAbort(input.signal);
     this.open();
-    if (input.approved !== true)
-      return Promise.reject(new Error("CODING_BATCH_APPROVAL_REQUIRED"));
+    if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
     const prior = this.current(input.workspaceId, input.groupId),
-      key = knowledgeHash([input.workspaceId, input.groupId, input.requestId]);
+      key = knowledgeHash([input.workspaceId, input.groupId, input.requestId]),
+      scope = knowledgeHash([input.workspaceId, input.groupId]);
     const digest = knowledgeHash({
         workspaceId: input.workspaceId,
         groupId: input.groupId,
@@ -525,13 +534,14 @@ export class CodingBatchHost {
       batchFail("CODING_BATCH_STALE");
     if (this.pending.size >= 128) batchFail("CODING_REQUEST_LIMIT");
     this.assertLive(prior);
-    const promise = this.execute(input);
+    if ([...this.pendingGroups.values()].includes(scope))
+      batchFail("CODING_BATCH_STALE");
+    const promise = this.execute(input),
+      settled = () => this.pendingGroups.delete(key);
     this.requestSha.set(key, digest);
     this.pending.set(key, promise);
-    this.pendingGroups.set(
-      key,
-      knowledgeHash([input.workspaceId, input.groupId]),
-    );
+    this.pendingGroups.set(key, scope);
+    void promise.then(settled, settled);
     return promise.then((r) => structuredClone(r));
   }
   private async execute(
@@ -552,6 +562,7 @@ export class CodingBatchHost {
         const id = queue[index++];
         if (!id) return;
         let group = this.current(input.workspaceId, input.groupId);
+        if (group.cases.find((c) => c.id === id)?.state !== "pending") continue;
         this.write(group, {
           cases: group.cases.map((c) =>
             c.id === id ? { ...c, state: "running" as const } : c,
@@ -773,17 +784,14 @@ export class CodingBatchHost {
   private merged(instanceId: string, sha: string): void {
     for (const ws of this.engine.store.listWorkspaces())
       for (const g of this.native.list(ws.id)) {
-        if (
-          g.cases.find((c) => c.instanceId === instanceId)?.id !==
-          g.selection?.caseId
-        )
-          continue;
-        if (g.selection!.state !== "selected")
+        const c = g.cases.find((c) => c.instanceId === instanceId);
+        if (!c || !g.selection || g.selection.caseId !== c.id) continue;
+        if (g.selection.state !== "selected")
           batchFail("CODING_SELECTION_STALE");
         this.write(g, {
           state: "completed",
           selection: signBatch({
-            ...g.selection!,
+            ...g.selection,
             state: "merged" as const,
             mergeSha256: sha,
           }),
@@ -805,8 +813,8 @@ export class CodingBatchHost {
     );
     const g = this.current(input.workspaceId, input.groupId);
     this.assertLive(g);
-    if (input.approved !== true || g.revision !== input.expectedRevision)
-      batchFail("CODING_BATCH_STALE");
+    if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
+    if (g.revision !== input.expectedRevision) batchFail("CODING_BATCH_STALE");
     if (g.cases.find((c) => c.id === input.caseId)?.state !== "pending")
       batchFail("CODING_CASE_ALREADY_EFFECTED");
     return this.write(g, {
@@ -867,8 +875,8 @@ export class CodingBatchHost {
     );
     const g = this.current(input.workspaceId, input.groupId),
       live = this.assertLive(g);
-    if (g.revision !== input.expectedRevision || input.approved !== true)
-      batchFail("CODING_BATCH_STALE");
+    if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
+    if (g.revision !== input.expectedRevision) batchFail("CODING_BATCH_STALE");
     live.controller.abort();
     const results = await Promise.allSettled(
       g.cases.flatMap((c) =>

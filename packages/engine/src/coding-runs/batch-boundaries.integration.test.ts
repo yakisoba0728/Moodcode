@@ -2,15 +2,32 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { DatabaseSync } from "node:sqlite";
 import { join } from "node:path";
-import { readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import {
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { MoodcodeEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
 } from "../storage/archive.js";
+import {
+  EFFECT_AFTER,
+  workflowEffectsFixture,
+} from "../workflows/fixtures/effects.js";
 import { groupKind, caseKind } from "./groups.js";
 import { signBatch } from "./validation.js";
 import { batchFixture, batchCommand, batchUntil } from "./fixtures/batch.js";
+const instances = (db: DatabaseSync) =>
+  Number(
+    db
+      .prepare("SELECT count(*) n FROM workflow_heads WHERE kind='instance'")
+      .get()!.n,
+  );
 async function ready(f: Awaited<ReturnType<typeof batchFixture>>) {
   f.approveChildren();
   const p = await f.engine.previewCodingAttemptGroup(f.input),
@@ -306,6 +323,7 @@ test("actual reservation then group birth SQL fault leaves consumed capacity and
   const after = f.engine.coordinator.getRemainingChildBudget(f.parent.runId);
   assert.equal(before.turns - after.turns, 18);
   assert.equal(f.children.length, 0);
+  assert.equal(instances(db), 0);
   db.exec("DROP TRIGGER batch_birth_fault");
   assert.throws(() =>
     f.engine.startCodingAttemptGroup({
@@ -320,4 +338,85 @@ test("actual reservation then group birth SQL fault leaves consumed capacity and
     after.turns,
   );
   db.close();
+});
+
+test("summed member allocations above the parent's remaining budget start nothing and keep the preview", async (t) => {
+  const f = await batchFixture(t),
+    p = await f.engine.previewCodingAttemptGroup({
+      ...f.input,
+      cases: f.input.cases.map((c) => ({
+        ...c,
+        spec: {
+          ...c.spec,
+          stages: c.spec.stages.map((s) => ({
+            ...s,
+            allocation: { ...s.allocation, toolCalls: 12 },
+          })),
+        },
+      })),
+    }),
+    db = new DatabaseSync(f.dbPath),
+    before = f.engine.coordinator.getRemainingChildBudget(f.parent.runId),
+    start = (requestId: string) => () =>
+      f.engine.startCodingAttemptGroup({
+        workspaceId: f.workspace.id,
+        requestId,
+        approved: true,
+        preview: p,
+      });
+  assert.throws(start("over"), { code: "CHILD_BUDGET_EXCEEDED" });
+  assert.throws(start("over-retry"), { code: "CHILD_BUDGET_EXCEEDED" });
+  const after = f.engine.coordinator.getRemainingChildBudget(f.parent.runId);
+  assert.equal(after.turns, before.turns);
+  assert.equal(after.toolCalls, before.toolCalls);
+  assert.equal(instances(db), 0);
+  assert.equal(f.children.length, 0);
+  db.close();
+});
+
+test("an unselected group never blocks merging the selected case of another group", async (t) => {
+  const f = await batchFixture(t),
+    idle = f.engine.startCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      requestId: "idle-start",
+      approved: true,
+      preview: await f.engine.previewCodingAttemptGroup({
+        ...f.input,
+        groupId: "idle-group",
+        cases: [f.input.cases[1]!].map((c) => ({
+          ...c,
+          spec: { ...c.spec, id: c.spec.id + "-idle" },
+        })),
+      }),
+    }),
+    g = await merged(f);
+  assert.equal((await f.finish()).state, "completed");
+  assert.equal(g.state, "completed");
+  assert.equal(g.selection?.state, "merged");
+  assert.equal(readFileSync(join(f.root, "seed.txt"), "utf8"), "candidate A\n");
+  const untouched = f.engine.inspectBatchEvidence(f.workspace.id, idle.groupId);
+  assert.equal(untouched.selection, null);
+  assert.equal(untouched.revision, idle.revision);
+});
+
+test("stored unselected groups never block an ordinary workflow merge after a default-off reopen", async (t) => {
+  const base = realpathSync(
+      mkdtempSync(join(tmpdir(), "moodcode-coding-batch-plain-merge-")),
+    ),
+    f = await batchFixture(t, { dbRoot: base }),
+    g = f.engine.startCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      requestId: "start",
+      approved: true,
+      preview: await f.engine.previewCodingAttemptGroup(f.input),
+    });
+  await f.engine.close();
+  const w = await workflowEffectsFixture(t, { dbRoot: base });
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  await w.throughMerge();
+  assert.equal(w.sourceBytes(), EFFECT_AFTER);
+  assert.equal(
+    w.engine.inspectBatchEvidence(f.workspace.id, g.groupId).selection,
+    null,
+  );
 });
