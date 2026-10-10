@@ -182,11 +182,17 @@ test("actual stall advisory joins a late journal window with observations past t
     }),
     run = await f.engine.waitForRun(submitted.runId);
   assert.equal(run.state, "completed", JSON.stringify(run.error));
+  // Pages stop at 100 rows or 1 MiB, and row size depends on which reads got a source capture.
   const first = f.page(run.id),
-    rest = f.page(run.id, { afterOrdinal: first.next! }).items;
-  assert.equal(first.items.length, 100);
-  assert.equal(rest.length, 1);
-  const late = rest[0]!.toolCallId;
+    items = [...first.items];
+  for (let next = first.next; next !== null; ) {
+    const page = f.page(run.id, { afterOrdinal: next });
+    items.push(...page.items);
+    next = page.next;
+  }
+  assert.equal(items.length, 101);
+  const late = items.at(-1)!.toolCallId;
+  assert.ok(!first.items.some((item) => item.toolCallId === late));
   let lateSeq = 0;
   for (let afterSeq = 0, cursor = true; cursor; ) {
     const page = f.engine.getTrajectory({
