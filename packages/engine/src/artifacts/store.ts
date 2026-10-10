@@ -37,6 +37,7 @@ interface Manifest {
   metadata?: JsonObject;
 }
 
+const LEFTOVER = /^\.(?:stage|retired)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 function code(error: unknown): string | undefined { return error instanceof Error && 'code' in error ? String(error.code) : undefined; }
 function sameFile(left: Stats, right: Stats): boolean { return left.dev === right.dev && left.ino === right.ino; }
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARTIFACT_CANCELLED', 'Artifact operation was cancelled'); }
@@ -65,7 +66,7 @@ async function directoryPath(path: string, create: boolean): Promise<Stats> {
 async function writeAll(handle: FileHandle, bytes: Uint8Array): Promise<void> {
   let offset = 0;
   while (offset < bytes.byteLength) {
-    const written = await handle.write(bytes, offset, bytes.byteLength - offset);
+    const written = await handle.write(bytes, offset, bytes.byteLength - offset).catch(() => fail('ARTIFACT_WRITE_FAILED', 'Artifact file write failed'));
     if (written.bytesWritten < 1) fail('ARTIFACT_WRITE_FAILED', 'Artifact file write made no progress');
     offset += written.bytesWritten;
   }
@@ -185,25 +186,30 @@ export class ArtifactStore {
         let chunks = 0;
         try {
           while (true) {
-            const next = await nextChunk(iterator, input.signal);
-            if (next.done) { exhausted = true; break; }
+            let value: string | Uint8Array;
+            // Only producer failures are captured; storage and validation errors abort the put.
+            try {
+              const next = await nextChunk(iterator, input.signal);
+              if (next.done) { exhausted = true; break; }
+              value = next.value;
+            } catch {
+              completed = false; producerTruncatedBytes = null;
+              effectiveOutcome = input.signal?.aborted ? 'interrupted' : 'failed';
+              warnings.push(input.signal?.aborted ? 'Producer was interrupted; only observed bytes were captured.' : 'Producer failed; only observed bytes were captured.');
+              break;
+            }
             if (++chunks > this.limits.maxProducerChunks) {
-              if (typeof next.value !== 'string' && !(next.value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
-              observedBytes = number(observedBytes + (typeof next.value === 'string' ? Buffer.byteLength(next.value) : next.value.byteLength), 'observedBytes');
+              if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
+              observedBytes = number(observedBytes + (typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength), 'observedBytes');
               producerTruncatedBytes = null; completed = false;
               warnings.push('Producer chunk limit was reached; remaining output was not observed.');
               break;
             }
-            if (await capture(next.value)) {
+            if (await capture(value)) {
               // Further bytes were never observed, so total producer loss is unknown.
               producerTruncatedBytes = null; completed = false; break;
             }
           }
-        } catch (error) {
-          completed = false; producerTruncatedBytes = null;
-          effectiveOutcome = input.signal?.aborted ? 'interrupted' : 'failed';
-          warnings.push(input.signal?.aborted ? 'Producer was interrupted; only observed bytes were captured.' : 'Producer failed; only observed bytes were captured.');
-          if (error instanceof EngineError && error.code === 'INVALID_ARTIFACT_DATA') throw error;
         } finally {
           if (!exhausted && iterator.return) {
             // A producer may ignore cancellation while awaiting next(); cleanup must not wait forever.
@@ -318,12 +324,24 @@ export class ArtifactStore {
   async prune(options: { signal?: AbortSignal } = {}): Promise<ArtifactPruneResult> {
     abort(options.signal); await this.checkRoot();
     const result: ArtifactPruneResult = { scanned: 0, removed: [], warnings: [], scanTruncated: false };
+    const warn = (message: string) => { if (result.warnings.length < 32) result.warnings.push(message); };
+    let cleaned = false;
     const entries = await opendir(this.directory);
     for await (const entry of entries) {
       abort(options.signal);
       if (result.scanned >= this.limits.maxScanEntries) { result.scanTruncated = true; break; }
       result.scanned++;
-      if (!ARTIFACT_ID.test(entry.name) || !entry.isDirectory() || entry.isSymbolicLink()) continue;
+      if (!entry.isDirectory() || entry.isSymbolicLink()) continue;
+      if (LEFTOVER.test(entry.name)) {
+        // A staging directory may belong to a concurrent put until it outlives the retention window.
+        try {
+          const path = join(this.directory, entry.name);
+          if (entry.name.startsWith('.stage-') && this.now() - (await lstat(path)).mtimeMs <= this.retentionMs) continue;
+          await this.checkRoot(); await knownDirectoryCleanup(path); cleaned = true;
+        } catch { warn(`Skipped leftover ${entry.name}: its managed path could not be removed.`); }
+        continue;
+      }
+      if (!ARTIFACT_ID.test(entry.name)) continue;
       try {
         const manifest = await this.manifest(entry.name, undefined, true);
         if (Date.parse(manifest.reference.expiresAt) > this.now()) continue;
@@ -332,9 +350,9 @@ export class ArtifactStore {
         await rename(source, retired);
         await knownDirectoryCleanup(retired);
         result.removed.push(entry.name);
-      } catch { if (result.warnings.length < 32) result.warnings.push(`Skipped artifact ${entry.name}: its manifest or managed path could not be verified.`); }
+      } catch { warn(`Skipped artifact ${entry.name}: its manifest or managed path could not be verified.`); }
     }
-    if (result.removed.length) await syncDirectory(this.directory);
+    if (result.removed.length || cleaned) await syncDirectory(this.directory);
     return result;
   }
 }

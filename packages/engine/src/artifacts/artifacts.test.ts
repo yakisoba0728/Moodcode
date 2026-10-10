@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
-import { mkdtemp, realpath, rm, readFile, writeFile, readdir, lstat, symlink, unlink, link, rename, mkdir } from 'node:fs/promises';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdtemp, realpath, rm, readFile, writeFile, readdir, lstat, symlink, unlink, link, rename, mkdir, open, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { ArtifactIdentity, Checkpoint, JsonValue } from '@moodcode/contracts';
@@ -43,6 +43,15 @@ test('failed stream stores reviewable partial output without exposing error text
   const item = await store.put({ identity: owner, content: { async *[Symbol.asyncIterator]() { yield 'before'; throw new Error('SECRET_ERROR'); } } });
   assert.equal(item.reference.outcome, 'failed'); assert.equal(item.reference.complete, false); assert.equal(item.reference.producerTruncatedBytes, null); assert.equal(item.modelContent, 'before'); assert.ok(!item.warnings.join(' ').includes('SECRET_ERROR'));
 });
+test('storage write failure during a stream is not blamed on the producer and publishes nothing', async t => {
+  const { root, directory } = await fixture(t); const store = await ArtifactStore.open({ directory }); let returned = false;
+  const probe = await open(join(root, 'probe'), 'w'); const prototype = Object.getPrototypeOf(probe) as { write: (...args: unknown[]) => Promise<unknown> }; await probe.close();
+  const write = prototype.write; t.after(() => { prototype.write = write; });
+  prototype.write = function (this: unknown, ...args: unknown[]) { return Buffer.from(args[0] as Uint8Array).toString().startsWith('FULL') ? Promise.reject(Object.assign(new Error('no space'), { code: 'ENOSPC' })) : write.apply(this, args); };
+  const source = { async *[Symbol.asyncIterator]() { try { yield 'before'; yield 'FULL disk'; yield 'after'; } finally { returned = true; } } };
+  await assert.rejects(store.put({ identity: owner, content: source }), errorCode('ARTIFACT_WRITE_FAILED'));
+  assert.equal(returned, true); assert.deepEqual(await readdir(directory), []);
+});
 test('noncooperating stream is interruptible and return cleanup never blocks publication', async t => {
   const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory }); const controller = new AbortController();
   let blocked!: () => void; const entered = new Promise<void>(resolve => { blocked = resolve; });
@@ -65,6 +74,14 @@ test('expiry denies reads, prune removes only expired valid managed artifacts', 
   const malformed = 'artifact_' + 'b'.repeat(32); await mkdir(join(directory, malformed)); await writeFile(join(directory, malformed, 'manifest.json'), '{}'); now = 1_101;
   await assert.rejects(store.get(expired.reference.id), errorCode('ARTIFACT_EXPIRED')); const result = await store.prune(); assert.deepEqual(result.removed, [expired.reference.id]); assert.ok(result.warnings.length > 0);
   assert.equal((await store.get(active.reference.id)).complete, true); assert.equal(await readFile(outside, 'utf8'), 'keep'); assert.ok((await readdir(directory)).includes('unrelated'));
+});
+test('prune removes leftover retired and stale staging directories only', async t => {
+  const { root, directory } = await fixture(t); const now = 10_000_000; const store = await ArtifactStore.open({ directory, retentionMs: 60_000, now: () => now });
+  const make = async (name: string, mtime?: number) => { const path = join(directory, name); await mkdir(path); await writeFile(join(path, 'content'), 'x'); await writeFile(join(path, 'manifest.json'), '{}'); if (mtime !== undefined) await utimes(path, new Date(mtime), new Date(mtime)); };
+  const fresh = `.stage-${randomUUID()}`, linked = `.retired-${randomUUID()}`, outside = join(root, 'outside'); await mkdir(outside); await writeFile(join(outside, 'content'), 'keep');
+  await make(`.retired-${randomUUID()}`); await make(`.stage-${randomUUID()}`, now - 120_000); await make(fresh, now - 1_000); await make('.stage-notauuid', 0); await symlink(outside, join(directory, linked));
+  const result = await store.prune(); assert.deepEqual(result.removed, []);
+  assert.deepEqual((await readdir(directory)).sort(), [fresh, linked, '.stage-notauuid'].sort()); assert.equal(await readFile(join(outside, 'content'), 'utf8'), 'keep');
 });
 test('bounded prune scan reports remaining work', async t => { const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory, limits: { maxScanEntries: 1 } }); await writeFile(join(directory, 'a'), ''); await writeFile(join(directory, 'b'), ''); const result = await store.prune(); assert.equal(result.scanned, 1); assert.equal(result.scanTruncated, true); });
 test('owner mismatch includes optional turn and attempt identities', async t => { const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory }); const item = await store.put({ identity: owner, content: '' }); await assert.rejects(store.get(item.reference.id, { ...owner, attemptId: 'other' }), errorCode('ARTIFACT_OWNER_MISMATCH')); await assert.rejects(store.get('../content'), errorCode('INVALID_ARTIFACT_ID')); });
