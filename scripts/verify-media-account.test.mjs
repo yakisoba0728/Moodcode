@@ -966,14 +966,10 @@ test(
       false,
     );
     assert.equal(report.accountVerified, false);
-    assert.equal(report.cleanupConfirmed, false);
-    assert.equal(report.state, "uncertain");
-    assert.equal(report.failure, "CLEANUP_UNCERTAIN");
-    assert.ok(report.retainedEvidenceDirectory);
-    await access(report.retainedEvidenceDirectory + "/engine.sqlite");
-    t.after(() =>
-      rm(report.retainedEvidenceDirectory, { recursive: true, force: true }),
-    );
+    assert.equal(report.cleanupConfirmed, true);
+    assert.equal(report.state, "failed");
+    assert.equal(report.failure, "PROVIDER_HTTP_ERROR");
+    assert.equal(report.retainedEvidenceDirectory, undefined);
   },
 );
 
