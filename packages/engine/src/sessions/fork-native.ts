@@ -347,53 +347,17 @@ export function assertForkSourceCurrent(
   fresh: boolean,
 ): void {
   assertFrozenManifest(source);
-  if (
-    source.snapshot.session.id !== source.sourceSessionId ||
-    source.snapshot.session.workspaceId !== source.sourceWorkspaceId ||
-    source.snapshot.runs.at(-1)?.id !== source.throughRunId ||
-    source.pins.length > FORK_LIMITS.pins
-  )
-    forkError("FORK_NATIVE_INVALID", "Frozen source identity is inconsistent");
-  const seen = new Set<string>();
+  const runIds = new Set(source.snapshot.runs.map((run) => run.id));
   for (const pin of source.pins) {
-    if (
-      !TABLES.includes(pin.table as any) ||
-      seen.has(`${pin.table}:${pin.id}`)
-    )
-      forkError("FORK_NATIVE_INVALID", "Frozen native IDs are aliased");
-    seen.add(`${pin.table}:${pin.id}`);
     const keyColumn = pin.table === "attempt_cleanup" ? "attempt_id" : "id";
-    const row = boundedRow(db, pin.table, `${keyColumn}=?`, [pin.id]),
-      value =
-        row &&
-        scopedRow(
-          pin.table,
-          row,
-          source.sourceSessionId,
-          new Set(source.snapshot.runs.map((run) => run.id)),
-        );
-    if (!row || forkHash(value) !== pin.sha256)
+    const row = boundedRow(db, pin.table, `${keyColumn}=?`, [pin.id]);
+    if (
+      !row ||
+      forkHash(scopedRow(pin.table, row, source.sourceSessionId, runIds)) !==
+        pin.sha256
+    )
       forkError("FORK_SOURCE_STALE", "Frozen source native row changed");
   }
-  for (const [table, rows] of [
-    ["runs", source.snapshot.runs],
-    ["messages", source.snapshot.messages],
-    ["tools", source.snapshot.tools],
-    ["approvals", source.snapshot.approvals],
-  ] as const)
-    for (const row of rows)
-      if (
-        !source.pins.some(
-          (pin) =>
-            pin.table === table &&
-            pin.id === row.id &&
-            pin.sha256 === forkHash(row),
-        )
-      )
-        forkError(
-          "FORK_NATIVE_INVALID",
-          "Frozen body has no exact native source pin",
-        );
   if (
     fresh &&
     (Number(
@@ -574,7 +538,6 @@ export function assertForkRecordShape(
 export function readConversationFork(
   db: DatabaseSync,
   sessionId: string,
-  validate = true,
 ): ConversationFork | null {
   const header = db
     .prepare(
@@ -590,102 +553,99 @@ export function readConversationFork(
       FORK_KIND,
     ]),
   ) as ConversationFork;
-  if (validate) {
-    assertRecordHash(record);
-    assertRecordHash(record.preview);
-    assertRecordHash(record.preview.source);
-    if (record.sessionId !== sessionId)
-      forkError("FORK_NATIVE_INVALID", "Native fork lineage identity changed");
-    assertForkRecordShape(record, "FORK_NATIVE_INVALID");
-    const session = decode(boundedRow(db, "sessions", "id=?", [sessionId]));
-    const markerRow = boundedRow(
-        db,
-        "session_documents",
-        "session_id=? AND kind='conversation.fork.import'",
-        [sessionId],
-      ),
-      marker = markerRow ? decode(markerRow) : null;
-    const targetOnly = marker?.kind === "target-only-history";
-    if (
-      session.workspaceId !==
-      (targetOnly ? marker.workspaceId : record.workspaceId)
+  assertRecordHash(record);
+  assertRecordHash(record.preview);
+  if (record.sessionId !== sessionId)
+    forkError("FORK_NATIVE_INVALID", "Native fork lineage identity changed");
+  assertForkRecordShape(record, "FORK_NATIVE_INVALID");
+  const session = decode(boundedRow(db, "sessions", "id=?", [sessionId]));
+  const markerRow = boundedRow(
+      db,
+      "session_documents",
+      "session_id=? AND kind='conversation.fork.import'",
+      [sessionId],
+    ),
+    marker = markerRow ? decode(markerRow) : null;
+  const targetOnly = marker?.kind === "target-only-history";
+  if (
+    session.workspaceId !==
+    (targetOnly ? marker.workspaceId : record.workspaceId)
+  )
+    forkError("FORK_NATIVE_INVALID", "Fork target Session changed");
+  const type = targetOnly
+    ? "conversation.fork.imported"
+    : "conversation.fork.materialized";
+  const headers = db
+    .prepare(
+      "SELECT seq FROM session_events WHERE session_id=? AND type=? LIMIT 2",
     )
-      forkError("FORK_NATIVE_INVALID", "Fork target Session changed");
-    const type = targetOnly
-      ? "conversation.fork.imported"
-      : "conversation.fork.materialized";
-    const headers = db
-      .prepare(
-        "SELECT seq FROM session_events WHERE session_id=? AND type=? LIMIT 2",
-      )
-      .all(sessionId, type);
-    const anchors = headers.map((row) =>
-      boundedRow(db, "session_events", "session_id=? AND seq=?", [
-        sessionId,
-        Number(row.seq),
-      ]),
+    .all(sessionId, type);
+  const anchors = headers.map((row) =>
+    boundedRow(db, "session_events", "session_id=? AND seq=?", [
+      sessionId,
+      Number(row.seq),
+    ]),
+  );
+  if (
+    anchors.length !== 1 ||
+    forkHash(decode(anchors[0]).payload.record) !== forkHash(record)
+  )
+    forkError(
+      "FORK_NATIVE_INVALID",
+      "Fork lineage lacks its independent immutable admission event",
     );
+  if (targetOnly) {
     if (
-      anchors.length !== 1 ||
-      forkHash(decode(anchors[0]).payload.record) !== forkHash(record)
+      marker.paused !== true ||
+      marker.sourceRecordSha256 !== record.sha256 ||
+      forkHash(decode(anchors[0]).payload.importProof) !== forkHash(marker)
     )
       forkError(
         "FORK_NATIVE_INVALID",
-        "Fork lineage lacks its independent immutable admission event",
+        "Paused imported history evidence changed",
       );
-    if (targetOnly) {
-      if (
-        marker.paused !== true ||
-        marker.sourceRecordSha256 !== record.sha256 ||
-        forkHash(decode(anchors[0]).payload.importProof) !== forkHash(marker)
-      )
-        forkError(
-          "FORK_NATIVE_INVALID",
-          "Paused imported history evidence changed",
-        );
-    } else {
-      const input = validateInputRecord(
-        decode(
-          boundedRow(db, "session_inputs", "id=? AND session_id=?", [
-            record.input.inputId,
-            sessionId,
-          ]),
-        ),
+  } else {
+    const input = validateInputRecord(
+      decode(
+        boundedRow(db, "session_inputs", "id=? AND session_id=?", [
+          record.input.inputId,
+          sessionId,
+        ]),
+      ),
+    );
+    const acceptance = boundedRow(
+      db,
+      "session_events",
+      "session_id=? AND seq=? AND type='input.accepted'",
+      [sessionId, record.input.admittedSeq],
+    );
+    const admitted = acceptance ? decode(acceptance).payload.input : null;
+    if (
+      input.admittedSeq !== record.input.admittedSeq ||
+      record.input.state !== "pending" ||
+      record.input.duplicate !== false ||
+      !admitted ||
+      acceptance!.input_id !== input.id ||
+      admitted.id !== input.id ||
+      admitted.sessionId !== sessionId ||
+      admitted.state !== "pending" ||
+      admitted.admittedSeq !== record.input.admittedSeq ||
+      forkHash(admitted.config) !== forkHash(input.config) ||
+      admitted.prompt !== input.prompt ||
+      admitted.requestId !== input.requestId
+    )
+      forkError(
+        "FORK_NATIVE_INVALID",
+        "Fork input lost its exact genuine queue-acceptance receipt",
       );
-      const acceptance = boundedRow(
-        db,
-        "session_events",
-        "session_id=? AND seq=? AND type='input.accepted'",
-        [sessionId, record.input.admittedSeq],
-      );
-      const admitted = acceptance ? decode(acceptance).payload.input : null;
-      if (
-        input.admittedSeq !== record.input.admittedSeq ||
-        record.input.state !== "pending" ||
-        record.input.duplicate !== false ||
-        !admitted ||
-        acceptance!.input_id !== input.id ||
-        admitted.id !== input.id ||
-        admitted.sessionId !== sessionId ||
-        admitted.state !== "pending" ||
-        admitted.admittedSeq !== record.input.admittedSeq ||
-        forkHash(admitted.config) !== forkHash(input.config) ||
-        admitted.prompt !== input.prompt ||
-        admitted.requestId !== input.requestId
-      )
-        forkError(
-          "FORK_NATIVE_INVALID",
-          "Fork input lost its exact genuine queue-acceptance receipt",
-        );
-      if (
-        input.requestId !== `fork:${record.id}` ||
-        input.prompt !== record.preview.prompt ||
-        forkHash(input.config) !== forkHash(record.preview.config)
-      )
-        forkError("FORK_NATIVE_INVALID", "Fork first actual input changed");
-    }
-    assertFrozenManifest(record.preview.source);
+    if (
+      input.requestId !== `fork:${record.id}` ||
+      input.prompt !== record.preview.prompt ||
+      forkHash(input.config) !== forkHash(record.preview.config)
+    )
+      forkError("FORK_NATIVE_INVALID", "Fork first actual input changed");
   }
+  assertFrozenManifest(record.preview.source);
   return forkJson(record);
 }
 export function materializeConversationFork(

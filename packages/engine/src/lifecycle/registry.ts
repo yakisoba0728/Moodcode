@@ -26,7 +26,7 @@ export interface LifecycleCapturedHook {
   readonly callback: LifecycleHookCallback;
 }
 /** Internal execution data is kept off the transferable capture descriptor. */
-export interface LifecycleCaptureState {
+interface LifecycleCaptureState {
   readonly hooks: readonly LifecycleCapturedHook[];
   readonly abort: AbortController;
   readonly maxInvocations: number;

@@ -131,8 +131,8 @@ function projection(data: JsonObject, row: Row): JsonObject {
 export class SummaryRecoveryStorage {
   constructor(private readonly native: NativeSessionStorage, private readonly summaries: SummaryAttemptStorage, private readonly options: {
     bindingScope(workspaceId: string): string; startupHighWater: string; appendLegacy(run: Run, type: string, payload: JsonObject): EngineEvent;
-    hasOtherExecutionUncertainty?: (workspaceId: string, excludedSummaryAttemptId: string) => boolean;
-    getSummaryOverflowDependency?: (summaryAttemptId: string, turnId: string, failedAttemptId: string) => NonNullable<import('@moodcode/contracts').ExecutionUncertainty['summaryDependency']>;
+    hasOtherExecutionUncertainty(workspaceId: string, excludedSummaryAttemptId: string): boolean;
+    getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string): NonNullable<import('@moodcode/contracts').ExecutionUncertainty['summaryDependency']>;
   }) {
     if (!highWater(options.startupHighWater)) fail('INVALID_REQUEST', 'Recovery requires the original boot frontier');
     this.options = Object.freeze({ bindingScope: options.bindingScope, startupHighWater: options.startupHighWater, appendLegacy: options.appendLegacy,
@@ -217,7 +217,7 @@ export class SummaryRecoveryStorage {
     }
     if (Buffer.byteLength(source) > SUMMARY_RECOVERY_LIMITS.maxSourceBytes || sha(source) !== recordValue.sourceSha256) fail('SOURCE_CHANGED', 'Exact summary facts differ from their original digest');
     if (recordValue.currentTurnId || recordValue.failedAttemptId) {
-      if (!recordValue.currentTurnId || !recordValue.failedAttemptId || !this.options.getSummaryOverflowDependency) fail('SOURCE_CHANGED', 'Overflow source requires its observed ordinary cleanup dependency');
+      if (!recordValue.currentTurnId || !recordValue.failedAttemptId) fail('SOURCE_CHANGED', 'Overflow source requires its observed ordinary cleanup dependency');
       const dependency = this.options.getSummaryOverflowDependency(recordValue.id, recordValue.currentTurnId, recordValue.failedAttemptId);
       const current = record(this.db, 'session_turns', recordValue.currentTurnId, budget, { sessionId: owner.sessionId, runId: owner.id }), failed = record(this.db, 'provider_attempts', recordValue.failedAttemptId, budget, { sessionId: owner.sessionId, runId: owner.id });
       pins.push(dependency, current.sha256, failed.sha256);
@@ -345,11 +345,7 @@ export class SummaryRecoveryStorage {
     if (BigInt(ordinal) > BigInt(this.options.startupHighWater)) base.blockers.push('SUMMARY_RECOVERY_RESTART_REQUIRED');
     if (attempt.state !== 'uncertain' || attempt.cleanupConfirmed || attempt.publication !== 'discarded') base.blockers.push('SUMMARY_RECOVERY_NOT_NEEDED');
     if (!isTerminal(run.state) || this.db.prepare("SELECT 1 FROM runs WHERE workspace_id=? AND state IN ('created','running','awaiting_approval','cancelling') LIMIT 1").get(run.workspaceId)) base.blockers.push('SUMMARY_RECOVERY_BLOCKED');
-    const otherUncertainty = this.options.hasOtherExecutionUncertainty
-      ? this.options.hasOtherExecutionUncertainty(run.workspaceId, attempt.id)
-      : Boolean(this.db.prepare("SELECT 1 FROM session_turns t JOIN runs r ON r.id=t.run_id WHERE r.workspace_id=? AND t.state='uncertain' LIMIT 1").get(run.workspaceId)
-        || this.db.prepare("SELECT 1 FROM provider_attempts a JOIN runs r ON r.id=a.run_id WHERE r.workspace_id=? AND a.state='uncertain' LIMIT 1").get(run.workspaceId));
-    if (otherUncertainty) base.blockers.push('SUMMARY_RECOVERY_OTHER_UNCERTAINTY');
+    if (this.options.hasOtherExecutionUncertainty(run.workspaceId, attempt.id)) base.blockers.push('SUMMARY_RECOVERY_OTHER_UNCERTAINTY');
     if (base.blockers.length) return base;
     try {
       const budget = { bytes: 0, max: SUMMARY_RECOVERY_LIMITS.maxSourceBytes }, evidence = this.evidence(attempt, budget); base.sourceOwnerSha256 = evidence.sourceOwnerSha256;

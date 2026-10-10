@@ -350,7 +350,8 @@ test('DB7 proof ALTER preserves raw DB5 body and leaves old missing pin proof un
 
 test('summary boot frontier is frozen after construction and historical owner checks precede ledger bodies', t => {
   const f = fixture(t), owner = f.store as unknown as { native: NativeSessionStorage; summaryRecords: SummaryAttemptStorage; append(run: Run, type: string, payload: JsonObject): EngineEvent };
-  const options = { bindingScope: () => f.rawBinding(), startupHighWater: '0', appendLegacy: (run: Run, type: string, payload: JsonObject) => owner.append(run,type,payload) };
+  const options = { bindingScope: () => f.rawBinding(), startupHighWater: '0', appendLegacy: (run: Run, type: string, payload: JsonObject) => owner.append(run,type,payload),
+    hasOtherExecutionUncertainty: () => false, getSummaryOverflowDependency: () => assert.fail('No overflow source is expected') };
   const recovery = new SummaryRecoveryStorage(owner.native, owner.summaryRecords, options); options.startupHighWater = captureSummaryRecoveryHighWater(f.db);
   assert.ok(recovery.preview('session','summary').blockers.includes('SUMMARY_RECOVERY_RESTART_REQUIRED'));
   const legacy = legacyDecision(f); let payloadReads = 0; const db = owner.native.database, prepare = db.prepare.bind(db);

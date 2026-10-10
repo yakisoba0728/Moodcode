@@ -15,7 +15,7 @@ export interface RecoveryAcknowledgment {
   /** Hash of the bounded original operation, including its recorded timestamps/outcome. */
   operationHash: string;
 }
-export interface RecoveryBackupMetadata { bytes: number; schemaVersion: number; sha256: string }
+interface RecoveryBackupMetadata { bytes: number; schemaVersion: number; sha256: string }
 export interface RecoveryAudit {
   id: string;
   fingerprint: string;
@@ -26,8 +26,8 @@ export interface RecoveryAudit {
   backups: { primary: RecoveryBackupMetadata; review: RecoveryBackupMetadata };
   acknowledgments: RecoveryAcknowledgment[];
 }
-export const RECOVERY_LEDGER_VERSION = 1;
-export const RECOVERY_LEDGER_APPLICATION_ID = 0x4d43524c;
+const RECOVERY_LEDGER_VERSION = 1;
+const RECOVERY_LEDGER_APPLICATION_ID = 0x4d43524c;
 const TABLE = `CREATE TABLE recovery_audit (ordinal INTEGER PRIMARY KEY, id TEXT NOT NULL UNIQUE, data TEXT NOT NULL CHECK(length(CAST(data AS BLOB)) <= ${RECOVERY_LIMITS.maxLedgerRecordBytes})) STRICT`;
 const SHA = /^[a-f0-9]{64}$/;
 const bindingKeys = ['id', 'checkpointId', 'runId', 'sessionId', 'workspaceId', 'fingerprint'] as const;
