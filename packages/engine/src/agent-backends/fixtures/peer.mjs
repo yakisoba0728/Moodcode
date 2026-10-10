@@ -46,6 +46,37 @@ lines.on("line", (text) => {
       });
       return;
     }
+    if (mode === "burst" || mode === "burst-foreign") {
+      const target = mode === "burst" ? sessionId : `${sessionId}-foreign`;
+      const burst = Array.from(
+        { length: 200 },
+        (_, index) =>
+          JSON.stringify({
+            jsonrpc: "2.0",
+            method: "session/update",
+            params: {
+              sessionId: target,
+              update: {
+                sessionUpdate: "agent_message_chunk",
+                content: { type: "text", text: `${index},` },
+              },
+            },
+          }) + "\n",
+      ).join("");
+      process.stdout.write(burst);
+      // The final result arrives only after the engine paused its receive queue.
+      if (mode === "burst")
+        setTimeout(
+          () =>
+            send({
+              jsonrpc: "2.0",
+              id: value.id,
+              result: { stopReason: "end_turn" },
+            }),
+          100,
+        );
+      return;
+    }
     if (mode === "unsupported") {
       send({
         jsonrpc: "2.0",

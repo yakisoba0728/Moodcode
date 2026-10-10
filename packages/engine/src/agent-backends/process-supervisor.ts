@@ -3,7 +3,10 @@ import {
   acquireExecutionLock,
   type ExecutionLock,
 } from "../tools/command/execution-lock.js";
-import { cleanupGroup } from "../tools/command/process-control.js";
+import {
+  cleanupGroup,
+  TERMINATION_LIMITS,
+} from "../tools/command/process-control.js";
 
 // IPC disappearance is the root's liveness signal, including SIGKILL. The peer
 // owns a separate process group, so descendants must disappear before release.
@@ -26,6 +29,19 @@ function send(packet: object): void {
   }
 }
 
+function closeWithin(
+  child: ChildProcessWithoutNullStreams,
+  ms: number,
+): Promise<void> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(resolve, ms);
+    child.once("close", () => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
+}
+
 function stop(): Promise<void> {
   return (finishing ??= (async () => {
     stops.abort();
@@ -35,7 +51,11 @@ function stop(): Promise<void> {
     try {
       if (peer?.pid !== undefined)
         cleanupConfirmed = await cleanupGroup(peer.pid, () => closed);
-      else if (peer) cleanupConfirmed = closed;
+      else if (peer) {
+        // A spawn that failed has no process, but its close follows the error.
+        if (!closed) await closeWithin(peer, TERMINATION_LIMITS.killWaitMs);
+        cleanupConfirmed = closed;
+      }
     } catch {
       cleanupConfirmed = false;
     }

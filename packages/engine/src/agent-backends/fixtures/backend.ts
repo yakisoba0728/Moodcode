@@ -226,7 +226,7 @@ export async function backendFixture(
     sourceFiles: [peerPath],
     envReferences: [],
   };
-  function target() {
+  function target(actual: AgentBackendLaunch = launch) {
     const original = backendInvoke<object>(
       engine,
       "captureAgentBackendTarget",
@@ -235,7 +235,7 @@ export async function backendFixture(
         workspaceId: workspace.id,
         sessionId: session.id,
         config,
-        launch,
+        launch: actual,
         credentialReference: null,
         endpointAudience: "local-fixture",
       },
@@ -247,7 +247,10 @@ export async function backendFixture(
     );
     return { original, pin };
   }
-  function spec(pin: AgentBackendTargetPin): AgentBackendSpecInput {
+  function spec(
+    pin: AgentBackendTargetPin,
+    actual: AgentBackendLaunch = launch,
+  ): AgentBackendSpecInput {
     return {
       schemaVersion: 1,
       id: backendId,
@@ -255,14 +258,14 @@ export async function backendFixture(
       protocol: "acp",
       protocolVersion: 1,
       contextOwner: "engine",
-      launch,
+      launch: actual,
       credentialReference: null,
       endpointAudience: "local-fixture",
       target: pin,
     };
   }
-  function register() {
-    const captured = target();
+  function register(actual: AgentBackendLaunch = launch) {
+    const captured = target(actual);
     const result = backendInvoke<BackendRequestResult<AgentBackendRevision>>(
       engine,
       "registerAgentBackend",
@@ -271,7 +274,7 @@ export async function backendFixture(
         workspaceId: workspace.id,
         requestId: randomUUID(),
         expectedRevision: 0,
-        spec: spec(captured.pin),
+        spec: spec(captured.pin, actual),
       },
     );
     return { ...captured, result };

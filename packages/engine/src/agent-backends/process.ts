@@ -402,13 +402,10 @@ export class OwnedBackendProcesses implements BackendProcessPort {
             buffer = Buffer.concat([buffer, bytes.subarray(offset, end)]);
             offset = newline < 0 ? bytes.length : newline + 1;
             if (newline < 0) break;
-            if (
-              state.frames.length >= MAX_BUFFERED_FRAMES ||
-              state.receiveOrdinal >= MAX_FRAMES
-            )
+            if (state.receiveOrdinal >= MAX_FRAMES)
               throw new EngineError(
                 "BACKEND_FRAME_LIMIT",
-                "Backend receive queue exceeded its limit",
+                "Backend output exceeded its frame budget",
               );
             const content =
               buffer.at(-1) === 13 ? buffer.subarray(0, -1) : buffer;
@@ -437,6 +434,9 @@ export class OwnedBackendProcesses implements BackendProcessPort {
             });
             this.observations.set(original, frame);
             state.frames.push(original);
+            // The supervisor pauses the peer once this pipe stops draining.
+            if (state.frames.length >= MAX_BUFFERED_FRAMES)
+              state.child.stdout?.pause();
             buffer = Buffer.alloc(0);
             state.wake?.();
           }
@@ -606,7 +606,10 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       while (true) {
         if (signal.aborted) throw signal.reason;
         if (state.frames.length) {
-          yield state.frames.shift()!;
+          const frame = state.frames.shift()!;
+          if (state.frames.length < MAX_BUFFERED_FRAMES)
+            state.child.stdout?.resume();
+          yield frame;
           continue;
         }
         if (state.error || state.closed || state.disposing)
@@ -748,6 +751,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     const state = this.state(originalConnection);
     const text = encodeAcpV1Message(message);
     let release!: () => void;
+    let sent: Promise<number> | undefined;
     const previous = state.writeTail;
     state.writeTail = new Promise<void>((resolve) => {
       release = resolve;
@@ -764,11 +768,11 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       } else this.assertConnectionCurrent(originalConnection);
       if (signal.aborted) throw signal.reason;
       const ordinal = ++state.writeOrdinal;
-      const operation = new Promise<number>((resolve, reject) => {
+      this.send(state, { type: "write", ordinal, text });
+      sent = new Promise<number>((resolve, reject) => {
         state.pendingWrite = { ordinal, resolve, reject };
       });
-      this.send(state, { type: "write", ordinal, text });
-      const bytes = await abortable(operation, signal);
+      const bytes = await abortable(sent, signal);
       if (bytes !== Buffer.byteLength(text))
         throw new EngineError(
           "BACKEND_PIPE_WRITE_FAILED",
@@ -790,7 +794,9 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       this.writeMessages.set(handle, parseAcpV1Message(text.slice(0, -1)));
       return handle;
     } finally {
-      release();
+      // An abandoned write still owns the pipe until its receipt or failure.
+      if (sent) void sent.then(release, release);
+      else release();
     }
   }
   readWrite(original: object): BackendWriteProof {
@@ -811,6 +817,8 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     return (state.disposing ??= (async () => {
       state.removeAbort();
       state.wake?.();
+      // Drain a paused stdout so the supervisor can flush its output and exit.
+      state.child.stdout?.resume();
       if (!state.closed) {
         try {
           this.send(state, { type: "stop" });
