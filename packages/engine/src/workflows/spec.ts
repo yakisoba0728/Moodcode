@@ -608,11 +608,6 @@ export function validateWorkflowSpec(input: unknown): WorkflowSpec {
     workflowError("WORKFLOW_SPEC_STALE");
   return workflowJson({ ...definition, sha256 });
 }
-export function workflowTopologicalOrder(
-  input: WorkflowSpec,
-): readonly string[] {
-  return validateWorkflowSpec(input).stages.map((item) => item.id);
-}
 export function validateWorkflowStageResult(
   input: WorkflowSpec,
   stageId: string,
@@ -629,30 +624,6 @@ export function validateWorkflowStageResult(
     value: validateWorkflowValue(selected.resultSchema, value) as JsonObject,
   };
   return workflowJson({ ...result, sha256: knowledgeHash(result) });
-}
-export function readWorkflowResult(
-  input: WorkflowSpec,
-  results: Readonly<Record<string, JsonObject>>,
-): JsonObject {
-  const spec = validateWorkflowSpec(input),
-    data = workflowJson(results);
-  if (
-    !data ||
-    typeof data !== "object" ||
-    Array.isArray(data) ||
-    !Object.hasOwn(data, spec.resultStageId)
-  )
-    workflowError("WORKFLOW_RESULT_MISSING");
-  if (
-    Object.keys(data).some(
-      (id) => !spec.stages.some((stage) => stage.id === id),
-    )
-  )
-    workflowError("WORKFLOW_UNKNOWN_STAGE");
-  return validateWorkflowValue(
-    spec.resultSchema,
-    data[spec.resultStageId],
-  ) as JsonObject;
 }
 
 /** Only an editor and its explicit validator may reuse the released physical child worktree. */

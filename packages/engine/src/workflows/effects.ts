@@ -330,8 +330,6 @@ private closed = false;
         record: null as unknown as WorkflowEffectRecord,
         check: () => {},
       });
-    if (!this.children.readExecution)
-      effectFail("WORKFLOW_CHILD_EVIDENCE_UNAVAILABLE");
     const evidence = this.children.readExecution(originalCompletion),
       pin = before.worktrees[stageId]!;
     if (
@@ -456,8 +454,6 @@ private closed = false;
       state: "observed" as const,
       merge: null,
     });
-    if (Buffer.byteLength(JSON.stringify(record)) > 131072)
-      effectFail("WORKFLOW_EFFECT_LIMIT");
     return this.issue(this.effects, {
       record,
       check: () => {

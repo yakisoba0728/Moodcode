@@ -4,14 +4,12 @@ import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { bindWorkflowRecipe, validateWorkflowRecipe } from "./recipes.js";
 import {
-  readWorkflowResult,
   validateWorkflowSchema,
   validateWorkflowSpec,
   validateNewWorkflowWorktreeSharing,
   validateWorkflowStageResult,
   validateWorkflowValue,
   validateWorkflowWorktreeSharing,
-  workflowTopologicalOrder,
   WORKFLOW_LIMITS,
 } from "./spec.js";
 import type {
@@ -217,7 +215,10 @@ test("topological ordering and immutable digest remain stable across stage, depe
     resultStageId: "final",
   });
   assert.equal(first.sha256, second.sha256);
-  assert.deepEqual(workflowTopologicalOrder(first), ["left", "right", "final"]);
+  assert.deepEqual(
+    validateWorkflowSpec(first).stages.map((item) => item.id),
+    ["left", "right", "final"],
+  );
   assert.deepEqual(first.stages[2]!.dependsOn, ["left", "right"]);
 });
 
@@ -442,12 +443,10 @@ test("workflow dependency depth is a four-stage longest path independent of runt
     stage("three", ["two"]),
     stage("four", ["three"]),
   ];
-  assert.deepEqual(workflowTopologicalOrder(validateWorkflowSpec(spec(four))), [
-    "one",
-    "two",
-    "three",
-    "four",
-  ]);
+  assert.deepEqual(
+    validateWorkflowSpec(spec(four)).stages.map((item) => item.id),
+    ["one", "two", "three", "four"],
+  );
   assert.throws(
     () => validateWorkflowSpec(spec([...four, stage("five", ["four"])])),
     code("WORKFLOW_DEPTH_LIMIT"),
@@ -638,15 +637,6 @@ test("selected result stage and its exact object schema must agree with the work
   assert.deepEqual(result.value, value);
   const { sha256, ...body } = result;
   assert.equal(sha256, knowledgeHash(body));
-  assert.deepEqual(readWorkflowResult(workflow, { plan: value }), value);
-  assert.throws(
-    () => readWorkflowResult(workflow, {}),
-    code("WORKFLOW_RESULT_MISSING"),
-  );
-  assert.throws(
-    () => readWorkflowResult(workflow, { plan: value, invented: value }),
-    code("WORKFLOW_UNKNOWN_STAGE"),
-  );
   assert.throws(
     () =>
       validateWorkflowStageResult(workflow, "plan", {

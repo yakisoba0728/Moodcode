@@ -47,7 +47,7 @@ export interface ActualWorkflowChildObservationPort {
     signal?: AbortSignal,
   ): Promise<object>;
   readCompletion(originalCompletion: object): WorkflowChildCompletionProof;
-  readExecution?(originalCompletion: object): WorkflowChildEvidence;
+  readExecution(originalCompletion: object): WorkflowChildEvidence;
   release(original: object): void;
 }
 export interface WorkflowServiceNativePort {
@@ -100,6 +100,30 @@ export interface StartWorkflowStageInput extends WorkflowStageMutationInput {
 export interface ObserveWorkflowStageInput extends WorkflowStageMutationInput {
   readonly signal?: AbortSignal;
 }
+interface WorkflowBatchPort {
+  reserved(record: WorkflowInstanceRevision, stage: WorkflowStageSpec): boolean;
+  dispatch(
+    record: WorkflowInstanceRevision,
+    stage: WorkflowStageSpec,
+    childRequestId: string,
+  ): void;
+  observed(
+    record: WorkflowInstanceRevision,
+    stageId: string,
+    completion: object,
+  ): void;
+}
+interface WorkflowEffectsPort {
+  captureChild(
+    record: WorkflowInstanceRevision,
+    stageId: string,
+    originalCompletion: object,
+  ): Promise<object>;
+  commitChild(original: object, settled: WorkflowInstanceRevision): void;
+  release(original: object): void;
+  transaction<T>(op: () => T): T;
+  mergePending(record: WorkflowInstanceRevision): boolean;
+}
 interface InstanceOwner {
   readonly workspaceId: string;
   readonly original: object;
@@ -133,33 +157,8 @@ export class WorkflowService {
       host: WorkflowHost;
       owner: ActualWorkflowOwnerPort;
       children: ActualWorkflowChildObservationPort;
-      batch?: {
-        reserved(
-          record: WorkflowInstanceRevision,
-          stage: WorkflowStageSpec,
-        ): boolean;
-        dispatch(
-          record: WorkflowInstanceRevision,
-          stage: WorkflowStageSpec,
-          childRequestId: string,
-        ): void;
-        observed(
-          record: WorkflowInstanceRevision,
-          stageId: string,
-          completion: object,
-        ): void;
-      };
-      effects?: {
-        captureChild(
-          record: WorkflowInstanceRevision,
-          stageId: string,
-          originalCompletion: object,
-        ): Promise<object>;
-        commitChild(original: object, settled: WorkflowInstanceRevision): void;
-        release(original: object): void;
-        transaction<T>(op: () => T): T;
-        mergePending(record: WorkflowInstanceRevision): boolean;
-      };
+      batch: WorkflowBatchPort;
+      effects: WorkflowEffectsPort;
     },
   ) {}
   private open(): void {
@@ -188,12 +187,6 @@ export class WorkflowService {
   register(input: RegisterWorkflowInput) {
     this.open();
     return this.ports.native.registerWorkflow(input);
-  }
-  inspect(workspaceId: string, instanceId: string) {
-    this.open();
-    workflowIdentifier(workspaceId);
-    workflowIdentifier(instanceId);
-    return this.ports.native.inspectWorkflow(workspaceId, instanceId);
   }
   start(
     input: StartWorkflowInput,
@@ -354,7 +347,7 @@ export class WorkflowService {
       record.owner,
       registration.spec,
       [stage],
-      this.ports.batch?.reserved(record, stage) ?? false,
+      this.ports.batch.reserved(record, stage),
     );
     const worktree = record.worktrees[stage.id];
     if (!worktree) workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
@@ -389,9 +382,8 @@ export class WorkflowService {
     if (Buffer.byteLength(prompt) > WORKFLOW_LIMITS.promptBytes)
       workflowError("WORKFLOW_STAGE_PROMPT_LIMIT");
     const childRequestId = `workflow:${knowledgeHash({ instanceId: record.instanceId, stageId: stage.id, requestId: input.requestId })}`;
-
-this.ports.batch?.dispatch(record, stage, childRequestId);
-const prepared = this.ports.native.prepareStage(owner.original, {
+    this.ports.batch.dispatch(record, stage, childRequestId);
+    const prepared = this.ports.native.prepareStage(owner.original, {
       workspaceId: input.workspaceId,
       instanceId: input.instanceId,
       stageId: input.stageId,
@@ -512,9 +504,9 @@ const prepared = this.ports.native.prepareStage(owner.original, {
     );
     try {
       workflowAbort(input.signal);
-      let originalEffect: object | undefined;
+      let originalEffect: object;
       try {
-        originalEffect = await this.ports.effects?.captureChild(
+        originalEffect = await this.ports.effects.captureChild(
           record,
           input.stageId,
           completion,
@@ -552,21 +544,15 @@ const prepared = this.ports.native.prepareStage(owner.original, {
               expectedRevision: input.expectedRevision,
             },
           );
-          if (originalEffect && !result.duplicate)
-            this.ports.effects!.commitChild(originalEffect, result.record);
-          if (!result.duplicate)
-            this.ports.batch?.observed(
-              result.record,
-              input.stageId,
-              completion,
-            );
+          if (!result.duplicate) {
+            this.ports.effects.commitChild(originalEffect, result.record);
+            this.ports.batch.observed(result.record, input.stageId, completion);
+          }
           return result;
         };
-        return this.ports.effects
-          ? this.ports.effects.transaction(settle)
-          : settle();
+        return this.ports.effects.transaction(settle);
       } finally {
-        if (originalEffect) this.ports.effects!.release(originalEffect);
+        this.ports.effects.release(originalEffect);
       }
     } finally {
       this.ports.children.release(completion);
@@ -606,7 +592,7 @@ const prepared = this.ports.native.prepareStage(owner.original, {
         !["failed", "cancelled", "uncertain", "paused-import"].includes(
           record.state,
         ) ||
-        this.ports.effects?.mergePending(record)
+        this.ports.effects.mergePending(record)
       )
         return;
     } catch {

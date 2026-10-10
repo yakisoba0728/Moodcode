@@ -50,8 +50,8 @@ export function workflowHostRecord(
     workflowError("INVALID_WORKFLOW_INPUT");
   return value as Record<string, unknown>;
 }
-export function workflowSignal(value?: AbortSignal): void {
-  if (value === undefined) return;
+function workflowSignal(value?: AbortSignal): boolean {
+  if (value === undefined) return false;
   if (
     !value ||
     typeof value !== "object" ||
@@ -71,7 +71,7 @@ export function workflowSignal(value?: AbortSignal): void {
   )
     workflowError("INVALID_WORKFLOW_INPUT");
   try {
-    Object.getOwnPropertyDescriptor(
+    return Object.getOwnPropertyDescriptor(
       AbortSignal.prototype,
       "aborted",
     )!.get!.call(value);
@@ -80,14 +80,7 @@ export function workflowSignal(value?: AbortSignal): void {
   }
 }
 export function workflowAbort(signal?: AbortSignal): void {
-  workflowSignal(signal);
-  if (
-    signal &&
-    Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(signal)
-  )
+  if (workflowSignal(signal))
     throw new EngineError("CANCELLED", "Workflow request was cancelled");
 }
 export interface WorkflowParentConfiguration {
@@ -152,7 +145,7 @@ export interface OwnedWorkflowPreview {
 }
 export interface WorkflowHostPorts {
   readonly owner: ActualWorkflowOwnerPort;
-  assertEffectsSupported?(original: object, spec: WorkflowSpec): void;
+  assertEffectsSupported(original: object, spec: WorkflowSpec): void;
   getWorkflow(
     workspaceId: string,
     workflowId: string,
@@ -182,7 +175,7 @@ export class WorkflowHost {
     );
     if (knowledgeHash(configuration.profile) !== knowledgeHash(owner.profile))
       workflowError("WORKFLOW_OWNER_STALE");
-    this.ports.assertEffectsSupported?.(original, spec);
+    this.ports.assertEffectsSupported(original, spec);
     const allocation: ChildBudget = {
       turns: 0,
       toolCalls: 0,
@@ -196,8 +189,6 @@ export class WorkflowHost {
         : stage.role === "editor"
           ? [...WORKFLOW_READ_TOOLS, "apply_patch"]
           : [...WORKFLOW_READ_TOOLS, "run_command", "verify_changes"];
-      if (!readonly && !this.ports.assertEffectsSupported)
-        workflowError("WORKFLOW_ROLE_UNSUPPORTED");
       if (
         knowledgeHash(stage.profile) !== knowledgeHash(configuration.profile) ||
         knowledgeHash(stage.model) !== knowledgeHash(configuration.model)
@@ -272,8 +263,7 @@ export class WorkflowHost {
       Object.keys(selection.stageWorktrees).length !== spec.stages.length ||
       spec.stages.some(
         (stage) => !Object.hasOwn(selection.stageWorktrees, stage.id),
-      ) ||
-      false /* Sequential dependency-linked stages may share one actual worktree. */
+      )
     )
       workflowError("WORKFLOW_WORKTREE_SELECTION_INVALID");
     validateNewWorkflowWorktreeSharing(spec, selection.stageWorktrees);

@@ -16,11 +16,11 @@ import type {
 } from "./reducer.js";
 import type { WorkflowChildEvidence } from "./effect-evidence.js";
 import type { ScheduleTargetPin } from "../schedules/types.js";
-export const EFFECT_PREFIX = "workflow.effect.";
-export const DELIVERY_PREFIX = "workflow.delivery.";
+const EFFECT_PREFIX = "workflow.effect.";
+const DELIVERY_PREFIX = "workflow.delivery.";
 export const effectKind = (instanceId: string, stageId: string) =>
   EFFECT_PREFIX + knowledgeHash([instanceId, stageId]).slice(0, 40);
-export const deliveryKind = (instanceId: string) =>
+const deliveryKind = (instanceId: string) =>
   DELIVERY_PREFIX + knowledgeHash(instanceId).slice(0, 40);
 export function effectFail(code = "WORKFLOW_EFFECT_INVALID"): never {
   throw new EngineError(
@@ -521,7 +521,7 @@ export function validateWorkflowEffectsDatabase(db: DatabaseSync): void {
     else readWorkflowDelivery(db, String(row.session_id), String(r.instanceId));
   }
 }
-export function workflowEffectsJson(value: object): JsonObject {
+function workflowEffectsJson(value: object): JsonObject {
   return workflowJson(value) as unknown as JsonObject;
 }
 export interface WorkflowDeliveryTargetProof {

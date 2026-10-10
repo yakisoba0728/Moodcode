@@ -393,7 +393,7 @@ export class CodingBatchHost {
   ): void {
     let member = this.member(record);
     if (!member) return;
-    const actual = this.children.readExecution?.(original);
+    const actual = this.children.readExecution(original);
     if (stageId === "edit") {
       const effect = this.engine.inspectWorkflowEffect(
           record.workspaceId,
@@ -414,36 +414,34 @@ export class CodingBatchHost {
       )
         batchFail("CODING_EFFECT_OUTSIDE_MANIFEST");
     }
-    if (actual) {
-      const usages = actual.attemptUsages ?? [],
-        known = usages.filter(
-          (u) =>
-            typeof u.usage.inputTokens === "number" &&
-            Number.isSafeInteger(u.usage.inputTokens) &&
-            u.usage.inputTokens >= 0 &&
-            typeof u.usage.outputTokens === "number" &&
-            Number.isSafeInteger(u.usage.outputTokens) &&
-            u.usage.outputTokens >= 0,
-        );
-      const g = this.write(member.g, {
-        usage: {
-          ...member.g.usage,
-          measuredInputTokens: known.length
-            ? (member.g.usage.measuredInputTokens ?? 0) +
-              known.reduce((n, u) => n + u.usage.inputTokens!, 0)
-            : member.g.usage.measuredInputTokens,
-          measuredOutputTokens: known.length
-            ? (member.g.usage.measuredOutputTokens ?? 0) +
-              known.reduce((n, u) => n + u.usage.outputTokens!, 0)
-            : member.g.usage.measuredOutputTokens,
-          unknownUsageRequests: Math.max(
-            0,
-            member.g.usage.unknownUsageRequests - known.length,
-          ),
-        },
-      });
-      member = { ...member, g };
-    }
+    const usages = actual.attemptUsages ?? [],
+      known = usages.filter(
+        (u) =>
+          typeof u.usage.inputTokens === "number" &&
+          Number.isSafeInteger(u.usage.inputTokens) &&
+          u.usage.inputTokens >= 0 &&
+          typeof u.usage.outputTokens === "number" &&
+          Number.isSafeInteger(u.usage.outputTokens) &&
+          u.usage.outputTokens >= 0,
+      );
+    const g = this.write(member.g, {
+      usage: {
+        ...member.g.usage,
+        measuredInputTokens: known.length
+          ? (member.g.usage.measuredInputTokens ?? 0) +
+            known.reduce((n, u) => n + u.usage.inputTokens!, 0)
+          : member.g.usage.measuredInputTokens,
+        measuredOutputTokens: known.length
+          ? (member.g.usage.measuredOutputTokens ?? 0) +
+            known.reduce((n, u) => n + u.usage.outputTokens!, 0)
+          : member.g.usage.measuredOutputTokens,
+        unknownUsageRequests: Math.max(
+          0,
+          member.g.usage.unknownUsageRequests - known.length,
+        ),
+      },
+    });
+    member = { ...member, g };
     if (stageId !== "review") {
       this.write(member.g, {
         cases: member.g.cases.map((c) =>
@@ -458,8 +456,7 @@ export class CodingBatchHost {
     if (
       record.state !== "completed" ||
       completion.state !== "completed" ||
-      !completion.complete ||
-      !this.children.readExecution
+      !completion.complete
     )
       batchFail("CODING_REVIEW_INCOMPLETE");
     const evidence = this.children.readExecution(original),

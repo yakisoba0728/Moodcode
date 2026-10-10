@@ -5,7 +5,6 @@ import type {
 } from "@moodcode/contracts";
 import type { ChildBudget } from "../child-tasks/index.js";
 
-export type WorkflowScalar = string | number | boolean | null;
 export type WorkflowSchema =
   | {
       readonly type: "object";
@@ -75,12 +74,6 @@ export interface WorkflowSpecInput {
 }
 export interface WorkflowSpec extends WorkflowSpecInput {
   readonly sha256: string;
-}
-export interface WorkflowRegistrationInput {
-  readonly workspaceId: string;
-  readonly requestId: string;
-  readonly expectedRevision: number;
-  readonly spec: WorkflowSpecInput | WorkflowSpec;
 }
 /** Immutable, advisory DATA only; this is not evidence of child execution or verification. */
 export interface WorkflowStageResult {

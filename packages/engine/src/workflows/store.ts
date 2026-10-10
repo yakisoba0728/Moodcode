@@ -182,9 +182,9 @@ interface NativeRow {
 }
 const rawHash = (value: string) =>
   createHash("sha256").update(value).digest("hex");
-function json<T>(value: T, cap: number = WORKFLOW_STORAGE_LIMITS.rowBytes): T {
+function json<T>(value: T, cap?: number): T {
   const result = immutableKnowledgeJson(value);
-  if (Buffer.byteLength(JSON.stringify(result)) > cap)
+  if (cap !== undefined && Buffer.byteLength(JSON.stringify(result)) > cap)
     workflowError("WORKFLOW_LIMIT");
   return result;
 }
