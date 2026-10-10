@@ -548,3 +548,65 @@ test(
     assert.deepEqual(get(f, original.jobId), original);
   },
 );
+
+test(
+  "a full Root forgets its oldest settled unheld observation so run_command stays observed",
+  posix,
+  async (t) => {
+    const f = await commandFixture(t),
+      host = Reflect.get(f.engine, "ownedCommandHost") as object,
+      entries = Reflect.get(host, "entries") as Map<string, object>,
+      handles = Reflect.get(host, "handles") as Set<object>,
+      snapshots = Reflect.get(host, "snapshots") as WeakMap<object, object>,
+      cancellations = Reflect.get(host, "cancellations") as Map<string, object>;
+    const seeded = Array.from({ length: 128 }, (_, i) => {
+      const jobId = `seeded-${i.toString(16).padStart(2, "0")}`,
+        entry = {
+          source: {
+            workspaceId: f.workspace.id,
+            runId: "seeded",
+            toolCallId: jobId,
+          },
+          record: { jobId, state: i === 1 ? "running" : "completed" },
+        };
+      entries.set(jobId, entry);
+      return entry;
+    });
+    const handle = Object.freeze({});
+    snapshots.set(handle, { entry: seeded[0], data: {}, sha256: "", bytes: 0 });
+    handles.add(handle);
+    cancellations.set("seeded-cancel", {
+      jobId: "seeded-02",
+      sha256: "",
+      result: Promise.resolve(),
+    });
+    const store = f.engine.store,
+      put = store.putOwnedCommandJob.bind(store),
+      retained: string[][] = [];
+    store.putOwnedCommandJob = (
+      source,
+      jobId,
+      expectedRevision,
+      data,
+      keep,
+    ) => {
+      if (expectedRevision === 0) retained.push([...(keep ?? [])]);
+      return put(source, jobId, expectedRevision, data, keep);
+    };
+    const receipt = await f.submit(),
+      selected = await running(f, receipt);
+    f.finish();
+    assert.equal((await f.engine.waitForRun(receipt.runId)).state, "completed");
+    gone(selected.pid);
+    assert.equal(get(f, selected.job.jobId).state, "completed");
+    assert.equal(entries.size, 128);
+    assert.deepEqual([...entries.keys()].slice(0, 3), [
+      "seeded-00",
+      "seeded-01",
+      "seeded-03",
+    ]);
+    assert.equal(entries.has(selected.job.jobId), true);
+    assert.equal(cancellations.has("seeded-cancel"), false);
+    assert.deepEqual(retained, [["seeded-00"]]);
+  },
+);

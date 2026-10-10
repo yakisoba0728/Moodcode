@@ -826,6 +826,53 @@ export function validateOwnedCommandJobDatabase(
     read(db, h);
   }
 }
+/**
+ * Admission deletes the oldest completed, failed or cancelled job documents
+ * until the new job fits, keeping retained (live handle), delivered and agent
+ * backend client-effect jobs. Their immutable events and anchors remain.
+ */
+export function reclaimOwnedCommandJobs(
+  db: DatabaseSync,
+  retained: ReadonlySet<string>,
+): void {
+  let excess = headers(db).length - OWNED_COMMAND_JOB_LIMITS.jobs + 1;
+  if (excess < 1) return;
+  const kept = new Set([
+    ...retained,
+    ...db
+      .prepare(
+        "SELECT json_extract(data,'$.jobId') job FROM session_documents WHERE kind GLOB 'command.delivery.*' AND json_valid(data)",
+      )
+      .all()
+      .map((r) => String(r.job)),
+    ...db
+      .prepare(
+        "SELECT run_id,tool_id FROM backend_revisions WHERE kind='client-effect' AND run_id IS NOT NULL AND tool_id IS NOT NULL",
+      )
+      .all()
+      .map((r) =>
+        ownedCommandJobId({
+          runId: String(r.run_id),
+          toolCallId: String(r.tool_id),
+        }),
+      ),
+  ]);
+  const candidates = db
+    .prepare(
+      "SELECT d.session_id,d.kind,d.revision,length(CAST(d.data AS BLOB)) bytes,s.workspace_id,json_extract(d.data,'$.jobId') job FROM session_documents d LEFT JOIN sessions s ON s.id=d.session_id WHERE d.kind GLOB 'command.job.*' AND json_valid(d.data) AND json_extract(d.data,'$.state') IN ('completed','failed','cancelled') ORDER BY json_extract(d.data,'$.updatedAt'),d.kind",
+    )
+    .all() as unknown as (DocumentHeader & { job: unknown })[];
+  for (const h of candidates) {
+    if (!excess) return;
+    if (kept.has(String(h.job))) continue;
+    read(db, h);
+    db.prepare(
+      "DELETE FROM session_documents WHERE session_id=? AND kind=?",
+    ).run(h.session_id, h.kind);
+    excess--;
+  }
+  if (excess) fail("OWNED_COMMAND_JOB_LIMIT");
+}
 function control(
   db: DatabaseSync,
   workspaceId: string | undefined,

@@ -99,7 +99,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   private snapshotBytes = 0;
   private readonly cancellations = new Map<
     string,
-    { sha256: string; result: Promise<Run> }
+    { jobId: string; sha256: string; result: Promise<Run> }
   >();
   private isClosed = false;
   constructor(
@@ -133,6 +133,33 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       fail("COMMAND_JOB_ORIGINAL_REQUIRED");
     this.current(entry);
     return entry;
+  }
+  /** Jobs a live settled-source, delivery target or output handle reads. */
+  private held(): Set<string> {
+    return new Set(
+      [
+        ...[...this.handles].map((h) => this.snapshots.get(h)?.entry),
+        ...[...this.settledHandles].map(
+          (h) => this.settledSources.get(h)?.entry,
+        ),
+      ].flatMap((entry) => (entry ? [entry.record.jobId] : [])),
+    );
+  }
+  /** Forgets the oldest settled unheld entry and its cancel replays. */
+  private evict(): boolean {
+    const held = this.held();
+    for (const [jobId, entry] of this.entries) {
+      if (
+        held.has(jobId) ||
+        !["completed", "failed", "cancelled"].includes(entry.record.state)
+      )
+        continue;
+      this.entries.delete(jobId);
+      for (const [key, cancellation] of this.cancellations)
+        if (cancellation.jobId === jobId) this.cancellations.delete(key);
+      return true;
+    }
+    return false;
   }
   private write(
     entry: Entry,
@@ -171,7 +198,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       this.skipped.add(skipped);
       return skipped;
     }
-    if (this.entries.size >= 128) fail("COMMAND_JOB_LIMIT");
+    if (this.entries.size >= 128 && !this.evict()) fail("COMMAND_JOB_LIMIT");
     const binding = jobJson(this.checkBinding(owner.workspaceId)),
       input = jobJson(prepared.input, 65536) as {
         command: string;
@@ -231,6 +258,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       jobId,
       0,
       record as unknown as JsonObject,
+      this.held(),
     );
     const original = Object.freeze({});
     this.originals.set(original, entry);
@@ -393,8 +421,9 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
           (completion.outcome.cancelled || completion.outcome.timedOut) &&
           !completion.observationFailure
         ) {
-          // write() validates the exact approval/source, physical closed receipt,
-          // checkpoint, sealed artifacts and now-interrupted native Tool/Part.
+          // artifacts() re-hashes both sealed streams; write() then revalidates
+          // the approval/source, closed receipt, checkpoint and now-interrupted
+          // native Tool/Part through putOwnedCommandJob.
           this.artifacts(completion);
           this.write(entry, { state: "cancelled", errorCode: null });
           return;
@@ -639,7 +668,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
     if (this.cancellations.size >= 128) fail("COMMAND_JOB_LIMIT");
     this.engine.coordinator.cancel(entry.source.runId);
     const result = this.engine.coordinator.waitForRun(entry.source.runId);
-    this.cancellations.set(key, { sha256, result });
+    this.cancellations.set(key, { jobId: entry.record.jobId, sha256, result });
     return result.then((run) => structuredClone(run));
   }
   close(): void {

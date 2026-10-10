@@ -673,6 +673,284 @@ test("owned command metadata caps reject oversized rows before body parsing", (t
   );
 });
 
+test("a full owned command store admits a job by pruning its oldest unreferenced settled document", (t) => {
+  const f = fixture(t),
+    { sha256: _sha, ...base } = f.pin,
+    runId = base.runId,
+    cwd = base.cwd,
+    input = { command: base.command, cwd, timeoutMs: base.timeoutMs },
+    refs = { runId, turnId: "turn", attemptId: "attempt" },
+    termination =
+      process.platform === "win32"
+        ? "windows-job-object"
+        : "posix-process-group";
+  let index = 0;
+  /** Genuine native evidence for one more run_command of the fixture Run. */
+  const chain = (
+    toolCallId: string,
+    state?: "completed" | "uncertain" | "paused-import",
+  ) => {
+    const at = new Date(
+        Date.parse(f.at) - (200 - index++) * 60_000,
+      ).toISOString(),
+      preview = {
+        ...input,
+        workspaceId: "workspace",
+        runId,
+        toolCallId,
+        platform: process.platform,
+        termination,
+      },
+      data = { workspaceRoot: cwd, sessionId: "session" },
+      fingerprint = createHash("sha256")
+        .update(
+          JSON.stringify({ version: 1, name: "run_command", preview, data }),
+        )
+        .digest("hex");
+    const tool: ToolCallRecord = {
+      id: toolCallId,
+      runId,
+      sessionId: "session",
+      name: "run_command",
+      input,
+      state: "requested",
+    };
+    f.store.commit(runId, "tool.requested", { toolCallId }, { tool });
+    const approval = {
+      id: `approval-${toolCallId}`,
+      sessionId: "session",
+      runId,
+      toolCallId,
+      toolName: "run_command",
+      fingerprint: "b".repeat(64),
+      preview,
+      status: "allowed" as const,
+      createdAt: f.at,
+      resolvedAt: f.at,
+    };
+    f.store.commit(
+      runId,
+      "approval.allowed",
+      { approvalId: approval.id },
+      { approval },
+    );
+    tool.state = "running";
+    f.store.commit(runId, "tool.running", { toolCallId }, { tool });
+    const pin = signJobData({
+      ...base,
+      toolCallId,
+      approvalId: approval.id,
+      preparedFingerprint: fingerprint,
+      preparedSha256: knowledgeHash({
+        name: "run_command",
+        input,
+        fingerprint,
+        requiresApproval: true,
+        preview,
+        data,
+      }),
+    }) as OwnedCommandJobSource;
+    const jobId = ownedCommandJobId({ runId, toolCallId }),
+      job = (body: Partial<OwnedCommandJobRecord>) =>
+        validateOwnedCommandJob(
+          signJobData({
+            version: 1,
+            jobId,
+            revision: 1,
+            source: pin,
+            state: "starting",
+            groupPid: null,
+            completion: null,
+            errorCode: null,
+            createdAt: at,
+            updatedAt: at,
+            ...body,
+          }),
+        );
+    if (!state) return { pin, jobId, record: job({}) };
+    f.native.write("session", () =>
+      f.native.appendEvent(
+        "session",
+        "command.job.source_admitted",
+        { jobId, source: pin as unknown as JsonObject, workspaceRoot: cwd },
+        refs,
+      ),
+    );
+    let completion: OwnedCommandCompletion | null = null;
+    if (state === "completed") {
+      const checkpoint: Checkpoint = {
+        id: `checkpoint-${toolCallId}`,
+        runId,
+        toolCallId,
+        kind: "command",
+        createdAt: at,
+        files: [],
+        warnings: [],
+        incomplete: false,
+      };
+      f.store.commit(
+        runId,
+        "workspace.changed",
+        { toolCallId, checkpointId: checkpoint.id },
+        { checkpoint },
+      );
+      completion = {
+        ...f.completion,
+        checkpoint: {
+          ...f.completion.checkpoint,
+          id: checkpoint.id,
+          toolCallId,
+          createdAt: at,
+          sha256: knowledgeHash(checkpoint),
+        },
+      };
+      f.native.write("session", () =>
+        f.native.appendEvent(
+          "session",
+          "command.job.closed_observed",
+          {
+            jobId,
+            sourceSha256: pin.sha256,
+            completionSha256: knowledgeHash(completion),
+          },
+          refs,
+        ),
+      );
+      tool.state = "completed";
+      tool.output = "Command completed";
+      f.store.commit(
+        runId,
+        "tool.completed",
+        {
+          toolCallId,
+          providerToolCallId: `provider-${toolCallId}`,
+          name: "run_command",
+          output: tool.output,
+          cleanupConfirmed: true,
+        },
+        { tool },
+      );
+      const part: Extract<MessagePart, { type: "tool" }> = {
+        schemaVersion: 2,
+        id: `part-${toolCallId}`,
+        sessionId: "session",
+        runId,
+        turnId: "turn",
+        messageId: `assistant-${toolCallId}`,
+        index: 0,
+        revision: 0,
+        state: "open",
+        createdAt: at,
+        type: "tool",
+        toolCallId,
+        providerCallId: `provider-${toolCallId}`,
+        name: "run_command",
+        input,
+      };
+      f.store.putPart(part);
+      f.store.putPart({
+        ...part,
+        revision: 1,
+        state: "completed",
+        completedAt: at,
+        result: { output: tool.output, isError: false, truncated: false },
+      });
+    }
+    f.write(
+      "session",
+      ownedCommandJobKind(jobId),
+      0,
+      job({
+        state,
+        completion,
+        errorCode: completion ? null : "SEEDED_STATE",
+      }) as unknown as JsonObject,
+    );
+    return { pin, jobId };
+  };
+  const seeded = [
+    chain("tool-00", "uncertain"),
+    chain("tool-01", "paused-import"),
+    ...Array.from({ length: 125 }, (_, i) =>
+      chain(`tool-${(i + 2).toString(16).padStart(2, "0")}`, "completed"),
+    ),
+  ];
+  const [, , delivered, , held, oldest, next] = seeded.map(
+    (s) => s.jobId,
+  );
+  f.write("session", `command.delivery.${"0".repeat(32)}`, 0, {
+    jobId: delivered!,
+  });
+  f.db
+    .prepare(
+      "INSERT INTO backend_revisions(id,workspace_id,kind,entity_id,revision,session_id,run_id,tool_id,request_scope,request_id,request_sha256,sha256,data) VALUES('effect','workspace','client-effect','effect',1,'session',?,'tool-03','effect','effect',?,?,'{}')",
+    )
+    .run(runId, "a".repeat(64), "a".repeat(64));
+  const kinds = () =>
+      f.db
+        .prepare(
+          "SELECT kind FROM session_documents WHERE kind GLOB 'command.job.*' ORDER BY kind",
+        )
+        .all()
+        .map((r) => String(r.kind)),
+    evidence = (jobId: string) =>
+      f.db
+        .prepare(
+          "SELECT count(*) n FROM session_events WHERE instr(data,?)>0 OR instr(data,?)>0",
+        )
+        .get(jobId, ownedCommandJobKind(jobId))!.n,
+    admit = (
+      job: {
+        pin: OwnedCommandJobSource;
+        jobId: string;
+        record?: OwnedCommandJobRecord;
+      },
+      retained: (string | undefined)[],
+    ) =>
+      f.store.putOwnedCommandJob(
+        job.pin,
+        job.jobId,
+        0,
+        job.record as unknown as JsonObject,
+        new Set(retained as string[]),
+      );
+  assert.equal(kinds().length, 128);
+  const before = evidence(oldest!),
+    first = chain("tool-a0");
+  admit(first, [held]);
+  const after = kinds();
+  assert.equal(after.length, 128);
+  assert.equal(after.includes(ownedCommandJobKind(oldest!)), false);
+  assert.equal(readOwnedCommandJob(f.db, "workspace", oldest!), undefined);
+  assert.equal(evidence(oldest!), before);
+  for (const kept of [
+    f.jobId,
+    first.jobId,
+    ...seeded.slice(0, 5).map((s) => s.jobId),
+  ])
+    assert.ok(after.includes(ownedCommandJobKind(kept)));
+  validateOwnedCommandJobDatabase(f.db);
+  const second = chain("tool-a1"),
+    rest = seeded.slice(6).map((s) => s.jobId);
+  assert.throws(
+    () => admit(second, [held, ...rest]),
+    code("OWNED_COMMAND_JOB_LIMIT"),
+  );
+  assert.deepEqual(kinds(), after);
+  admit(second, rest.slice(1));
+  assert.equal(readOwnedCommandJob(f.db, "workspace", held!), undefined);
+  assert.equal(
+    readOwnedCommandJob(f.db, "workspace", next!)?.state,
+    "completed",
+  );
+  assert.equal(
+    readOwnedCommandJob(f.db, "workspace", second.jobId)?.state,
+    "starting",
+  );
+  assert.equal(kinds().length, 128);
+  validateOwnedCommandJobDatabase(f.db);
+});
+
 test("owned source fingerprints preserve exact Windows Job Object platform approval and historical POSIX approval", t => {
   for (const platform of ["win32", "darwin", "linux", "freebsd"]) {
     const f = fixture(t, platform);

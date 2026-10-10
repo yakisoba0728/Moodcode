@@ -35,7 +35,7 @@ import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCh
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
-import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
+import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, reclaimOwnedCommandJobs, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
 import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedCommandDelivery, findOwnedCommandDeliveryForInput, validateOwnedCommandDeliveryDatabase, pauseImportedOwnedCommandDeliveries, type OwnedCommandDeliveryInput, type OwnedCommandDeliveryPorts } from '../jobs/owned-command-delivery-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
@@ -793,13 +793,13 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   getGitCommitReceipt(workspaceId:string,sessionId:string,requestId:string) { return this.evidenceRead(()=>this.createGitCommitStorage().get(workspaceId,sessionId,requestId)); }
   inspectGitCommitReceipts(workspaceId:string) { return this.evidenceRead(()=>this.createGitCommitStorage().list(workspaceId)); }
   hasUncertainGitCommit(workspaceId:string):boolean { return this.recoveryBlocked(()=>hasUncertainGitCommit(this.db,workspaceId)); }
-  putOwnedCommandJob(source: OwnedCommandJobSource, jobId: string, expectedRevision: number, data: JsonObject): SessionDocument {
+  putOwnedCommandJob(source: OwnedCommandJobSource, jobId: string, expectedRevision: number, data: JsonObject, retained: ReadonlySet<string> = new Set()): SessionDocument {
     const write = () => {
       const record = validateOwnedCommandJob(data), run = this.getRun(source.runId), tool = this.getToolCall(source.toolCallId);
       if (isTerminal(run.state) || run.workspaceId !== source.workspaceId || run.sessionId !== source.sessionId || tool.runId !== run.id || tool.name !== 'run_command'
         || record.source.sha256 !== source.sha256 || record.jobId !== jobId || record.revision !== expectedRevision + 1) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command job updates require their actual nonterminal native owner');
       const kind = ownedCommandJobKind(jobId), previous = this.executionRecords.getSessionDocument(source.sessionId, kind);
-      if (expectedRevision === 0) this.native.appendEvent(source.sessionId, 'command.job.source_admitted', { jobId, source: source as unknown as JsonObject, workspaceRoot: this.getWorkspace(source.workspaceId).root }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
+      if (expectedRevision === 0) { reclaimOwnedCommandJobs(this.db, retained); this.native.appendEvent(source.sessionId, 'command.job.source_admitted', { jobId, source: source as unknown as JsonObject, workspaceRoot: this.getWorkspace(source.workspaceId).root }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId }); }
       if (record.groupPid !== null && !previous?.data.groupPid) this.native.appendEvent(source.sessionId, 'command.job.process_admitted', { jobId, sourceSha256: source.sha256, groupPid: record.groupPid }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
       if (record.completion && !previous?.data.completion) this.native.appendEvent(source.sessionId, 'command.job.closed_observed', { jobId, sourceSha256: source.sha256, completionSha256: knowledgeHash(record.completion) }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
       const saved = this.executionRecords.putSessionDocument(source.sessionId, kind, expectedRevision, data);
