@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
@@ -29,6 +29,28 @@ test('Git ignore lookup applies nested, negated, anchored and escaped rules to N
   await assert.rejects(ignoredWorkspacePaths(workspace, ['../outside']), errorCode('INVALID_WORKSPACE_PATH'));
   await assert.rejects(ignoredWorkspacePaths(workspace, ['x\0y']), errorCode('INVALID_WORKSPACE_PATH'));
   await assert.rejects(ignoredWorkspacePaths(workspace, ['normal.py'], AbortSignal.abort()), errorCode('ABORTED'));
+});
+
+test('Git ignore lookup does not forward provider credentials to Git', { skip: process.platform === 'win32' }, async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'moodcode-ignore-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await exec('git', ['init', '--quiet', '--template=', root]);
+  const workspace = await openWorkspace(root);
+  const binaryDir = await mkdtemp(path.join(os.tmpdir(), 'moodcode-ignore-bin-'));
+  t.after(() => rm(binaryDir, { recursive: true, force: true }));
+  const marker = path.join(binaryDir, 'environment');
+  await writeFile(path.join(binaryDir, 'git'), `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(marker)}, process.env.ANTHROPIC_API_KEY ?? 'unset');\n`, { mode: 0o755 });
+  const oldPath = process.env.PATH;
+  const oldKey = process.env.ANTHROPIC_API_KEY;
+  process.env.PATH = `${binaryDir}${path.delimiter}${oldPath ?? ''}`;
+  process.env.ANTHROPIC_API_KEY = 'sk-test-only';
+  try {
+    assert.deepEqual([...await ignoredWorkspacePaths(workspace, ['normal.py'])], []);
+  } finally {
+    if (oldPath === undefined) delete process.env.PATH; else process.env.PATH = oldPath;
+    if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = oldKey;
+  }
+  assert.equal(await readFile(marker, 'utf8'), 'unset');
 });
 
 test('virtual environments and Python/build caches are excluded only as traversal directory components', () => {

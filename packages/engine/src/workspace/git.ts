@@ -1,5 +1,6 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import { EngineError } from '@moodcode/contracts';
+import { createCommandEnvironment } from '../tools/command/process-control.js';
 
 export interface GitOperationOptions {
   signal?: AbortSignal;
@@ -13,6 +14,27 @@ export interface GitResult {
 }
 
 const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
+export const GIT_DETACHED = process.platform !== 'win32';
+export const GIT_SAFE_ARGS = Object.freeze(['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false']);
+
+/**
+ * Provider credentials and inherited Git selectors/config injections (which can
+ * override -C) are not forwarded. Ordinary on-disk Git config remains available.
+ */
+export function gitEnvironment(): NodeJS.ProcessEnv {
+  const env = createCommandEnvironment();
+  for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('GIT_')) delete env[key];
+  return Object.assign(env, { LC_ALL: 'C', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat' });
+}
+
+/** Kills a Git child spawned with GIT_DETACHED, including its helpers and hooks on POSIX. */
+export function killGit(child: ChildProcess): void {
+  try { if (GIT_DETACHED && child.pid !== undefined) process.kill(-child.pid, 'SIGKILL'); else child.kill('SIGKILL'); }
+  catch { child.kill('SIGKILL'); }
+  // A helper that inherited the pipes must not hold cancellation open.
+  child.stdout?.destroy();
+  child.stderr?.destroy();
+}
 
 /** Internal bounded, shell-free Git runner. It never refreshes the index. */
 export async function runGit(root: string, args: readonly string[], options: GitOperationOptions = {}): Promise<GitResult> {
@@ -21,17 +43,10 @@ export async function runGit(root: string, args: readonly string[], options: Git
     throw new EngineError('INVALID_LIMIT', 'Git timeoutMs must be an integer from 1 to 60000.');
   }
   if (options.signal?.aborted) throw new EngineError('ABORTED', 'Git operation was aborted.');
-  const env: NodeJS.ProcessEnv = {};
-  // Inherited repository selectors/config injections can override -C and invoke
-  // an fsmonitor helper. Ordinary on-disk Git config remains available.
-  for (const [key, value] of Object.entries(process.env)) {
-    if (!key.toUpperCase().startsWith('GIT_')) env[key] = value;
-  }
-  Object.assign(env, { LC_ALL: 'C', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat' });
 
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', '-C', root, ...args], {
-      env, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
+    const child = spawn('git', [...GIT_SAFE_ARGS, '-C', root, ...args], {
+      env: gitEnvironment(), detached: GIT_DETACHED, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
@@ -45,10 +60,7 @@ export async function runGit(root: string, args: readonly string[], options: Git
     const stop = (error: EngineError) => {
       if (settled || failure) return;
       failure = error;
-      child.kill('SIGKILL');
-      // A helper that inherited the pipes must not hold cancellation open.
-      child.stdout.destroy();
-      child.stderr.destroy();
+      killGit(child);
     };
     const abort = () => stop(new EngineError('ABORTED', 'Git operation was aborted.'));
     const timer = setTimeout(() => stop(new EngineError('GIT_TIMEOUT', `Git operation exceeded ${timeoutMs} ms.`)), timeoutMs);

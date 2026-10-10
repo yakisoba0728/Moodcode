@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { EngineError, type Workspace } from '@moodcode/contracts';
+import { GIT_DETACHED, GIT_SAFE_ARGS, gitEnvironment, killGit } from './git.js';
 import { resolveWorkspacePath } from './index.js';
 
 const EXCLUDED_DIRECTORIES = new Set([
@@ -20,15 +21,12 @@ export function excludedTraversalPath(path: string, directory: boolean): boolean
 
 async function ignoreBatch(root: string, paths: string[], signal?: AbortSignal): Promise<string[]> {
   if (signal?.aborted) throw new EngineError('ABORTED', 'Workspace ignore lookup was aborted');
-  const env: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(process.env)) if (!key.toUpperCase().startsWith('GIT_')) env[key] = value;
-  Object.assign(env, { LC_ALL: 'C', GIT_TERMINAL_PROMPT: '0', GIT_OPTIONAL_LOCKS: '0', GIT_PAGER: 'cat' });
   return new Promise((resolve, reject) => {
-    const child = spawn('git', ['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', '-c', 'core.excludesFile=/dev/null', '-C', root, 'check-ignore', '--no-index', '--stdin', '-z'], { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    const child = spawn('git', [...GIT_SAFE_ARGS, '-c', 'core.excludesFile=/dev/null', '-C', root, 'check-ignore', '--no-index', '--stdin', '-z'], { env: gitEnvironment(), detached: GIT_DETACHED, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
     const chunks: Buffer[] = [];
     let bytes = 0;
     let failure: EngineError | undefined;
-    const stop = (error: EngineError) => { failure ??= error; child.kill('SIGKILL'); child.stdout.destroy(); child.stderr.destroy(); };
+    const stop = (error: EngineError) => { failure ??= error; killGit(child); };
     const abort = () => stop(new EngineError('ABORTED', 'Workspace ignore lookup was aborted'));
     const timeout = setTimeout(() => stop(new EngineError('IGNORE_LOOKUP_FAILED', 'Git ignore lookup timed out')), 5_000);
     const cleanup = () => { clearTimeout(timeout); signal?.removeEventListener('abort', abort); };

@@ -254,6 +254,24 @@ test('repository-selector environment variables cannot redirect workspace discov
   }
 });
 
+test('Git children receive no provider credentials, including repository hooks', { skip: process.platform === 'win32' }, async (t) => {
+  const { temporary, root, git } = await fixture(t);
+  await git('commit', '--allow-empty', '-m', 'base');
+  const hooks = path.join(temporary, 'hooks');
+  const marker = path.join(temporary, 'hook-environment');
+  await mkdir(hooks);
+  await writeFile(path.join(hooks, 'post-checkout'), `#!/bin/sh\nprintf '%s|%s' "\${ANTHROPIC_API_KEY-unset}" "\${HOME-unset}" > ${JSON.stringify(marker)}\n`, { mode: 0o755 });
+  const oldKey = process.env.ANTHROPIC_API_KEY;
+  process.env.ANTHROPIC_API_KEY = 'sk-test-only';
+  try {
+    const result = await runGit(root, ['-c', `core.hooksPath=${hooks}`, 'worktree', 'add', '--detach', path.join(temporary, 'linked')]);
+    assert.equal(result.code, 0, result.stderr.toString('utf8'));
+  } finally {
+    if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = oldKey;
+  }
+  assert.equal(await readFile(marker, 'utf8'), `unset|${process.env.HOME ?? 'unset'}`);
+});
+
 test('Git runner terminates stalled processes on timeout/abort and bounds captured output', { skip: process.platform === 'win32' }, async (t) => {
   const { temporary, root } = await fixture(t);
   const binaryDir = path.join(temporary, 'fake-bin');
@@ -261,13 +279,30 @@ test('Git runner terminates stalled processes on timeout/abort and bounds captur
   const fakeGit = path.join(binaryDir, 'git');
   const pidFile = path.join(temporary, 'git-pid');
   const oldPath = process.env.PATH;
-  const stalled = `#!${process.execPath}\nrequire('node:fs').writeFileSync(${JSON.stringify(pidFile)}, String(process.pid));\nsetInterval(() => {}, 1000);\n`;
+  const helpers = new Set<number>();
+  // The helper inherits the pipes and stays in Git's process group, like a hook or checkout child.
+  const stalled = `#!${process.execPath}\nconst fs = require('node:fs');\nconst helper = require('node:child_process').spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'inherit' });\nfs.writeFileSync(${JSON.stringify(`${pidFile}.tmp`)}, process.pid + ' ' + helper.pid);\nfs.renameSync(${JSON.stringify(`${pidFile}.tmp`)}, ${JSON.stringify(pidFile)});\nsetInterval(() => {}, 1000);\n`;
+  const readPids = async () => {
+    const [leader, helper] = (await readFile(pidFile, 'utf8')).split(' ').map(Number) as [number, number];
+    helpers.add(helper);
+    return { leader, helper };
+  };
+  const assertHelperExited = async (pid: number) => {
+    // A killed helper is briefly a zombie until it is reparented and reaped.
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try { process.kill(pid, 0); }
+      catch (error) { assert.equal(codeOfTest(error), 'ESRCH'); helpers.delete(pid); return; }
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    assert.fail(`Git helper ${pid} survived termination`);
+  };
   await writeFile(fakeGit, stalled, { mode: 0o755 });
   process.env.PATH = `${binaryDir}${path.delimiter}${oldPath ?? ''}`;
   try {
     await assert.rejects(runGit(root, ['status'], { timeoutMs: 2_000 }), errorCode('GIT_TIMEOUT'));
-    const timedOutPid = Number(await readFile(pidFile, 'utf8'));
-    assert.throws(() => process.kill(timedOutPid, 0), (error) => codeOfTest(error) === 'ESRCH');
+    const timedOut = await readPids();
+    assert.throws(() => process.kill(timedOut.leader, 0), (error) => codeOfTest(error) === 'ESRCH');
+    await assertHelperExited(timedOut.helper);
     await rm(pidFile);
     const controller = new AbortController();
     const running = runGit(root, ['status'], { timeoutMs: 5_000, signal: controller.signal });
@@ -276,14 +311,16 @@ test('Git runner terminates stalled processes on timeout/abort and bounds captur
       try { await readFile(pidFile); break; }
       catch { await new Promise((resolve) => setTimeout(resolve, 10)); }
     }
-    const abortedPid = Number(await readFile(pidFile, 'utf8'));
+    const aborted = await readPids();
     controller.abort();
     await assert.rejects(running, errorCode('ABORTED'));
-    assert.throws(() => process.kill(abortedPid, 0), (error) => codeOfTest(error) === 'ESRCH');
+    assert.throws(() => process.kill(aborted.leader, 0), (error) => codeOfTest(error) === 'ESRCH');
+    await assertHelperExited(aborted.helper);
     await writeFile(fakeGit, `#!${process.execPath}\nprocess.stdout.write(Buffer.alloc(3 * 1024 * 1024));\n`, { mode: 0o755 });
     await assert.rejects(runGit(root, ['status']), errorCode('GIT_OUTPUT_LIMIT'));
   } finally {
     if (oldPath === undefined) delete process.env.PATH; else process.env.PATH = oldPath;
+    for (const pid of helpers) try { process.kill(pid, 'SIGKILL'); } catch { /* Already gone. */ }
   }
 });
 
