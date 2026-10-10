@@ -22,7 +22,7 @@ import type {
   ProposalPhysicalOutcome,
 } from "./apply-types.js";
 
-export const PROPOSAL_APPLY_LIMITS = Object.freeze({
+const PROPOSAL_APPLY_LIMITS = Object.freeze({
   files: 32,
   fileBytes: 1_048_576,
   totalBytes: 4_194_304,
@@ -212,7 +212,7 @@ const inputFields = [
   "requestId",
   "requestSha256",
 ] as const;
-export function validatePrepareProposalApply(
+function validatePrepareProposalApply(
   value: unknown,
 ): PrepareProposalApply {
   const r = fields(immutable(value), inputFields);
@@ -243,12 +243,7 @@ export function validatePrepareProposalApply(
     fail("PROPOSAL_APPLY_HASH_MISMATCH");
   return r as unknown as PrepareProposalApply;
 }
-export function proposalApplyRequestFingerprint(
-  value: Omit<PrepareProposalApply, "requestSha256">,
-): string {
-  return knowledgeHash(immutable(value));
-}
-export function validateProposalApplyOwner(value: unknown): ProposalApplyOwner {
+function validateProposalApplyOwner(value: unknown): ProposalApplyOwner {
   const r = fields(immutable(value), [
     ...inputFields,
     "id",
@@ -351,7 +346,7 @@ function readRow(
   if (!row) fail("PROPOSAL_APPLY_STALE");
   return decoded(row.data, max);
 }
-export function validateProposalApplyGuard(value: unknown): ProposalApplyGuard {
+function validateProposalApplyGuard(value: unknown): ProposalApplyGuard {
   const r = fields(immutable(value), [
     "id",
     "workspaceId",
@@ -397,7 +392,7 @@ function image(value: unknown): string | null {
     fail("PROPOSAL_APPLY_LIMIT");
   return value;
 }
-export function validateProposalApplyCheckpoint(
+function validateProposalApplyCheckpoint(
   value: unknown,
 ): ProposalApplyCheckpoint {
   const r = fields(immutable(value, PROPOSAL_APPLY_LIMITS.checkpointBytes), [
@@ -482,7 +477,7 @@ export function validateProposalApplyCheckpoint(
   checkHash(r);
   return r as unknown as ProposalApplyCheckpoint;
 }
-export function validateProposalApplyReceipt(
+function validateProposalApplyReceipt(
   value: unknown,
 ): ProposalApplyReceipt {
   const r = fields(immutable(value), [
@@ -1468,7 +1463,7 @@ export class ProposalApplyStorage {
   }
 }
 
-export function validateProposalApplyRecoveryDecision(
+function validateProposalApplyRecoveryDecision(
   value: unknown,
 ): ProposalApplyRecoveryDecision {
   const r = fields(immutable(value), [
@@ -1540,14 +1535,6 @@ function rawGuard(
   ws: string,
   ownerId: string,
 ): ProposalApplyGuard | undefined {
-  if (
-    !db
-      .prepare(
-        "SELECT name FROM sqlite_schema WHERE name='proposal_apply_execution_guards' AND type='table'",
-      )
-      .get()
-  )
-    return undefined;
   const meta = db
     .prepare(
       "SELECT length(CAST(data AS BLOB)) AS bytes FROM proposal_apply_execution_guards WHERE workspace_id=? AND owner_id=?",
@@ -1661,14 +1648,6 @@ export function hasProposalApplyBlocker(
   workspaceId: string,
 ): boolean {
   id(workspaceId);
-  if (
-    !db
-      .prepare(
-        "SELECT name FROM sqlite_schema WHERE name='proposal_apply_owners' AND type='table'",
-      )
-      .get()
-  )
-    return false;
   const latest = latestDecision(db, workspaceId);
   return (
     latest?.operation === "acknowledge" || frontier(db, workspaceId).length > 0

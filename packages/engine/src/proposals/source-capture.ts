@@ -716,43 +716,7 @@ export class ProposalSourceCaptureHost {
       Date.now() + PROPOSAL_SOURCE_LIMITS.durationMs,
     );
   }
-  assertFresh(
-    capture: PreparedProposalSourceCapture,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    actualSignal(signal);
-    const owned = this.owned(capture),
-      deadline = Date.now() + PROPOSAL_SOURCE_LIMITS.durationMs;
-    const task = (async () => {
-      for (let i = 0; i < owned.operations.length; i++) {
-        const observed = await this.observe(
-            owned.snapshot.binding,
-            owned.operations[i]!.path,
-            signal,
-            deadline,
-          ),
-          original = owned.snapshot.manifest.files[i]!;
-        if (
-          knowledgeHash({
-            ...observed.pin,
-            afterSha256: original.afterSha256,
-            afterBytes: original.afterBytes,
-          }) !== knowledgeHash(original) ||
-          observed.body !== owned.snapshot.operations[i]!.before
-        )
-          fail("PROPOSAL_SOURCE_STALE");
-      }
-      this.owned(capture);
-      this.checkOwnedFresh(owned, signal, deadline);
-    })();
-    this.#pending.add(task);
-    void task.then(
-      () => this.#pending.delete(task),
-      () => this.#pending.delete(task),
-    );
-    return task;
-  }
-  /** Physical observation only. The overlay factory must separately authenticate native revision/blob ownership. */
+  /** Physical observation only; callers (proposal apply preview and approval checks) must separately authenticate native revision/blob ownership. */
   assertStoredManifestCurrentSync(
     inputBinding: KnowledgeHostBinding,
     inputManifest: ProposalSourceManifest,

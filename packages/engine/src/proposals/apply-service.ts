@@ -16,7 +16,6 @@ import {
 } from "../tools/patch/physical.js";
 import type {
   ProposalBlobReference,
-  ProposalRevision,
   ProposalSelection,
   ProposalSet,
 } from "./types.js";
@@ -77,10 +76,6 @@ export interface ProposalApplyServicePorts {
     workspaceId: string,
     proposalId: string,
   ) => ProposalSelection | undefined;
-  readonly getRevision: (
-    workspaceId: string,
-    revisionId: string,
-  ) => ProposalRevision | undefined;
   readonly readBlobText: (reference: ProposalBlobReference) => string;
   readonly checkBinding: (workspaceId: string) => KnowledgeHostBinding;
   readonly assertUnpaused: (workspaceId: string) => void;

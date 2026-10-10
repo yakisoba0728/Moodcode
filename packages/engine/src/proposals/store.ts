@@ -24,7 +24,6 @@ import type {
   ProposalListOptions,
   ProposalPage,
   ProposalRevision,
-  ProposalRevisionSummary,
   ProposalSelection,
   ProposalSet,
   ProposalStoragePorts,
@@ -704,22 +703,6 @@ function revisionAt(
   return load(db, "proposal_revisions", ws, key) as unknown as
     ProposalRevision | undefined;
 }
-function summary(r: ProposalRevision): ProposalRevisionSummary {
-  return Object.freeze({
-    id: r.id,
-    workspaceId: r.workspaceId,
-    proposalId: r.proposalId,
-    revision: r.revision,
-    previousId: r.previousId,
-    requestId: r.requestId,
-    requestInputSha256: r.requestInputSha256,
-    sourceManifestSha256: r.sourceManifestSha256,
-    fileCount: r.files.length,
-    totalBytes: r.totalBytes,
-    createdAt: r.createdAt,
-    sha256: r.sha256,
-  });
-}
 interface Owned {
   readonly input: ProposalCaptureInput;
   readonly before: ProposalSet | undefined;
@@ -1134,34 +1117,6 @@ export class ProposalStorage {
       )
       .all(ws, o.after === undefined ? "" : id(o.after)) as { id: string }[];
     return this.#page(keys, options, (key) => this.getSet(ws, key));
-  }
-  listRevisions(
-    ws: string,
-    proposalId: string,
-    options: ProposalListOptions = {},
-  ): ProposalPage<ProposalRevisionSummary> {
-    id(ws);
-    id(proposalId);
-    const o = exact(
-      json(options, PROPOSAL_LIMITS.headerBytes),
-      [],
-      ["after", "limit", "maxBytes"],
-    );
-    if (o.after !== undefined) id(o.after);
-    const keys = this.db
-      .prepare(
-        "SELECT id FROM proposal_revisions WHERE workspace_id=? AND proposal_id=? AND id>? ORDER BY id LIMIT 65",
-      )
-      .all(ws, proposalId, o.after === undefined ? "" : id(o.after)) as {
-      id: string;
-    }[];
-    return this.#page(keys, options, (key) => {
-      const r = this.getRevision(ws, key);
-      return r ? summary(r) : undefined;
-    });
-  }
-  markImportedPaused(ws: string, archiveSha256: string): void {
-    this.#tx(() => pauseImportedProposals(this.db, ws, archiveSha256));
   }
 }
 

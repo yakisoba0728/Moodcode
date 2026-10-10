@@ -511,29 +511,16 @@ test("bounded metadata read rejects oversized corrupted row before its body SELE
   }
 });
 
-test("bounded revision pages contain hashes and counts without manifest or blob bodies", async () => {
+test("bounded proposal set pages are measured and resume after their cursor", async () => {
   const f = await fixture();
   try {
-    let latest = await f.append(request("0"));
-    for (let i = 1; i < 5; i++)
-      latest = await f.append({
-        ...request(String(i)),
-        proposalId: latest.set.id,
-        expectedHeadRevision: latest.set.headRevision,
-      });
-    const page = f.store.listRevisions("w", latest.set.id, {
-      limit: 2,
-      maxBytes: 4096,
-    });
+    for (let i = 0; i < 5; i++) await f.append(request(String(i)));
+    const page = f.store.listSets("w", { limit: 2, maxBytes: 4096 });
     assert.equal(page.items.length, 2);
     assert.notEqual(page.next, null);
     assert(page.bytes <= 4096);
     assert.equal(page.bytes, Buffer.byteLength(JSON.stringify(page)));
-    assert(!("files" in page.items[0]!));
-    const next = f.store.listRevisions("w", latest.set.id, {
-      after: page.next!,
-      limit: 2,
-    });
+    const next = f.store.listSets("w", { after: page.next!, limit: 2 });
     assert.equal(next.items.length, 2);
     assert(!page.items.some((x) => next.items.some((y) => y.id === x.id)));
     assert.throws(

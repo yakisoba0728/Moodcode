@@ -18,12 +18,12 @@ import {
   ProposalSourceCaptureHost,
   type PreparedProposalSourceCapture,
 } from "./source-capture.js";
+import { ProposalBlobStorage } from "./blob-store.js";
 import {
-  ProposalBlobStorage,
-  validateProposalBlobDatabase,
-} from "./blob-store.js";
-import { PROPOSAL_SCHEMA_SQL, ProposalStorage } from "./store.js";
-import type { ProposalBlobReference } from "./types.js";
+  PROPOSAL_SCHEMA_SQL,
+  ProposalStorage,
+  validateProposalDatabase,
+} from "./store.js";
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const code = (expected: string) => (error: unknown) =>
   error instanceof EngineError && error.code === expected;
@@ -137,7 +137,7 @@ test("actual native ProposalRevision materializes owner-bound BLOBs with bounded
   );
   assert.equal(readFileSync(join(f.root, "a"), "utf8"), f.before);
   assert.throws(() => readFileSync(join(f.root, "absent")));
-  validateProposalBlobDatabase(f.db, () => {});
+  validateProposalDatabase(f.db);
 });
 test("runtime blob reads and writes require the actual primary transaction and original referenced native owner", async (t) => {
   const f = await fixture(t);
@@ -218,28 +218,14 @@ test("actual negative BLOB corruption rejects before returning a page, including
     ),
   );
   assert.throws(
-    () => validateProposalBlobDatabase(f.db, () => {}),
-    code("PROPOSAL_BLOB_HASH_MISMATCH"),
+    () => validateProposalDatabase(f.db),
+    code("PROPOSAL_BLOB_MISMATCH"),
   );
 });
 test("metadata-first oversized-header rejection loads zero content bodies", async (t) => {
   const f = await fixture(t);
-  // The database validator streams by native blob ID. Select its actual first
-  // producer-issued reference so unrelated valid blobs do not precede this
-  // malformed metadata frontier when random UUID ordering changes.
-  const first = f.db
-    .prepare("SELECT id FROM proposal_blobs ORDER BY id LIMIT 1")
-    .get();
-  const target = f.result.revision.files
-    .flatMap((file) => [file.before, file.after])
-    .find(
-      (ref): ref is ProposalBlobReference =>
-        ref !== null && ref.id === first?.id,
-    );
-  assert.ok(
-    target,
-    "The first actual SQL blob must belong to the produced native revision",
-  );
+  // validateProposalDatabase reaches files[0].before before any other blob body.
+  const target = f.ref;
   f.db.exec("PRAGMA ignore_check_constraints=ON");
   f.db
     .prepare("UPDATE proposal_blobs SET data=? WHERE id=?")
@@ -252,7 +238,7 @@ test("metadata-first oversized-header rejection loads zero content bodies", asyn
   });
   f.tx(() => assert.throws(() => f.blobs.read(target)));
   assert.equal(contentReads, 0);
-  assert.throws(() => validateProposalBlobDatabase(f.db, () => {}));
+  assert.throws(() => validateProposalDatabase(f.db));
   assert.equal(contentReads, 0);
 });
 test("self-consistent valid blob header cannot replace a different actual indexed revision reference", async (t) => {
@@ -267,7 +253,7 @@ test("self-consistent valid blob header cannot replace a different actual indexe
     ),
   );
   assert.throws(
-    () => validateProposalBlobDatabase(f.db, () => {}),
-    code("PROPOSAL_BLOB_SCOPE_MISMATCH"),
+    () => validateProposalDatabase(f.db),
+    code("PROPOSAL_SCOPE_MISMATCH"),
   );
 });

@@ -313,31 +313,10 @@ export class ProposalBlobStorage implements ProposalBlobStoragePort {
       nextOffset: end < full.length ? end : null,
     });
   }
-  /** Whole text is loaded only after a host selected that entire proposal within its supplemental slot. */
+  /** Loads the whole bounded blob text; callers bound which blobs they load (overlay context slot, approved apply preview). */
   readText(input: ProposalBlobReference): string {
     const ref = validateProposalBlobReference(input);
     this.transaction();
     return this.readContent(ref).toString("utf8");
-  }
-}
-/** Streamed metadata-first archive graph validation; no reconstructed Tool/Run owner is accepted. */
-export function validateProposalBlobDatabase(
-  db: DatabaseSync,
-  check: () => void,
-): void {
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_blobs ORDER BY id")
-    .iterate()) {
-    check();
-    const header = rowHeader(db, id(row.workspace_id), id(row.id));
-    if (!header) fail();
-    assertRevisionOwner(db, reference(header));
-    const body = db
-      .prepare(
-        "SELECT content FROM proposal_blobs WHERE workspace_id=? AND id=? AND length(content)=?",
-      )
-      .get(header.workspaceId, header.id, header.bytes);
-    content(body?.content, header);
-    check();
   }
 }

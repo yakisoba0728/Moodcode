@@ -200,7 +200,6 @@ async function fixture(t: TestContext) {
   const ports: ProposalApplyServicePorts = {
     readTx: tx,
     getSelection: (ws, id) => proposals.getSelection(ws, id),
-    getRevision: (ws, id) => proposals.getRevision(ws, id),
     readBlobText: (ref) => blobs.readText(ref),
     checkBinding: () => binding,
     assertUnpaused: () => {},

@@ -738,7 +738,6 @@ private readonly workflowRecords: WorkflowStorage;
       this.proposalApplyService = new ProposalApplyService(this.proposalApplies, {
         readTx: operation => this.store.readExecutionObservationEvidence(operation), checkBinding: knowledgeBinding,
         getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
-        getRevision: (workspaceId, id) => this.proposalRecords.getRevision(workspaceId, id),
         readBlobText: reference => this.store.readProposalBlobText(reference),
         assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
         assertIdleAndNoExecutionUncertainty: workspaceId => { this.coordinator.assertWorkspaceCleanupConfirmed(workspaceId); verifyExecutionIdle(this.executionLockPath); },

@@ -76,7 +76,6 @@ test("actual selected UTF-8 descriptor preimages and absent parents are immutabl
   assert.equal(readFileSync(join(f.root, "present.ts"), "utf8"), before);
   assert.ok(Object.isFrozen(snapshot.operations[0]));
   f.host.assertFreshSync(capture);
-  await f.host.assertFresh(capture);
   await f.host.assertStoredManifestCurrent(f.binding, snapshot.manifest);
   f.host.release(capture);
   assert.throws(
@@ -130,10 +129,6 @@ test("external edits reject original fresh checks while captured before/after re
   writeFileSync(join(f.root, "a"), "external");
   assert.throws(
     () => f.host.assertFreshSync(original),
-    code("PROPOSAL_SOURCE_STALE"),
-  );
-  await assert.rejects(
-    f.host.assertFresh(original),
     code("PROPOSAL_SOURCE_STALE"),
   );
   await assert.rejects(
