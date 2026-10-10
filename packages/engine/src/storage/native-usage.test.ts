@@ -194,3 +194,38 @@ test("attempt usage and its journal observation roll back together on publicatio
   );
   assert.deepEqual(f.store.readSessionEvents("session", 0), events);
 });
+test("stored attempt usage reads back only while open and only when it matches its owner and inclusive totals", (t) => {
+  const f = fixture(t),
+    stored = f.store.putAttemptUsage(f.first.id, {
+      inputTokens: 8,
+      cachedInputTokens: 2,
+    }),
+    writer = new DatabaseSync(f.path);
+  t.after(() => writer.close());
+  assert.deepEqual(f.store.getAttemptUsage(f.first.id), stored);
+  assert.equal(f.store.getAttemptUsage("attempt-without-usage"), null);
+  const tamper = (path: string, value: string) =>
+    writer
+      .prepare(
+        `UPDATE attempt_usage SET data=json_set(data,'${path}',json(?)) WHERE attempt_id=?`,
+      )
+      .run(value, f.first.id);
+  tamper("$.runId", '"another-run"');
+  assert.throws(
+    () => f.store.getAttemptUsage(f.first.id),
+    code("RECORD_SCOPE_MISMATCH"),
+  );
+  tamper("$.runId", JSON.stringify(f.runId));
+  tamper("$.usage.cachedInputTokens", "9");
+  assert.throws(
+    () => f.store.getAttemptUsage(f.first.id),
+    code("INVALID_ATTEMPT_USAGE"),
+  );
+  tamper("$.usage.cachedInputTokens", "2");
+  assert.deepEqual(f.store.getAttemptUsage(f.first.id), stored);
+  f.store.close();
+  assert.throws(
+    () => f.store.getAttemptUsage(f.first.id),
+    code("STORE_CLOSED"),
+  );
+});

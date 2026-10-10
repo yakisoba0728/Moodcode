@@ -1,6 +1,7 @@
 import { types } from 'node:util';
 import { EngineError, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
 import { NativeSessionStorage } from './native.js';
+import { exceedsInclusiveTotals } from './native-usage.js';
 import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
 
 export const SUMMARY_STORAGE_TABLES = ['summary_attempts', 'summary_usage'] as const;
@@ -98,7 +99,7 @@ function usageMerge(previous: SummaryUsageSnapshot, supplied: Partial<SummaryUsa
   for (const key of keys) if (supplied[key] !== undefined && supplied[key] !== null) {
     const count = supplied[key]!; if (!Number.isSafeInteger(count) || count < 0 || previous[key] !== null && count < previous[key]!) fail('SUMMARY_USAGE_REGRESSION', 'Summary token observations must be nonnegative and nondecreasing'); merged[key] = count;
   }
-  if (merged.cachedInputTokens !== null && merged.inputTokens !== null && merged.cachedInputTokens > merged.inputTokens || merged.reasoningOutputTokens !== null && merged.outputTokens !== null && merged.reasoningOutputTokens > merged.outputTokens) fail('INVALID_SUMMARY_USAGE', 'Summary breakdowns exceed inclusive totals');
+  if (exceedsInclusiveTotals(merged)) fail('INVALID_SUMMARY_USAGE', 'Summary breakdowns exceed inclusive totals');
   return merged;
 }
 /** Typed summaries never acquire a provider_attempts row or consume an ordinary Turn. */

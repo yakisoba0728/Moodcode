@@ -17,6 +17,7 @@ export interface NativeStorageHooks {
   /** These callbacks are called within the shared primary transaction. */
   admit(input: SubmitInput, inputId: string): RunReceipt;
   steer(input: InputRecord, run: Run): number;
+  /** Wakes session subscribers, after COMMIT when called inside the store's transaction. */
   notify(sessionId: string): void;
 }
 export interface StoredInputPromotion { input: InputRecord; run: Run; receipt: RunReceipt }
@@ -81,6 +82,7 @@ export class NativeSessionStorage {
     this.database.prepare('INSERT INTO session_sequences(session_id,last_seq) VALUES(?,?) ON CONFLICT(session_id) DO UPDATE SET last_seq=excluded.last_seq').run(sessionId, seq);
     this.database.prepare('INSERT INTO session_events(session_id,seq,event_id,schema_version,run_id,input_id,turn_id,attempt_id,type,data) VALUES(?,?,?,?,?,?,?,?,?,?)')
       .run(sessionId, seq, event.eventId, SESSION_SCHEMA_VERSION, refs.runId ?? null, refs.inputId ?? null, refs.turnId ?? null, refs.attemptId ?? null, type, JSON.stringify(event));
+    this.hooks.notify(sessionId);
     return event;
   }
   getInput(id: string): InputRecord {

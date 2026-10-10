@@ -3,6 +3,7 @@ import {
   type AttemptUsageRecord,
   type ProviderUsageSnapshot,
 } from "@moodcode/contracts";
+import { readEvidenceBody } from "./evidence-read.js";
 import { NativeSessionStorage, storedJson } from "./native.js";
 
 export const ATTEMPT_USAGE_SCHEMA = `CREATE TABLE attempt_usage (
@@ -20,11 +21,18 @@ const fields = [
   "cachedInputTokens",
   "reasoningOutputTokens",
 ] as const;
-export function putAttemptUsage(
-  native: NativeSessionStorage,
-  attemptId: string,
-  snapshot: AttemptUsageSnapshot,
-): AttemptUsageRecord {
+/** Null and undefined counts are unknown and never exceed their inclusive total. */
+export function exceedsInclusiveTotals(usage: {
+  [K in (typeof fields)[number]]?: number | null;
+}): boolean {
+  const exceeds = (part?: number | null, total?: number | null) =>
+    part != null && total != null && part > total;
+  return (
+    exceeds(usage.cachedInputTokens, usage.inputTokens) ||
+    exceeds(usage.reasoningOutputTokens, usage.outputTokens)
+  );
+}
+function usageSnapshot(snapshot: unknown): AttemptUsageSnapshot {
   if (
     snapshot === null ||
     typeof snapshot !== "object" ||
@@ -52,6 +60,69 @@ export function putAttemptUsage(
       );
     usage[key as keyof AttemptUsageSnapshot] = descriptor.value;
   }
+  return usage;
+}
+/** Call inside an evidence read: the stored record must match its SQL owner and Attempt. */
+export function readAttemptUsage(
+  native: NativeSessionStorage,
+  attemptId: string,
+): AttemptUsageRecord | null {
+  const row = native.database
+    .prepare(
+      "SELECT u.session_id,u.run_id,u.turn_id,u.revision,length(CAST(u.data AS BLOB)) AS bytes,a.session_id AS attempt_session_id,a.run_id AS attempt_run_id,a.turn_id AS attempt_turn_id FROM attempt_usage u JOIN provider_attempts a ON a.id=u.attempt_id WHERE u.attempt_id=?",
+    )
+    .get(attemptId);
+  if (!row) return null;
+  if (
+    row.session_id !== row.attempt_session_id ||
+    row.run_id !== row.attempt_run_id ||
+    row.turn_id !== row.attempt_turn_id
+  )
+    throw new EngineError(
+      "RECORD_SCOPE_MISMATCH",
+      "Stored usage belongs to another owner",
+    );
+  const raw = readEvidenceBody(
+    native.database,
+    { table: "attempt_usage", key: attemptId },
+    { expectedBytes: Number(row.bytes), maxBytes: 4096 },
+  );
+  const record = JSON.parse(String(raw)) as AttemptUsageRecord;
+  if (
+    record === null ||
+    typeof record !== "object" ||
+    Array.isArray(record) ||
+    Object.keys(record).sort().join() !==
+      "attemptId,observedAt,revision,runId,sessionId,turnId,usage" ||
+    !Number.isSafeInteger(record.revision) ||
+    record.revision < 1 ||
+    record.revision !== row.revision ||
+    typeof record.observedAt !== "string" ||
+    !Number.isFinite(Date.parse(record.observedAt)) ||
+    exceedsInclusiveTotals(usageSnapshot(record.usage))
+  )
+    throw new EngineError(
+      "INVALID_ATTEMPT_USAGE",
+      "Stored usage record is invalid",
+    );
+  if (
+    record.attemptId !== attemptId ||
+    record.sessionId !== row.session_id ||
+    record.runId !== row.run_id ||
+    record.turnId !== row.turn_id
+  )
+    throw new EngineError(
+      "RECORD_SCOPE_MISMATCH",
+      "Stored usage belongs to another owner",
+    );
+  return record;
+}
+export function putAttemptUsage(
+  native: NativeSessionStorage,
+  attemptId: string,
+  snapshot: AttemptUsageSnapshot,
+): AttemptUsageRecord {
+  const usage = usageSnapshot(snapshot);
   const owner = native.database
     .prepare(
       "SELECT session_id,run_id,turn_id,state FROM provider_attempts WHERE id=?",
@@ -120,14 +191,7 @@ export function putAttemptUsage(
           "ATTEMPT_USAGE_REGRESSION",
           "Usage observations cannot decrease",
         );
-    if (
-      (merged.cachedInputTokens !== undefined &&
-        merged.inputTokens !== undefined &&
-        merged.cachedInputTokens > merged.inputTokens) ||
-      (merged.reasoningOutputTokens !== undefined &&
-        merged.outputTokens !== undefined &&
-        merged.reasoningOutputTokens > merged.outputTokens)
-    )
+    if (exceedsInclusiveTotals(merged))
       throw new EngineError(
         "INVALID_ATTEMPT_USAGE",
         "Usage breakdown cannot exceed inclusive totals",

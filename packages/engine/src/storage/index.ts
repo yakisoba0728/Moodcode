@@ -40,7 +40,7 @@ import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedC
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 import { readActiveHistoryWindow, withSessionSegmentAnchor, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
-import { putAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
+import { putAttemptUsage, readAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
 import { readChildStorageSelection, type ChildStorageSelectionOptions, type ChildStorageSelectionReport, type ChildStorageSelectionBudget } from '../child-tasks/storage-binding.js';
@@ -170,6 +170,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly attemptCleanupRecords: AttemptCleanupStorage;
   private readonly mcpExecutionRecords: McpExecutionStorage;
   private postCommitCallbacks?: Array<() => void>;
+  private pendingWakes?: Set<string>;
   private executionObservationRecords?: DiagnosticExecutionObservationStorage;
   private readonly summaryRecoveryHighWater: string;
   private summaryRecovery?: SummaryRecoveryStorage;
@@ -276,11 +277,11 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     this.db.exec(write ? 'BEGIN IMMEDIATE' : 'BEGIN');
     const callbacks: Array<() => void> = [];
-    this.postCommitCallbacks = callbacks;
+    this.postCommitCallbacks = callbacks; this.pendingWakes = new Set();
     let result: T;
     try { result = operation(); this.db.exec('COMMIT'); }
-    catch (error) { this.postCommitCallbacks = undefined; try { this.db.exec('ROLLBACK'); } catch { /* Keep the transaction failure. */ } throw error; }
-    this.postCommitCallbacks = undefined;
+    catch (error) { this.postCommitCallbacks = undefined; this.pendingWakes = undefined; try { this.db.exec('ROLLBACK'); } catch { /* Keep the transaction failure. */ } throw error; }
+    this.postCommitCallbacks = undefined; this.pendingWakes = undefined;
     // Durable acceptance does not fail merely because a notification or wake is unavailable.
     for (const callback of callbacks) try { callback(); } catch { /* The committed journal remains authoritative. */ }
     return result;
@@ -314,7 +315,11 @@ export class SqliteStore implements SessionEngineStore {
     return this.evidenceRead(() => new ProposalBlobStorage(this.db).readText(reference));
   }
   private notify(sessionId: string): void {
-    if (this.db.isTransaction && this.postCommitCallbacks) { this.publishAfterCommit(() => this.notify(sessionId)); return; }
+    const pending = this.db.isTransaction ? this.pendingWakes : undefined;
+    if (pending) {
+      if (!pending.has(sessionId)) { pending.add(sessionId); this.publishAfterCommit(() => this.notify(sessionId)); }
+      return;
+    }
     for (const waiter of [...this.waiters]) if (waiter.sessionId === sessionId) waiter.wake();
   }
 
@@ -420,11 +425,7 @@ export class SqliteStore implements SessionEngineStore {
     this.writeMessage(run, message);
     return this.append(run, 'input.steered', { inputId: input.id, requestId: input.requestId, messageId: message.id }).seq;
   }
-  acceptInput(input: AcceptInput): InputReceipt {
-    const receipt = this.native.acceptInput(input);
-    if (this.db.isTransaction && this.postCommitCallbacks) this.publishAfterCommit(() => this.notify(input.sessionId));
-    return receipt;
-  }
+  acceptInput(input: AcceptInput): InputReceipt { return this.native.acceptInput(input); }
   findInputByRequest(sessionId: string, requestId: string): InputRecord | undefined { return this.native.findInputByRequest(sessionId, requestId); }
   lookupInputReceipt(input: AcceptInput): ExistingInputReceipt | undefined { return this.native.lookupInputReceipt(input); }
   lookupRunReceipt(input: SubmitInput): RunReceipt | undefined { return this.native.lookupRunReceipt(input); }
@@ -444,16 +445,8 @@ export class SqliteStore implements SessionEngineStore {
   listTurns(runId: string): TurnRecord[] { return this.executionRecords.listTurns(runId); }
   listTurnsPage(runId: string, afterTurnId?: string, limit?: number): TurnPage { return this.executionRecords.listTurnsPage(runId, afterTurnId, limit); }
   putAttempt(attempt: ProviderAttempt): ProviderAttempt { return this.executionRecords.putAttempt(attempt); }
-
-getAttemptUsage(
-    attemptId: string,
-  ): import("@moodcode/contracts").AttemptUsageRecord | null {
-    const row = this.db
-      .prepare("SELECT data FROM attempt_usage WHERE attempt_id=?")
-      .get(attemptId);
-    return row ? JSON.parse(String(row.data)) : null;
-  }
-putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
+  getAttemptUsage(attemptId: string): AttemptUsageRecord | null { this.assertOpen(); return this.evidenceRead(() => readAttemptUsage(this.native, attemptId)); }
+  putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRecord { return putAttemptUsage(this.native, attemptId, usage); }
   createSummaryAttempt(identity: SummaryAttemptIdentity): SummaryAttemptRecord { return this.summaryRecords.create(identity); }
   dispatchSummaryAttempt(id: string): SummaryAttemptRecord { return this.summaryRecords.dispatch(id); }
   observeSummaryAttempt(id: string, observation: SummaryObservation): SummaryAttemptRecord { return this.summaryRecords.observe(id, observation); }
@@ -531,7 +524,7 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
   hasUncertainMcpExecutions(workspaceId: string): boolean { this.assertOpen(); return hasMcpExecutionUncertainty(this.db,workspaceId); }
   getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return this.evidenceRead(() => summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId)); }
   createHostCommandStorage(): HostCommandStorage {
-    return new HostCommandStorage(this.db, { transaction: operation => this.db.isTransaction ? operation() : this.transaction(operation), appendEvent: (sessionId,type,payload) => { this.native.appendEvent(sessionId,type,payload); this.publishAfterCommit(() => this.notify(sessionId)); } });
+    return new HostCommandStorage(this.db, { transaction: operation => this.db.isTransaction ? operation() : this.transaction(operation), appendEvent: (sessionId,type,payload) => { this.native.appendEvent(sessionId,type,payload); } });
   }
   validateHostCommands(): void { this.evidenceRead(() => validateHostCommandDatabase(this.db)); }
   hasUncertainExecution(workspaceId: string): boolean {
@@ -576,7 +569,7 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
     return this.transaction(() => readActivePrefixSourceDatabase(this.db, this.getRun(runId), options), false);
   }
   commitActivePrefixCheckpoint(runId: string, payload: JsonObject, change: PreparedActivePrefix & ActivePrefixContextPublication): EngineEvent {
-    const event = this.transaction(() => {
+    return this.transaction(() => {
       const run = this.getRun(runId);
       validateActivePrefixPublication(this.db, run, change);
       if (payload.summaryAttemptId !== change.checkpoint.id || payload.scope !== 'active-run-prefix' || payload.revisionId !== change.summaryRevision.id || payload.contextRevisionId !== change.contextRevision.id
@@ -599,11 +592,9 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
       this.append(run, 'context.revision.activated', activated.payload);
       return result;
     });
-    this.notify(event.sessionId);
-    return event;
   }
   commitContextDocument(runId: string, eventType: string, payload: JsonObject, change: { revision: ContextRevision; kind: string; expectedRevision: number; data: JsonObject }): EngineEvent {
-    const event = this.transaction(() => {
+    return this.transaction(() => {
       const run = this.getRun(runId);
       if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Context activation requires an active Run');
       if (change.revision.sessionId !== run.sessionId || change.revision.runId !== run.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context activation belongs to another Run');
@@ -626,18 +617,18 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
       const validated = this.native.appendEvent(run.sessionId, eventType, payload, { runId: run.id });
       return this.append(run, eventType, validated.payload);
     });
-    this.notify(event.sessionId);
-    return event;
   }
   putCommandLifetime(record:CommandLifetimeRecord,expectedRevision:number):void{
     const write=()=>{
-      const r=validateCommandLifetimeRecord(record);
+      const r=validateCommandLifetimeRecord(record),kind=lifetimeKind(r.jobId);
       const stats=this.db.prepare("SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_events WHERE type='command.lifetime.revision'").get()!;
       const ordinary=['admit','started','transfer','input-intent','input-ack'].includes(r.operation.kind);
-      if(Number(stats.n)>=(ordinary?3840:4096)||Number(stats.bytes)+Buffer.byteLength(JSON.stringify(r))>(ordinary?29360128:33554432))throw new EngineError('COMMAND_LIFETIME_LIMIT','Native lifetime capacity preserves terminal, recovery and import headroom');
-      this.executionRecords.putSessionDocument(r.sessionId,lifetimeKind(r.jobId),expectedRevision,r as unknown as JsonObject);
+      // Other writes keep one import revision per unpaused lifetime and one recovery revision per live one.
+      const reserve=r.operation.kind==='recover'||r.operation.kind==='import'?0:Number(this.db.prepare("SELECT coalesce(sum((json_extract(data,'$.state')<>'paused-import')+(json_extract(data,'$.state') IN ('starting','running'))),0) n FROM session_documents WHERE kind GLOB 'command.lifetime.*' AND NOT (session_id=? AND kind=?)").get(r.sessionId,kind)!.n)+Number(r.state!=='paused-import')+Number(r.state==='starting'||r.state==='running');
+      if(Number(stats.n)+reserve>=(ordinary?3840:4096)||Number(stats.bytes)+Buffer.byteLength(JSON.stringify(r))>(ordinary?29360128:33554432))throw new EngineError('COMMAND_LIFETIME_LIMIT','Native lifetime capacity preserves terminal, recovery and import headroom');
+      this.executionRecords.putSessionDocument(r.sessionId,kind,expectedRevision,r as unknown as JsonObject);
       this.native.appendEvent(r.sessionId,'command.lifetime.revision',{record:r as unknown as JsonObject});
-      validateCommandLifetimeDatabase(this.db);this.publishAfterCommit(()=>this.notify(r.sessionId));
+      validateCommandLifetimeDatabase(this.db);
     };if(this.db.isTransaction)write();else this.transaction(write);
   }
   inspectCommandLifetimes(workspaceId?:string):CommandLifetimeRecord[]{return this.evidenceRead(()=>{validateCommandLifetimeDatabase(this.db);return readCommandLifetimes(this.db,workspaceId);});}
@@ -703,7 +694,7 @@ putAttemptUsage(attemptId: string, usage: AttemptUsageSnapshot): AttemptUsageRec
     this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports,
       writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
   }
-  commitTeamWorkflow(sessionId:string,kind:string,revision:number,data:JsonObject,effect:()=>void):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'board');effect();this.executionRecords.putSessionDocument(sessionId,kind,revision,data);this.native.appendEvent(sessionId,'team.workflow.committed',{kind,revision:revision+1,dataSha256:knowledgeHash(data)});this.publishAfterCommit(()=>this.notify(sessionId));});}
+  commitTeamWorkflow(sessionId:string,kind:string,revision:number,data:JsonObject,effect:()=>void):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'board');effect();this.executionRecords.putSessionDocument(sessionId,kind,revision,data);this.native.appendEvent(sessionId,'team.workflow.committed',{kind,revision:revision+1,dataSha256:knowledgeHash(data)});});}
   assertResidentAdmissionCapacity():void{this.evidenceRead(()=>assertResidentHistoryCapacity(this.db,'resident'));}
   putResidentDocument(sessionId:string,kind:string,revision:number,data:JsonObject):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'resident');this.executionRecords.putSessionDocument(sessionId,kind,revision,data);});}
   validateResidentTeams():void{this.evidenceRead(()=>validateResidentTeamDatabase(this.db));}
@@ -725,13 +716,12 @@ createCodingBatchStorage(): CodingBatchStorage {
       },
       event: (s, t, d) => {
         this.native.appendEvent(s, t, d);
-        this.publishAfterCommit(() => this.notify(s));
       },
     });
   }
 createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
     this.assertOpen();if(this.workflowEffectRecords)throw new EngineError('WORKFLOW_EFFECTS_ALREADY_BOUND','Workflow effects have one actual Root producer');
-    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:operation=>this.withWorkflowEffectsTransaction(operation),putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});this.publishAfterCommit(()=>this.notify(s));}});
+    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:operation=>this.withWorkflowEffectsTransaction(operation),putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});}});
   }
   createWorkflowStorage(ports: Omit<WorkflowStoragePorts, 'writeTx' | 'getWorkspace'>): WorkflowStorage {
     this.assertOpen();
@@ -785,7 +775,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   }
   commitGitCommitObservation(sessionId:string, type:'git.commit.supervisor_admitted'|'git.commit.process_admitted'|'git.commit.closed'|'git.commit.reconciled', payload:JsonObject): SessionEventV2 {
     const write=()=>this.native.appendEvent(sessionId,type,payload);
-    const event=this.db.isTransaction?write():this.transaction(write);this.notify(sessionId);return event;
+    return this.db.isTransaction?write():this.transaction(write);
   }
   hasKnownGitCommitSupervisor(pid:number):boolean {return this.evidenceRead(()=>hasKnownGitCommitSupervisor(this.db,pid));}
   readGitCommitProcessEvidence(sessionId:string,id:string) {return this.evidenceRead(()=>readGitCommitProcessEvidence(this.db,sessionId,id));}
@@ -803,7 +793,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       if (record.groupPid !== null && !previous?.data.groupPid) this.native.appendEvent(source.sessionId, 'command.job.process_admitted', { jobId, sourceSha256: source.sha256, groupPid: record.groupPid }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
       if (record.completion && !previous?.data.completion) this.native.appendEvent(source.sessionId, 'command.job.closed_observed', { jobId, sourceSha256: source.sha256, completionSha256: knowledgeHash(record.completion) }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
       const saved = this.executionRecords.putSessionDocument(source.sessionId, kind, expectedRevision, data);
-      validateOwnedCommandJobDatabase(this.db); this.publishAfterCommit(() => this.notify(source.sessionId)); return saved;
+      validateOwnedCommandJobDatabase(this.db); return saved;
     };
     return this.db.isTransaction ? write() : this.transaction(write);
   }
@@ -834,8 +824,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
     if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
     const append = () => { this.getSession(sessionId); return this.native.appendEvent(sessionId, type, payload); };
-    if (this.db.isTransaction) { const event = append(); this.publishAfterCommit(() => this.notify(sessionId)); return event; }
-    const event = this.transaction(append); this.notify(sessionId); return event;
+    return this.db.isTransaction ? append() : this.transaction(append);
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
@@ -1134,33 +1123,22 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
     // Admission is read from an original process handle inside the backend's
     // primary write transaction. Its observation and connection receipt must
     // commit or roll back together.
-    if (this.db.isTransaction && type === 'backend.connection_admitted') {
-      const event = append();
-      this.publishAfterCommit(() => this.notify(event.sessionId));
-      return event;
-    }
-    const event = this.transaction(append);
-    this.notify(event.sessionId);
-    return event;
+    return this.db.isTransaction && type === 'backend.connection_admitted' ? append() : this.transaction(append);
   }
 
   /** CAS plus the owning Run state are checked inside one primary write transaction. */
   putActiveRunDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
-    let sessionId!: string;
-    const document = this.transaction(() => {
-      const run = this.getRun(runId); sessionId = run.sessionId;
+    return this.transaction(() => {
+      const run = this.getRun(runId);
       if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot accept verification publication');
-      return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+      return this.executionRecords.putSessionDocument(run.sessionId, kind, expectedRevision, data);
     });
-    this.notify(sessionId);
-    return document;
   }
 
   /** One existing dispatched receipt can settle while its real native tool still owns cleanup. */
   putConsumedVerificationSettlement(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
-    let sessionId!: string;
-    const saved = this.transaction(() => {
-      const run = this.getRun(identity.runId); sessionId = run.sessionId;
+    return this.transaction(() => {
+      const run = this.getRun(identity.runId), sessionId = run.sessionId;
       if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept consumed settlement');
       const tool = this.getToolCall(identity.toolCallId), turn = this.getTurn(identity.turnId), attempt = this.getAttempt(identity.attemptId);
       const part = this.listParts(turn.id).find(value => value.type === 'tool' && value.toolCallId === tool.id);
@@ -1172,29 +1150,24 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       if (before.data.workspaceId !== run.workspaceId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Consumed settlement workspace changed');
       return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
     });
-    this.notify(sessionId);
-    return saved;
   }
 
   /** Verification receipt revision and controller publication are one primary CAS transaction. */
   putActiveVerificationControllerDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject, expectedVerificationRevision: number): SessionDocument {
-    let sessionId!: string;
-    const saved = this.transaction(() => {
-      const run = this.getRun(runId); sessionId = run.sessionId;
+    return this.transaction(() => {
+      const run = this.getRun(runId), sessionId = run.sessionId;
       if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot publish task completion or repair stages');
       if (kind !== verificationControllerDocumentKind(runId) || data.runId !== run.id || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Controller publication must match its exact Run document');
       const observed = this.getSessionDocument(sessionId, verificationDocumentKind(runId));
       if ((observed?.revision ?? 0) !== expectedVerificationRevision) throw new EngineError('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Verification receipt revision changed before controller CAS');
       return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
     });
-    this.notify(sessionId); return saved;
   }
   /** Native continuation admission pins both actual verification ledgers in one CAS. */
   putActiveLifecycleContinuationDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject,
     expected: { controllerRevision: number; verificationRevision: number; controllerSha256: string }): SessionDocument {
-    let sessionId!: string;
-    const saved = this.transaction(() => {
-      const run = this.getRun(runId); sessionId = run.sessionId;
+    return this.transaction(() => {
+      const run = this.getRun(runId), sessionId = run.sessionId;
       if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot admit lifecycle continuation');
       if (this.getSessionControl(sessionId).paused) throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Paused sessions cannot admit lifecycle continuation');
       if (expectedRevision !== 0 || this.getSessionDocument(sessionId, kind)) throw new EngineError('LIFECYCLE_CONTINUATION_LIMIT', 'The original Run may consume only one continuation document');
@@ -1206,7 +1179,6 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
         throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Actual verification ledgers changed before continuation admission');
       return this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
     });
-    this.notify(sessionId); return saved;
   }
 
   getSnapshot(sessionId: string): SessionSnapshot {

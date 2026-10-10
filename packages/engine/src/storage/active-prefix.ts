@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type JsonObject, type Run } from '@moodcode/contracts';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
+import { exceedsInclusiveTotals } from './native-usage.js';
 
 const DOCUMENT = 'context.active_memory';
 const PROJECTION = 'text-and-complete-tool-observations-v1' as const;
@@ -251,8 +252,7 @@ export function validateActivePrefixPublication(database: DatabaseSync, run: Run
     || context.revision !== summary.revision + 1 || context.supersedesId !== summary.id || context.sha256 !== hash(context.text) || !context.sourceIds.includes(summary.id)
     || contextData.revisionId !== context.id || contextData.contextRevision !== context.revision) mismatch('Summary and provider context revisions have inconsistent bindings');
   if (!checkpoint.usage || Object.values(checkpoint.usage).some(count => count !== null && (!Number.isSafeInteger(count) || count < 0))
-    || checkpoint.usage.cachedInputTokens !== null && checkpoint.usage.inputTokens !== null && checkpoint.usage.cachedInputTokens > checkpoint.usage.inputTokens
-    || checkpoint.usage.reasoningOutputTokens !== null && checkpoint.usage.outputTokens !== null && checkpoint.usage.reasoningOutputTokens > checkpoint.usage.outputTokens) mismatch('Summary usage must be valid inclusive provider observations');
+    || exceedsInclusiveTotals(checkpoint.usage)) mismatch('Summary usage must be valid inclusive provider observations');
   const lifecycle = database.prepare(`SELECT type,json_object('scope',substr(json_extract(data,'$.payload.scope'),1,64),
     'factsSha256',substr(json_extract(data,'$.payload.factsSha256'),1,65),'manifestSha256',substr(json_extract(data,'$.payload.manifestSha256'),1,65),
     'expectedMemoryRevision',json_extract(data,'$.payload.expectedMemoryRevision'),'expectedContextHeadRevision',json_extract(data,'$.payload.expectedContextHeadRevision'),

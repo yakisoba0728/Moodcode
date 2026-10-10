@@ -187,3 +187,12 @@ test('native subscription replays and wakes independently from the legacy cursor
   assert.equal((await waiting).done, true);
   assert.equal((await legacy.next()).done, true);
 });
+
+test('native events committed by a store write without its own wake still reach a parked subscriber', async t => {
+  const f = fixture(t), abort = new AbortController();
+  t.after(() => abort.abort());
+  const native = f.store.subscribeSessionEvents('session', 0, abort.signal)[Symbol.asyncIterator]();
+  const next = native.next();
+  f.store.putResidentDocument('session', 'resident.probe', 0, { probe: true });
+  assert.equal(await Promise.race([next.then(result => result.value?.type), delay(2_000, 'parked', { ref: false })]), 'session.document.updated');
+});
