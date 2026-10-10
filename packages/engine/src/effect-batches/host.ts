@@ -68,6 +68,11 @@ async function wait(
     signal.removeEventListener("abort", abort);
   }
 }
+/** Keeps at most 256 UTF-16 units without splitting a surrogate pair. */
+function errorPrefix(text: string): string {
+  const high = text.charCodeAt(255);
+  return text.slice(0, high >= 0xd800 && high <= 0xdbff ? 255 : 256);
+}
 /** Constructed only by the Engine. Original resource producers remain private. */
 export class EffectBatchHost {
   constructor(private readonly ports: EffectBatchHostPorts) {}
@@ -193,6 +198,9 @@ export class EffectBatchExecution {
   private wake(): void {
     for (const notify of this.changed) notify();
     this.changed.clear();
+  }
+  private permitsUnsettled(): boolean {
+    return [...this.permits.keys()].some((i) => !this.settled.has(i));
   }
   private arrange(): void {
     const plan = planPreparedResources(this.record.members);
@@ -326,7 +334,7 @@ export class EffectBatchExecution {
     try {
       this.publish("running");
     } catch (error) {
-      if (this.lease && !this.permits.size) {
+      if (this.lease && !this.permitsUnsettled()) {
         this.lease.release(true);
         this.lease = undefined;
       }
@@ -394,7 +402,7 @@ export class EffectBatchExecution {
       checkpointSha256: checkpoints.map((c) => c.sha256),
       outputBytes: Buffer.byteLength(tool.output ?? ""),
       outputSha256: knowledgeHash(tool.output ?? null),
-      errorCode: tool.error?.slice(0, 256) ?? null,
+      errorCode: tool.error == null ? null : errorPrefix(tool.error),
     });
     this.settled.add(index);
     if (cleanup !== true) this.blocked = true;
@@ -403,12 +411,8 @@ export class EffectBatchExecution {
       this.arrive(index);
       if (this.durable && !this.persistFailure)
         this.publish(this.blocked ? "uncertain" : "running");
-      if (
-        this.lease &&
-        this.record.members.every(
-          (m, i) => m.wave !== this.leaseWave || this.settled.has(i),
-        )
-      ) {
+      // A sibling still awaiting approval takes a fresh lease when it enters.
+      if (this.lease && !this.permitsUnsettled()) {
         const clean = !this.blocked && !this.persistFailure;
         this.lease.release(clean);
         this.lease = undefined;

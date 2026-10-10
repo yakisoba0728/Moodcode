@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { assertExecutionLockAvailable } from "../tools/command/execution-lock.js";
 import { batchFixture, patch, hash, until } from "./fixtures/batch.js";
 test("actual independently approved disjoint file effects overlap and retain native per-member proofs", async (t) => {
   const f = await batchFixture(t);
@@ -231,6 +232,64 @@ test("a denied member does not borrow a sibling approval or reserve another tool
     readFileSync(join(f.root, "a.txt"), "utf8"),
     first!.toolCallId === r.members[0]!.toolCallId ? "a" : "A",
   );
+});
+test("a sibling still awaiting approval does not keep the engine execution lock", async (t) => {
+  const f = await batchFixture(t);
+  const receipt = await f.submit();
+  await until(() => f.pending().length === 2, "Prepared approvals");
+  assert.equal(f.records()[0]!.mode, "parallel");
+  const [first, second] = f.pending();
+  f.engine.approvals.decide(first!.id, "allow", first!.fingerprint);
+  const member = () =>
+    f.records()[0]!.members.find((m) => m.toolCallId === first!.toolCallId)!;
+  await until(
+    () => member().state === "completed",
+    "First approved member settles",
+  );
+  const epoch = f.records()[0]!.lockEpoch;
+  assert.ok(epoch);
+  assertExecutionLockAvailable(
+    Reflect.get(f.engine, "executionLockPath") as string,
+  );
+  assert.equal(f.pending().length, 1);
+  f.engine.approvals.decide(second!.id, "allow", second!.fingerprint);
+  const run = await f.engine.coordinator.waitForRun(receipt.runId);
+  assert.equal(run.state, "completed", JSON.stringify(run.error));
+  const r = f.records()[0]!;
+  assert.equal(r.state, "completed");
+  assert.equal(r.lockReleased, true);
+  assert.ok(r.lockEpoch);
+  assert.notEqual(r.lockEpoch, epoch);
+  assert.ok(r.members.every((m) => m.state === "completed" && m.approvalId));
+  assert.equal(readFileSync(join(f.root, "a.txt"), "utf8"), "A");
+  assert.equal(readFileSync(join(f.root, "b.txt"), "utf8"), "B");
+});
+test("a failed member error with an astral character at the stored cut stays a clean failure", async (t) => {
+  const prefix =
+    '{"error":{"code":"PATCH_PREIMAGE_MISMATCH","message":"Current content of ';
+  const name = `${"x".repeat(255 - prefix.length)}\u{1f600}.txt`;
+  const f = await batchFixture(t, {
+    calls: [patch("astral", name, "a", "A"), patch("b", "b.txt", "b", "B")],
+  });
+  await fs.writeFile(join(f.root, name), "a");
+  const receipt = await f.submit();
+  await until(() => f.pending().length === 2, "Prepared approvals");
+  await fs.writeFile(join(f.root, name), "changed");
+  f.approve();
+  const run = await f.engine.coordinator.waitForRun(receipt.runId);
+  assert.equal(run.state, "completed", JSON.stringify(run.error));
+  const r = f.records()[0]!;
+  const error = f.engine.store
+    .getSnapshot(f.session.id)
+    .tools.find((tool) => tool.id === r.members[0]!.toolCallId)!.error!;
+  const high = error.charCodeAt(255);
+  assert.ok(high >= 0xd800 && high <= 0xdbff, error);
+  assert.equal(r.state, "partial");
+  assert.equal(r.members[0]!.state, "failed");
+  assert.equal(r.members[0]!.cleanupConfirmed, true);
+  assert.equal(r.members[0]!.errorCode, error.slice(0, 255));
+  assert.equal(r.members[1]!.state, "completed");
+  assert.equal(readFileSync(join(f.root, "b.txt"), "utf8"), "B");
 });
 test("replaced or symlinked source cannot dispatch while an independent unchanged sibling remains usable", async (t) => {
   for (const mode of ["replace", "symlink"] as const) {

@@ -26,7 +26,7 @@ const record = engine.getEffectBatch(sessionId, history[0].id);
 | 직렬 fallback         | create/delete/rename, command, MCP/unknown/custom producer는 병렬 권한을 받지 않는다. Core의 미확정 resource는 한 member씩 실행하며 외부/custom producer는 기존 준비·승인·실행 직렬 경로와 fallback 관측 기록을 사용한다. |
 | 실제 승인             | member마다 기존 native Tool/Part 및 원래 outer prepared fingerprint에 대한 새 승인을 요구한다. sibling 승인·재사용 grant로 이 승인을 건너뛰지 않는다.                                                                     |
 | 실제 효과 및 결과     | 기존 producer가 파일을 쓰고 actual checkpoint를 기록한다. native Tool/Part/result, checkpoint 전체 SHA, 출력 SHA, 실제 descriptor cleanup을 기준으로 member를 마감한다.                                                   |
-| lock 및 debt          | 각 resource wave가 원래 coarse execution lock 하나를 공유한다. 물리 lock inode·epoch·owner가 바뀌거나 cleanup/receipt가 빠지면 unknown을 남기고 다음 충돌 효과를 시작하지 않는다.                                         |
+| lock 및 debt          | 함께 실행되는 wave member가 coarse lock 하나를 공유하고, 늦게 승인된 sibling은 새 epoch로 다시 잡는다. 물리 lock inode·epoch·owner가 바뀌거나 cleanup/receipt가 빠지면 unknown을 남기고 다음 충돌 효과를 시작하지 않는다. |
 | 복구와 archive        | 원래 SessionDocument revision과 독립 native event의 관계를 검증한다. 재시작은 활성 member를 unknown으로 보존하고 import는 paused history로 보존한다. 원래 permit/actor/승인은 복원하지 않으며 효과를 재실행하지 않는다.   |
 
 Custom producer는 실제 core와 이름·schema가 같거나 `createPatchTool()`을 가져와도 Engine의 원래 core scope를 대체할 수 없다. 병렬화 여부는 이름 목록이 아니라 Engine이 캡처한 producer identity와 private physical prepare evidence에 달려 있다. 확정되지 않은 MCP connection/resource claim을 병렬 안전으로 인정하지 않는다.
