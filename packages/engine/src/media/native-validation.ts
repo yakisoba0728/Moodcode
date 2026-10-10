@@ -25,7 +25,7 @@ import {
   readSync,
   realpathSync,
 } from "node:fs";
-import { join, dirname, parse, sep } from "node:path";
+import { join, dirname, isAbsolute, parse, relative, sep } from "node:path";
 import {
   attachment,
   attachments,
@@ -34,11 +34,19 @@ import {
 } from "./segment-validation.js";
 import { decodeMediaSegments, decodePcmWave } from "./segments.js";
 import { jobJson } from "../jobs/validation.js";
+import { ARTIFACT_ID } from "../artifacts/validation.js";
 function bad(): never {
   throw new EngineError(
     "MEDIA_HISTORY_INVALID",
     "Media history lacks exact native source and provider evidence",
   );
+}
+function io<T>(operation: () => T): T {
+  try {
+    return operation();
+  } catch {
+    return bad();
+  }
 }
 function parseRow(
   row: Record<string, unknown> | undefined,
@@ -203,6 +211,7 @@ export function validateMediaDatabase(
     const part = validateMessagePart(parseRow(row));
     if (
       part.type !== "media" ||
+      !ARTIFACT_ID.test(part.artifact.id) ||
       !("source" in part.artifact.identity) ||
       part.id !== row.id ||
       part.sessionId !== row.session_id ||
@@ -389,18 +398,32 @@ export function validateMediaDatabase(
   }
   return { sources, outputs };
 }
-function safeBytes(path: string, max: number, check: () => void): Buffer {
+function safeBytes(
+  root: string,
+  file: string,
+  max: number,
+  check: () => void,
+): Buffer {
+  const path = join(root, file),
+    inside = relative(root, path);
+  if (
+    !inside ||
+    inside === ".." ||
+    inside.startsWith(".." + sep) ||
+    isAbsolute(inside)
+  )
+    bad();
   let current = parse(path).root;
   for (const piece of dirname(path)
     .slice(current.length)
     .split(sep)
     .filter(Boolean)) {
     current = join(current, piece);
-    const st = lstatSync(current);
+    const st = io(() => lstatSync(current));
     if (!st.isDirectory() || st.isSymbolicLink()) bad();
   }
-  if (realpathSync(dirname(path)) !== dirname(path)) bad();
-  const before = lstatSync(path);
+  if (io(() => realpathSync(dirname(path))) !== dirname(path)) bad();
+  const before = io(() => lstatSync(path));
   if (
     !before.isFile() ||
     before.isSymbolicLink() ||
@@ -408,20 +431,22 @@ function safeBytes(path: string, max: number, check: () => void): Buffer {
     before.size > max
   )
     bad();
-  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  const fd = io(() =>
+    openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW),
+  );
   try {
-    const opened = fstatSync(fd);
+    const opened = io(() => fstatSync(fd));
     if (opened.dev !== before.dev || opened.ino !== before.ino) bad();
     const bytes = Buffer.alloc(before.size);
     let n = 0;
     while (n < bytes.length) {
       check();
-      const size = readSync(fd, bytes, n, bytes.length - n, n);
+      const size = io(() => readSync(fd, bytes, n, bytes.length - n, n));
       if (!size) bad();
       n += size;
     }
-    const after = fstatSync(fd),
-      live = lstatSync(path);
+    const after = io(() => fstatSync(fd)),
+      live = io(() => lstatSync(path));
     if (
       after.ino !== before.ino ||
       after.dev !== before.dev ||
@@ -460,7 +485,7 @@ export function validateMediaFiles(
   for (const ref of history.sources) {
     check();
     const file = "input-segments/" + ref.id + ".blob",
-      bytes = safeBytes(join(root, file), 524288, check);
+      bytes = safeBytes(root, file, 524288, check);
     if (bytes.length !== ref.bytes || digest(bytes) !== ref.sha256) bad();
     member(file, ref.bytes, ref.sha256);
     decodeMediaSegments(bytes, ref.mimeType, ref.segments);
@@ -469,11 +494,11 @@ export function validateMediaFiles(
     check();
     const ref = part.artifact,
       file = "managed/" + ref.id + "/content",
-      bytes = safeBytes(join(root, file), 524288, check);
+      bytes = safeBytes(root, file, 524288, check);
     if (bytes.length !== ref.storedBytes || digest(bytes) !== ref.sha256) bad();
     member(file, ref.storedBytes, ref.sha256);
     const manifestFile = "managed/" + ref.id + "/manifest.json",
-      raw = safeBytes(join(root, manifestFile), 65536, check),
+      raw = safeBytes(root, manifestFile, 65536, check),
       manifest = jobJson(JSON.parse(raw.toString("utf8")), 65536) as Record<
         string,
         unknown

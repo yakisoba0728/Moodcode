@@ -2,7 +2,7 @@ import { AsyncLocalStorage, createHook } from "node:async_hooks";
 import { CodexProvider } from "../provider/codex.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readFile, writeFile, unlink, readdir } from "node:fs/promises";
+import { readFile, writeFile, unlink, readdir, mkdir } from "node:fs/promises";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import {
@@ -18,7 +18,10 @@ import { exportEngineArchive } from "../storage/archive.js";
 import { LifecycleHookRegistry } from "../lifecycle/index.js";
 import { ResponsesProvider } from "../provider/responses.js";
 import { providerSegments } from "./segment-provider.js";
-import { validateMediaDatabase } from "./native-validation.js";
+import {
+  validateMediaDatabase,
+  validateMediaFiles,
+} from "./native-validation.js";
 const until = async (check: () => boolean) => {
   const end = Date.now() + 4000;
   while (!check()) {
@@ -295,6 +298,56 @@ test("archive rejects changed immutable input blob and actual generated output b
         destination: join(f.root, "corrupt-archive"),
       }),
       code("MEDIA_HISTORY_INVALID"),
+    );
+  }
+});
+test("media file validation never reads through a provider artifact id outside the artifact root", async (t) => {
+  const f = await fixture(t, { output: true }),
+    { run } = await accept(f);
+  assert.equal(run?.state, "completed");
+  const media = parts(f.engine, run!.id).find((p) => p.type === "media");
+  assert.ok(media?.type === "media");
+  const db = Reflect.get(f.engine.store, "db") as DatabaseSync;
+  assert.doesNotThrow(() => validateMediaFiles(db, f.artifactDir));
+  const retarget = (id: string) => {
+    for (const row of db
+      .prepare(
+        "SELECT seq,data FROM session_events WHERE json_extract(data,'$.payload.part.id')=?",
+      )
+      .all(media.id)) {
+      const event = JSON.parse(String(row.data));
+      event.payload.part.artifact.id = id;
+      db.prepare(
+        "UPDATE session_events SET data=? WHERE session_id=? AND seq=?",
+      ).run(JSON.stringify(event), f.sessionId, Number(row.seq));
+    }
+    db.prepare("UPDATE message_parts SET data=? WHERE id=?").run(
+      JSON.stringify({ ...media, artifact: { ...media.artifact, id } }),
+      media.id,
+    );
+  };
+  const source = join(f.artifactDir, "managed", media.artifact.id),
+    escaped = join(f.root, "escaped"),
+    manifest = JSON.parse(
+      await readFile(join(source, "manifest.json"), "utf8"),
+    );
+  manifest.reference.id = "../../escaped";
+  await mkdir(escaped);
+  await writeFile(
+    join(escaped, "content"),
+    await readFile(join(source, "content")),
+  );
+  await writeFile(join(escaped, "manifest.json"), JSON.stringify(manifest));
+  for (const id of [
+    "../../escaped",
+    "../../absent",
+    "artifact_" + "0".repeat(32),
+  ]) {
+    retarget(id);
+    assert.throws(
+      () => validateMediaFiles(db, f.artifactDir),
+      code("MEDIA_HISTORY_INVALID"),
+      id,
     );
   }
 });
