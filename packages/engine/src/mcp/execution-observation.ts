@@ -15,7 +15,9 @@ export interface McpResponseObservation {
 }
 export interface McpCallSettlement extends Partial<McpResponseObservation> {
   outcome: 'response-terminal' | 'uncertain' | 'not-dispatched'; reason: McpExecutionReason;
-  errorCode?: string; transportCleanupConfirmed: boolean;
+  errorCode?: string;
+  /** Only request-local reader/body/pending cleanup, never peer abort or shared-process termination. */
+  transportCleanupConfirmed: boolean;
 }
 export type McpToolCallObservation =
   | { phase: 'prepared'; identity: Readonly<McpCallIdentity> }

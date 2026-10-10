@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, isTerminal, type ApprovalRecord, type EngineEvent, type JsonObject, type MessagePart, type Run, type ToolCallRecord} from '@moodcode/contracts';
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
+import type { McpCallSettlement, McpDispatchBoundary, McpExecutionReason } from '../mcp/execution-observation.js';
 import { NativeSessionStorage } from './native.js';
 import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 
@@ -28,8 +29,7 @@ CREATE INDEX mcp_executions_pending ON mcp_executions(state) WHERE state IN ('pr
 CREATE INDEX mcp_native_tool_proposals ON message_parts(json_extract(data,'$.toolCallId')) WHERE json_extract(data,'$.type')='tool';`;
 
 export type McpExecutionState = 'prepared' | 'dispatch-intent' | 'response-terminal' | 'uncertain' | 'not-dispatched';
-export type McpDispatchBoundary = 'http-fetch' | 'stdio-write' | 'legacy-api-entry';
-export type McpExecutionReason = 'response' | 'timeout' | 'disconnect' | 'cancel' | 'transport-error' | 'invalid-response' | 'cleanup-error' | 'restart' | 'journal-error' | 'preflight-error';
+export type { McpDispatchBoundary, McpExecutionReason };
 export interface McpExecutionIdentity {
   toolCallId: string; sessionId: string; workspaceId: string; runId: string; turnId: string; attemptId: string;
   providerId: string; modelId: string; contextRevisionId?: string; toolName: string;
@@ -37,12 +37,7 @@ export interface McpExecutionIdentity {
   protocolVersion: '2026-07-28' | '2025-11-25'; transportKind: 'http' | 'stdio'; logicalRpcId: number | string;
   requestProjection: 'mcp-jsonrpc-tools-call-v1'; requestSha256: string; requestBytes: number;
 }
-export interface McpExecutionSettlement {
-  outcome: 'response-terminal' | 'uncertain' | 'not-dispatched'; reason: McpExecutionReason;
-  /** Only request-local reader/body/pending cleanup, never peer abort or shared-process termination. */
-  transportCleanupConfirmed: boolean; errorCode?: string;
-  responseKind?: 'tool-result' | 'jsonrpc-error'; responseSha256?: string; responseBytes?: number; isError?: boolean;
-}
+export type McpExecutionSettlement = McpCallSettlement;
 export interface McpExecutionRecord extends McpExecutionIdentity {
   schemaVersion: 2; revision: number; state: McpExecutionState;
   proposalPartId: string; proposalSha256: string; approvalSha256: string;
