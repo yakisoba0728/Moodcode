@@ -111,7 +111,7 @@ function effectAncestor(
   }
   batchFail("CODING_EFFECT_LINEAGE_INVALID");
 }
-export function readBatchCase(
+function readBatchCase(
   db: DatabaseSync,
   session: string,
   groupId: string,
@@ -168,7 +168,7 @@ export function readBatchCase(
   anchor(db, session, "coding.case.verified", r);
   return r;
 }
-export function readBatchGroup(
+function readBatchGroup(
   db: DatabaseSync,
   session: string,
   id: string,

@@ -1,4 +1,4 @@
-import type { JsonObject, RunConfigInput } from "@moodcode/contracts";
+import type { RunConfigInput } from "@moodcode/contracts";
 import type { WorkflowSpecInput } from "../workflows/types.js";
 import type { WorkflowStartPreview } from "../workflows/host.js";
 import type { WorkflowChildEvidence } from "../workflows/effect-evidence.js";
@@ -162,4 +162,3 @@ export interface CodingEvidenceExport {
   readonly sha256: string;
 }
 export type CodingConfig = RunConfigInput;
-export const codingData = (v: unknown) => v as JsonObject;

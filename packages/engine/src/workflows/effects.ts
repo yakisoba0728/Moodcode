@@ -190,11 +190,7 @@ export class WorkflowEffects {
   private native!: WorkflowEffectStorage;
 
 batchPolicy?: {
-    merge(
-      record: WorkflowInstanceRevision,
-      stageId: string,
-      phase: "prepare" | "execute",
-    ): JsonObject | null;
+    merge(record: WorkflowInstanceRevision, stageId: string): JsonObject | null;
     settled(record: WorkflowEffectRecord): void;
   };
   assertCandidateFiles(workspaceId: string, instanceId: string): void {
@@ -731,11 +727,7 @@ private closed = false;
         }
         if (name === "merge_workflow_stage") {
           const batchSelection =
-            this.batchPolicy?.merge(
-              a.record,
-              String(data.stageId),
-              "prepare",
-            ) ?? null;
+            this.batchPolicy?.merge(a.record, String(data.stageId)) ?? null;
           const selection = await this.mergeSelection(
               a.record,
               String(data.stageId),
@@ -912,7 +904,7 @@ private closed = false;
     if (a.record.sha256 !== p.record.sha256) effectFail("WORKFLOW_STAGE_STALE");
 
 const currentBatchSelection =
-      this.batchPolicy?.merge(a.record, p.editor.stageId, "execute") ?? null;
+      this.batchPolicy?.merge(a.record, p.editor.stageId) ?? null;
     if (
       knowledgeHash(currentBatchSelection) !== knowledgeHash(p.batchSelection)
     )

@@ -163,7 +163,7 @@ export function processRows() {
       };
     });
 }
-export function descendants(pid: number) {
+function descendants(pid: number) {
   const rows = processRows(),
     ids = new Set([pid]);
   for (let changed = true; changed;) {
@@ -181,7 +181,7 @@ export function descendants(pid: number) {
       !(row.ppid === pid && /(?:^|\/)ps$/.test(row.command)),
   );
 }
-export function descriptorCount(pid = process.pid): {
+function descriptorCount(pid = process.pid): {
   count: number;
   source: string;
 } {
@@ -201,7 +201,7 @@ export function descriptorCount(pid = process.pid): {
     source: "lsof-numeric-file-descriptors",
   };
 }
-export function artifactMeasure(root: string) {
+function artifactMeasure(root: string) {
   const digest = createHash("sha256"),
     content = createHash("sha256");
   let files = 0,

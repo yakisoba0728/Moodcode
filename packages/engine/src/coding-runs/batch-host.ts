@@ -66,7 +66,7 @@ export class CodingBatchHost {
     private readonly enabled: boolean,
   ) {
     effects.batchPolicy = {
-      merge: (r, s, p) => this.mergeGuard(r, s, p),
+      merge: (r, s) => this.mergeGuard(r, s),
       settled: (r) => this.merged(r.instanceId, r.sha256),
     };
     // Reopen never recreates a child owner. Reconcile the existing lazy child
@@ -756,7 +756,6 @@ export class CodingBatchHost {
   private mergeGuard(
     instance: WorkflowInstanceRevision,
     stageId: string,
-    phase: "prepare" | "execute",
   ): import("@moodcode/contracts").JsonObject | null {
     const member = this.member(instance);
     if (!member) return null;

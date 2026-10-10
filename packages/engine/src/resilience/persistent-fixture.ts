@@ -731,10 +731,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     ...paths,
     workspace,
     session,
-    config,
-    observerConfig,
     local,
-    commandText,
     engine: () => engine,
     instance: () => instance,
     canAccept,
@@ -743,7 +740,6 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     crashReady,
     close,
     launches,
-    lastPhysical: () => ({ pid: lastPid, groupPid: lastGroupPid }),
     summary: () => ({
       workspaceId: workspace.id,
       sessionId: session.id,

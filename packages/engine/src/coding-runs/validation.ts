@@ -129,7 +129,7 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
   }
   return v;
 }
-export function pinCodingSource(
+function pinCodingSource(
   path: string,
   maxBytes = 1048576,
 ): CodingSourcePin {

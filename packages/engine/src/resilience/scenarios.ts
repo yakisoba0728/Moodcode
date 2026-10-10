@@ -20,6 +20,7 @@ import {
   pidAbsent,
   PROFILES,
   until,
+  type ResilienceFixture,
 } from "./fixture.js";
 import type { ResilienceScenario } from "./options.js";
 
@@ -116,7 +117,7 @@ export async function runLocalScenario(
 ): Promise<IterationResult> {
   const result = resultBase(iteration, seed, scenario);
   const started = performance.now();
-  let fixture: Awaited<ReturnType<typeof createFixture>> | undefined;
+  let fixture: ResilienceFixture | undefined;
   let verified = false;
   let admissionCleanupConfirmed = false;
   try {
