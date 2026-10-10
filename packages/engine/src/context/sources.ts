@@ -21,19 +21,49 @@ export interface InstructionBaselinePersistence {
   loadBaseline(id: string): InstructionSource | null;
   saveBaseline(source: InstructionSource): void;
 }
+/** Reports which of the given workspace-relative directories Git ignores. */
+export type InstructionIgnoreLookup = (directories: string[], signal: AbortSignal) => Promise<ReadonlySet<string>>;
 const MAX_SOURCES = 32;
 const MAX_SOURCE_BYTES = 32_768;
+// Dependency and VCS content never gains workspace-instruction authority.
+const UNTRUSTED_DIRECTORIES = new Set(['node_modules', '.git', '.hg', '.svn', '.venv', 'venv', '__pycache__', 'site-packages']);
 
 function cancelled(signal: AbortSignal): void {
   if (signal.aborted) throw new EngineError('CANCELLED', 'Instruction discovery was cancelled');
 }
 function errorCode(error: unknown): string | undefined { return (error as { code?: string } | null)?.code; }
+const posix = (path: string) => path.split(sep).join('/');
+
+function scopes(root: string, path: string): string[] {
+  if (typeof path !== 'string' || Buffer.byteLength(path) > 4096 || isAbsolute(path) || path.includes('\0')) throw new EngineError('INVALID_INSTRUCTION_PATH', 'Instruction paths must be bounded workspace-relative paths');
+  const scoped = relative(root, resolve(root, path));
+  if (scoped === '..' || scoped.startsWith(`..${sep}`)) throw new EngineError('INVALID_INSTRUCTION_PATH', 'Instruction path leaves the workspace');
+  const result: string[] = [];
+  for (let directory = dirname(scoped); directory !== '.' && directory !== ''; directory = dirname(directory))
+    if (!directory.split(sep).some(name => UNTRUSTED_DIRECTORIES.has(name.toLowerCase()))) result.push(join(directory, 'AGENTS.md'));
+  return result;
+}
+
+/** Model-chosen paths are hints: invalid ones are skipped, and a path whose scopes would pass the source limit is left out whole. */
+export function instructionPathHints(root: string, hints: Iterable<string>): { paths: string[]; warnings: string[] } {
+  const paths: string[] = [], selected = new Set(['AGENTS.md']);
+  let skipped = 0;
+  for (const hint of hints) {
+    let candidates: string[];
+    try { candidates = scopes(root, hint); } catch { continue; }
+    const added = candidates.filter(candidate => !selected.has(candidate));
+    if (selected.size + added.length > MAX_SOURCES) { skipped++; continue; }
+    for (const candidate of added) selected.add(candidate);
+    paths.push(hint);
+  }
+  return { paths, warnings: skipped ? [`${skipped} instruction path hint(s) were skipped at the ${MAX_SOURCES}-source instruction scope limit.`] : [] };
+}
 
 /** Root instructions precede deeper scopes; only paths relevant to this request are discovered. */
 export class InstructionSources {
   private readonly baseline = new Map<string, InstructionSource>();
   private readonly workspaceRoot: string;
-  constructor(private readonly root: string, private readonly persistence?: InstructionBaselinePersistence) {
+  constructor(private readonly root: string, private readonly persistence?: InstructionBaselinePersistence, private readonly ignored?: InstructionIgnoreLookup) {
     if (!isAbsolute(root) || root.includes('\0') || Buffer.byteLength(root) > 4096) throw new EngineError('INVALID_WORKSPACE', 'Instruction discovery requires a bounded absolute workspace root');
     this.workspaceRoot = resolve(root);
   }
@@ -59,17 +89,9 @@ export class InstructionSources {
   }
   private candidates(paths: readonly string[]): string[] {
     const result = new Set(['AGENTS.md']);
-    for (const path of paths) {
-      if (typeof path !== 'string' || Buffer.byteLength(path) > 4096 || isAbsolute(path) || path.includes('\0')) throw new EngineError('INVALID_INSTRUCTION_PATH', 'Instruction paths must be bounded workspace-relative paths');
-      const resolved = resolve(this.root, path);
-      const scoped = relative(this.root, resolved);
-      if (scoped === '..' || scoped.startsWith(`..${sep}`)) throw new EngineError('INVALID_INSTRUCTION_PATH', 'Instruction path leaves the workspace');
-      let directory = dirname(scoped);
-      while (directory !== '.' && directory !== '') {
-        result.add(join(directory, 'AGENTS.md'));
-        if (result.size > MAX_SOURCES) throw new EngineError('INSTRUCTION_SOURCE_LIMIT', 'Too many instruction scopes for one request');
-        directory = dirname(directory);
-      }
+    for (const path of paths) for (const candidate of scopes(this.root, path)) {
+      result.add(candidate);
+      if (result.size > MAX_SOURCES) throw new EngineError('INSTRUCTION_SOURCE_LIMIT', 'Too many instruction scopes for one request');
     }
     return [...result].sort((a, b) => a.split(sep).length - b.split(sep).length || a.localeCompare(b));
   }
@@ -118,28 +140,46 @@ export class InstructionSources {
       return { status: errorCode(error) === 'ENOENT' ? 'missing' : 'unavailable', text: null };
     }
   }
+  /** Nested sources in Git-ignored directories are dropped; an unchecked lookup drops them all. */
+  private async gitIgnored(paths: string[], signal: AbortSignal, warnings: string[]): Promise<Set<string>> {
+    if (!this.ignored || !paths.length) return new Set();
+    let ignored: ReadonlySet<string>;
+    try { ignored = await this.ignored([...new Set(paths.map(path => posix(dirname(path))))], signal); } catch {
+      cancelled(signal);
+      warnings.push('Nested instruction sources were not loaded because Git ignore rules could not be checked.');
+      return new Set(paths);
+    }
+    const excluded = new Set(paths.filter(path => ignored.has(posix(dirname(path)))));
+    for (const path of excluded) warnings.push(`Instruction source ${path} is in a Git-ignored directory and was not loaded.`);
+    return excluded;
+  }
   async observe(paths: readonly string[], signal: AbortSignal): Promise<InstructionObservation> {
     cancelled(signal);
     const sources: InstructionSource[] = [];
     const changedSourceIds: string[] = [];
     const warnings: string[] = [];
+    const observed: { source: InstructionSource; previous: InstructionSource | undefined }[] = [];
     for (const path of this.candidates(paths)) {
-      const id = `instruction:${path.split(sep).join('/')}`;
+      const id = `instruction:${posix(path)}`;
       const previous = this.loadBaseline(id, path);
       const observation = await this.read(path, signal);
       const retained = observation.status === 'unavailable' && previous?.text !== null && previous?.text !== undefined;
       const text = retained ? previous!.text : observation.text;
-      const source: InstructionSource = { id, path, scope: dirname(path) === '.' ? '' : dirname(path), status: observation.status,
+      observed.push({ previous, source: { id, path, scope: dirname(path) === '.' ? '' : dirname(path), status: observation.status,
         text, sha256: text === null ? null : createHash('sha256').update(text).digest('hex'), observedAt: new Date().toISOString(), retainedBaseline: retained,
-        ...(this.persistence ? { workspaceRoot: this.workspaceRoot } : {}) };
-      if (observation.status === 'unavailable') warnings.push(`Instruction source ${path} is unavailable${retained ? '; previous baseline retained' : ''}.`);
-      if (previous?.sha256 !== source.sha256) changedSourceIds.push(id);
+        ...(this.persistence ? { workspaceRoot: this.workspaceRoot } : {}) } });
+    }
+    const excluded = await this.gitIgnored(observed.filter(({ source }) => source.scope && source.text !== null).map(({ source }) => source.path), signal, warnings);
+    for (const { source, previous } of observed) {
+      if (excluded.has(source.path)) continue;
+      if (source.status === 'unavailable') warnings.push(`Instruction source ${source.path} is unavailable${source.retainedBaseline ? '; previous baseline retained' : ''}.`);
+      if (previous?.sha256 !== source.sha256) changedSourceIds.push(source.id);
       // Deleted files remove their baseline; transient failures retain the last valid text.
-      if (observation.status !== 'unavailable') {
+      if (source.status !== 'unavailable') {
         // Persist before changing the cache. A rejected write cannot become a
         // memory-only baseline that disappears after restart.
         this.persistence?.saveBaseline(structuredClone(source));
-        this.baseline.set(id, structuredClone(source));
+        this.baseline.set(source.id, structuredClone(source));
       }
       sources.push(source);
     }

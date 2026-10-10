@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, SESSION_SCHEMA_VERSION, type ContextRevision, type JsonObject } from '@moodcode/contracts';
+import { EngineError, isTerminal, SESSION_SCHEMA_VERSION, type ContextRevision, type JsonObject } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderMessage, TurnRequest } from '../ports.js';
 import type { SqliteStore } from '../storage/index.js';
 import { settleSummaryFailure, streamSummary } from './summary-stream.js';
@@ -43,7 +43,7 @@ export class SemanticMemoryService {
     const projected = this.project(request);
     const older = projected.snapshot.messages.filter(message => message.runId !== run.id);
     if (!older.length) throw new EngineError('SUMMARY_SOURCE_UNAVAILABLE', 'There is no older complete conversation to summarize');
-    const availableRunIds = new Set(projected.snapshot.runs.filter(item => ['completed', 'failed', 'cancelled', 'interrupted'].includes(item.state)).map(item => item.id));
+    const availableRunIds = new Set(projected.snapshot.runs.filter(item => isTerminal(item.state)).map(item => item.id));
     const sourceMessages = older.filter(message => availableRunIds.has(message.runId));
     if (sourceMessages.length > 512) throw new EngineError('SUMMARY_SOURCE_LIMIT', 'Summary source exceeds the complete-message count limit');
     if (!sourceMessages.length) throw new EngineError('SUMMARY_SOURCE_UNAVAILABLE', 'There is no settled conversation to summarize');

@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, sep } from 'node:path';
 import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { InstructionSources, type InstructionSource } from './sources.js';
+import { InstructionSources, instructionPathHints, type InstructionSource } from './sources.js';
 
 test('nested instructions have explicit scopes and a changed hash at the next observation', async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-instructions-')));
@@ -116,4 +116,48 @@ test('durable write failure cannot install a volatile baseline and callback/defa
   assert.equal((await detached.observe([], new AbortController().signal)).sources[0]!.text, 'actual guidance');
   const ordinary = await new InstructionSources(root).observe([], new AbortController().signal);
   assert.equal(Object.hasOwn(ordinary.sources[0]!, 'workspaceRoot'), false);
+});
+
+test('dependency and VCS trees never provide instructions while build output scopes still do', async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-dependency-instructions-')));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  const site = join('.venv', 'lib', 'python3.12', 'site-packages', 'pkg');
+  for (const directory of [join('node_modules', 'pkg', 'lib'), join('Node_Modules', 'other'), join('app', '.git'), site, join('lib', 'site-packages', 'mod'), 'dist'])
+    await mkdir(join(root, directory), { recursive: true });
+  for (const directory of [join('node_modules', 'pkg'), 'node_modules', join('Node_Modules', 'other'), join('app', '.git'), site, '.venv', join('lib', 'site-packages', 'mod')])
+    await writeFile(join(root, directory, 'AGENTS.md'), 'Dependency instructions');
+  await writeFile(join(root, 'dist', 'AGENTS.md'), 'Build output guidance'); await writeFile(join(root, 'app', 'AGENTS.md'), 'App guidance');
+  const observed = await new InstructionSources(root).observe(['node_modules/pkg/lib/index.js', 'Node_Modules/other/x.js', 'app/.git/config',
+    `${site.split('\\').join('/')}/mod.py`, 'lib/site-packages/mod/a.py', 'dist/app.js'], new AbortController().signal);
+  assert.deepEqual(observed.sources.map(source => source.path), ['AGENTS.md', 'app/AGENTS.md', 'dist/AGENTS.md', 'lib/AGENTS.md'].map(path => path.split('/').join(sep)));
+  assert.deepEqual(observed.sources.filter(source => source.text !== null).map(source => source.text), ['App guidance', 'Build output guidance']);
+});
+
+test('path hints skip invalid values and leave out whole paths past the scope limit', () => {
+  const root = join(tmpdir(), 'moodcode-hint-root'), deep = Array.from({ length: 31 }, (_, index) => `d${index}`).join('/');
+  const hints = [join(root, 'src', 'a.ts'), '../outside.ts', 'src/\0a.ts', 'x/'.repeat(2100), `${deep}/file.ts`, 'other/file.ts', 'd0/d1/file.ts', 'node_modules/a/b/c.js', 'top.ts'];
+  const selected = instructionPathHints(root, hints);
+  assert.deepEqual(selected.paths, [`${deep}/file.ts`, 'd0/d1/file.ts', 'node_modules/a/b/c.js', 'top.ts']);
+  assert.deepEqual(selected.warnings, ['1 instruction path hint(s) were skipped at the 32-source instruction scope limit.']);
+  assert.deepEqual(instructionPathHints(root, ['src/a.ts']), { paths: ['src/a.ts'], warnings: [] });
+});
+
+test('nested instructions in Git-ignored directories are dropped and an unchecked lookup fails closed', async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-ignored-instructions-')));
+  t.after(() => rm(root, { force: true, recursive: true }));
+  for (const directory of ['ignored', 'kept']) { await mkdir(join(root, directory)); await writeFile(join(root, directory, 'AGENTS.md'), `${directory} guidance`); }
+  await writeFile(join(root, 'AGENTS.md'), 'root guidance');
+  const paths = ['ignored/a.ts', 'kept/a.ts', 'missing/a.ts'], lookups: string[][] = [], saved: string[] = [];
+  const persistence = { loadBaseline: () => null, saveBaseline: (source: InstructionSource) => { saved.push(source.id); } };
+  const filtered = await new InstructionSources(root, persistence, async directories => { lookups.push(directories); return new Set(['ignored']); }).observe(paths, new AbortController().signal);
+  assert.deepEqual(lookups, [['ignored', 'kept']]);
+  assert.deepEqual(filtered.sources.map(source => source.text), ['root guidance', 'kept guidance', null]);
+  assert.deepEqual(filtered.warnings, [`Instruction source ${join('ignored', 'AGENTS.md')} is in a Git-ignored directory and was not loaded.`]);
+  assert.ok(!saved.includes('instruction:ignored/AGENTS.md'));
+  const failed = await new InstructionSources(root, undefined, async () => { throw new EngineError('IGNORE_LOOKUP_FAILED', 'unavailable'); }).observe(paths, new AbortController().signal);
+  assert.deepEqual(failed.sources.map(source => source.path), ['AGENTS.md', join('missing', 'AGENTS.md')]);
+  assert.deepEqual(failed.warnings, ['Nested instruction sources were not loaded because Git ignore rules could not be checked.']);
+  const controller = new AbortController();
+  const aborted = new InstructionSources(root, undefined, async () => { controller.abort(); throw new EngineError('ABORTED', 'aborted'); });
+  await assert.rejects(aborted.observe(paths, controller.signal), error => error instanceof EngineError && error.code === 'CANCELLED');
 });

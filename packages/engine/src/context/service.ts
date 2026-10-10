@@ -5,7 +5,7 @@ import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.
 import type { ModelHistoryPage, SqliteStore } from '../storage/index.js';
 import { ModelRegistry } from './model-spec.js';
 import { estimateTokens, planContext, type ContextPlan } from './plan.js';
-import { InstructionSources, type InstructionObservation, type InstructionSource } from './sources.js';
+import { InstructionSources, instructionPathHints, type InstructionObservation, type InstructionSource } from './sources.js';
 import { SemanticMemoryService } from './semantic-memory.js';
 import { projectToolHistory } from './tool-history.js';
 import { projectMediaHistory, validateMediaHistoryPolicy, type MediaHistoryPolicy, type ImageHistoryProvenance, type MediaHistoryDiagnostics } from './media-history.js';
@@ -17,6 +17,7 @@ import type { KnowledgeContextPolicy, KnowledgeContextProfile, KnowledgeContextS
 import type { LifecycleCapture, LifecycleHookRegistry } from '../lifecycle/index.js';
 import { proposalContextPolicy, proposalContributionSourceIds } from '../proposals/overlay.js';
 import type { ProposalContextPolicy, ProposalContextProfile, ProposalContextSourcePort, PreparedProposalContribution } from '../proposals/overlay.js';
+import { ignoredWorkspacePaths } from '../workspace/ignore.js';
 
 export interface ContextServiceOptions { conversationFork?: { prepare(sessionId:string,config:RunConfig):ForkContextContribution|null; assertFresh(sessionId:string,sha256:string,config:RunConfig):void }; mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
   lifecycleHooks?: LifecycleHookRegistry; lifecycleContextSlotBytes?: number;
@@ -41,6 +42,7 @@ export interface ContextDiagnostics {
     summaryUsage: ActivePrefixCheckpoint['usage']; historicalFileEvidence: true; currentFileEvidence: false };
 }
 const digest = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+const FILE_TOOLS = new Set(['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'edit_file', 'apply_patch', 'rename_file', 'delete_file']);
 type SnapshotHistory = Pick<ModelHistoryPage, 'omittedMessages' | 'omittedRuns' | 'activeWindow' | 'sessionImageAnchor' | 'sessionDocumentAnchor'>;
 const snapshotHistory = (page: ModelHistoryPage): SnapshotHistory => ({ omittedMessages: page.omittedMessages, omittedRuns: page.omittedRuns,
   ...(page.activeWindow ? { activeWindow: page.activeWindow } : {}), ...(page.sessionImageAnchor ? { sessionImageAnchor: page.sessionImageAnchor } : {}),
@@ -157,17 +159,17 @@ export class ContextService {
     this.store.getSession(sessionId);
     return structuredClone(this.store.getSessionDocument(sessionId, 'context.head')?.data.diagnostics as unknown as ContextDiagnostics ?? null);
   }
-  private relevantPaths(request: ContextRequest): string[] {
-    const activeRunId = request.snapshot.runs.findLast(run => !['completed', 'cancelled', 'failed', 'interrupted'].includes(run.state))?.id;
+  private relevantPaths(request: ContextRequest): { paths: string[]; warnings: string[] } {
+    const activeRunId = request.snapshot.runs.findLast(run => !isTerminal(run.state))?.id;
     const paths = new Set<string>();
     for (const call of request.snapshot.tools) {
-      if (call.runId !== activeRunId || !call.input || typeof call.input !== 'object' || Array.isArray(call.input)) continue;
-      for (const key of ['path', 'source', 'destination']) if (typeof call.input[key] === 'string' && paths.size < 24) paths.add(call.input[key]);
+      if (call.runId !== activeRunId || !FILE_TOOLS.has(call.name) || !call.input || typeof call.input !== 'object' || Array.isArray(call.input)) continue;
+      for (const key of ['path', 'destination']) if (typeof call.input[key] === 'string' && paths.size < 24) paths.add(call.input[key]);
       if (Array.isArray(call.input.changes)) for (const change of call.input.changes) {
         if (change && typeof change === 'object' && !Array.isArray(change) && typeof change.path === 'string' && paths.size < 24) paths.add(change.path);
       }
     }
-    return [...paths];
+    return instructionPathHints(request.workspace.root, paths);
   }
   async recoverOverflow(request: ContextRequest, provider: ProviderAdapter): Promise<void> {
     if (this.activePrefix && request.run && request.activePrefixStage?.stage === 'overflow-recovery') {
@@ -207,7 +209,8 @@ export class ContextService {
         this.sources.delete(idle[0]);
       }
       const key = (id: string) => `instruction.${digest(id).slice(0, 32)}`;
-      const source = new InstructionSources(request.workspace.root, {
+      const workspace = request.workspace;
+      const source = new InstructionSources(workspace.root, {
         loadBaseline: id => this.store.getSessionDocument(sessionId, key(id))?.data.source as unknown as InstructionSource ?? null,
         saveBaseline: source => {
           const previous = this.store.getSessionDocument(sessionId, key(source.id));
@@ -215,14 +218,16 @@ export class ContextService {
           if (prior?.sha256 === source.sha256 && prior?.status === source.status && prior.workspaceRoot === source.workspaceRoot) return;
           this.store.putSessionDocument(sessionId, key(source.id), previous?.revision ?? 0, { source: JSON.parse(JSON.stringify(source)) as JsonObject });
         },
-      }); cached = { source, leases: 0 }; this.sources.set(cacheKey, cached);
+      }, workspace.gitRoot ? (directories, signal) => ignoredWorkspacePaths(workspace, directories, signal) : undefined); cached = { source, leases: 0 }; this.sources.set(cacheKey, cached);
     } else {
       this.sources.delete(cacheKey); this.sources.set(cacheKey, cached);
     }
+    const hints = this.relevantPaths(request);
     cached.leases++;
     let observation: InstructionObservation;
-    try { observation = await cached.source.observe(this.relevantPaths(request), request.signal); }
+    try { observation = await cached.source.observe(hints.paths, request.signal); }
     finally { cached.leases--; }
+    observation.warnings.push(...hints.warnings);
     const model = this.models.get(request.config.providerId, request.config.modelId);
     const makePlan = async (candidate?: PreparedActivePrefix) => {
       const remembered = this.memory.project(request);
