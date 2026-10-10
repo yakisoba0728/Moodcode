@@ -41,7 +41,7 @@ export class StdioMcpTransport implements McpTransport {
     });
     child.stderr.on('data', () => { /* Drain without retaining or exposing potentially secret-bearing server logs. */ });
     child.stdin.on('error', () => this.fail(new EngineError('MCP_DISCONNECTED', 'MCP server input stream closed')));
-    child.once('error', () => this.fail(new EngineError('MCP_START_FAILED', 'MCP server process could not be started')));
+    child.once('error', () => { if (!child.pid) this.finished = true; this.fail(new EngineError('MCP_START_FAILED', 'MCP server process could not be started')); });
     child.once('exit', (code) => { this.exitCode=code; this.finished = true; this.fail(new EngineError('MCP_DISCONNECTED', 'MCP server process exited')); });
     child.stdout.once('end', () => this.fail(new EngineError('MCP_DISCONNECTED', 'MCP server output stream closed')));
     try { await once(child, 'spawn'); if(launch){child.send?.({type:'init',command:this.options.command,args:[...this.options.args??[]],cwd:this.options.cwd,profile:launch.profile});await Promise.race([admission,new Promise<never>((_r,reject)=>{const timer=setTimeout(()=>reject(new EngineError('MCP_START_FAILED','Sandbox server admission timed out')),5000);timer.unref();})]);}else this.options.observer?.started(child.pid!); } catch { throw new EngineError('MCP_START_FAILED', 'MCP server process could not be started'); }
