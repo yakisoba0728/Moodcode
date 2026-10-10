@@ -30,9 +30,9 @@ function readPin(binding: KnowledgeHostBinding, relative: string): TrustSourcePi
     for (let index = 0; index < components.length; index++) {
       selected = path.join(selected, components[index]!);
       const metadata = lstatSync(selected, { bigint: true });
-      if (metadata.isSymbolicLink() || realpathSync(selected) !== selected || index < components.length - 1 && !metadata.isDirectory()) knowledgeError('KNOWLEDGE_SOURCE_UNAVAILABLE', 'Trust sources cannot traverse symlinks or unavailable path components');
+      if (metadata.isSymbolicLink() || realpathSync(selected) !== selected || (index < components.length - 1 ? !metadata.isDirectory() : !metadata.isFile())) knowledgeError('KNOWLEDGE_SOURCE_UNAVAILABLE', 'Trust sources cannot traverse symlinks or unavailable path components or end at a non-regular file');
     }
-    const descriptor = openSync(selected, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    const descriptor = openSync(selected, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     try {
       const before = fstatSync(descriptor, { bigint: true });
       if (!before.isFile() || before.nlink !== 1n || before.size > BigInt(KNOWLEDGE_LIMITS.trustFileBytes)) knowledgeError('KNOWLEDGE_SOURCE_UNAVAILABLE', 'Trust sources must be bounded ordinary files with one link');

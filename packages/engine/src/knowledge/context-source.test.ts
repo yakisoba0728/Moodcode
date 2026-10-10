@@ -31,6 +31,7 @@ import {
   knowledgeContextPolicy,
 } from "./context-source.js";
 import type { KnowledgeGenerationBudget } from "./generation-types.js";
+import { KNOWLEDGE_HOST_LIMITS } from "./host.js";
 import { knowledgeHash } from "./validation.js";
 
 const KEY = "approved.memory";
@@ -447,6 +448,7 @@ test("JSON escaping is charged before selection and a valid large native documen
 
 for (const mutation of [
   "source",
+  "oversized",
   "trust",
   "deny",
   "pause",
@@ -463,6 +465,11 @@ for (const mutation of [
       writeFileSync(
         join(f.root, "source.ts"),
         "export const observedSource = 2;\n",
+      );
+    if (mutation === "oversized")
+      writeFileSync(
+        join(f.root, "source.ts"),
+        "x".repeat(KNOWLEDGE_HOST_LIMITS.fileBytes + 1),
       );
     if (mutation === "trust")
       writeFileSync(
@@ -499,7 +506,7 @@ for (const mutation of [
     const empty = await source.prepare(f.request());
     assert.equal(empty.messages.length, 0);
     const reason =
-      mutation === "source"
+      mutation === "source" || mutation === "oversized"
         ? "stale"
         : mutation === "trust" || mutation === "deny"
           ? "untrusted"

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
 import { lstatSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -126,9 +127,21 @@ test('source count, duplicate selectors, malicious hashes and executable JSON ar
   assert.throws(() => f.adapter.captureSources(new Proxy({ workspaceId: 'workspace', selection: f.selection }, {})), hasCode('INVALID_KNOWLEDGE')); assert.throws(() => f.adapter.captureSources({ workspaceId: 'workspace', selection: Array.from({ length: 65 }, (_, index) => ({ kind: 'file', path: `${index}.ts` })) }), hasCode('KNOWLEDGE_LIMIT'));
 });
 
-test('source paths reject final/parent symlinks and invalid binary UTF-8 instead of following aliases', t => {
+test('source paths reject final/parent symlinks, directories and invalid binary UTF-8 instead of following aliases', t => {
   const f = fixture(t); symlinkSync('source.ts', join(f.root, 'link.ts')); mkdirSync(join(f.root, 'folder')); writeFileSync(join(f.root, 'folder', 'file.ts'), 'text'); symlinkSync('folder', join(f.root, 'linked-folder')); writeFileSync(join(f.root, 'invalid.ts'), Buffer.from([0xff]));
-  for (const relative of ['link.ts', 'linked-folder/file.ts', 'invalid.ts']) assert.throws(() => f.adapter.captureSources({ workspaceId: 'workspace', selection: [{ kind: 'file', path: relative }] }), hasCode('KNOWLEDGE_SOURCE_UNAVAILABLE'));
+  for (const relative of ['link.ts', 'linked-folder/file.ts', 'folder', 'invalid.ts']) assert.throws(() => f.adapter.captureSources({ workspaceId: 'workspace', selection: [{ kind: 'file', path: relative }] }), hasCode('KNOWLEDGE_SOURCE_UNAVAILABLE'));
+});
+
+test('source and trust pins reject a FIFO without waiting for a writer', { skip: process.platform === 'win32' }, t => {
+  const f = fixture(t), fifo = join(f.root, 'pipe.md');
+  if (spawnSync('mkfifo', [fifo]).status !== 0) { t.skip('mkfifo fixture is unavailable'); return; }
+  // A late writer releases a blocked synchronous open, so a regression fails instead of hanging the test process.
+  const writer = spawn(process.execPath, ['-e', 'const fs = require("node:fs"); setTimeout(function release() { fs.closeSync(fs.openSync(process.argv[1], "w")); setImmediate(release); }, 5000);', fifo], { stdio: 'ignore' });
+  t.after(() => { writer.kill('SIGKILL'); });
+  const started = Date.now();
+  assert.throws(() => f.adapter.captureSources({ workspaceId: 'workspace', selection: [{ kind: 'file', path: 'pipe.md' }] }), hasCode('KNOWLEDGE_SOURCE_UNAVAILABLE'));
+  assert.throws(() => captureWorkspaceTrustSources(f.binding(), ['pipe.md']), hasCode('KNOWLEDGE_SOURCE_UNAVAILABLE'));
+  assert.ok(Date.now() - started < 2_500, 'FIFO pins must be rejected before open waits for a writer');
 });
 
 test('actual absent target is version zero with null preimage; existing target has no invented revision', t => {

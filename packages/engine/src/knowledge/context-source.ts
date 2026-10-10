@@ -72,6 +72,7 @@ const SOURCE_STALE_CODES = new Set([
   "KNOWLEDGE_SOURCE_SCOPE_MISMATCH",
   "KNOWLEDGE_SOURCE_UNSETTLED",
   "KNOWLEDGE_SOURCE_MEDIA_UNSUPPORTED",
+  "KNOWLEDGE_LIMIT",
 ]);
 function fail(code: string, message: string): never {
   return knowledgeError(code, message);
