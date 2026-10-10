@@ -208,7 +208,8 @@ test('actual caller policy array mutation cannot alter normalized host-selected 
 });
 
 test('actual candidate expiry omits approved data after its original deadline without altering historical publication', async t => {
-  const f = await fixture(t, { expiryMs: 1000 });
+  // Generation reserves the default 1 s cleanup window before the plan deadline, so the plan needs more than 1 s.
+  const f = await fixture(t, { expiryMs: 2000 });
   await pause(Math.max(0, Date.parse(f.first.expiresAt) - Date.now() + 2));
   const before = hostRows(f.dbPath), result = await f.consume(); assert.equal(result.run.state, 'completed', JSON.stringify(result.run.error)); assert.ok(result.request);
   assert.equal(evidence(result.request).length, 0); assert.equal(diagnostics(f.engine, result.session.id).omissions[0]!.reason, 'expired');

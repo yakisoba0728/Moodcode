@@ -175,8 +175,9 @@ test("actual stall advisory joins a late journal window with observations past t
         } else yield stop;
       },
     }),
+    // 101 observed reads take several seconds on hosted runners; the fixture's 12 s budget is too tight.
     submitted = await f.submit({
-      limits: { maxToolCalls: 128 },
+      limits: { maxToolCalls: 128, maxDurationMs: 60000 },
       budgets: { maxToolCallsPerTurn: 128, maxReadConcurrency: 16 },
     }),
     run = await f.engine.waitForRun(submitted.runId);
