@@ -151,3 +151,27 @@ test('worktree journal observation failure after real Git effects retains the ac
   const observed = originalList(f.sessionId); assert.equal(observed.length, 1);
   assert.equal(await readFile(join(observed[0]!.root, 'file.txt'), 'utf8'), 'committed\n');
 });
+
+test('retry onto a settled failed delegation worktree reports it not ready and releases the effect marker', async t => {
+  const provider: ProviderAdapter = { id: 'fixture', async *streamTurn(input) {
+    if (input.turnIndex < 2) { yield { type: 'tool.call', call: { id: `delegate-${input.turnIndex}`, name: 'delegate_task', input: request } }; yield { type: 'finish', reason: 'tool_calls' }; }
+    else { yield { type: 'text.delta', delta: 'Parent observed failed delegation.' }; yield { type: 'finish', reason: 'stop' }; }
+  } };
+  const f = await fixture(t, provider), manager = f.engine.children.worktrees, originalVerify = manager.verify.bind(manager);
+  manager.verify = async () => { manager.verify = originalVerify; throw new EngineError('WORKTREE_REPOSITORY_MISMATCH', 'Injected verification failure after Git worktree creation'); };
+  t.after(() => { manager.verify = originalVerify; });
+  const runId = await f.submit({ limits: { maxTurns: 6, maxToolCalls: 3 } });
+  assert.equal((await f.decide(await f.pending())).ok, true);
+  await until(() => f.engine.store.getSnapshot(f.sessionId).approvals.length === 2 && f.engine.store.getSnapshot(f.sessionId).approvals.some(approval => approval.status === 'pending'));
+  assert.equal(manager.list(f.sessionId)[0]!.state, 'failed');
+  assert.equal(inspectExecutionLock(f.executionLockPath).status, 'available');
+  assert.equal((await f.decide(await f.pending())).ok, true);
+  const finished = await f.engine.waitForRun(runId);
+  assert.equal(finished.state, 'completed', finished.error?.message ?? 'parent completion');
+  const tools = f.engine.store.getSnapshot(f.sessionId).tools;
+  assert.ok(tools[0]!.output?.includes('WORKTREE_REPOSITORY_MISMATCH'));
+  assert.ok(tools[1]!.output?.includes('CHILD_WORKTREE_NOT_READY') && !tools[1]!.output.includes('CLEANUP_UNCERTAIN'));
+  assert.equal(inspectExecutionLock(f.executionLockPath).status, 'available');
+  const trees = manager.list(f.sessionId); assert.equal(trees.length, 1); assert.equal(trees[0]!.state, 'failed');
+  assert.deepEqual(f.engine.children.tasks.list(f.sessionId), []);
+});

@@ -31,10 +31,11 @@ async function command<T>(engine: Engine, type: string, payload: JsonObject): Pr
   const result = await engine.dispatch({ schemaVersion: 1, commandId: randomUUID(), type, payload });
   assert.equal(result.ok, true, `${type}: ${JSON.stringify(result.error)}`); return result.result as unknown as T;
 }
-async function fixture(t: TestContext, provider: ProviderAdapter) {
+async function fixture(t: TestContext, provider: ProviderAdapter, files: Record<string, string> = { 'file.txt': original }) {
   const temporary = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-child-merge-'))), root = join(temporary, 'repository');
-  await mkdir(root); await exec('git', ['init', '--quiet', '--template=', root]); await writeFile(join(root, 'file.txt'), original);
-  await exec('git', ['-C', root, 'add', 'file.txt']);
+  await mkdir(root); await exec('git', ['init', '--quiet', '--template=', root]);
+  for (const [path, content] of Object.entries(files)) await writeFile(join(root, path), content);
+  await exec('git', ['-C', root, 'add', '--', ...Object.keys(files)]);
   await exec('git', ['-C', root, '-c', 'user.name=Moodcode Test', '-c', 'user.email=test@localhost', '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=', 'commit', '--quiet', '-m', 'Child merge fixture']);
   const engine = createEngine({ dbPath: join(temporary, 'engine.sqlite'), artifactDir: join(temporary, 'artifacts'), worktreeDirectory: join(temporary, 'managed'), providers: [provider],
     defaults: { providerId: provider.id, modelId: 'fixture', mode: 'build', limits: { ...DEFAULT_LIMITS, maxTurns: 16, maxToolCalls: 16, maxOutputBytes: 262144, maxDurationMs: 20000 } } });
@@ -128,4 +129,36 @@ test('actual child effects remain isolated until approved direct or nested model
     assert.equal(checkpoints[0]!.toolCallId, f.engine.store.getSnapshot(f.session.id).tools[0]!.id);
     assert.deepEqual(calls, { parent: 2, child: 2, grandchild: nested ? 2 : 0 });
   });
+});
+
+test('child merge preimage is the parent checkout text under eol=crlf attributes', { timeout: 30000 }, async t => {
+  const before = 'before\r\n', after = 'approved child change\r\n', parentRelease = gate();
+  let childId: string | undefined;
+  const provider: ProviderAdapter = { id: 'child-merge-fixture', async *streamTurn(request, signal): AsyncGenerator<ProviderEvent> {
+    const parent = request.messages.findLast(message => message.role === 'user')!.content === 'root-parent';
+    if (request.turnIndex > 0) { yield { type: 'text.delta', delta: 'effect complete' }; yield { type: 'finish', reason: 'stop' }; return; }
+    if (parent) { yield { type: 'progress' }; await hold(parentRelease.promise, signal); assert.ok(childId); yield { type: 'tool.call', call: { id: 'root-merge-proposal', name: 'merge_child_changes', input: { childTaskId: childId } } }; }
+    else yield { type: 'tool.call', call: { id: 'child-patch-proposal', name: 'apply_patch', input: { changes: [{ path: 'file.txt', expectedHash: hash(before), content: after }] } } };
+    yield { type: 'finish', reason: 'tool_calls' };
+  } };
+  const f = await fixture(t, provider, { '.gitattributes': 'file.txt text eol=crlf\n', 'file.txt': before });
+  t.after(parentRelease.resolve);
+  assert.equal((await exec('git', ['-C', f.root, 'show', 'HEAD:file.txt'])).stdout, 'before\n');
+  const worktree = await f.engine.createWorktree(f.session.id, 'crlf-child');
+  assert.equal(await readFile(join(worktree.root, 'file.txt'), 'utf8'), before);
+  const receipt = await command<RunReceipt>(f.engine, 'run.submit', { sessionId: f.session.id, requestId: 'root-parent', prompt: 'root-parent' });
+  const child = await f.engine.startChildTask({ sessionId: f.session.id, requestId: 'crlf-child', parentRunId: receipt.runId, worktreeId: worktree.id, prompt: 'crlf-child', tools: ['apply_patch'], allocation: { turns: 2, toolCalls: 1, outputBytes: 8192, durationMs: 10000 } });
+  childId = child.id;
+  decideChild(f.engine, f.session.id, child, await childApproval(f.engine, f.session.id, child));
+  assert.equal((await f.engine.children.tasks.wait(f.session.id, child.id)).state, 'completed');
+  assert.equal(await readFile(join(worktree.root, 'file.txt'), 'utf8'), after);
+  parentRelease.resolve();
+  await until(() => f.engine.store.getSnapshot(f.session.id).approvals.some(approval => approval.status === 'pending') || f.engine.store.getSnapshot(f.session.id).tools.some(tool => tool.state === 'failed'));
+  const merge = f.engine.store.getSnapshot(f.session.id).approvals.find(approval => approval.status === 'pending');
+  assert.ok(merge, f.engine.store.getSnapshot(f.session.id).tools[0]?.output ?? 'merge approval');
+  assert.equal(merge.toolName, 'merge_child_changes'); assert.equal(await readFile(join(f.root, 'file.txt'), 'utf8'), before);
+  await command(f.engine, 'approval.decide', { approvalId: merge.id, fingerprint: merge.fingerprint, decision: 'allow' });
+  assert.equal((await f.engine.waitForRun(receipt.runId)).state, 'completed'); assert.equal(await readFile(join(f.root, 'file.txt'), 'utf8'), after);
+  const checkpoints = f.engine.store.listCheckpoints(receipt.runId); assert.equal(checkpoints.length, 1);
+  assert.equal(checkpoints[0]!.files[0]!.beforeHash, hash(before)); assert.equal(checkpoints[0]!.files[0]!.afterHash, hash(after));
 });

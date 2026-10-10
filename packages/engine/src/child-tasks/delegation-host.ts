@@ -72,6 +72,7 @@ export function createApprovedDelegationHost(ports: EngineDelegationPorts): Dele
       try {
         owner(context, 'execute', fingerprint);
         const worktree = await ports.worktrees.create({ sessionId: context.sessionId, requestId: worktreeRequestId, workspace: context.workspace, reference: request.baseCommit, safeCheckout: true }, context.signal);
+        if (worktree.state === 'failed' || worktree.state === 'removed') throw new EngineError('CHILD_WORKTREE_NOT_READY', 'Delegation worktree for this request already failed or was removed');
         if (worktree.state !== 'ready' || worktree.baseCommit !== request.baseCommit || worktree.baseRoot !== context.workspace.root || worktree.workspaceId !== context.workspace.id) throw new EngineError('CLEANUP_UNCERTAIN', 'Delegation worktree ownership or preparation is unconfirmed');
         worktreeId = worktree.id;
         owner(context, 'execute', fingerprint);

@@ -13,6 +13,7 @@ import {
   textHash,
 } from "../tools/file-actions/text.js";
 import type { WorktreeManager } from "../worktrees/index.js";
+import { safeCheckoutArguments } from "../worktrees/safe-checkout.js";
 import type { ChildTaskManager } from "./index.js";
 /** Produces an ordinary approved patch; Git merge/apply/commit are never invoked. */
 export function createChildMergeTool(
@@ -64,6 +65,10 @@ export function createChildMergeTool(
           "Child worktree belongs to a different parent workspace",
         );
       const child = await worktrees.verify(worktree, context.signal);
+      const checkoutArgs = await safeCheckoutArguments(
+        worktree.baseRoot,
+        context.signal,
+      );
       const changed = await runGit(
         child.root,
         [
@@ -120,9 +125,16 @@ export function createChildMergeTool(
               "UNSUPPORTED_CHILD_MERGE",
               "Merge supports ordinary non-executable UTF-8 text files only",
             );
+          // Parent attributes, not the child's, choose the checkout conversion;
+          // filter drivers stay off.
           const blob = await runGit(
-            child.root,
-            ["show", `${worktree.baseCommit}:${path}`],
+            worktree.baseRoot,
+            [
+              ...checkoutArgs,
+              "cat-file",
+              "--filters",
+              `${worktree.baseCommit}:${path}`,
+            ],
             { signal: context.signal },
           );
           if (
