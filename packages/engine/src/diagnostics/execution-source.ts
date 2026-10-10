@@ -146,6 +146,7 @@ export class WorkspaceExecutionSource {
   readonly #captures = new WeakMap<WorkspaceExecutionSourceCapture, Owned>();
   readonly #handles = new Set<WorkspaceExecutionSourceCapture>();
   readonly #pending = new Set<Promise<unknown>>();
+  readonly #slots = new Set<() => void>();
   readonly #close = new AbortController();
   constructor(options: WorkspaceExecutionSourceOptions) {
     plain(options);
@@ -254,9 +255,11 @@ export class WorkspaceExecutionSource {
       return false;
     }
   }
+  /** With wait, a full in-flight limit waits abortably for a slot; the retained limit always rejects. */
   capture(
     input: Workspace,
     signal: AbortSignal,
+    wait = false,
   ): Promise<{
     readonly capture: WorkspaceExecutionSourceCapture;
     readonly metadata: ExecutionSourceSnapshot;
@@ -268,7 +271,7 @@ export class WorkspaceExecutionSource {
       );
     if (
       this.#handles.size + this.#pending.size >= 128 ||
-      this.#pending.size >= 8
+      (!wait && this.#pending.size >= 8)
     )
       return Promise.reject(
         new EngineError(
@@ -276,10 +279,31 @@ export class WorkspaceExecutionSource {
           "Execution source capture capacity exceeded",
         ),
       );
+    if (this.#pending.size >= 8)
+      return this.#slot(signal).then(() =>
+        this.capture(workspace, signal, true),
+      );
     const promise = this.#capture(workspace, signal);
     this.#pending.add(promise);
-    void promise.finally(() => this.#pending.delete(promise)).catch(() => {});
+    void promise
+      .finally(() => {
+        this.#pending.delete(promise);
+        for (const wake of this.#slots) wake();
+      })
+      .catch(() => {});
     return promise;
+  }
+  #slot(signal: AbortSignal): Promise<void> {
+    const cancelled = AbortSignal.any([signal, this.#close.signal]);
+    return new Promise((resolve) => {
+      const wake = () => {
+        this.#slots.delete(wake);
+        cancelled.removeEventListener("abort", wake);
+        resolve();
+      };
+      this.#slots.add(wake);
+      cancelled.addEventListener("abort", wake);
+    });
   }
   async #capture(workspace: Workspace, signal: AbortSignal) {
     const deadline = new AbortController(),
@@ -638,7 +662,7 @@ export class WorkspaceExecutionSource {
     if (!owned) fail("EXECUTION_SOURCE_CAPTURE_INVALID");
     if (owned.snapshot.completeness !== "full")
       fail("EXECUTION_SOURCE_UNKNOWN");
-    const current = await this.capture(owned.workspace, signal);
+    const current = await this.capture(owned.workspace, signal, true);
     try {
       if (!this.#captures.has(capture))
         fail("EXECUTION_SOURCE_CAPTURE_INVALID");

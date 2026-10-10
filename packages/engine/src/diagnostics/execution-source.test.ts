@@ -318,6 +318,39 @@ test("capture capacity reserves original concurrent work and released or foreign
   );
 });
 
+test("waiting captures and freshness checks take a released in-flight slot and stay abortable", async (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "source.ts"), "export const value = 1;\n");
+  const first = await f.source.capture(f.workspace, f.signal);
+  assert.equal(first.metadata.completeness, "full");
+  const pending = Array.from({ length: 8 }, () =>
+    f.source.capture(f.workspace, f.signal),
+  );
+  await assert.rejects(
+    f.source.capture(f.workspace, f.signal),
+    error("EXECUTION_SOURCE_CAPACITY"),
+  );
+  const abort = new AbortController(),
+    cancelled = f.source.capture(f.workspace, abort.signal, true),
+    waited = f.source.capture(f.workspace, f.signal, true),
+    fresh = f.source.assertFresh(first.capture, f.signal);
+  abort.abort();
+  await assert.rejects(cancelled, error("CANCELLED"));
+  await Promise.all(pending);
+  assert.equal((await waited).metadata.sha256, first.metadata.sha256);
+  await fresh;
+  const closing = Array.from({ length: 8 }, () =>
+      f.source.capture(f.workspace, f.signal),
+    ),
+    queued = assert.rejects(
+      f.source.capture(f.workspace, f.signal, true),
+      error("CANCELLED"),
+    );
+  await f.source.close();
+  await queued;
+  await Promise.allSettled(closing);
+});
+
 test("malformed host options, workspace accessors/proxies and nested exclusion accessors invoke no traps", async (t) => {
   const f = fixture(t);
   let traps = 0;

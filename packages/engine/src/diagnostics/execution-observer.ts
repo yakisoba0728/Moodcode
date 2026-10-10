@@ -52,6 +52,8 @@ export class EngineExecutionObserver {
   readonly storage: DiagnosticExecutionObservationStorage;
   readonly #prepared = new WeakMap<PreparedTool, Owned>();
   readonly #handles = new WeakMap<object, Owned>();
+  readonly #dispatched = new Map<string, Owned>();
+  readonly #nested = new WeakMap<PreparedTool, Owned>();
   constructor(
     private readonly store: SqliteStore,
     private readonly source: WorkspaceExecutionSource,
@@ -116,9 +118,25 @@ export class EngineExecutionObserver {
     this.#handles.set(handle, owned);
     try {
       if (owned.workspaceSource)
-        owned.before = (
-          await this.source.capture(context.workspace, context.signal)
-        ).capture;
+        owned.before = await this.source
+          .capture(
+            context.workspace,
+            context.signal,
+            runtime.effectClass !== "read",
+          )
+          .then(
+            (result) => result.capture,
+            (error: unknown) => {
+              // A busy read keeps unknown coverage; effect tools wait so dispatch stays freshness-checked.
+              if (
+                runtime.effectClass === "read" &&
+                error instanceof EngineError &&
+                error.code === "EXECUTION_SOURCE_CAPACITY"
+              )
+                return undefined;
+              throw error;
+            },
+          );
       const snapshot = this.metadata(handle, "before").source;
       // Unknown coverage grants no claim that an identical input saw the same files.
       return runtime.effectClass === "read" && snapshot.completeness === "full"
@@ -133,11 +151,19 @@ export class EngineExecutionObserver {
     prepared: PreparedTool,
     context: ToolContext,
   ): Promise<() => void> {
+    const key = JSON.stringify(identity(context)),
+      outer = this.#nested.get(prepared);
+    // The outer dispatch already recorded this nested producer's observation and epoch.
+    if (outer && this.#dispatched.get(key) === outer)
+      return () => {
+        if (context.signal.aborted || this.#dispatched.get(key) !== outer)
+          throw new EngineError(
+            "EXECUTION_OBSERVATION_SOURCE_INVALID",
+            "Outer observation changed or was cancelled before nested dispatch",
+          );
+      };
     const owned = this.#prepared.get(prepared);
-    if (
-      !owned ||
-      JSON.stringify(identity(context)) !== JSON.stringify(owned.identity)
-    )
+    if (!owned || key !== JSON.stringify(owned.identity))
       throw new EngineError(
         "EXECUTION_OBSERVATION_OWNER_INVALID",
         "Producer dispatch requires its original prepared observation",
@@ -167,7 +193,27 @@ export class EngineExecutionObserver {
         owned.identity,
         owned.handle,
       ).capture;
+      this.#dispatched.set(key, owned);
     };
+  }
+  /** Runs one nested producer of a dispatched outer execution without a second observation. */
+  async nested<T>(
+    outer: ToolContext,
+    prepared: PreparedTool,
+    execute: () => Promise<T>,
+  ): Promise<T> {
+    const owned = this.#dispatched.get(JSON.stringify(identity(outer)));
+    if (!owned || this.#prepared.has(prepared) || this.#nested.has(prepared))
+      throw new EngineError(
+        "EXECUTION_OBSERVATION_OWNER_INVALID",
+        "Nested dispatch requires its dispatched outer observation",
+      );
+    this.#nested.set(prepared, owned);
+    try {
+      return await execute();
+    } finally {
+      this.#nested.delete(prepared);
+    }
   }
   result(prepared: PreparedTool, complete: boolean): void {
     const owned = this.#prepared.get(prepared);
@@ -237,6 +283,8 @@ export class EngineExecutionObserver {
     } finally {
       if (owned.before) this.source.release(owned.before);
       if (owned.after) this.source.release(owned.after);
+      const key = JSON.stringify(owned.identity);
+      if (this.#dispatched.get(key) === owned) this.#dispatched.delete(key);
       this.#prepared.delete(prepared);
       this.#handles.delete(owned.handle);
     }

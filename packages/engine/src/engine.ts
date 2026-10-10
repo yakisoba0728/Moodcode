@@ -1124,7 +1124,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
       const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
-        executeCommand: (outer,nested,prepared) => this.coordinator.withVerificationCommandContext(outer,nested,()=>this.toolRuntime.execute(prepared,nested)),
+        executeCommand: (outer,nested,prepared) => this.coordinator.withVerificationCommandContext(outer,nested,()=>{ const execute = () => this.toolRuntime.execute(prepared,nested); return options.diagnosticObservations === true ? this.executionObserver.nested(outer,prepared,execute) : execute(); }),
         consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
         commandCapability: (_context, catalogue) => {
           if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');

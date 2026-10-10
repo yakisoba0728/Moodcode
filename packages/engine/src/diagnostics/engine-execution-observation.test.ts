@@ -122,6 +122,35 @@ test("actual equivalent unchanged core reads do not execute twice or claim task 
   assert.equal(f.stall(run.id).automaticAction, "none");
   assert.equal(f.stall(run.id).taskSuccess, "not-assessed");
 });
+test("actual parallel core reads beyond the in-flight capture limit complete instead of failing for source capacity", async (t) => {
+  const paths = Array.from({ length: 12 }, (_, index) => `parallel-${index}.ts`);
+  const f = await observationFixture(t, {
+      setup(root) {
+        for (const path of paths)
+          writeFileSync(join(root, path), `export const value = "${path}";\n`);
+      },
+      script: async function* (request): AsyncGenerator<ProviderEvent> {
+        if (request.turnIndex === 0) {
+          for (const path of paths)
+            yield {
+              type: "tool.call",
+              call: { id: path, name: "read_file", input: { path } },
+            };
+          yield { type: "finish", reason: "tool_calls" };
+        } else yield stop;
+      },
+    }),
+    submitted = await f.submit({ budgets: { maxReadConcurrency: 12 } }),
+    run = await f.engine.waitForRun(submitted.runId),
+    tools = f.engine.store.getSnapshot(f.session.id).tools;
+  assert.equal(run.state, "completed", JSON.stringify(run.error));
+  assert.equal(tools.length, paths.length);
+  assert.ok(
+    tools.every((row) => row.state === "completed"),
+    JSON.stringify(tools.map((row) => [row.state, row.output])),
+  );
+  assert.equal(f.page(run.id).items.length, paths.length);
+});
 test("actual external requested-file edit permits a fresh core read rather than the old input-only repeat guard", async (t) => {
   const f = await observationFixture(t, {
       script: async function* (request): AsyncGenerator<ProviderEvent> {

@@ -12,7 +12,7 @@ import { createEngine } from '../engine.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import type { RunCoordinator } from '../runner/index.js';
 
-async function fixture(t: test.TestContext, commandText: string, options: { profileTools?: string[]; input?: JsonObject; beforeProposal?: () => Promise<void>; maxRepairs?: number; script?: (request: TurnRequest) => AsyncIterable<ProviderEvent>; repositoryContext?: boolean; maxTurns?: number } = {}) {
+async function fixture(t: test.TestContext, commandText: string, options: { profileTools?: string[]; input?: JsonObject; beforeProposal?: () => Promise<void>; maxRepairs?: number; script?: (request: TurnRequest) => AsyncIterable<ProviderEvent>; repositoryContext?: boolean; maxTurns?: number; diagnosticObservations?: boolean } = {}) {
   const base = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-verification-engine-'))), directory = join(base, 'repository'), source = join(directory, 'a.ts');
   await mkdir(directory); execFileSync('git', ['init', '--quiet', '--template=', directory]);
   await writeFile(source, 'const alpha = 1;\n');
@@ -23,7 +23,7 @@ async function fixture(t: test.TestContext, commandText: string, options: { prof
     if (request.turnIndex === 0) { await options.beforeProposal?.(); yield { type: 'tool.call', call: { id: 'check-proposal', name: 'verify_changes', input: options.input ?? { checkId: 'fixture-check' } } }; yield { type: 'finish', reason: 'tool_calls' }; }
     else { yield { type: 'text.delta', delta: 'Fixture ended. This text is not a verification receipt.' }; yield { type: 'finish', reason: 'stop' }; }
   } };
-  const engine = createEngine({ dbPath: join(base, 'engine.sqlite'), artifactDir: join(base, 'artifacts'), verificationTools: true, providers: [provider], ...(options.repositoryContext ? { repositoryContextPolicy: { query: { kind: 'symbols' as const, paths: ['a.ts'] }, slotBytes: 4096 } } : {}), defaults: { providerId: provider.id, modelId: 'fixture', mode: 'build', limits: { maxTurns: options.maxTurns ?? 4, maxDurationMs: 15000 } }, agentProfiles: [{ id: 'verifier', description: 'Host fixture checks', instructions: 'Use the selected host check.', tools: options.profileTools ?? ['verify_changes', 'run_command'] }] });
+  const engine = createEngine({ dbPath: join(base, 'engine.sqlite'), artifactDir: join(base, 'artifacts'), verificationTools: true, providers: [provider], ...(options.diagnosticObservations ? { diagnosticObservations: true } : {}), ...(options.repositoryContext ? { repositoryContextPolicy: { query: { kind: 'symbols' as const, paths: ['a.ts'] }, slotBytes: 4096 } } : {}), defaults: { providerId: provider.id, modelId: 'fixture', mode: 'build', limits: { maxTurns: options.maxTurns ?? 4, maxDurationMs: 15000 } }, agentProfiles: [{ id: 'verifier', description: 'Host fixture checks', instructions: 'Use the selected host check.', tools: options.profileTools ?? ['verify_changes', 'run_command'] }] });
   t.after(async () => { await engine.close(); await rm(base, { force: true, recursive: true }); });
   async function command<T>(type: string, payload: JsonObject): Promise<T> { const result = await engine.dispatch({ schemaVersion: 1, commandId: randomUUID(), type, payload }); assert.equal(result.ok, true, JSON.stringify(result.error)); return result.result as unknown as T; }
   const workspace = await command<Workspace>('workspace.open', { path: directory }), session = await command<Session>('session.create', { workspaceId: workspace.id }), profile = engine.profiles.list()[0]!;
@@ -73,6 +73,18 @@ for (const [commandText, expected] of [
   assert.equal(snapshot.approvals.length, 1); assert.equal(snapshot.tools.filter(value => value.name === 'run_command').length, 0);
   assert.equal(f.requests.length, 2); assert.ok(f.requests[1]!.messages.findLast(value => value.role === 'tool')?.content.includes(expected));
   state.receipts[0]!.status = 'uncertain'; assert.equal(f.engine.getVerificationState(f.session.id, run.id)!.receipts[0]!.status, expected);
+});
+
+test('verify_changes runs its nested command under diagnostic observations with one outer observation', { timeout: 20000, skip: process.platform === 'win32' }, async t => {
+  const f = await fixture(t, 'printf verified > verification-effect.txt', { diagnosticObservations: true }), submitted = await f.submit(), pending = await f.pendingApproval(submitted.runId);
+  await f.command('approval.decide', { approvalId: pending.id, fingerprint: pending.fingerprint, decision: 'allow' });
+  const run = await f.engine.waitForRun(submitted.runId);
+  assert.equal(run.state, 'completed', JSON.stringify(run.error));
+  assert.equal(readFileSync(join(f.directory, 'verification-effect.txt'), 'utf8'), 'verified');
+  assert.equal(f.engine.getVerificationState(f.session.id, run.id)!.receipts[0]!.status, 'pass');
+  const rows = f.engine.getExecutionObservations({ workspaceId: f.workspace.id, runId: run.id }).items;
+  assert.deepEqual(rows.map(row => [row.toolName, row.effectClass, row.state, row.outcome]), [['verify_changes', 'execute', 'settled', 'completed']]);
+  assert.equal(rows[0]!.effectEpochDispatch, rows[0]!.effectEpochBefore + 1);
 });
 
 for (const decision of ['deny', 'source-stale'] as const) test(`verification ${decision} consumes no command effect`, { timeout: 15000, skip: process.platform === 'win32' }, async t => {
