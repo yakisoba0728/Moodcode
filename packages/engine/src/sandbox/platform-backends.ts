@@ -92,12 +92,18 @@ export function canonicalWorkspacePath(root: string, value: string): string {
   return p;
 }
 const q = (v: string) => JSON.stringify(v);
+/** Unsandboxed Git later runs hooks and config commands from these paths, and `.git` or `commondir` can redirect it to a planted gitdir. Reads and other `.git` writes stay allowed. */
+const gitControlWrites = (root: string) => {
+  const git = join(root, ".git");
+  return `(deny file-write* (literal ${q(git)}) (literal ${q(join(git, "config.worktree"))}) ${["config", "commondir", "hooks", "info", "modules"].map((p) => `(subpath ${q(join(git, p))})`).join(" ")})`;
+};
 /** No network, Mach service discovery, user-home mount, inherited credential environment or external application execution. */
 export function seatbeltProfile(
   readonlyPaths: readonly string[],
   writePaths: readonly string[],
   excluded: readonly string[],
   executables: readonly string[],
+  gitRoot: string | null,
 ): string {
   const read = [
     '(literal "/")',
@@ -111,7 +117,7 @@ export function seatbeltProfile(
     ...executables.map((p) => `(literal ${q(p)})`),
     ...readonlyPaths.map((p) => `(subpath ${q(p)})`),
   ].join(" ");
-  return `(version 1)(deny default)(allow process-exec process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable ${read})(allow file-write* (literal "/dev/null") ${writePaths.map((p) => `(subpath ${q(p)})`).join(" ")})(deny file-read* file-write* ${excluded.map((p) => `(subpath ${q(p)})`).join(" ")})`;
+  return `(version 1)(deny default)(allow process-exec process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable ${read})(allow file-write* (literal "/dev/null") ${writePaths.map((p) => `(subpath ${q(p)})`).join(" ")})(deny file-read* file-write* ${excluded.map((p) => `(subpath ${q(p)})`).join(" ")})${gitRoot === null ? "" : gitControlWrites(gitRoot)}`;
 }
 export async function probeSeatbelt(): Promise<SandboxCapability> {
   const base = {
@@ -148,7 +154,7 @@ export async function probeSeatbelt(): Promise<SandboxCapability> {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const port = (server.address() as { port: number }).port;
-  const profile = seatbeltProfile([a], [a], [o], [process.execPath]),
+  const profile = seatbeltProfile([a], [a], [o], [process.execPath], null),
     evidence: object[] = [];
   const probe = (name: string, args: string[]) => {
     try {

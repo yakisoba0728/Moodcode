@@ -112,7 +112,7 @@ test(
                 id: "child-command",
                 name: "run_command",
                 input: {
-                  command: `cat ${quote(outsideSecret)}; printf inherited > child-effect`,
+                  command: `cat ${quote(outsideSecret)}; printf 'gitdir: /tmp' > .git; printf inherited > child-effect`,
                 },
               },
             };
@@ -147,6 +147,7 @@ test(
       f.session.id,
       "actual-child-tree",
     );
+    const gitFile = readFileSync(join(worktree.root, ".git"), "utf8");
     const parent = await f.submit("unused parent");
     await until(() => parentStarted, "parent actual provider missing");
     const task = await f.engine.startChildTask({
@@ -191,6 +192,8 @@ test(
       readFileSync(join(worktree.root, "child-effect"), "utf8"),
       "inherited",
     );
+    assert.match(gitFile, /^gitdir: /);
+    assert.equal(readFileSync(join(worktree.root, ".git"), "utf8"), gitFile);
     assert.match(JSON.stringify(actual.outcome), /Operation not permitted/);
     end();
     await f.wait(parent);

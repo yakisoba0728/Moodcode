@@ -204,9 +204,13 @@ export class SandboxHost implements CommandExecutionObserver {
         ...read.filter((p) => p !== root).map(physicalPin),
         physicalPin(realpathSync(process.execPath)),
       ];
-    const profile = seatbeltProfile(read, write, excluded, [
-        realpathSync(process.execPath),
-      ]),
+    const profile = seatbeltProfile(
+        read,
+        write,
+        excluded,
+        [realpathSync(process.execPath)],
+        root,
+      ),
       restriction = knowledgeHash({
         backend: this.backend.sha256,
         target,
@@ -507,9 +511,13 @@ export class SandboxHost implements CommandExecutionObserver {
       read = map(g.readPaths),
       write = map(g.writePaths),
       excluded = child.options.excluded,
-      profile = seatbeltProfile(read, write, excluded, [
-        realpathSync(process.execPath),
-      ]),
+      profile = seatbeltProfile(
+        read,
+        write,
+        excluded,
+        [realpathSync(process.execPath)],
+        workspace.root,
+      ),
       pins = [
         physicalPin(workspace.root),
         ...read.filter((p) => p !== workspace.root).map(physicalPin),
@@ -601,9 +609,13 @@ export class SandboxHost implements CommandExecutionObserver {
         !g.readPaths.some((p) => pin.path === p || pin.path.startsWith(p + "/"))
       )
         sandboxError("SANDBOX_PATH");
-    const profile = seatbeltProfile(g.readPaths, [], g.excluded, [
-        realpathSync(process.execPath),
-      ]),
+    const profile = seatbeltProfile(
+        g.readPaths,
+        [],
+        g.excluded,
+        [realpathSync(process.execPath)],
+        null,
+      ),
       launch = sandboxSign({
         ...g.launch,
         profile,
@@ -641,9 +653,13 @@ export class SandboxHost implements CommandExecutionObserver {
       this.current(current);
       for (const pin of pins) assertPin(pin);
       if (
-        seatbeltProfile(current.readPaths, [], current.excluded, [
-          realpathSync(process.execPath),
-        ]) !== profile
+        seatbeltProfile(
+          current.readPaths,
+          [],
+          current.excluded,
+          [realpathSync(process.execPath)],
+          null,
+        ) !== profile
       )
         sandboxError("SANDBOX_MCP_GRANT_STALE");
       return launch;

@@ -68,6 +68,45 @@ test(
   },
 );
 test(
+  "workspace Git control paths stay readable but kernel deny sandboxed writes",
+  darwin,
+  async (t) => {
+    const f = await fixture(t);
+    const git = join(f.root, ".git"),
+      config = readFileSync(join(git, "config"), "utf8");
+    await f.grant();
+    const x = await f.execute(
+      [
+        "cat .git/config",
+        "printf allowed > .git/sandbox-probe",
+        "mkdir .git/hooks",
+        "printf hook > .git/hooks/pre-commit",
+        `printf '[filter "x"]' >> .git/config`,
+        "printf '[core]' >> .git/config.worktree",
+        "printf ../planted > .git/commondir",
+        "mkdir .git/info .git/modules",
+        "mv .git moved-git",
+        "printf kept > after-git",
+      ].join("; "),
+    );
+    assert.equal(existsSync(join(f.root, "moved-git")), false);
+    assert.equal(readFileSync(join(git, "config"), "utf8"), config);
+    for (const p of [
+      "config.worktree",
+      "hooks",
+      "commondir",
+      "info",
+      "modules",
+    ])
+      assert.equal(existsSync(join(git, p)), false, p);
+    assert.equal(readFileSync(join(git, "sandbox-probe"), "utf8"), "allowed");
+    assert.equal(readFileSync(join(f.root, "after-git"), "utf8"), "kept");
+    const output = f.engine.store.getToolCall(x.approval.toolCallId).output!;
+    assert.match(output, /repositoryformatversion/);
+    assert.match(output, /Operation not permitted/);
+  },
+);
+test(
   "actual local network blocked for effect and child process without unsandboxed retry",
   darwin,
   async (t) => {
