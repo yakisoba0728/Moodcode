@@ -1,6 +1,11 @@
 import { EngineError } from '@moodcode/contracts';
 import { runGit } from '../workspace/git.js';
 
+export const NO_AUTO_MAINTENANCE = Object.freeze([
+  '-c', 'maintenance.auto=false', '-c', 'maintenance.autoDetach=false',
+  '-c', 'gc.auto=0', '-c', 'gc.autoDetach=false',
+]);
+
 /** Per-command configuration only: never modify a user's Git configuration. */
 const BASE = Object.freeze([
   '--no-lazy-fetch', '--no-replace-objects',
@@ -8,8 +13,7 @@ const BASE = Object.freeze([
   '-c', 'hook.post-checkout.enabled=false',
   '-c', 'hook.reference-transaction.enabled=false',
   '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false',
-  '-c', 'maintenance.auto=false', '-c', 'maintenance.autoDetach=false',
-  '-c', 'gc.auto=0', '-c', 'gc.autoDetach=false',
+  ...NO_AUTO_MAINTENANCE,
   '-c', 'submodule.recurse=false', '-c', 'fetch.recurseSubmodules=false',
   '-c', 'checkout.workers=1',
 ]);

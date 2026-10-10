@@ -88,6 +88,16 @@ async function optionalFile(path: string): Promise<string | null> {
     throw e;
   }
 }
+/** Hooks the worker's read-tree, update-index and commit could run; scripts they source are not pinned. */
+const PINNED_HOOKS = Object.freeze([
+  "pre-commit",
+  "prepare-commit-msg",
+  "commit-msg",
+  "post-commit",
+  "post-index-change",
+  "reference-transaction",
+  "pre-auto-gc",
+]);
 export async function repositoryPin(
   root: string,
   signal?: AbortSignal,
@@ -138,12 +148,7 @@ export async function repositoryPin(
         : await text(root, ["rev-parse", "--git-path", "hooks"], signal),
     ),
     hooks: unknown[] = [];
-  for (const name of [
-    "pre-commit",
-    "prepare-commit-msg",
-    "commit-msg",
-    "post-commit",
-  ]) {
+  for (const name of PINNED_HOOKS) {
     const path = resolve(hooksPath, name),
       hash = await optionalFile(path);
     const st = hash === null ? null : await lstat(path, { bigint: true });

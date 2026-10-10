@@ -9,7 +9,7 @@ import {
   realpath,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { commitFixture, gitFixture } from "./fixtures/commit.js";
 import {
@@ -17,7 +17,7 @@ import {
   validateGitCommitDatabase,
 } from "./commit-receipts.js";
 import { gitSha } from "./types.js";
-import { entriesFor, fileBytes } from "./commit-preview.js";
+import { entriesFor, fileBytes, objectOid } from "./commit-preview.js";
 const code = (expected: string) => (error: unknown) =>
   (error as { code: string }).code === expected;
 test(
@@ -237,6 +237,72 @@ for (const drift of ["HEAD", "index", "source", "hooks"] as const)
       assert.equal(gitFixture(f.root, "rev-parse", "HEAD"), before);
     },
   );
+for (const hook of [
+  "post-index-change",
+  "reference-transaction",
+  "pre-auto-gc",
+] as const)
+  test(
+    `a ${hook} hook planted after preview denies effects before Git commit`,
+    { skip: process.platform === "win32", timeout: 30000 },
+    async (t) => {
+      const f = await commitFixture(t),
+        original = await f.preview(),
+        input = f.input(original),
+        before = gitFixture(f.root, "rev-parse", "HEAD"),
+        effect = join(dirname(f.root), "hook-effect");
+      await writeFile(
+        join(f.root, ".git", "hooks", hook),
+        `#!/bin/sh\nprintf forbidden > '${effect}'\n`,
+        { mode: 0o755 },
+      );
+      await assert.rejects(
+        f.engine.commitReviewedChanges(original, input),
+        code("GIT_COMMIT_STALE"),
+      );
+      assert.equal(gitFixture(f.root, "rev-parse", "HEAD"), before);
+      await assert.rejects(readFile(effect), code("ENOENT"));
+    },
+  );
+test(
+  "approved commit does not start automatic Git maintenance",
+  { skip: process.platform === "win32", timeout: 30000 },
+  async (t) => {
+    const f = await commitFixture(t),
+      effect = join(dirname(f.root), "auto-gc-effect"),
+      format = gitFixture(f.root, "rev-parse", "--show-object-format") as
+        "sha1" | "sha256";
+    for (const [key, value] of Object.entries({
+      "maintenance.auto": "true",
+      "maintenance.strategy": "gc",
+      "maintenance.autoDetach": "false",
+      "gc.auto": "1",
+      "gc.autoDetach": "false",
+    }))
+      gitFixture(f.root, "config", key, value);
+    await writeFile(
+      join(f.root, ".git", "hooks", "pre-auto-gc"),
+      `#!/bin/sh\nprintf ran > '${effect}'\nexit 1\n`,
+      { mode: 0o755 },
+    );
+    // Two loose objects under objects/17 exceed gc.auto=1's estimate.
+    const blob = join(dirname(f.root), "loose-blob");
+    for (let i = 0, found = 0; found < 2; i++) {
+      const data = Buffer.from(`loose ${i}\n`);
+      if (!objectOid("blob", data, format).startsWith("17")) continue;
+      await writeFile(blob, data);
+      gitFixture(f.root, "hash-object", "-w", "--no-filters", blob);
+      found++;
+    }
+    const original = await f.preview(),
+      result = await f.engine.commitReviewedChanges(
+        original,
+        f.input(original),
+      );
+    assert.equal(result.receipt.state, "committed", JSON.stringify(result));
+    await assert.rejects(readFile(effect), code("ENOENT"));
+  },
+);
 test(
   "real rejecting hook records failure and no second commit on duplicate",
   { skip: process.platform === "win32", timeout: 30000 },

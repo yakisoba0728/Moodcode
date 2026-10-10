@@ -12,6 +12,7 @@ import {
   createCommandEnvironment,
 } from "../tools/command/process-control.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { NO_AUTO_MAINTENANCE } from "../worktrees/safe-checkout.js";
 import {
   repositoryPin,
   fileBytes,
@@ -123,6 +124,7 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         "--no-optional-locks",
         "-c",
         "core.fsmonitor=false",
+        ...NO_AUTO_MAINTENANCE,
         "-C",
         root,
         ...args,
