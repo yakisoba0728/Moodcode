@@ -546,6 +546,31 @@ export interface ForkNativePorts {
   afterCommit(operation: () => void): void;
   wake(sessionId: string): void;
 }
+export function assertForkRecordShape(
+  record: ConversationFork,
+  code: string,
+): void {
+  const { preview } = record,
+    config: unknown = preview.config;
+  if (
+    !config ||
+    typeof config !== "object" ||
+    Array.isArray(config) ||
+    preview.readonlyFirstRun !== true ||
+    preview.effectsRetained !== true ||
+    preview.config.mode !== "plan" ||
+    preview.config.agentProfileId !== "moodcode-conversation-fork-readonly" ||
+    !Number.isSafeInteger(preview.depth) ||
+    preview.depth < 1 ||
+    preview.depth > FORK_LIMITS.depth ||
+    record.version !== 1 ||
+    preview.targetSessionId !== record.sessionId ||
+    record.workspaceId !== preview.targetWorkspaceId ||
+    record.approvalFingerprint !== preview.sha256 ||
+    record.origin !== "host-fork"
+  )
+    forkError(code, "Fork record lineage identity changed");
+}
 export function readConversationFork(
   db: DatabaseSync,
   sessionId: string,
@@ -569,23 +594,9 @@ export function readConversationFork(
     assertRecordHash(record);
     assertRecordHash(record.preview);
     assertRecordHash(record.preview.source);
-    if (
-      record.preview.readonlyFirstRun !== true ||
-      record.preview.effectsRetained !== true ||
-      record.preview.config.mode !== "plan" ||
-      record.preview.config.agentProfileId !==
-        "moodcode-conversation-fork-readonly" ||
-      !Number.isSafeInteger(record.preview.depth) ||
-      record.preview.depth < 1 ||
-      record.preview.depth > FORK_LIMITS.depth ||
-      record.version !== 1 ||
-      record.sessionId !== sessionId ||
-      record.preview.targetSessionId !== sessionId ||
-      record.workspaceId !== record.preview.targetWorkspaceId ||
-      record.approvalFingerprint !== record.preview.sha256 ||
-      record.origin !== "host-fork"
-    )
+    if (record.sessionId !== sessionId)
       forkError("FORK_NATIVE_INVALID", "Native fork lineage identity changed");
+    assertForkRecordShape(record, "FORK_NATIVE_INVALID");
     const session = decode(boundedRow(db, "sessions", "id=?", [sessionId]));
     const markerRow = boundedRow(
         db,

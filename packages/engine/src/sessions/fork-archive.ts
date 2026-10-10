@@ -4,12 +4,12 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import {
   FORK_KIND,
   forkJson,
-  forkHash,
+  forkId,
   forkError,
   signedFork,
   type ConversationFork,
 } from "./fork-types.js";
-import { assertFrozenManifest } from "./fork-native.js";
+import { assertForkRecordShape, assertFrozenManifest } from "./fork-native.js";
 export interface ConversationForkArchive {
   version: 1;
   purpose: "paused-conversation-history";
@@ -37,12 +37,9 @@ export function validateForkArchive(value: unknown): ConversationForkArchive {
       "Fork archive signature or purpose changed",
     );
   assertFrozenManifest(archive.record.preview.source);
-  if (
-    archive.record.sessionId !== archive.record.preview.targetSessionId ||
-    archive.record.workspaceId !== archive.record.preview.targetWorkspaceId ||
-    archive.record.approvalFingerprint !== archive.record.preview.sha256
-  )
-    forkError("FORK_ARCHIVE_INVALID", "Archived fork identities changed");
+  assertForkRecordShape(archive.record, "FORK_ARCHIVE_INVALID");
+  forkId(archive.record.sessionId);
+  forkId(archive.record.workspaceId);
   return archive;
 }
 export function importPausedFork(

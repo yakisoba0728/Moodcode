@@ -8,7 +8,7 @@ import {
   forkCommand,
   forkCounts,
 } from "./fixtures/fork.js";
-import { forkHash } from "./fork-types.js";
+import { forkHash, signedFork } from "./fork-types.js";
 import test from "node:test";
 test("actual effect-preserving fork consumes frozen native history without replaying command or source approvals", async (t) => {
   const f = await forkFixture(t),
@@ -286,12 +286,70 @@ test("native fork body tamper is rejected against independent materialization re
       () => f.engine.inspectConversationLineage(r.record.sessionId),
       { code: "FORK_NATIVE_INVALID" },
     );
+    const shapeless = JSON.parse(String(row.data));
+    delete shapeless.preview.config;
+    shapeless.preview = signedFork(shapeless.preview);
+    shapeless.approvalFingerprint = shapeless.preview.sha256;
+    db.prepare(
+      "UPDATE session_documents SET data=? WHERE session_id=? AND kind='conversation.fork.v1'",
+    ).run(JSON.stringify(signedFork(shapeless)), r.record.sessionId);
+    assert.throws(
+      () => f.engine.inspectConversationLineage(r.record.sessionId),
+      { code: "FORK_NATIVE_INVALID" },
+    );
     db.prepare(
       "UPDATE session_documents SET data=? WHERE session_id=? AND kind='conversation.fork.v1'",
     ).run(String(row.data), r.record.sessionId);
   } finally {
     db.close();
   }
+});
+test("re-signed archive records that native reads reject are refused at import preview", async (t) => {
+  const f = await forkFixture(t),
+    o = await f.engine.captureForkPreview({
+      sourceSessionId: f.session.id,
+      prompt: "fork-first",
+    }),
+    p = f.engine.readForkPreview(o),
+    r = f.engine.forkConversationView({
+      preview: o,
+      requestId: "archive-shape",
+      approved: true,
+      approvalFingerprint: p.sha256,
+    });
+  await forkUntil(
+    () =>
+      f.engine.store
+        .getSnapshot(r.record.sessionId)
+        .runs.some((r) => isTerminal(r.state)),
+    "No settled fork",
+  );
+  const archive = f.engine.exportConversationForkHistory(r.record.sessionId);
+  const capture = (edit: (record: any) => void) => {
+    const record = structuredClone(archive.record) as any;
+    edit(record);
+    record.preview = signedFork(record.preview);
+    record.approvalFingerprint = record.preview.sha256;
+    return f.engine.captureForkImportPreview({
+      workspaceId: f.workspace.id,
+      archive: signedFork({ ...archive, record: signedFork(record) }),
+    });
+  };
+  assert.ok(capture(() => {}));
+  for (const edit of [
+    (record: any) => (record.origin = "delegated-data"),
+    (record: any) => (record.preview.depth = 0),
+    (record: any) => (record.preview.config.mode = "build"),
+    (record: any) => delete record.preview.config,
+  ])
+    assert.throws(() => capture(edit), { code: "FORK_ARCHIVE_INVALID" });
+  assert.throws(
+    () =>
+      capture((record) => {
+        record.sessionId = record.preview.targetSessionId = "forged\u0000id";
+      }),
+    { code: "FORK_INVALID" },
+  );
 });
 test("subsequent write is a new actual approval; inherited approval cannot authorize new command", async (t) => {
   const f = await forkFixture(t),
