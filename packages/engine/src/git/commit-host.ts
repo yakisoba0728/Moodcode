@@ -3,9 +3,11 @@ import type { SqliteStore } from "../storage/index.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
+  latestRequiredReceipts,
   verificationDocumentKind,
   type VerificationPlanService,
 } from "../verification/plans.js";
+import type { VerificationReceipt } from "../verification/types.js";
 import type { VerificationHostService } from "../verification/host.js";
 import { assertExecutionLockAvailable as verifyExecutionIdle } from "../tools/command/execution-lock.js";
 import {
@@ -141,20 +143,16 @@ export class GitCommitHost {
           },
           signal,
         );
-        const receipts = plan.checks
-          .filter((c) => c.required)
-          .map((check) =>
-            snapshot.receipts
-              .filter((r) => r.planId === plan.id && r.checkId === check.id)
-              .at(-1),
-          );
+        const receipts = latestRequiredReceipts(
+          snapshot,
+          plan,
+          (r) => r.planId === plan.id,
+        );
         if (
           !receipts.length ||
-          receipts.some(
-            (r) =>
-              !r ||
-              r.status !== "pass" ||
-              r.sourceBefore.sha256 !== source.sha256,
+          !receipts.every(
+            (r): r is VerificationReceipt =>
+              r?.status === "pass" && r.sourceBefore.sha256 === source.sha256,
           )
         )
           gitCommitError("GIT_COMMIT_VERIFICATION_REQUIRED");
@@ -226,7 +224,7 @@ export class GitCommitHost {
               i.selection === "working-tree" ? entries : [],
               signal,
             ),
-            verification: receipts as GitCommitPreview["verification"],
+            verification: receipts,
             verificationRevision: snapshot.revision,
             verificationDocumentSha256: gitSha(JSON.stringify(doc.data)),
             source,

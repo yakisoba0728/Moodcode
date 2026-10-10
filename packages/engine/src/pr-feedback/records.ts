@@ -10,7 +10,6 @@ import { requestIdentity } from "../storage/native-schema.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { validateScheduleTarget } from "../schedules/spec.js";
 import { validateCommitVerification } from "../git/commit-receipts.js";
-import type { GitCommitPreview } from "../git/types.js";
 import {
   PR_LIMITS,
   prChangesRequested,
@@ -494,9 +493,9 @@ function sourceSql(db: DatabaseSync, p: PrWatchPreview) {
     sessionId: p.sessionId,
     verificationRevision: e.verificationRevision,
     verificationDocumentSha256: e.verificationDocumentSha256,
-    verification: [...e.receipts],
+    verification: e.receipts,
     source: e.verificationSource,
-  } as unknown as GitCommitPreview);
+  });
 }
 function watchGraph(db: DatabaseSync, r: PrWatchRecord) {
   const p = r.preview;

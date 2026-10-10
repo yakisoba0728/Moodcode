@@ -12,6 +12,9 @@ const CHECK_KEYS = ['id', 'revision', 'workspaceId', 'command', 'cwd', 'profileI
 const RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'phase', 'status', 'createdAt', 'dispatchedAt', 'settledAt', 'observation', 'sourceStale', 'recovery', 'receiptSha256'];
 const IMMUTABLE_RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'createdAt', 'dispatchedAt'] as const;
 export function verificationDocumentKind(runId: string): string { verificationText(runId); return 'verification.run.' + verificationHash(runId).slice(0, 40); }
+export function latestRequiredReceipts(snapshot: VerificationState, plan: VerificationPlan, sameRun: (receipt: VerificationReceipt) => boolean): (VerificationReceipt | undefined)[] {
+  return plan.checks.filter(check => check.required).map(check => snapshot.receipts.filter(receipt => sameRun(receipt) && receipt.checkId === check.id).at(-1));
+}
 function normalizeCheck(value: VerificationCheckRegistration): VerificationCheckRegistration {
   verificationPlain(value, CHECK_KEYS);
   for (const key of ['id', 'workspaceId', 'profileId', 'profileRevision', 'sourceRevision'] as const) verificationText(value[key]);

@@ -10,8 +10,16 @@ import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { verificationDocumentKind } from "../verification/plans.js";
+import {
+  latestRequiredReceipts,
+  verificationDocumentKind,
+} from "../verification/plans.js";
 import type { VerificationHostService } from "../verification/host.js";
+import type {
+  VerificationPlan,
+  VerificationReceipt,
+  VerificationState,
+} from "../verification/types.js";
 import { describeEngineQueueTarget } from "../jobs/queue-target.js";
 import { GitHubPrReader, PrHttpError, validatePrApiBase } from "./github.js";
 import { PrFeedbackStorage, validatePrPreview } from "./records.js";
@@ -234,6 +242,27 @@ export class PrFeedbackHost {
       prFail("PR_TARGET_STALE");
     this.engine.coordinator.assertWorkspaceCleanupConfirmed(p.workspaceId);
   }
+  private verifiedReceipts(
+    state: VerificationState,
+    plan: VerificationPlan,
+    sourceSha256: string,
+    settledOnly: boolean,
+  ): VerificationReceipt[] | null {
+    const receipts = latestRequiredReceipts(
+      state,
+      plan,
+      (r) => r.planSha256 === plan.planSha256,
+    );
+    return receipts.length &&
+      receipts.every(
+        (r): r is VerificationReceipt =>
+          r?.status === "pass" &&
+          (!settledOnly || r.phase === "settled") &&
+          r.sourceBefore.sha256 === sourceSha256,
+      )
+      ? receipts
+      : null;
+  }
   preview(input: PreviewPrWatchInput, signal?: AbortSignal): Promise<object> {
     return this.tracked(async () => {
       const i = prFields(input, [
@@ -287,9 +316,9 @@ export class PrFeedbackHost {
           prFail("PR_SOURCE_RUN_INVALID");
         const state = this.engine.verificationPlans.get(session.id, run.id);
         if (!state) prFail("PR_VERIFICATION_REQUIRED");
-        for (const c of state.plans.at(-1)!.checks)
-          this.engine.verificationChecks.assertCurrent(c);
         const plan = state.plans.at(-1)!;
+        for (const c of plan.checks)
+          this.engine.verificationChecks.assertCurrent(c);
         const observed = await this.verification.observe(
           {
             sessionId: session.id,
@@ -298,25 +327,13 @@ export class PrFeedbackHost {
           },
           abort,
         );
-        const required = plan.checks.filter((c) => c.required),
-          receipts = required.map((c) =>
-            state.receipts
-              .filter(
-                (r) => r.planSha256 === plan.planSha256 && r.checkId === c.id,
-              )
-              .at(-1),
-          );
-        if (
-          !required.length ||
-          receipts.some(
-            (r) =>
-              !r ||
-              r.status !== "pass" ||
-              r.phase !== "settled" ||
-              r.sourceBefore.sha256 !== observed.sha256,
-          )
-        )
-          prFail("PR_VERIFICATION_REQUIRED");
+        const receipts = this.verifiedReceipts(
+          state,
+          plan,
+          observed.sha256,
+          true,
+        );
+        if (!receipts) prFail("PR_VERIFICATION_REQUIRED");
         const configuration = this.verification.configuration(session.id)!;
         const observation = await this.engine.repository.preview(
           this.engine.store.getWorkspace(session.workspaceId),
@@ -334,7 +351,7 @@ export class PrFeedbackHost {
           verificationSource: observed,
           verificationRevision: state.revision,
           verificationDocumentSha256: rawSha(JSON.stringify(doc.data)),
-          receipts: receipts as NonNullable<(typeof receipts)[number]>[],
+          receipts,
           configurationSha256: knowledgeHash(configuration),
         });
       }
@@ -670,21 +687,10 @@ export class PrFeedbackHost {
         this.lifetime,
       ),
       plan = state.plans.at(-1)!;
-    for (const c of state.plans.at(-1)!.checks)
+    for (const c of plan.checks)
       this.engine.verificationChecks.assertCurrent(c);
-    const checks = plan.checks.filter((c) => c.required),
-      receipts = checks.map((c) =>
-        state.receipts
-          .filter((r) => r.planSha256 === plan.planSha256 && r.checkId === c.id)
-          .at(-1),
-      );
-    if (
-      !checks.length ||
-      receipts.some(
-        (r) =>
-          !r || r.status !== "pass" || r.sourceBefore.sha256 !== source.sha256,
-      )
-    )
+    const receipts = this.verifiedReceipts(state, plan, source.sha256, false);
+    if (!receipts)
       return {
         status: "incomplete",
         mergeAuthority: false,

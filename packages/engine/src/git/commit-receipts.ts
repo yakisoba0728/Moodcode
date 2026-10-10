@@ -96,9 +96,19 @@ function body(
     ),
   );
 }
+export type VerificationEvidencePin = Pick<
+  GitCommitPreview,
+  | "runId"
+  | "workspaceId"
+  | "sessionId"
+  | "verificationRevision"
+  | "verificationDocumentSha256"
+  | "verification"
+  | "source"
+>;
 export function validateCommitVerification(
   db: DatabaseSync,
-  p: GitCommitPreview,
+  p: VerificationEvidencePin,
 ): void {
   const runHeader = db
       .prepare("SELECT workspace_id,session_id,state FROM runs WHERE id=?")

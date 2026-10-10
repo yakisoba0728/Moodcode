@@ -761,7 +761,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   validateEffectBatches():void {this.evidenceRead(()=>validateEffectBatchDatabase(this.db));}
   recoverEffectBatches():number{return this.transaction(()=>pauseEffectBatches(this.db,this.effectBatchWritePorts()));}
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
-  validatePrVerificationEvidence(evidence:unknown):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence as import('../git/types.js').GitCommitPreview));}
+  validatePrVerificationEvidence(evidence:import('../git/commit-receipts.js').VerificationEvidencePin):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence));}
   createCodeModeStorage(assertOriginal:import('../code-mode/records.js').CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,writeTx:operation=>this.db.isTransaction?operation():this.transaction(operation),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
   createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
   validateSandboxes():void {this.evidenceRead(()=>validateSandboxDatabase(this.db));}
