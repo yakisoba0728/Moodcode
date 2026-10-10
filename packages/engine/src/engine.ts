@@ -90,6 +90,7 @@ import { createReadTools } from './tools/read/index.js';
 import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
 import { commandBackendCapability } from './tools/command/backends.js';
+import { registerCredentialEnvNames } from './tools/command/process-control.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
@@ -201,6 +202,8 @@ export interface EngineOptions {
   diagnosticObservations?: boolean;
   diagnosticSourceLimits?: Partial<WorkspaceExecutionSourceLimits>;
   dbPath: string;
+  /** Host credential variable names stripped from every child environment of this process, besides the built-in list. */
+  credentialEnvNames?: readonly string[];
   artifactDir?: string;
   providers?: ProviderAdapter[];
   tools?: ToolDefinition[];
@@ -545,6 +548,13 @@ private readonly workflowRecords: WorkflowStorage;
     this.sandboxEnabled=options.osSandbox===true;
     if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
       throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
+    }
+    const credentialEnvNames: unknown = options.credentialEnvNames;
+    if (credentialEnvNames !== undefined) {
+      const names = Array.isArray(credentialEnvNames) && credentialEnvNames.length <= 256 ? Array.from(credentialEnvNames as unknown[]) : undefined;
+      if (!names?.every((name): name is string => typeof name === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name)))
+        throw new EngineError('INVALID_CONFIG', 'credentialEnvNames must list at most 256 environment variable names');
+      registerCredentialEnvNames(names);
     }
     const repositoryPolicy = options.repositoryContextPolicy !== undefined ? repositoryContextPolicy(options.repositoryContextPolicy) : undefined;
     const knowledgePolicy = options.knowledgeContextPolicy === undefined ? undefined : knowledgeContextPolicy(options.knowledgeContextPolicy);

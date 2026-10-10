@@ -12,6 +12,7 @@ import { DEFAULT_LIMITS, type Checkpoint, type JsonObject } from '@moodcode/cont
 import type { PreparedTool, ToolContext, ToolResult } from '../../ports.js';
 import { COMMAND_LIMITS, createCommandTool as originalCreateCommandTool } from './index.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from './execution-lock.js';
+import { registerCredentialEnvNames } from './process-control.js';
 import { commandBackendCapability } from './backends.js';
 import { directoryFixture } from './windows-native-test-helpers.fixture.js';
 
@@ -470,6 +471,19 @@ test('commands capture stdout and stderr and checkpoint changes against existing
   assert.match(checkpoint.warnings.join('\n'), /concurrent external edits.*attributed/i);
   assert.equal(await readFile(join(root, 'unchanged.txt'), 'utf8'), 'existing unchanged edits\n');
   await assert.rejects(tool.execute(prepared, context), { code: 'COMMAND_ALREADY_EXECUTED' });
+});
+
+test('host-declared credential names reach neither the command supervisor nor its shell', { skip: !posix }, async t => {
+  const { context } = await fixture(t);
+  const names = ['COMMAND_TEST_HOST_CREDENTIAL', 'COMMAND_TEST_HOST_VISIBLE'] as const;
+  const previous = names.map(name => process.env[name]);
+  t.after(() => names.forEach((name, index) => { if (previous[index] === undefined) delete process.env[name]; else process.env[name] = previous[index]; }));
+  process.env.COMMAND_TEST_HOST_CREDENTIAL = 'host-credential-fixture';
+  process.env.COMMAND_TEST_HOST_VISIBLE = 'visible-fixture';
+  registerCredentialEnvNames(['COMMAND_TEST_HOST_CREDENTIAL']);
+  const tool = createCommandTool();
+  const result = await tool.execute(await tool.prepare({ command: nodeCommand(`process.stdout.write(JSON.stringify([${names.map(name => `process.env.${name} ?? null`).join(', ')}]))`) }, context), context);
+  assert.equal(dataOf(result).stdout.text, JSON.stringify([null, 'visible-fixture']));
 });
 
 test('nonzero exit is an explicit failed command result', { skip: !posix }, async t => {

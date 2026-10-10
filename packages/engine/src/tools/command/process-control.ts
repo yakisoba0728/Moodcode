@@ -15,15 +15,21 @@ const PROVIDER_SECRET_NAMES = new Set([
   'TOGETHER_API_KEY', 'OPENROUTER_API_KEY', 'PERPLEXITY_API_KEY',
   'HUGGINGFACE_API_KEY', 'HF_TOKEN',
 ]);
+const HOST_SECRET_NAMES = new Set<string>();
 
-/** Copies the environment without the engine's provider credentials. */
+/** Adds host-declared credential variable names for this process; names are never removed. */
+export function registerCredentialEnvNames(names: readonly string[]): void {
+  for (const name of names) HOST_SECRET_NAMES.add(name.toUpperCase());
+}
+
+/** Copies the environment without provider credentials and host-declared credential names. */
 export function createCommandEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const result: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(source)) {
     const upper = key.toUpperCase();
     const engineSecret = /^MOODCODE_/.test(upper) && /(?:^|_)(?:APIKEY|KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?|AUTH|AUTHORIZATION)(?:_|$)/.test(upper.slice('MOODCODE_'.length));
     const providerSecret = /^(?:OPENAI|ANTHROPIC|GEMINI|GOOGLE|AZURE_OPENAI|MISTRAL|COHERE|XAI|GROQ|DEEPSEEK|TOGETHER|OPENROUTER|PERPLEXITY)_(?:API_KEYS?|ACCESS_TOKEN|AUTH_TOKEN|SECRET|TOKEN)(?:_|$)/.test(upper);
-    if (upper !== 'ELECTRON_RUN_AS_NODE' && !PROVIDER_SECRET_NAMES.has(upper) && !engineSecret && !providerSecret && value !== undefined) result[key] = value;
+    if (upper !== 'ELECTRON_RUN_AS_NODE' && !PROVIDER_SECRET_NAMES.has(upper) && !HOST_SECRET_NAMES.has(upper) && !engineSecret && !providerSecret && value !== undefined) result[key] = value;
   }
   return result;
 }

@@ -126,6 +126,11 @@ export function resolveApiKey(metadata: { apiKeyEnv?: string } | undefined, envi
   return key;
 }
 
+/** Every configured key reference, including providers that read their key only on first use. */
+export function configuredCredentialEnvNames(loaded: LoadedCliConfig): string[] {
+  return Object.values(loaded.providers).flatMap((metadata) => metadata.apiKeyEnv === undefined ? [] : [metadata.apiKeyEnv]);
+}
+
 /** CLI provider selection supplies missing submit config fields without changing request IDs. */
 export function withSubmitDefaults(engine: HarnessEngine, providerId: string, modelId: string): HarnessEngine;
 export function withSubmitDefaults(engine: HarnessEngine, defaults: RunConfigInput): HarnessEngine;
@@ -193,7 +198,7 @@ export async function main(args: readonly string[] = process.argv.slice(2)): Pro
     }
     if (options.dbPath !== ':memory:') await mkdir(dirname(options.dbPath), { recursive: true, mode: 0o700 });
     await mkdir(options.artifactDir, { recursive: true, mode: 0o700 });
-    const created: HarnessEngine = createEngine({ dbPath: options.dbPath, artifactDir: options.artifactDir, providers, defaults: resolved.runConfig });
+    const created: HarnessEngine = createEngine({ dbPath: options.dbPath, artifactDir: options.artifactDir, providers, defaults: resolved.runConfig, credentialEnvNames: configuredCredentialEnvNames(loaded) });
     engine = created;
     const result = await runHarness(created, { input: process.stdin, output: process.stdout, diagnostics: process.stderr, signals: process, secrets });
     return result.exitCode;

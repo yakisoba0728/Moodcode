@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createEngine, type EngineOptions } from './engine.js';
 import { acquireExecutionLock } from './tools/command/execution-lock.js';
+import { createCommandEnvironment } from './tools/command/process-control.js';
 
 async function fixture(options: Omit<EngineOptions, 'dbPath'> = {}) {
   const root = await mkdtemp(join(tmpdir(), 'moodcode-facade-'));
@@ -191,6 +192,16 @@ for (const [flag, message] of [
   Object.defineProperty(options, flag, { enumerable: true, get() { reads++; return 'invalid'; } });
   assert.throws(() => createEngine(options), { code: 'INVALID_CONFIG', message });
   assert.equal(reads, flag === 'osSandbox' ? 3 : 2);
+});
+
+test('constructor registers valid credentialEnvNames for child environments and rejects any invalid list whole', async () => {
+  const message = 'credentialEnvNames must list at most 256 environment variable names';
+  for (const value of ['ENGINE_TEST_PARTIAL_KEY', ['ENGINE_TEST_PARTIAL_KEY', '1INVALID'], ['ENGINE_TEST_PARTIAL_KEY', 'KEY=VALUE'], ['ENGINE_TEST_PARTIAL_KEY', 7], new Array(1), Array(257).fill('ENGINE_TEST_PARTIAL_KEY')])
+    assert.throws(() => createEngine({ dbPath: ':memory:', credentialEnvNames: value } as unknown as EngineOptions), { code: 'INVALID_CONFIG', message });
+  assert.deepEqual(createCommandEnvironment({ ENGINE_TEST_PARTIAL_KEY: 'fake' }), { ENGINE_TEST_PARTIAL_KEY: 'fake' });
+  const f = await fixture({ credentialEnvNames: ['ENGINE_TEST_HOST_KEY'] });
+  try { assert.deepEqual(createCommandEnvironment({ PATH: '/bin', ENGINE_TEST_HOST_KEY: 'fake' }), { PATH: '/bin' }); }
+  finally { await f.cleanup(); }
 });
 
 test('constructor undefined guards short circuit and retain interleaved dependency error priority', () => {

@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { cleanupGroup, groupExists } from './process-control.js';
+import { cleanupGroup, createCommandEnvironment, groupExists, registerCredentialEnvNames } from './process-control.js';
 
 function systemError(code: string): NodeJS.ErrnoException {
   return Object.assign(new Error(`fixture ${code}`), { code });
 }
+
+test('host-declared credential names are stripped in any case from later command environments', () => {
+  const source = { PATH: '/bin', WORK_LLM_GATEWAY_KEY: 'fake', work_llm_gateway_key: 'fake', WORK_LLM_GATEWAY_URL: 'http://fixture' };
+  assert.deepEqual(createCommandEnvironment(source), source);
+  registerCredentialEnvNames(['Work_Llm_Gateway_Key']);
+  assert.deepEqual(createCommandEnvironment(source), { PATH: '/bin', WORK_LLM_GATEWAY_URL: 'http://fixture' });
+  assert.equal(source.WORK_LLM_GATEWAY_KEY, 'fake', 'the caller environment must remain unchanged');
+});
 
 test('permission-denied group probes retain uncertainty until absence is observed', t => {
   const kill = t.mock.method(process, 'kill', () => { throw systemError('EPERM'); });

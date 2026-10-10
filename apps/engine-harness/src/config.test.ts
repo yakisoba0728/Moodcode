@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_LIMITS, type CommandEnvelope, type RunConfig, type RunConfigInput } from '@moodcode/contracts';
 import type { HarnessEngine } from './protocol.js';
-import { parseArguments, resolveApiKey, resolveCliConfig, withSubmitDefaults } from './index.js';
+import { configuredCredentialEnvNames, parseArguments, resolveApiKey, resolveCliConfig, withSubmitDefaults } from './index.js';
 
 const fixtureKey = 'fixture-only-layered-key';
 const fixtureEnvironmentName = 'MOODCODE_FIXTURE_LAYERED_KEY';
@@ -200,6 +200,15 @@ test('conventional credential fallback uses Moodcode before OpenAI only without 
   assert.equal(resolveApiKey({}, { MOODCODE_API_KEY: '', OPENAI_API_KEY: 'fixture-only-secondary' }), 'fixture-only-secondary');
   assert.equal(resolveApiKey({}, { OPENAI_API_KEY: 'fixture-only-secondary' }), 'fixture-only-secondary');
   assert.throws(() => resolveApiKey(undefined, {}));
+});
+
+test('every configured credential reference is declared to the engine, including lazily resolved providers', () => {
+  assert.deepEqual(configuredCredentialEnvNames(loaded(config(), {
+    'openai-compatible': { baseURL: 'http://127.0.0.1:3210/v1', apiKeyEnv: fixtureEnvironmentName },
+    'openai-responses': { baseURL: 'http://127.0.0.1:3211/v1' },
+    scripted: { apiKeyEnv: 'WORK_LLM_GATEWAY_TOKEN' },
+  })), [fixtureEnvironmentName, 'WORK_LLM_GATEWAY_TOKEN']);
+  assert.deepEqual(configuredCredentialEnvNames(loaded()), []);
 });
 
 test('legacy withSubmitDefaults provider/model signature remains compatible', async () => {
