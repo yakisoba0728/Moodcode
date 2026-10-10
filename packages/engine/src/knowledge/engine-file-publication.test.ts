@@ -381,3 +381,72 @@ test("actual concurrent original file previews cannot acquire a second workspace
   assert.equal(f.generations.length, 1);
   f.assertNoCoding();
 });
+
+test("actual revoke stays exact after another skill and a root sibling change parent timestamps", async (t) => {
+  const f = await fixture(t),
+    path = ".moodcode/skills/first/SKILL.md",
+    first = await f.publish(await f.preview(await f.candidate(path)));
+  await f.publish(
+    await f.preview(await f.candidate(".moodcode/skills/second/SKILL.md")),
+  );
+  writeFileSync(join(f.root, "sibling.md"), "Unrelated root entry.\n");
+  assert.equal(
+    f.engine.captureWorkspaceKnowledgeTarget(f.workspace.id, path).revision,
+    1,
+  );
+  const revoked = await f.revoke(await f.revokePreview(first.publication.id));
+  assert.equal(revoked.publication.state, "completed");
+  assert.equal(existsSync(join(f.root, path)), false);
+  assert.equal(
+    f.engine.captureWorkspaceKnowledgeTarget(f.workspace.id, path).revision,
+    2,
+  );
+  f.assertNoCoding();
+});
+
+test("actual 16 KiB bodies publish, update and revoke through their previews", async (t) => {
+  const f = await fixture(t),
+    first = "a".repeat(16383) + "\n",
+    second = "b".repeat(16383) + "\n";
+  await f.publish(await f.preview(await f.candidate("MEMORY.md", first)));
+  const updated = await f.publish(
+    await f.preview(await f.candidate("MEMORY.md", second)),
+  );
+  assert.equal(readFileSync(join(f.root, "MEMORY.md"), "utf8"), second);
+  const revoked = await f.revoke(
+    await f.revokePreview(updated.publication.id),
+  );
+  assert.equal(revoked.publication.state, "completed");
+  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
+  f.assertNoCoding();
+});
+
+test("actual target capture cannot advance the head of an in-flight publication", async (t) => {
+  const f = await fixture(t),
+    preview = await f.preview(await f.candidate("MEMORY.md"));
+  const host = Reflect.get(f.engine, "knowledgeFileHost");
+  assert.ok(host instanceof FileKnowledgePublicationHost);
+  const original = host.apply;
+  let refused: unknown;
+  host.apply = async (capture, input) => {
+    const outcome = await original.call(host, capture, input);
+    try {
+      f.engine.captureWorkspaceKnowledgeTarget(f.workspace.id, "MEMORY.md");
+    } catch (error) {
+      refused = error;
+    }
+    return outcome;
+  };
+  t.after(() => {
+    host.apply = original;
+  });
+  const result = await f.publish(preview);
+  assert.equal(result.publication.state, "completed");
+  failure("KNOWLEDGE_FILE_BUSY")(refused);
+  assert.equal(
+    f.engine.captureWorkspaceKnowledgeTarget(f.workspace.id, "MEMORY.md")
+      .revision,
+    1,
+  );
+  f.assertNoCoding();
+});

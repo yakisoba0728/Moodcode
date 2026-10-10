@@ -16,6 +16,7 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
+import { open } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -689,4 +690,89 @@ test("release-all waits for original effect callback, then invalidates all remai
   );
   assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
   verifyExecutionIdle(f.lockPath);
+});
+
+async function failFileHandle(
+  t: TestContext,
+  method: "chmod" | "stat",
+): Promise<{ arm(): void }> {
+  const path = join(tmpdir(), `moodcode-probe-${randomUUID()}`),
+    probe = await open(path, "w");
+  const prototype = Object.getPrototypeOf(probe) as Record<string, unknown>,
+    original = prototype[method] as (...args: unknown[]) => unknown;
+  await probe.close();
+  unlinkSync(path);
+  let armed = false;
+  prototype[method] = async function (this: unknown, ...args: unknown[]) {
+    if (armed) {
+      armed = false;
+      throw new Error(`Injected ${method} failure`);
+    }
+    return original.apply(this, args);
+  };
+  t.after(() => {
+    prototype[method] = original;
+  });
+  return {
+    arm: () => {
+      armed = true;
+    },
+  };
+}
+
+test("temporary identity is captured before chmod, so a chmod failure still removes the owned temporary", async (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "MEMORY.md"), "Original.");
+  const prepared = await f.host.captureTarget(f.binding, "MEMORY.md"),
+    chmod = await failFileHandle(t, "chmod"),
+    result = await f.host.apply(prepared.capture, f.input(chmod.arm));
+  assert.equal(result.state, "uncertain");
+  assert.equal(result.errorCode, "KNOWLEDGE_FILE_IO_FAILED");
+  assert.equal(result.cleanupConfirmed, true);
+  assert.equal(result.checkpoint.createdFiles.length, 1);
+  assert.deepEqual(
+    result.checkpoint.removedFiles,
+    result.checkpoint.createdFiles,
+  );
+  assert.deepEqual(readdirSync(f.root), ["MEMORY.md"]);
+  assert.equal(readFileSync(join(f.root, "MEMORY.md"), "utf8"), "Original.");
+  verifyExecutionIdle(f.lockPath);
+});
+
+test("a temporary created without a captured identity is reported as unconfirmed cleanup", async (t) => {
+  const f = fixture(t),
+    prepared = await f.host.captureTarget(f.binding, "MEMORY.md"),
+    stat = await failFileHandle(t, "stat"),
+    result = await f.host.apply(prepared.capture, f.input(stat.arm));
+  assert.equal(result.state, "uncertain");
+  assert.equal(result.cleanupConfirmed, false);
+  assert.equal(result.checkpoint.partial, true);
+  assert.equal(result.checkpoint.createdFiles.length, 1);
+  assert.deepEqual(result.checkpoint.removedFiles, []);
+  assert.equal(readdirSync(f.root).length, 1);
+  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
+});
+
+test("execution guard release failure before dispatch reports cleanup uncertainty instead of the original error", async (t) => {
+  const f = fixture(t),
+    host = new FileKnowledgePublicationHost({
+      checkBinding: () => f.binding,
+      readTargetRevision: () => 0,
+      acquireExecutionGuard: () => ({
+        release: () => {
+          throw new Error("Release failed");
+        },
+      }),
+    }),
+    prepared = await host.captureTarget(f.binding, "MEMORY.md");
+  await assert.rejects(
+    host.apply(
+      prepared.capture,
+      f.input(() => {
+        throw new EngineError("ACTUAL_APPROVAL_STALE", "No write approval.");
+      }),
+    ),
+    code("KNOWLEDGE_FILE_CLEANUP_UNCERTAIN"),
+  );
+  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
 });

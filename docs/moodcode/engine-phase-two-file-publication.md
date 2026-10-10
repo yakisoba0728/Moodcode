@@ -6,7 +6,7 @@ Moodcode의 독립적인 host knowledge generation으로 만든 pending candidat
 
 ## 실제 host API
 
-- `captureWorkspaceKnowledgeTarget(workspaceId, path)`는 동기 물리 관찰과 native revision을 함께 읽는다. 파일 철회 후에도 양의 absent revision을 유지한다.
+- `captureWorkspaceKnowledgeTarget(workspaceId, path)`는 동기 물리 관찰과 native revision을 함께 읽는다. revision은 파일 자체나 부모 디렉터리의 device/inode/mode가 바뀔 때만 올라가며, 형제 항목 생성·삭제로 바뀌는 부모 디렉터리의 mtime/ctime만으로는 올라가지 않는다. 같은 경로의 prepared/dispatched owner가 있는 동안 관찰이 바뀌면 `KNOWLEDGE_FILE_BUSY`로 거부한다. 파일 철회 후에도 양의 absent revision을 유지한다.
 - `previewWorkspaceKnowledgeFilePublication({ workspaceId, candidateId, expiresAt? })`와 `previewWorkspaceKnowledgeFileRevocation({ workspaceId, publicationId, expiresAt? })`는 원본 물리 관찰, before/after 전문, SHA, native head, 역사적 생성 증거를 묶는다. 디렉터리나 파일을 만들지 않는다.
 - `publishWorkspaceKnowledgeFile` / `revokeWorkspaceKnowledgeFile`은 `{ workspaceId, requestId, approved: true, preview, signal?, budget? }`를 받는다. 원본 preview의 동일 객체만 유효하다. 복사·다른 Engine·해제된 preview는 실행 권한이 없다.
 - `getWorkspaceKnowledgeFilePublication`, `getWorkspaceKnowledgeFilePublicationReceipt`, `getWorkspaceKnowledgeFileTarget`, `listWorkspaceKnowledgeFilePublications`는 workspace 범위의 이력을 조회한다.
@@ -15,7 +15,7 @@ Moodcode의 독립적인 host knowledge generation으로 만든 pending candidat
 
 ## 실행·저장·복구
 
-파일 처리 전에 현재 물리 root/storage, source, trust, target/head와 역사적 candidate/plan/generation/attempt/usage/cleanup을 대조한다. `prepared` native owner를 먼저 저장한 다음, 고유한 원본 공통 실행 marker의 예약을 primary DB에 기록하고 실제 `effects.sqlite` 잠금을 획득한다. `dispatched`를 durable하게 저장한 뒤에만 mkdir/write/rename/unlink를 실행한다. 모든 실제 descriptor와 작업을 기다린 후 postimage/checkpoint/receipt/head를 하나의 primary transaction에서 저장한다.
+파일 처리 전에 현재 물리 root/storage, source, trust, target/head와 역사적 candidate/plan/generation/attempt/usage/cleanup을 대조한다. `prepared` native owner를 먼저 저장한 다음, 고유한 원본 공통 실행 marker의 예약을 primary DB에 기록하고 실제 `effects.sqlite` 잠금을 획득한다. 잠금이 사용 중이면 예약 전에 거부하고 owner를 취소한다. 예약 후 잠금 획득이나 dispatch 전 잠금 해제가 실패하면 marker가 남았을 수 있으므로 owner를 uncertain으로 남긴다. `dispatched`를 durable하게 저장한 뒤에만 mkdir/write/rename/unlink를 실행한다. 모든 실제 descriptor와 작업을 기다린 후 postimage/checkpoint/receipt/head를 하나의 primary transaction에서 저장한다.
 
 파일 효과 이후 저장에 실패하면 성공 영수증을 만들지 않고 실제 checkpoint와 불확실 상태를 남긴다. 같은 request ID는 원래 완료 영수증만 반환하며, pending/dispatched/uncertain 요청을 자동 재실행하지 않는다. 기존 실행 owner나 workspace lease가 있는 동안 동시 승인은 거부되고, 완료 후 오래된 target 승인은 CAS에서 거부된다.
 

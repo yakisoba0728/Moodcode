@@ -295,6 +295,22 @@ export function validateFilePhysicalObservation(
     );
   return v as unknown as FilePhysicalObservation;
 }
+/** Native head identity: parents keep device/inode/mode but not timestamps, which unrelated sibling entries change. */
+export function sameFileHead(
+  a: FilePhysicalObservation,
+  b: FilePhysicalObservation,
+): boolean {
+  const stable = (value: FilePhysicalObservation) => ({
+    ...value,
+    parentPins: value.parentPins.map(({ path, device, inode, mode }) => ({
+      path,
+      device,
+      inode,
+      mode,
+    })),
+  });
+  return knowledgeHash(stable(a)) === knowledgeHash(stable(b));
+}
 export function validateKnowledgeFileTarget(
   input: unknown,
 ): KnowledgeFileTarget {

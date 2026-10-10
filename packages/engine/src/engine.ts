@@ -690,9 +690,12 @@ private readonly workflowRecords: WorkflowStorage;
       this.knowledgeFileHost = new FileKnowledgePublicationHost({ checkBinding: knowledgeBinding,
         readTargetRevision: (binding, path) => this.knowledgeFilePublications.getCurrentTarget(binding.workspaceId, path)?.revision ?? 0,
         acquireExecutionGuard: (binding, publicationId) => {
+          // A busy lock found here leaves no guard row, so the owner settles as cancelled, not uncertain.
+          assertExecutionLockAvailable(this.executionLockPath);
           const reservation = reserveExecutionLock(this.executionLockPath);
           this.knowledgeFileExecutionGuards.reserve(binding, publicationId, this.executionLockPath, readExecutionLockReservation(reservation));
-          return acquireExecutionLock(this.executionLockPath, reservation);
+          try { return acquireExecutionLock(this.executionLockPath, reservation); }
+          catch { throw new EngineError('KNOWLEDGE_FILE_CLEANUP_UNCERTAIN', 'File execution marker may stay committed after a failed lock acquisition'); }
         } });
       this.knowledgeHost = this.store.createKnowledgeHostAdapter({ checkHostBinding: knowledgeBinding,
         ...(this.knowledgeFilePublicationEnabled ? { readFileTargetRevision: (binding: ReturnType<typeof knowledgeBinding>, path: string) =>

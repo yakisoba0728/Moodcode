@@ -6,9 +6,13 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { setTimeout as delay } from "node:timers/promises";
 import { FileKnowledgePublicationHost } from "./file-publication-fs.js";
-import { inspectExecutionLock } from "../tools/command/execution-lock.js";
+import {
+  acquireExecutionLock,
+  inspectExecutionLock,
+} from "../tools/command/execution-lock.js";
 import {
   BODY,
+  failure,
   filePublicationFixture,
   invoke,
 } from "./fixtures/file-publication.js";
@@ -389,4 +393,97 @@ test("actual Engine close drains the original acquired file operation before rel
   assert.equal(applyCalls, 1);
   assert.equal(f.generations.length, 1);
   f.assertNoCoding();
+});
+
+function fileOwner(
+  f: Awaited<ReturnType<typeof filePublicationFixture>>,
+  requestId: string,
+): KnowledgeFilePublicationRecord {
+  const db = Reflect.get(f.engine.store, "db");
+  assert.ok(db instanceof DatabaseSync);
+  const row = db
+    .prepare("SELECT data FROM knowledge_file_publications WHERE request_id=?")
+    .get(requestId);
+  assert.ok(row);
+  return JSON.parse(String(row.data)) as KnowledgeFilePublicationRecord;
+}
+
+test("actual busy execution lock before marker reservation cancels the file owner without a barrier", async (t) => {
+  const f = await filePublicationFixture(t),
+    preview = await f.preview(await f.candidate("MEMORY.md")),
+    held = acquireExecutionLock(
+      Reflect.get(f.engine, "executionLockPath") as string,
+    );
+  try {
+    await assert.rejects(
+      f.publish(preview, "file-lock-busy"),
+      failure("COMMAND_EFFECTS_BUSY"),
+    );
+  } finally {
+    held.release(true);
+  }
+  assert.equal(fileOwner(f, "file-lock-busy").state, "cancelled");
+  assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), false);
+  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
+});
+
+test("actual lock acquisition failure after marker reservation settles the file owner uncertain", async (t) => {
+  const f = await filePublicationFixture(t),
+    preview = await f.preview(await f.candidate("MEMORY.md")),
+    lockPath = Reflect.get(f.engine, "executionLockPath") as string,
+    guards = Reflect.get(f.engine, "knowledgeFileExecutionGuards") as {
+      reserve(...args: unknown[]): void;
+    },
+    reserve = guards.reserve;
+  let held: ReturnType<typeof acquireExecutionLock> | undefined;
+  guards.reserve = (...args) => {
+    reserve.apply(guards, args);
+    held = acquireExecutionLock(lockPath);
+  };
+  try {
+    await assert.rejects(
+      f.publish(preview, "file-lock-after-reservation"),
+      failure("KNOWLEDGE_FILE_CLEANUP_UNCERTAIN"),
+    );
+  } finally {
+    held?.release(true);
+    guards.reserve = reserve;
+  }
+  const record = fileOwner(f, "file-lock-after-reservation");
+  assert.equal(record.state, "uncertain");
+  assert.equal(record.dispatchedAt, null);
+  assert.equal(record.cleanupConfirmed, false);
+  assert.equal(f.engine.store.hasUncertainWorkspace(f.workspace.id), true);
+  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
+});
+
+test("actual release failures free the operation slot and keep a completed receipt", async (t) => {
+  const f = await filePublicationFixture(t),
+    candidate = await f.candidate("MEMORY.md"),
+    previews = [];
+  for (let index = 0; index < 34; index++)
+    previews.push(await f.preview(candidate));
+  const native = Reflect.get(
+      f.engine,
+      "knowledgeFilePublications",
+    ) as KnowledgeFilePublicationStorage,
+    host = Reflect.get(f.engine, "knowledgeFileHost");
+  assert.ok(host instanceof FileKnowledgePublicationHost);
+  const apply = host.apply;
+  native.release = () => {
+    throw new Error("Release failed");
+  };
+  host.apply = async () => {
+    throw new EngineError("FIXTURE_APPLY_FAILED", "Apply failed before dispatch");
+  };
+  t.after(() => {
+    Reflect.deleteProperty(native, "release");
+    host.apply = apply;
+  });
+  for (const preview of previews.slice(0, 33))
+    await assert.rejects(f.publish(preview), /Release failed/);
+  host.apply = apply;
+  const result = await f.publish(previews[33]!);
+  assert.equal(result.publication.state, "completed");
+  assert.equal(readFileSync(join(f.root, "MEMORY.md"), "utf8"), BODY);
 });

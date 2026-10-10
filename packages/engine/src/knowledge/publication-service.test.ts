@@ -195,3 +195,16 @@ test('source-current port cannot silently mutate selected source between exact b
   const f = await fixture(t), preview = f.preview(); f.state.sourceHook = () => writeFileSync(join(f.root, 'source.ts'), 'export const changedInsidePort = 6;\n');
   await assert.rejects(f.service.publish(approved(preview)), code('KNOWLEDGE_SOURCE_CHANGED')); assert.deepEqual(f.counts(), [0, 0, 0, 0]);
 });
+
+test('a failed cancel keeps the original commit error and failed releases free the slot without hiding a receipt', async t => {
+  const f = await fixture(t), native = f.ports.native, { cancel, release } = native;
+  t.after(() => { native.cancel = cancel; native.release = release; });
+  f.state.beforeCommit = () => { throw new EngineError('FIXTURE_COMMIT_FAILED', 'Commit failed'); };
+  native.cancel = () => { throw new Error('Cancel failed'); };
+  await assert.rejects(f.service.publish(approved(f.preview())), code('FIXTURE_COMMIT_FAILED'));
+  assert.equal((JSON.parse(f.db.prepare('SELECT data FROM knowledge_publications').get()!.data as string) as { state: string }).state, 'cancelled');
+  native.cancel = cancel; native.release = () => { throw new Error('Release failed'); };
+  for (let index = 0; index < 33; index++) await assert.rejects(f.service.publish(approved(f.preview())), /Release failed/);
+  f.state.beforeCommit = undefined;
+  assert.equal((await f.service.publish(approved(f.preview()))).publication.state, 'completed');
+});

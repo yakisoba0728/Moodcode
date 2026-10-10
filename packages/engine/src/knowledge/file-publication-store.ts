@@ -22,6 +22,7 @@ import {
   fileDigest,
   filePath,
   fileText,
+  sameFileHead,
   validateFilePhysicalObservation,
   validateKnowledgeFileTarget,
   validatePrepareKnowledgeFilePublication,
@@ -884,7 +885,7 @@ export class KnowledgeFilePublicationStorage {
         binding.workspaceId,
         observation.path,
       );
-      if (current?.observationSha256 === knowledgeHash(observation))
+      if (current && sameFileHead(current.observation, observation))
         return current;
       // Only a target never observed present and never published can remain zero.
       if (!current && !observation.present)
@@ -896,6 +897,17 @@ export class KnowledgeFilePublicationStorage {
           observationSha256: knowledgeHash(observation),
           observation,
         });
+      if (
+        this.#db
+          .prepare(
+            "SELECT 1 FROM knowledge_file_publications WHERE workspace_id=? AND path=? AND state IN ('prepared','dispatched') LIMIT 1",
+          )
+          .get(binding.workspaceId, observation.path)
+      )
+        filePublicationError(
+          "KNOWLEDGE_FILE_BUSY",
+          "File target cannot advance while a publication owns it",
+        );
       return targetOf(
         this.insertObservation(binding, observation, current, null),
       );
@@ -1500,15 +1512,18 @@ export class KnowledgeFilePublicationStorage {
     return this.settleUncertain(capture, input);
   }
   release(capture: KnowledgeFilePublicationCapture): void {
-    const owner = this.owned(capture);
-    if (owner.state === "prepared") this.cancelPrepared(capture);
-    else if (owner.state === "dispatched")
-      this.settleUncertain(capture, {
-        errorCode: "KNOWLEDGE_FILE_OWNER_RELEASED_UNSETTLED",
-        cleanupConfirmed: false,
-      });
-    this.#captures.delete(capture);
-    this.#live.delete(capture);
+    try {
+      const owner = this.owned(capture);
+      if (owner.state === "prepared") this.cancelPrepared(capture);
+      else if (owner.state === "dispatched")
+        this.settleUncertain(capture, {
+          errorCode: "KNOWLEDGE_FILE_OWNER_RELEASED_UNSETTLED",
+          cleanupConfirmed: false,
+        });
+    } finally {
+      this.#captures.delete(capture);
+      this.#live.delete(capture);
+    }
   }
   private barrier(
     workspaceId: string,

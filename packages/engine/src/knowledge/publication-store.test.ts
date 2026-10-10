@@ -975,3 +975,21 @@ test("native archive validators reject impossible body/revoke/history/state/fing
     code("INVALID_KNOWLEDGE_PUBLICATION"),
   );
 });
+
+test("a failed release cancel still frees the original capture", (t) => {
+  const f = fixture(t),
+    p = f.prepare();
+  f.db.exec(
+    "CREATE TRIGGER fail_cancel BEFORE UPDATE ON knowledge_publications BEGIN SELECT RAISE(ABORT,'Cancel failed'); END",
+  );
+  assert.throws(() => f.publications.release(p.capture), /Cancel failed/);
+  f.db.exec("DROP TRIGGER fail_cancel");
+  assert.throws(
+    () => f.publications.release(p.capture),
+    code("KNOWLEDGE_PUBLICATION_HANDLE_INVALID"),
+  );
+  assert.equal(
+    f.publications.getPublication("workspace", p.record.id).state,
+    "prepared",
+  );
+});

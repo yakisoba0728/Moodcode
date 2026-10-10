@@ -284,12 +284,15 @@ export class KnowledgePublicationService {
       if (committed) return Object.freeze({ ...committed, duplicate: false });
       const observed = this.#ports.native.findRequest(request);
       if (observed?.state === 'completed') return Object.freeze({ ...this.#ports.native.getCommitted(workspaceId, observed.id), duplicate: true });
-      if (capture) this.#ports.native.cancel(capture, error instanceof EngineError ? error.code : 'KNOWLEDGE_PUBLICATION_FAILED');
+      if (capture) try { this.#ports.native.cancel(capture, error instanceof EngineError ? error.code : 'KNOWLEDGE_PUBLICATION_FAILED'); } catch { /* release() retries the cancel and reports its own failure. */ }
       throw error;
     } finally {
       clearTimeout(timer); signal?.removeEventListener('abort', callerAbort); controller.signal.removeEventListener('abort', aborted);
-      if (capture) { this.#commits.delete(capture.publicationId); this.#ports.native.release(capture); }
       this.#reserved--;
+      if (capture) {
+        this.#commits.delete(capture.publicationId);
+        try { this.#ports.native.release(capture); } catch (error) { if (!committed) throw error; }
+      }
     }
   }
 }

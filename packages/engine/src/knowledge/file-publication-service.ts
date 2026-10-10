@@ -17,6 +17,10 @@ import type {
   UncertainKnowledgeFilePublication,
 } from "./file-publication-types.js";
 import {
+  filePublicationJson,
+  sameFileHead,
+} from "./file-publication-validation.js";
+import {
   readKnowledgePublicationHistory,
   type KnowledgePublicationHistory,
   type KnowledgePublicationHistoryPorts,
@@ -401,7 +405,7 @@ export class KnowledgeFilePublicationService {
         target.revision !== physical.revision ||
         target.path !== candidate.target.path ||
         target.workspaceId !== candidate.workspaceId ||
-        !same(target.observation, physical.observation)
+        !sameFileHead(target.observation, physical.observation)
       )
         fail(
           "KNOWLEDGE_FILE_STALE",
@@ -493,10 +497,10 @@ export class KnowledgeFilePublicationService {
           "KNOWLEDGE_FILE_LIMIT",
           "Whole original approval preview exceeds its bound",
         );
-      const preview = immutableKnowledgeJson({
-        ...base,
-        sha256: knowledgeHash(base),
-      });
+      const preview = filePublicationJson(
+        { ...base, sha256: knowledgeHash(base) },
+        MAX_PREVIEW_BYTES,
+      );
       this.metadata(preview);
       await this.#ports.host.assertFresh(physical.capture, originalSignal);
       this.metadata(preview);
@@ -631,12 +635,13 @@ export class KnowledgeFilePublicationService {
         "Native file target changed during original publication",
       );
     const expected =
-      phase === "dispatch"
-        ? owner.state.physical.observation
-        : owner.outcome?.after;
+        phase === "dispatch"
+          ? owner.state.physical.observation
+          : owner.outcome?.after,
+      matches = phase === "dispatch" ? same : sameFileHead;
     if (
       !expected ||
-      !same(
+      !matches(
         this.#ports.host.observeTargetSync(record.binding, record.path),
         expected,
       )
@@ -853,7 +858,11 @@ export class KnowledgeFilePublicationService {
         prior &&
         !["cancelled", "uncertain"].includes(prior.state)
       ) {
-        if (owner?.dispatched || prior.state === "dispatched")
+        if (
+          owner?.dispatched ||
+          prior.state === "dispatched" ||
+          errorCode(error) === "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN"
+        )
           this.#ports.native.uncertain(capture, {
             ...(owner?.outcome
               ? {
@@ -869,11 +878,16 @@ export class KnowledgeFilePublicationService {
       throw error;
     } finally {
       clearTimeout(timer);
+      this.#reserved--;
       if (capture) {
         this.#operations.delete(capture.publicationId);
-        this.#ports.native.release(capture);
+        try {
+          this.#ports.native.release(capture);
+        } catch (error) {
+          // A completed owner has no cleanup left; its receipt outranks the release failure.
+          if (!completed) throw error;
+        }
       }
-      this.#reserved--;
     }
   }
   close(): Promise<void> {

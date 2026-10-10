@@ -505,18 +505,45 @@ test("Windows aliases of Git metadata and dependencies are rejected before bindi
   assert.equal(f.state.bindingReads, before);
   assert.equal(f.store.listPublications("workspace").items.length, 0);
 });
-test("preimage mutation rejects stale target before intent and currentness callback", (t) => {
+test("preimage mutation cannot advance a prepared owner's head and is rejected before intent", (t) => {
   const f = fixture(t),
     p = f.prepare();
   writeFileSync(join(f.root, "MEMORY.md"), "outside");
-  f.store.captureTarget(f.binding(), f.observe());
+  assert.throws(
+    () => f.store.captureTarget(f.binding(), f.observe()),
+    code("KNOWLEDGE_FILE_BUSY"),
+  );
+  assert.equal(f.store.getCurrentTarget("workspace", "MEMORY.md"), undefined);
+  f.state.beforeCurrent = () => {
+    throw new EngineError("KNOWLEDGE_FILE_STALE", "Physical preimage changed");
+  };
   assert.throws(
     () => f.store.dispatch(p.capture),
-    code("KNOWLEDGE_FILE_TARGET_STALE"),
+    code("KNOWLEDGE_FILE_STALE"),
   );
-  assert.equal(f.state.currentChecks, 0);
+  assert.equal(f.state.currentChecks, 1);
   assert.equal(f.store.getOwner("workspace", p.record.id)!.state, "prepared");
   f.store.cancel(p.capture);
+  assert.equal(f.store.captureTarget(f.binding(), f.observe()).revision, 1);
+});
+test("head identity ignores parent timestamps but not parent identity", (t) => {
+  const f = fixture(t);
+  writeFileSync(join(f.root, "MEMORY.md"), "one");
+  const first = f.store.captureTarget(f.binding(), f.observe());
+  writeFileSync(join(f.root, "sibling.md"), "unrelated");
+  const touched = f.observe();
+  assert.notEqual(
+    touched.parentPins[0]!.mtimeNs,
+    first.observation.parentPins[0]!.mtimeNs,
+  );
+  assert.deepEqual(f.store.captureTarget(f.binding(), touched), first);
+  const replaced = {
+    ...touched,
+    parentPins: [
+      { ...touched.parentPins[0]!, mode: touched.parentPins[0]!.mode ^ 0o1 },
+    ],
+  };
+  assert.equal(f.store.captureTarget(f.binding(), replaced).revision, 2);
 });
 test("completion without original dispatched intent cannot create receipt", (t) => {
   const f = fixture(t),
@@ -1055,4 +1082,19 @@ test("archive semantic check rejects rewritten producer fingerprint even with va
     () => validateKnowledgeFilePublicationDatabase(f.db),
     code("KNOWLEDGE_FILE_EVIDENCE_INVALID"),
   );
+});
+
+test("a failed release settlement still frees the original capture", (t) => {
+  const f = fixture(t),
+    p = f.prepare();
+  f.db.exec(
+    "CREATE TRIGGER fail_settle BEFORE UPDATE ON knowledge_file_publications BEGIN SELECT RAISE(ABORT,'Settle failed'); END",
+  );
+  assert.throws(() => f.store.release(p.capture), /Settle failed/);
+  f.db.exec("DROP TRIGGER fail_settle");
+  assert.throws(
+    () => f.store.release(p.capture),
+    code("KNOWLEDGE_FILE_CAPTURE_INVALID"),
+  );
+  assert.equal(f.store.getOwner("workspace", p.record.id)!.state, "prepared");
 });

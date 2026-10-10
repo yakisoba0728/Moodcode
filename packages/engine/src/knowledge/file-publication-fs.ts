@@ -906,7 +906,6 @@ export class FileKnowledgePublicationHost {
           parent(relative),
           `.moodcode-publication-${sha256(data.publicationId).slice(0, 16)}-${randomUUID()}.tmp`,
         );
-        temp = selectedTemp;
         const handle = await open(
           absolute(selectedTemp),
           constants.O_WRONLY |
@@ -915,14 +914,15 @@ export class FileKnowledgePublicationHost {
             (constants.O_NOFOLLOW ?? 0),
           original.mode ?? 0o600,
         );
+        temp = selectedTemp;
         handles.add(handle);
         effects.createdFiles.push(selectedTemp);
-        await handle.chmod(original.mode ?? 0o600);
         const initial = await handle.stat({ bigint: true });
         tempIdentity = {
           device: initial.dev.toString(),
           inode: initial.ino.toString(),
         };
+        await handle.chmod(original.mode ?? 0o600);
         await refresh(parent(relative));
         const bytes = Buffer.from(data.body);
         let written = 0;
@@ -1053,6 +1053,10 @@ export class FileKnowledgePublicationHost {
           errorCode ??= "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN";
           effects.partial = true;
         }
+      } else if (temp) {
+        cleanupConfirmed = false;
+        errorCode ??= "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN";
+        effects.partial = true;
       }
       if (dispatched && !applied) {
         try {
@@ -1070,6 +1074,11 @@ export class FileKnowledgePublicationHost {
         effects.partial = true;
       }
       this.#applying--;
+      if (!dispatched && !cleanupConfirmed)
+        fail(
+          "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN",
+          "Execution guard release failed before dispatch",
+        );
     }
     return immutableKnowledgeJson({
       state: applied && cleanupConfirmed ? "applied" : "uncertain",

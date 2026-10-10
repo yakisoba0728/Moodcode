@@ -1306,11 +1306,14 @@ export class KnowledgePublicationStorage {
     return record;
   }
   release(capture: KnowledgePublicationCapture): void {
-    const issued = this.owned(capture),
-      current = this.getPublication(issued.workspaceId, issued.id);
-    if (current.state === "prepared") this.cancel(capture);
-    this.#owners.delete(capture);
-    this.#live.delete(capture);
+    const issued = this.owned(capture);
+    try {
+      const current = this.getPublication(issued.workspaceId, issued.id);
+      if (current.state === "prepared") this.cancel(capture);
+    } finally {
+      this.#owners.delete(capture);
+      this.#live.delete(capture);
+    }
   }
   recoverInterruptedOwners(): { cancelled: number } {
     let cancelled = 0;
