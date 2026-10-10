@@ -1206,29 +1206,15 @@ test("bounded archive validation rejects omitted normalized budget fields and im
     code("INVALID_KNOWLEDGE_GENERATION"),
   );
 });
-test("bounded pages are scoped detached immutable observations with exact keyset continuation", (t) => {
+test("generation reads are scoped detached immutable observations", (t) => {
   const f = fixture(t),
     a = f.complete(),
     b = f.complete(f.admit(f.request())),
-    page = f.native.listGenerations("workspace", { limit: 1, maxBytes: 10000 });
-  assert.equal(page.items.length, 1);
-  assert.ok(page.next);
-  const next = f.native.listGenerations("workspace", {
-    after: page.next!,
-    limit: 1,
-  });
-  assert.equal(next.items.length, 1);
-  assert.notEqual(next.items[0]!.id, page.items[0]!.id);
-  assert.ok([a.record.id, b.record.id].includes(next.items[0]!.id));
-  assert.ok(
-    Object.isFrozen(page) &&
-      Object.isFrozen(page.items) &&
-      Object.isFrozen(page.items[0]!),
-  );
-  assert.throws(
-    () => f.native.listGenerations("workspace", { maxBytes: 1 }),
-    code("KNOWLEDGE_GENERATION_LIMIT"),
-  );
+    read = f.native.getGeneration("workspace", b.record.id);
+  assert.equal(read.id, b.record.id);
+  assert.notEqual(read.id, a.record.id);
+  assert.ok(Object.isFrozen(read));
+  assert.notEqual(f.native.getGeneration("workspace", b.record.id), read);
   assert.throws(
     () => f.native.getGeneration("foreign", a.record.id),
     code("KNOWLEDGE_NOT_FOUND"),

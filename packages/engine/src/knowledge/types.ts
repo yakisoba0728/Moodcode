@@ -1,5 +1,3 @@
-import type { DatabaseSync } from 'node:sqlite';
-
 /** These records describe host operations; none manufactures a Session or Run owner. */
 export interface KnowledgeHostBinding {
   readonly workspaceId: string;
@@ -167,4 +165,3 @@ export interface KnowledgeStoragePorts {
   readonly readGenerationEvidence?: (plan: KnowledgeGenerationPlan, ownerId: string) => KnowledgeGenerationEvidence;
   readonly now?: () => number;
 }
-export interface KnowledgeStorageConstruction { readonly db: DatabaseSync; readonly ports: KnowledgeStoragePorts }

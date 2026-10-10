@@ -660,38 +660,6 @@ test("bounded invalid text/deep paths/non-skill missing parents never dispatch; 
       f.host.releaseCapture(value.value.capture);
 });
 
-test("release-all waits for original effect callback, then invalidates all remaining opaque captures without file writes", async (t) => {
-  const f = fixture(t),
-    prepared = await f.host.captureTarget(f.binding, "MEMORY.md");
-  let resume!: () => void, entered!: () => void;
-  const gate = new Promise<void>((resolve) => {
-      resume = resolve;
-    }),
-    ready = new Promise<void>((resolve) => {
-      entered = resolve;
-    });
-  const original = f.host.apply(
-    prepared.capture,
-    f.input(async () => {
-      entered();
-      await gate;
-      throw new EngineError("ACTUAL_APPROVAL_STALE", "No write approval.");
-    }),
-  );
-  await ready;
-  assert.throws(() => f.host.releaseAllCaptures(), code("KNOWLEDGE_FILE_BUSY"));
-  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
-  resume();
-  await assert.rejects(original, code("ACTUAL_APPROVAL_STALE"));
-  f.host.releaseAllCaptures();
-  await assert.rejects(
-    f.host.assertFresh(prepared.capture),
-    code("KNOWLEDGE_FILE_CAPTURE_INVALID"),
-  );
-  assert.equal(existsSync(join(f.root, "MEMORY.md")), false);
-  verifyExecutionIdle(f.lockPath);
-});
-
 async function failFileHandle(
   t: TestContext,
   method: "chmod" | "stat",

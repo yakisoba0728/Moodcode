@@ -27,10 +27,6 @@ import type {
   FilePhysicalObservation,
   FilePublicationCheckpoint,
 } from "./file-publication-types.js";
-export type {
-  FileParentPin,
-  FilePhysicalObservation,
-} from "./file-publication-types.js";
 import {
   exactKnowledgePath,
   identifier,
@@ -50,11 +46,10 @@ export interface FileKnowledgeTargetCapture {
   readonly beforeContent: string | null;
   readonly revision: number;
 }
-export type FileKnowledgePublicationCheckpoint = FilePublicationCheckpoint;
 export interface FileKnowledgePublicationApplyResult {
   readonly state: "applied" | "uncertain";
   readonly after: FilePhysicalObservation | null;
-  readonly checkpoint: FileKnowledgePublicationCheckpoint;
+  readonly checkpoint: FilePublicationCheckpoint;
   readonly cleanupConfirmed: boolean;
   readonly errorCode?: string;
 }
@@ -206,7 +201,6 @@ export class FileKnowledgePublicationHost {
   readonly #captures = new WeakMap<object, CaptureState>();
   readonly #active = new Set<object>();
   #capturing = 0;
-  #applying = 0;
   constructor(ports: FileKnowledgePublicationHostPorts) {
     ordinary(ports, [
       "checkBinding",
@@ -668,16 +662,6 @@ export class FileKnowledgePublicationHost {
     this.#active.delete(capture);
     this.#captures.delete(capture);
   }
-  /** Called by Engine only after its original service operations and captures have drained. */
-  releaseAllCaptures(): void {
-    if (this.#applying || this.#capturing)
-      fail(
-        "KNOWLEDGE_FILE_BUSY",
-        "Join original physical operations before releasing their captures",
-      );
-    for (const capture of this.#active) this.#captures.delete(capture);
-    this.#active.clear();
-  }
   /**
    * Node has no portable openat/renameat compare-and-swap. Parent and preimage guards
    * narrow each effect boundary; the final hash check cannot detect an external edit
@@ -754,7 +738,6 @@ export class FileKnowledgePublicationHost {
         "INVALID_KNOWLEDGE_FILE",
         "Execution guard must expose original synchronous release",
       );
-    this.#applying++;
     const handles = new Set<Awaited<ReturnType<typeof open>>>(),
       effects = {
         createdParents: [] as string[],
@@ -1073,7 +1056,6 @@ export class FileKnowledgePublicationHost {
         errorCode = "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN";
         effects.partial = true;
       }
-      this.#applying--;
       if (!dispatched && !cleanupConfirmed)
         fail(
           "KNOWLEDGE_FILE_CLEANUP_UNCERTAIN",

@@ -27,8 +27,6 @@ import type {
   KnowledgeGenerationStoragePorts,
   KnowledgeGenerationTable,
   KnowledgeGenerationWorkspaceBarrier,
-  KnowledgeGenerationListOptions,
-  KnowledgeGenerationPage,
 } from "./generation-types.js";
 import {
   normalizeKnowledgeGenerationBudget,
@@ -2362,76 +2360,5 @@ export class KnowledgeGenerationStorage {
       );
     this.#livePreviews.delete(preview.workspaceId);
     this.#previews.delete(preview);
-  }
-  listGenerations(
-    workspaceId: string,
-    options: KnowledgeGenerationListOptions = {},
-  ): KnowledgeGenerationPage<KnowledgeGenerationRecord> {
-    return this.page(
-      "knowledge_generations",
-      workspaceId,
-      options,
-    ) as KnowledgeGenerationPage<KnowledgeGenerationRecord>;
-  }
-  listAttempts(
-    workspaceId: string,
-    options: KnowledgeGenerationListOptions = {},
-  ): KnowledgeGenerationPage<KnowledgeGenerationAttempt> {
-    return this.page(
-      "knowledge_generation_attempts",
-      workspaceId,
-      options,
-    ) as KnowledgeGenerationPage<KnowledgeGenerationAttempt>;
-  }
-  private page(
-    table: KnowledgeGenerationTable,
-    workspaceId: string,
-    options: KnowledgeGenerationListOptions,
-  ): KnowledgeGenerationPage<KnowledgeGenerationArchiveRow["data"]> {
-    identifier(workspaceId);
-    const value = immutableKnowledgeJson(options);
-    exact(value, [], ["after", "limit", "maxBytes"]);
-    if (value.after !== undefined) identifier(value.after);
-    const limit = value.limit ?? 32,
-      maxBytes = value.maxBytes ?? MAX_READ_BYTES;
-    if (!integer(limit, 32) || !integer(maxBytes, MAX_READ_BYTES))
-      knowledgeError(
-        "KNOWLEDGE_GENERATION_LIMIT",
-        "Native page budget must be positive and bounded",
-      );
-    const items: KnowledgeGenerationArchiveRow["data"][] = [];
-    let bytes = 0,
-      next: string | null = null;
-    const rows = this.#db
-      .prepare(
-        `SELECT * FROM ${table} WHERE workspace_id=? AND id>? ORDER BY id LIMIT ?`,
-      )
-      .iterate(workspaceId, value.after ?? "", limit + 1) as Iterable<Row>;
-    for (const row of rows) {
-      if (items.length === limit) {
-        next = items.length
-          ? "id" in items.at(-1)!
-            ? String((items.at(-1)! as { id: string }).id)
-            : workspaceId
-          : null;
-        break;
-      }
-      const cost = Buffer.byteLength(row.data);
-      if (bytes + cost > maxBytes) {
-        if (!items.length)
-          knowledgeError(
-            "KNOWLEDGE_GENERATION_LIMIT",
-            "First native record exceeds the page byte budget",
-          );
-        next =
-          "id" in items.at(-1)!
-            ? (items.at(-1)! as { id: string }).id
-            : workspaceId;
-        break;
-      }
-      items.push(decode(row, table));
-      bytes += cost;
-    }
-    return Object.freeze({ items: Object.freeze(items), next, bytes });
   }
 }

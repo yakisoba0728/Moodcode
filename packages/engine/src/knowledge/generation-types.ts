@@ -2,8 +2,6 @@ import type {
   KnowledgeGenerationEvidence,
   KnowledgeGenerationPlan,
   KnowledgeHostBinding,
-  KnowledgeListOptions,
-  KnowledgePage,
   KnowledgeUsage,
 } from "./types.js";
 
@@ -222,6 +220,4 @@ export interface KnowledgeGenerationArchiveRow {
   readonly workspaceId: string;
   readonly data: KnowledgeGenerationArchiveData;
 }
-export type KnowledgeGenerationListOptions = KnowledgeListOptions;
-export type KnowledgeGenerationPage<T> = KnowledgePage<T>;
 export type { KnowledgeGenerationEvidence };

@@ -72,7 +72,7 @@ CREATE INDEX knowledge_import_decision_workspace ON knowledge_import_recovery_de
 CREATE INDEX knowledge_import_activation_workspace ON knowledge_import_document_activations(workspace_id,document_key,revision);
 `;
 
-export const KNOWLEDGE_IMPORT_RECOVERY_LIMITS = Object.freeze({
+const KNOWLEDGE_IMPORT_RECOVERY_LIMITS = Object.freeze({
   rowBytes: 65_536,
   frontierBytes: 16_777_216,
   frontierRows: 65_536,
@@ -468,7 +468,7 @@ function raw(
   table: string,
   key: string,
   workspaceId: string,
-  maximum = 65_536,
+  maximum: number = KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
 ): { header: Record<string, unknown>; data: string } | undefined {
   if (!exists(db, table)) return undefined;
   const extra: Record<string, string> = {
@@ -738,7 +738,7 @@ function originalPinCurrent(
     uncertaintyTables[pin.kind],
     pin.id,
     ws,
-    pin.kind === "file" ? 1_048_576 : 65_536,
+    pin.kind === "file" ? 1_048_576 : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
   );
   if (!row) return false;
   const data = parsed(row.data) as ObjectData;
@@ -887,7 +887,7 @@ function nativeFrontier(
         "knowledge_file_recovery_acknowledgments",
       ].includes(table)
         ? 1_048_576
-        : 65_536;
+        : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes;
       if (
         !Number.isSafeInteger(size) ||
         size < 2 ||
@@ -941,7 +941,7 @@ function captureUncertainties(
         table,
         id(header.id),
         ws,
-        kind === "file" ? 1_048_576 : 65_536,
+        kind === "file" ? 1_048_576 : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
       );
       if (!row) fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
       const data = parsed(row.data) as ObjectData;
@@ -1699,7 +1699,7 @@ export function validateKnowledgeImportRecoveryDatabase(
         ++rows > KNOWLEDGE_IMPORT_RECOVERY_LIMITS.frontierRows ||
         !Number.isSafeInteger(size) ||
         size < 2 ||
-        size > 65_536 ||
+        size > KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes ||
         bytes > KNOWLEDGE_IMPORT_RECOVERY_LIMITS.frontierBytes
       )
         fail("KNOWLEDGE_IMPORT_RECOVERY_READ_LIMIT");

@@ -776,18 +776,6 @@ export class KnowledgeFilePublicationStorage {
       );
     return targetOf(revision);
   }
-  getTarget(
-    workspaceId: string,
-    path: string,
-  ): KnowledgeFileTarget | undefined {
-    return this.getCurrentTarget(workspaceId, path);
-  }
-  getPublication(
-    workspaceId: string,
-    publicationId: string,
-  ): KnowledgeFilePublicationRecord | undefined {
-    return this.getOwner(workspaceId, publicationId);
-  }
   private insertObservation(
     binding: KnowledgeHostBinding,
     observation: FilePhysicalObservation,
@@ -1160,10 +1148,7 @@ export class KnowledgeFilePublicationStorage {
   }
   dispatch(
     capture: KnowledgeFilePublicationCapture,
-    input: { readonly lockOwner?: unknown } = {},
   ): KnowledgeFilePublicationRecord {
-    const value = filePublicationJson(input);
-    fileFields(value, [], ["lockOwner"]);
     const record = this.write(() => {
       const current = this.owned(capture);
       if (current.state !== "prepared")
@@ -1392,7 +1377,7 @@ export class KnowledgeFilePublicationStorage {
     this.#captures.set(capture, result.publication);
     return result;
   }
-  cancelPrepared(
+  cancel(
     capture: KnowledgeFilePublicationCapture,
     errorCode = "KNOWLEDGE_FILE_CANCELLED_NOT_DISPATCHED",
   ): KnowledgeFilePublicationRecord {
@@ -1417,13 +1402,7 @@ export class KnowledgeFilePublicationStorage {
     this.#captures.set(capture, result);
     return result;
   }
-  cancel(
-    capture: KnowledgeFilePublicationCapture,
-    errorCode?: string,
-  ): KnowledgeFilePublicationRecord {
-    return this.cancelPrepared(capture, errorCode);
-  }
-  settleUncertain(
+  uncertain(
     capture: KnowledgeFilePublicationCapture,
     input: UncertainKnowledgeFilePublication,
   ): KnowledgeFilePublicationRecord {
@@ -1505,18 +1484,12 @@ export class KnowledgeFilePublicationStorage {
     this.#captures.set(capture, result);
     return result;
   }
-  uncertain(
-    capture: KnowledgeFilePublicationCapture,
-    input: UncertainKnowledgeFilePublication,
-  ): KnowledgeFilePublicationRecord {
-    return this.settleUncertain(capture, input);
-  }
   release(capture: KnowledgeFilePublicationCapture): void {
     try {
       const owner = this.owned(capture);
-      if (owner.state === "prepared") this.cancelPrepared(capture);
+      if (owner.state === "prepared") this.cancel(capture);
       else if (owner.state === "dispatched")
-        this.settleUncertain(capture, {
+        this.uncertain(capture, {
           errorCode: "KNOWLEDGE_FILE_OWNER_RELEASED_UNSETTLED",
           cleanupConfirmed: false,
         });
@@ -1645,33 +1618,9 @@ export class KnowledgeFilePublicationStorage {
   }
   listPublications(
     workspaceId: string,
-    options: KnowledgeFilePublicationListOptions = {},
+    input: KnowledgeFilePublicationListOptions = {},
   ): KnowledgeFilePublicationPage<KnowledgeFilePublicationRecord> {
-    return this.page(
-      "knowledge_file_publications",
-      workspaceId,
-      options,
-    ) as KnowledgeFilePublicationPage<KnowledgeFilePublicationRecord>;
-  }
-  listObservations(
-    workspaceId: string,
-    path: string,
-    options: KnowledgeFilePublicationListOptions = {},
-  ): KnowledgeFilePublicationPage<KnowledgeFileObservationRevision> {
-    filePath(path);
-    return this.page(
-      "knowledge_file_observations",
-      workspaceId,
-      options,
-      path,
-    ) as KnowledgeFilePublicationPage<KnowledgeFileObservationRevision>;
-  }
-  private page(
-    table: "knowledge_file_publications" | "knowledge_file_observations",
-    workspaceId: string,
-    input: KnowledgeFilePublicationListOptions,
-    path?: string,
-  ): KnowledgeFilePublicationPage<KnowledgeFilePublicationArchiveData> {
+    const table = "knowledge_file_publications";
     identifier(workspaceId);
     const options = filePublicationJson(input);
     fileFields(options, [], ["after", "limit", "maxBytes"]);
@@ -1686,28 +1635,19 @@ export class KnowledgeFilePublicationStorage {
     if (
       after &&
       !this.#db
-        .prepare(
-          `SELECT id FROM ${table} WHERE workspace_id=? AND id=?${path ? " AND path=?" : ""}`,
-        )
-        .get(workspaceId, after, ...(path ? [path] : []))
+        .prepare(`SELECT id FROM ${table} WHERE workspace_id=? AND id=?`)
+        .get(workspaceId, after)
     )
       filePublicationError(
         "KNOWLEDGE_FILE_PAGE_CURSOR",
-        "Page cursor must belong to this exact workspace/path",
+        "Page cursor must belong to this exact workspace",
       );
-    const clauses = ["workspace_id=?", "id>?", ...(path ? ["path=?"] : [])],
-      parameters: SQLInputValue[] = [
-        workspaceId,
-        after,
-        ...(path ? [path] : []),
-        limit + 1,
-      ];
     const metadata = this.#db
       .prepare(
-        `SELECT id,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE ${clauses.join(" AND ")} ORDER BY id LIMIT ?`,
+        `SELECT id,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE workspace_id=? AND id>? ORDER BY id LIMIT ?`,
       )
-      .all(...parameters);
-    const items: KnowledgeFilePublicationArchiveData[] = [];
+      .all(workspaceId, after, limit + 1);
+    const items: KnowledgeFilePublicationRecord[] = [];
     let bytes = 0;
     for (const row of metadata.slice(0, limit)) {
       const size = Number(row.bytes);
@@ -1733,7 +1673,7 @@ export class KnowledgeFilePublicationStorage {
           "KNOWLEDGE_FILE_RECORD_CHANGED",
           "Selected file publication vanished",
         );
-      items.push(decode(body, table));
+      items.push(decode(body, table) as KnowledgeFilePublicationRecord);
       bytes += size;
     }
     return filePublicationJson(
@@ -1764,9 +1704,6 @@ export class KnowledgeFilePublicationStorage {
       barrierRevision: preview.barrierRevision,
     });
     return preview;
-  }
-  getRecoveryPreview(workspaceId: string): KnowledgeFileRecoveryPreview {
-    return this.previewRecovery(workspaceId);
   }
   private decision(
     input: {

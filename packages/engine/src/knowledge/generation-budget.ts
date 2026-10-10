@@ -1,13 +1,11 @@
 import {
-  identifier,
   immutableKnowledgeJson,
   integer,
   knowledgeError,
-  knowledgeHash,
 } from "./validation.js";
 import type { KnowledgeGenerationBudget } from "./generation-types.js";
 
-export const KNOWLEDGE_GENERATION_BUDGET_MAXIMUMS: KnowledgeGenerationBudget =
+const KNOWLEDGE_GENERATION_BUDGET_MAXIMUMS: KnowledgeGenerationBudget =
   Object.freeze({
     maxDurationMs: 90_000,
     providerRequestTimeoutMs: 60_000,
@@ -54,19 +52,6 @@ export function normalizeKnowledgeGenerationBudget(
     );
   return Object.freeze(result);
 }
-export function knowledgeGenerationBudgetHash(
-  budget: KnowledgeGenerationBudget,
-): string {
-  return knowledgeHash(normalizeKnowledgeGenerationBudget(budget));
-}
-export function knowledgeGenerationRemainingMs(
-  deadline: number,
-  now: number,
-): number {
-  integer(deadline, 8_640_000_000_000_000);
-  integer(now, 8_640_000_000_000_000);
-  return Math.max(0, deadline - now);
-}
 export function assertKnowledgeGenerationDigest(value: unknown): string {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value))
     knowledgeError(
@@ -74,7 +59,4 @@ export function assertKnowledgeGenerationDigest(value: unknown): string {
       "Host generation hash must be a lowercase SHA-256 digest",
     );
   return value as string;
-}
-export function knowledgeGenerationErrorCode(value: unknown): string {
-  return identifier(value);
 }

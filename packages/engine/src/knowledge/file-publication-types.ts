@@ -3,7 +3,6 @@ import type {
   KnowledgeHostBinding,
   KnowledgeListOptions,
   KnowledgePage,
-  KnowledgeTarget,
 } from "./types.js";
 import type { KnowledgePublicationProvenance } from "./publication-types.js";
 
@@ -233,7 +232,3 @@ export interface KnowledgeFilePublicationArchiveRow {
 }
 export type KnowledgeFilePublicationListOptions = KnowledgeListOptions;
 export type KnowledgeFilePublicationPage<T> = KnowledgePage<T>;
-export type KnowledgeFileLegacyTarget = Extract<
-  KnowledgeTarget,
-  { kind: "workspace-file" }
->;
