@@ -4,6 +4,7 @@ import { EngineError, type InputRecord } from "@moodcode/contracts";
 import { scheduleFixture, scheduleInvoke } from "./fixtures/schedule.js";
 import {
   ScheduleStorage,
+  markImportedSchedulesDisabled,
   validateScheduleDatabase,
   type ScheduleRequestResult,
   type ScheduleRevision,
@@ -334,4 +335,196 @@ test("native descriptor-safe admission and lookup reject untrusted getters and p
   );
   assert.equal(traps, 0);
   assert.deepEqual(f.counts(), before);
+});
+
+test("a claim reads the clock once and rejects a step back behind its lease", async (t) => {
+  const value = await actual(t),
+    { f, native, worker, lease } = value,
+    occurrence = advance(value).result.occurrences[0]!,
+    ports = Reflect.get(native, "ports") as ScheduleStoragePorts,
+    claimInput = {
+      workspaceId: f.workspace.id,
+      occurrenceId: occurrence.occurrenceId,
+      requestId: "claim",
+      expectedRevision: occurrence.revision,
+    },
+    before = f.counts();
+  Reflect.set(ports, "now", () => Date.parse(lease.record.createdAt) - 1000);
+  assert.throws(
+    () => native.claimOccurrence(worker, lease.lease!, claimInput),
+    code("SCHEDULE_CLOCK_ROLLBACK"),
+  );
+  assert.deepEqual(f.counts(), before);
+  const expiry = Date.parse(lease.record.expiresAt);
+  let reads = 0;
+  Reflect.set(ports, "now", () => (reads++ === 0 ? expiry - 1 : expiry + 1));
+  const claimed = native.claimOccurrence(worker, lease.lease!, claimInput);
+  Reflect.deleteProperty(ports, "now");
+  assert.equal(claimed.record.createdAt, new Date(expiry - 1).toISOString());
+  validateScheduleDatabase(native.db);
+});
+
+test("claim transitions reject a step back behind their lease and recovery stamps no earlier than the claim", async (t) => {
+  const value = await actual(t),
+    { f, native, worker, lease } = value,
+    occurrence = advance(value).result.occurrences[0]!,
+    ports = Reflect.get(native, "ports") as ScheduleStoragePorts,
+    claimed = native.claimOccurrence(worker, lease.lease!, {
+      workspaceId: f.workspace.id,
+      occurrenceId: occurrence.occurrenceId,
+      requestId: "claim",
+      expectedRevision: occurrence.revision,
+    }),
+    before = f.counts();
+  Reflect.set(ports, "now", () => Date.parse(lease.record.createdAt) - 60000);
+  try {
+    assert.throws(
+      () =>
+        scheduleInvoke(f.engine, "dispatchScheduleOccurrence", {
+          workspaceId: f.workspace.id,
+          requestId: "dispatch-behind-lease",
+          expectedRevision: claimed.record.revision,
+          approved: true,
+          claim: claimed.claim,
+        }),
+      code("SCHEDULE_CLOCK_ROLLBACK"),
+    );
+    assert.deepEqual(f.counts(), before);
+    native.recoverInterrupted();
+  } finally {
+    Reflect.deleteProperty(ports, "now");
+  }
+  const recovered = native.getOccurrence(
+    f.workspace.id,
+    occurrence.occurrenceId,
+  )!;
+  assert.equal(recovered.state, "uncertain");
+  assert.equal(recovered.createdAt, claimed.record.createdAt);
+  assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 0);
+  assert.equal(f.requests.length, 0);
+  validateScheduleDatabase(native.db);
+});
+
+test("ordinary appends stop while recovery and import headroom remains", async (t) => {
+  const value = await actual(t),
+    { f, native, worker, lease } = value,
+    occurrence = advance(value).result.occurrences[0]!;
+  native.claimOccurrence(worker, lease.lease!, {
+    workspaceId: f.workspace.id,
+    occurrenceId: occurrence.occurrenceId,
+    requestId: "claim",
+    expectedRevision: occurrence.revision,
+  });
+  rollback(native, () => {
+    const rows = () =>
+        Number(
+          native.db
+            .prepare("SELECT count(*) AS n FROM schedule_revisions")
+            .get()!.n,
+        ),
+      used = rows(),
+      insert = native.db.prepare(
+        "INSERT INTO schedule_revisions(id,workspace_id,kind,entity_id,revision,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,'transition','filler',?,'filler',?,'0','0','{}')",
+      );
+    // Leave 7 rows: recover (2), import-disable and import-pause (4) fit; a renew (2) plus that reserve (6) does not.
+    for (let i = 1; i <= 8192 - 7 - used; i++)
+      insert.run(`filler-${i}`, f.workspace.id, i, `filler-${i}`);
+    assert.throws(
+      () =>
+        native.renewLease(lease.lease!, {
+          workspaceId: f.workspace.id,
+          requestId: "renew",
+          expectedRevision: lease.record.revision,
+          ttlMs: 30000,
+        }),
+      code("SCHEDULE_LIMIT"),
+    );
+    assert.equal(rows(), 8185);
+    native.recoverInterrupted();
+    assert.equal(
+      native.getOccurrence(f.workspace.id, occurrence.occurrenceId)!.state,
+      "uncertain",
+    );
+    markImportedSchedulesDisabled(native.db, "a".repeat(64));
+    assert.equal(
+      native.getOccurrence(f.workspace.id, occurrence.occurrenceId)!.state,
+      "paused-import",
+    );
+    assert.equal(
+      native.getSchedule(f.workspace.id, value.spec.id)!.spec.enabled,
+      false,
+    );
+  });
+  validateScheduleDatabase(native.db);
+});
+
+test("only the abandon of a live claim may spend recovery and import headroom", async (t) => {
+  const value = await actual(t),
+    { f, native, worker, lease } = value,
+    schedule = (id: string) => {
+      const spec = f.spec(value.target.pin, id),
+        registered = scheduleInvoke<ScheduleRequestResult<ScheduleRevision>>(
+          f.engine,
+          "registerSchedule",
+          value.target.original,
+          {
+            workspaceId: f.workspace.id,
+            requestId: `register-${id}`,
+            expectedRevision: 0,
+            spec,
+          },
+        );
+      return advance({ ...value, spec, registered }, `advance-${id}`).result
+        .occurrences[0]!;
+    },
+    claim = (occurrence: TriggerOccurrence) =>
+      native.claimOccurrence(worker, lease.lease!, {
+        workspaceId: f.workspace.id,
+        occurrenceId: occurrence.occurrenceId,
+        requestId: `claim-${occurrence.occurrenceId}`,
+        expectedRevision: occurrence.revision,
+      }),
+    abandon = (claimed: ScheduleClaimResult, requestId: string) =>
+      native.abandonClaim(claimed.claim!, {
+        workspaceId: f.workspace.id,
+        requestId,
+        expectedRevision: native.getOccurrence(
+          f.workspace.id,
+          claimed.record.occurrenceId,
+        )!.revision,
+        operation: "uncertain",
+        errorCode: "SCHEDULE_DISPATCH_FAILED",
+      }),
+    x = claim(advance(value).result.occurrences[0]!),
+    y = claim(schedule("claimed")),
+    z = claim(schedule("interrupted")),
+    state = (claimed: ScheduleClaimResult) =>
+      native.getOccurrence(f.workspace.id, claimed.record.occurrenceId)!.state;
+  abandon(x, "abandon-x");
+  rollback(native, () => {
+    const rows = () =>
+        Number(
+          native.db
+            .prepare("SELECT count(*) AS n FROM schedule_revisions")
+            .get()!.n,
+        ),
+      used = rows(),
+      insert = native.db.prepare(
+        "INSERT INTO schedule_revisions(id,workspace_id,kind,entity_id,revision,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,'transition','filler',?,'filler',?,'0','0','{}')",
+      );
+    // Leave 16 rows: import-disable for 3 schedules (6), import-pause for X (2), recover and import-pause for Y and Z (8).
+    for (let i = 1; i <= 8192 - 16 - used; i++)
+      insert.run(`filler-${i}`, f.workspace.id, i, `filler-${i}`);
+    assert.throws(() => abandon(x, "abandon-x-again"), code("SCHEDULE_LIMIT"));
+    assert.equal(rows(), 8176);
+    abandon(y, "abandon-y");
+    assert.equal(state(y), "uncertain");
+    native.recoverInterrupted();
+    assert.equal(state(z), "uncertain");
+    markImportedSchedulesDisabled(native.db, "a".repeat(64));
+    for (const claimed of [x, y, z])
+      assert.equal(state(claimed), "paused-import");
+    assert.equal(rows(), 8192);
+  });
+  validateScheduleDatabase(native.db);
 });

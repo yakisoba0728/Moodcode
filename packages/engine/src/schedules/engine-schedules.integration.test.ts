@@ -2,13 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
 import type { DispatchScheduleOccurrenceInput } from "./dispatcher.js";
-import type {
-  ScheduleClaimResult,
-  ScheduleDueResult,
-  ScheduleRequestResult,
-  ScheduleRevision,
-  SchedulerLeaseResult,
-  TriggerOccurrence,
+import {
+  validateScheduleDatabase,
+  type ScheduleClaimResult,
+  type ScheduleDueResult,
+  type ScheduleRequestResult,
+  type ScheduleRevision,
+  type ScheduleStorage,
+  type SchedulerLeaseResult,
+  type TriggerOccurrence,
 } from "./store.js";
 import {
   scheduleCommand,
@@ -817,6 +819,161 @@ test(
     );
     assert.equal(reconciled.result.record.state, "accepted");
     assert.equal(reconciled.result.record.input?.inputId, inputs[0]!.id);
+    assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 1);
+    assert.equal(f.requests.length, 0);
+  },
+);
+
+test(
+  "re-registering a schedule never rematerializes a slot an earlier revision already claimed",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await scheduleFixture(t),
+      target = f.target(),
+      spec = f.spec(target.pin, "actual-reregister"),
+      worker = scheduleInvoke<object>(
+        f.engine,
+        "captureScheduleWorker",
+        f.workspace.id,
+      );
+    let revision = 0;
+    const register = (requestId: string, changes: Partial<typeof spec>) => {
+      revision = scheduleInvoke<ScheduleRequestResult<ScheduleRevision>>(
+        f.engine,
+        "registerSchedule",
+        target.original,
+        {
+          workspaceId: f.workspace.id,
+          requestId,
+          expectedRevision: revision,
+          spec: { ...spec, ...changes },
+        },
+      ).record.revision;
+    };
+    const advance = (requestId: string) => {
+      const input = {
+          workspaceId: f.workspace.id,
+          scheduleId: spec.id,
+          requestId,
+          expectedRevision: revision,
+        },
+        result = scheduleInvoke<ScheduleDueResult>(
+          f.engine,
+          "advanceScheduleDue",
+          worker,
+          scheduleInvoke<object>(f.engine, "previewScheduleDue", {
+            workspaceId: f.workspace.id,
+            scheduleId: spec.id,
+          }),
+          input,
+        );
+      revision = result.record.revision;
+      return { input, result };
+    };
+    register("register", {});
+    const first = advance("advance-first").result.occurrences;
+    assert.equal(first.length, 1);
+    register("edit-before-claim", { description: "Edited while queued." });
+    const second = advance("advance-second").result.occurrences;
+    assert.equal(second.length, 1);
+    assert.notEqual(second[0]!.occurrenceId, first[0]!.occurrenceId);
+    assert.equal(
+      second[0]!.candidate.triggerKey,
+      first[0]!.candidate.triggerKey,
+    );
+    const lease = scheduleInvoke<SchedulerLeaseResult>(
+        f.engine,
+        "acquireSchedulerLease",
+        worker,
+        {
+          workspaceId: f.workspace.id,
+          requestId: "lease-reregister",
+          expectedRevision: 0,
+          ttlMs: 30000,
+        },
+      ),
+      claim = scheduleInvoke<ScheduleClaimResult>(
+        f.engine,
+        "claimScheduleOccurrence",
+        worker,
+        lease.lease,
+        {
+          workspaceId: f.workspace.id,
+          occurrenceId: second[0]!.occurrenceId,
+          requestId: "claim-reregister",
+          expectedRevision: second[0]!.revision,
+        },
+      ),
+      accepted = scheduleInvoke<OccurrenceResult>(
+        f.engine,
+        "dispatchScheduleOccurrence",
+        {
+          workspaceId: f.workspace.id,
+          requestId: "dispatch-reregister",
+          expectedRevision: claim.record.revision,
+          approved: true,
+          claim: claim.claim,
+        },
+      );
+    assert.equal(accepted.record.state, "accepted");
+    register("edit-after-claim", { description: "Edited after it ran." });
+    const replay = advance("advance-after-claim");
+    assert.deepEqual(replay.result.occurrences, []);
+    assert.ok(replay.result.record.cursor?.through);
+    assert.deepEqual(
+      scheduleInvoke<ScheduleDueResult>(
+        f.engine,
+        "advanceScheduleDue",
+        {},
+        {},
+        replay.input,
+      ).occurrences,
+      [],
+    );
+    assert.equal(
+      scheduleInvoke<TriggerOccurrence[]>(
+        f.engine,
+        "inspectScheduleOccurrences",
+        f.workspace.id,
+        spec.id,
+      ).length,
+      2,
+    );
+    assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 1);
+    const at = Date.parse((spec.trigger as { at: string }).at) + 1;
+    register("move-trigger", {
+      trigger: { kind: "absolute", at: new Date(at).toISOString() },
+    });
+    assert.equal(advance("advance-moved").result.occurrences.length, 1);
+    validateScheduleDatabase(
+      (Reflect.get(f.engine, "scheduleRecords") as ScheduleStorage).db,
+    );
+    assert.equal(f.requests.length, 0);
+  },
+);
+
+test(
+  "finished dispatch requests leave the request cache so calls past 256 keep working",
+  { timeout: 20000 },
+  async (t) => {
+    const f = await scheduleFixture(t),
+      selected = claimed(f),
+      accepted = dispatch(f, selected);
+    assert.equal(accepted.record.state, "accepted");
+    for (let i = 0; i < 300; i++)
+      assert.throws(
+        () =>
+          dispatch(f, selected, {
+            requestId: `copied-${i}`,
+            claim: structuredClone(selected.claimed.claim),
+          }),
+        code("SCHEDULE_ORIGINAL_REQUIRED"),
+      );
+    const pending = observe(f, selected, accepted.record, "observe-past-256");
+    assert.equal(pending.result.record.state, "accepted");
+    const before = f.counts();
+    assert.throws(() => dispatch(f, selected), code("SCHEDULE_CLAIM_STALE"));
+    assert.deepEqual(f.counts(), before);
     assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 1);
     assert.equal(f.requests.length, 0);
   },

@@ -61,6 +61,8 @@ interface CachedRequest {
   error?: unknown;
   finished: boolean;
 }
+/** Bounds in-flight requests; the least recently used finished one makes room, since store receipts keep no-replay. */
+const REQUEST_CACHE_LIMIT = 256;
 
 /** Explicit queue delivery uses one actual acceptance between durable intent and native receipt. */
 export class ScheduleDispatcher {
@@ -107,6 +109,8 @@ export class ScheduleDispatcher {
       if (prior.original !== original || prior.sha256 !== sha256)
         scheduleHostError("SCHEDULE_REQUEST_CONFLICT");
       if (!prior.finished) scheduleHostError("SCHEDULE_REQUEST_IN_PROGRESS");
+      this.requests.delete(key);
+      this.requests.set(key, prior);
       if (prior.error !== undefined) throw prior.error;
       if (!prior.result) scheduleHostError("SCHEDULE_REQUEST_UNCERTAIN");
       return {
@@ -114,7 +118,15 @@ export class ScheduleDispatcher {
         duplicate: structuredClone({ ...prior.result, duplicate: true }),
       };
     }
-    if (this.requests.size >= 256) scheduleHostError("SCHEDULE_REQUEST_LIMIT");
+    if (this.requests.size >= REQUEST_CACHE_LIMIT) {
+      for (const [stale, entry] of this.requests)
+        if (entry.finished) {
+          this.requests.delete(stale);
+          break;
+        }
+      if (this.requests.size >= REQUEST_CACHE_LIMIT)
+        scheduleHostError("SCHEDULE_REQUEST_LIMIT");
+    }
     const current: CachedRequest = { original, sha256, finished: false };
     this.requests.set(key, current);
     return { current };
@@ -259,6 +271,7 @@ export class ScheduleDispatcher {
   close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.requests.clear();
     this.lifetime.abort();
     this.ports.host.close();
   }

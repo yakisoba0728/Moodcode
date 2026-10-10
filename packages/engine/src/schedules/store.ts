@@ -408,6 +408,24 @@ function sync(value: unknown): void {
     fail("SCHEDULE_ORIGINAL_REQUIRED");
   }
 }
+/** Recovery, import and the abandon of a live claim, which frees its recover reserve, may spend the headroom ordinary appends leave. */
+const ADMINISTRATIVE_OPERATIONS = new Set([
+  "recover",
+  "import-disable",
+  "import-pause",
+  "abandon",
+]);
+/** Upper bound of a receipt plus the fields a recover or import revision adds. */
+const ADMINISTRATIVE_REVISION_BYTES = 4096;
+/** Revisions recoverInterrupted and pauseImported may still append for a head in this state. */
+function administrativeWrites(kind: string, state: unknown): number {
+  if (kind === "schedule") return state === true || state === 1 ? 1 : 0;
+  if (kind !== "occurrence") return 0;
+  return (
+    Number(state === "claimed" || state === "dispatching") +
+    Number(state !== "paused-import")
+  );
+}
 
 /** Actual primary SQLite transactions; native original claims never derive authority from serialized DTOs. */
 export class ScheduleStorage {
@@ -654,6 +672,48 @@ export class ScheduleStorage {
     const record = this.read<T>(String(row.id), workspaceId);
     return { record, receipt: this.receipt(record), duplicate: true };
   }
+  private sizes(): { rows: number; bytes: number } {
+    const sizes = this.db
+      .prepare(
+        "SELECT count(*) AS n,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM schedule_revisions",
+      )
+      .get()!;
+    return { rows: Number(sizes.n), bytes: Number(sizes.bytes) };
+  }
+  /** Rows and bytes recovery and import still need once `next` heads its entity. */
+  private administrativeReserve(
+    kind: "schedule" | "lease" | "occurrence",
+    entity: string,
+    next: ScheduleRevision | SchedulerLease | TriggerOccurrence,
+  ): { rows: number; bytes: number } {
+    let rows = 0,
+      bytes = 0;
+    const add = (head: string, state: unknown, n: number, size: number) => {
+      const writes = administrativeWrites(head, state);
+      rows += 2 * writes * n;
+      bytes += writes * (size + n * ADMINISTRATIVE_REVISION_BYTES);
+    };
+    for (const group of this.db
+      .prepare(
+        "SELECT h.kind,CASE h.kind WHEN 'schedule' THEN json_extract(r.data,'$.spec.enabled') ELSE json_extract(r.data,'$.state') END AS state,count(*) AS n,coalesce(sum(length(CAST(r.data AS BLOB))),0) AS bytes FROM schedule_heads h JOIN schedule_revisions r ON r.id=h.revision_id WHERE h.kind<>'lease' AND NOT (h.workspace_id=? AND h.kind=? AND h.entity_id=?) GROUP BY 1,2",
+      )
+      .all(next.workspaceId, kind, entity))
+      add(
+        String(group.kind),
+        group.state,
+        Number(group.n),
+        Number(group.bytes),
+      );
+    add(
+      kind,
+      kind === "schedule"
+        ? (next as ScheduleRevision).spec.enabled
+        : (next as TriggerOccurrence).state,
+      1,
+      Buffer.byteLength(JSON.stringify(next)),
+    );
+    return { rows, bytes };
+  }
   private insert(
     kind: Kind,
     entity: string,
@@ -665,14 +725,10 @@ export class ScheduleStorage {
     previousId: string | null,
   ): void {
     const value = json(body),
-      sizes = this.db
-        .prepare(
-          "SELECT count(*) AS n,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM schedule_revisions",
-        )
-        .get()!;
+      sizes = this.sizes();
     if (
-      Number(sizes.n) >= SCHEDULE_STORAGE_LIMITS.rows ||
-      Number(sizes.bytes) + Buffer.byteLength(JSON.stringify(value)) >
+      sizes.rows >= SCHEDULE_STORAGE_LIMITS.rows ||
+      sizes.bytes + Buffer.byteLength(JSON.stringify(value)) >
         SCHEDULE_STORAGE_LIMITS.bytes
     )
       fail("SCHEDULE_LIMIT");
@@ -727,16 +783,6 @@ export class ScheduleStorage {
     const requestId = id(input.requestId),
       requestSha = knowledgeHash(input),
       scope = `${kind}:${entity}`;
-    this.insert(
-      kind,
-      entity,
-      record,
-      scope,
-      requestId,
-      requestSha,
-      record.revision,
-      record.previousId,
-    );
     const receipt = signed({
       id: record.lastReceiptId,
       workspaceId: record.workspaceId,
@@ -751,6 +797,35 @@ export class ScheduleStorage {
       requestInput: input,
       createdAt: record.createdAt,
     });
+    const prior = (before as TriggerOccurrence | undefined)?.state;
+    if (
+      !ADMINISTRATIVE_OPERATIONS.has(operation) ||
+      (operation === "abandon" &&
+        prior !== "claimed" &&
+        prior !== "dispatching")
+    ) {
+      const sizes = this.sizes(),
+        reserve = this.administrativeReserve(kind, entity, record);
+      if (
+        sizes.rows + 2 + reserve.rows > SCHEDULE_STORAGE_LIMITS.rows ||
+        sizes.bytes +
+          Buffer.byteLength(JSON.stringify(record)) +
+          Buffer.byteLength(JSON.stringify(receipt)) +
+          reserve.bytes >
+          SCHEDULE_STORAGE_LIMITS.bytes
+      )
+        fail("SCHEDULE_LIMIT");
+    }
+    this.insert(
+      kind,
+      entity,
+      record,
+      scope,
+      requestId,
+      requestSha,
+      record.revision,
+      record.previousId,
+    );
     this.insert(
       "transition",
       `${kind}:${entity}`,
@@ -795,7 +870,11 @@ export class ScheduleStorage {
         );
     return { record, receipt, duplicate: false };
   }
-  private revise<T extends object>(body: T, before?: Revision): T & Revision {
+  private revise<T extends object>(
+    body: T,
+    before?: Revision,
+    at?: number,
+  ): T & Revision {
     return signed({
       ...body,
       id: randomUUID(),
@@ -803,7 +882,7 @@ export class ScheduleStorage {
       revision: (before?.revision ?? 0) + 1,
       previousId: before?.id ?? null,
       lastReceiptId: randomUUID(),
-      createdAt: this.time(),
+      createdAt: at === undefined ? this.time() : new Date(at).toISOString(),
     }) as T & Revision;
   }
   private worker(
@@ -1294,7 +1373,8 @@ export class ScheduleStorage {
     const result = this.ports.writeTx(() => {
       const worker = this.worker(originalWorker, "dispatch"),
         before = this.getOccurrence(safe.workspaceId, safe.occurrenceId),
-        lease = this.getLease(safe.workspaceId);
+        lease = this.getLease(safe.workspaceId),
+        now = this.now();
       if (
         !before ||
         before.revision !== safe.expectedRevision ||
@@ -1302,9 +1382,10 @@ export class ScheduleStorage {
         !lease ||
         lease.generation !== cap.lease.generation ||
         lease.worker.sha256 !== worker.sha256 ||
-        Date.parse(lease.expiresAt) <= this.now()
+        Date.parse(lease.expiresAt) <= now
       )
         fail("SCHEDULE_CLAIM_STALE");
+      if (now < Date.parse(lease.createdAt)) fail("SCHEDULE_CLOCK_ROLLBACK");
       const schedule = this.scheduleFor(before),
         current = this.getSchedule(safe.workspaceId, before.scheduleId);
       if (
@@ -1340,6 +1421,7 @@ export class ScheduleStorage {
             claimToken: randomUUID(),
           },
           before,
+          now,
         ),
         before,
         "claim",
@@ -1471,10 +1553,23 @@ export class ScheduleStorage {
         safe.workspaceId !== cap.image.workspaceId
       )
         fail("SCHEDULE_STALE");
+      const now = this.now();
+      if (
+        before.leaseRevisionId !== null &&
+        now <
+          Date.parse(
+            this.read<SchedulerLease>(
+              before.leaseRevisionId,
+              before.workspaceId,
+              "lease",
+            ).createdAt,
+          )
+      )
+        fail("SCHEDULE_CLOCK_ROLLBACK");
       return this.commit(
         "occurrence",
         before.occurrenceId,
-        this.revise(update(before), before),
+        this.revise(update(before), before, now),
         before,
         operation,
         request,
@@ -1851,6 +1946,7 @@ export class ScheduleStorage {
     operation: string,
     input?: ScheduleAcceptedInputProof,
   ): void {
+    // Startup and import cannot fail on a clock step back; the predecessor is already no earlier than its lease.
     this.commit(
       "occurrence",
       before.occurrenceId,
@@ -1865,6 +1961,7 @@ export class ScheduleStorage {
               : before.errorCode,
         },
         before,
+        Math.max(this.now(), Date.parse(before.createdAt)),
       ),
       before,
       operation,
@@ -1968,6 +2065,7 @@ export class ScheduleStorage {
       validateScheduleCursor(proof.batch.nextCursor, before.spec);
       sync(this.ports.assertDueBatchCurrent(originalDue, proof, before.spec));
       const occurrences: TriggerOccurrence[] = [];
+      let claimedSlots: ReadonlySet<string> | undefined;
       for (const value of proof.batch.occurrences) {
         const candidate = validateScheduleOccurrence(value, before.spec),
           old = this.getOccurrence(safe.workspaceId, candidate.occurrenceId);
@@ -1978,6 +2076,13 @@ export class ScheduleStorage {
           continue;
         }
         this.occurrenceBudget();
+        // A slot an earlier revision already claimed is omitted; one left queued there can no longer be claimed.
+        claimedSlots ??= new Set(
+          this.inspectOccurrences(safe.workspaceId, safe.scheduleId)
+            .filter((row) => row.worker !== null)
+            .map((row) => row.candidate.triggerKey),
+        );
+        if (claimedSlots.has(candidate.triggerKey)) continue;
         if (this.inspectOccurrences(safe.workspaceId).length >= 512)
           fail("SCHEDULE_LIMIT");
         const record = this.candidateRecord(before, candidate),
