@@ -248,7 +248,6 @@ async function apply(change: Change, before: Image, request: PhysicalRecord, con
 
 /** Original physical capabilities contain no Session, Run, approval or SQL owner. */
 export class PhysicalPatchProducer {
-  readonly limits = PHYSICAL_PATCH_LIMITS;
   readonly #captures = new WeakMap<object, PhysicalRecord>();
   readonly #results = new WeakMap<object, PhysicalPatchObservation>();
   readonly #pending = new Set<Promise<unknown>>();

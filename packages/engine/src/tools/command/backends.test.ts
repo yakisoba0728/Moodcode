@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { tmpdir } from 'node:os';
 import { WindowsJobCommandBackend, PosixCommandBackend, executeOwnedWindowsJob, type WindowsJobHostPort, type WindowsSuspendedProcess } from './backends.js';
-import { executeShell, type ShellInput } from './process-control.js';
+import type { ShellInput } from './process-control.js';
 const input: ShellInput = { command: 'fixture command', cwd: '/fixture', timeoutMs: 10_000 };
 function gate<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>(done => { resolve = done; }); return { promise, resolve }; }
 function nativeFixture(options: { assignmentFailure?: boolean; retained?: boolean; retainedPipes?: boolean; closeFailure?: boolean; invalidObservation?: boolean; hangingSpawn?: boolean } = {}) {
@@ -20,13 +21,14 @@ test('host commands report user authority without pretending to isolate files or
   const capability = new PosixCommandBackend().capability(); assert.equal(capability.isolation, 'host-user'); assert.equal(capability.fileIsolation, false); assert.equal(capability.networkIsolation, false);
   const windows = new WindowsJobCommandBackend(null).capability(); assert.equal(windows.available, false); assert.equal(windows.processTree, 'unsupported'); assert.equal(windows.code, 'WINDOWS_JOB_BACKEND_UNAVAILABLE');
 });
-test('the existing shell process port delegates only to an available platform-bound ownership backend', async () => {
-  const result = { exitCode: 0, signal: null, cancelled: false, timedOut: false, cleanupConfirmed: true, started: true } as const;
-  let called = 0, startedPid = 0;
-  const backend = { capability: () => ({ platform: process.platform, available: true, processTree: 'posix-group' as const, isolation: 'host-user' as const, fileIsolation: false as const, networkIsolation: false as const, parentCrashCleanup: false }), async execute(_input: ShellInput, _signal: AbortSignal, _output: unknown, started: (pid: number) => void) { called++; started(123); return result; } };
-  assert.deepEqual(await executeShell(input, new AbortController().signal, () => {}, pid => { startedPid = pid; }, () => {}, backend), result); assert.equal(called, 1); assert.equal(startedPid, 123);
-  await assert.rejects(executeShell(input, new AbortController().signal, () => {}, () => {}, () => {}, { ...backend, capability: () => ({ ...backend.capability(), available: false }) }), (error: unknown) => (error as { code: string }).code === 'COMMAND_BACKEND_UNAVAILABLE');
-  assert.equal(called, 1);
+test('each command backend executes only through its own available platform-bound ownership', async () => {
+  const posix = new PosixCommandBackend(); let startedPid = 0;
+  const running = posix.execute({ command: 'exit 0', cwd: tmpdir(), timeoutMs: 10_000 }, new AbortController().signal, () => {}, pid => { startedPid = pid; }, () => {});
+  if (posix.capability().available) { const outcome = await running; assert.equal(outcome.exitCode, 0); assert.equal(outcome.started, true); assert.ok(startedPid > 0); }
+  else await assert.rejects(running, (error: unknown) => (error as { code: string }).code === 'COMMAND_PLATFORM_UNSUPPORTED');
+  const f = nativeFixture(), windows = new WindowsJobCommandBackend(process.platform === 'win32' ? null : f.host);
+  await assert.rejects(windows.execute(input, new AbortController().signal, () => {}, () => {}, () => {}), (error: unknown) => (error as { code: string }).code === 'WINDOWS_JOB_BACKEND_UNAVAILABLE');
+  assert.deepEqual(f.calls, []);
 });
 test('Windows ownership assigns the suspended process before recording or resuming and confirms empty job before close', async () => {
   const f = nativeFixture(), running = executeOwnedWindowsJob(f.host, input, new AbortController().signal, () => {}, () => f.calls.push('record'), () => {});

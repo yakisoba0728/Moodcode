@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_LIMITS } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
-import { ScopedToolRuntime, ToolPolicy } from '../tools/runtime/index.js';
+import { ScopedToolRuntime } from '../tools/runtime/index.js';
+import { ToolPolicy } from '../permission/policy.js';
 import { validateToolDiscoveryPolicy, type ToolDiscoveryPolicy } from '../tools/runtime/discovery.js';
 import { DISCOVERY_TOOL_NAME, RunToolDiscovery, createToolDiscoveryTool } from './tool-discovery.js';
 

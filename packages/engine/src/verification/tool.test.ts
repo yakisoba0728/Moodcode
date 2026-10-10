@@ -10,7 +10,8 @@ import type { ApprovalPort, ApprovalRequest, ToolContext, ToolDefinition } from 
 import { SqliteStore } from '../storage/index.js';
 import { ArtifactStore } from '../artifacts/store.js';
 import { createCommandTool } from '../tools/command/index.js';
-import { ScopedToolRuntime, ToolPolicy, type ScopedToolRuntimeOptions } from '../tools/runtime/index.js';
+import { ScopedToolRuntime, type ScopedToolRuntimeOptions } from '../tools/runtime/index.js';
+import { ToolPolicy } from '../permission/policy.js';
 import { CommandPreflightRegistry } from '../permission/preflight.js';
 import { RoleResourcePolicy } from '../permission/role-resources.js';
 import { VerificationCheckRegistry, VerificationPlanService } from './plans.js';

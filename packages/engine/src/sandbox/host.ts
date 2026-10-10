@@ -738,7 +738,7 @@ export class SandboxHost implements CommandExecutionObserver {
       },
     });
     const client = new McpClient({ id: x.id, transport });
-    this.markMcp(client);
+    this.mcpOwners.add(client);
     try {
       const connected = await this.engine.connectMcp(client);
       registered = true;
@@ -820,9 +820,6 @@ export class SandboxHost implements CommandExecutionObserver {
     const bind = this.mcpBinders.get(original);
     if (!bind) sandboxError("SANDBOX_ORIGINAL_REQUIRED");
     return bind();
-  }
-  markMcp(original: object) {
-    this.mcpOwners.add(original);
   }
   hasMcp(original: object) {
     return this.mcpOwners.has(original);

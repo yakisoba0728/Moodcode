@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { DEFAULT_LIMITS } from '@moodcode/contracts';
 import type { ApprovalPort, ToolContext, ToolDefinition } from '../../ports.js';
-import { ScopedToolRuntime, ToolPolicy } from './index.js';
+import { ScopedToolRuntime } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
 import { DEFAULT_TOOL_DISCOVERY_POLICY, TOOL_DISCOVERY_LIMITS, validateToolDiscoveryPolicy } from './discovery.js';
 
 const code = (expected: string) => (error: unknown) => { assert.equal((error as { code: string }).code, expected); return true; };

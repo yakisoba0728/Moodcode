@@ -24,7 +24,6 @@ import { GIT_SAFE_ARGS, gitEnvironment } from "../workspace/git.js";
 import {
   sandboxError,
   sandboxSign,
-  sandboxSha,
   type SandboxPhysicalPin,
   type SandboxCapability,
 } from "./types.js";

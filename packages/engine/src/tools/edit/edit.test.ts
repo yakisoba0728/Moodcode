@@ -6,7 +6,8 @@ import { join } from 'node:path';
 import { DEFAULT_LIMITS, type Checkpoint } from '@moodcode/contracts';
 import type { ToolContext } from '../../ports.js';
 import { createExactEditTool } from './index.js';
-import { createFileActionTools, textHash } from '../file-actions/index.js';
+import { createFileActionTools } from '../file-actions/index.js';
+import { textHash } from '../file-actions/text.js';
 const hasCode = (code: string) => (e: unknown) => { assert.equal((e as { code: string }).code, code); return true; };
 async function fixture(t: test.TestContext) { const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-edit-'))); t.after(() => rm(root, { force: true, recursive: true })); const checkpoints: Checkpoint[] = []; const context: ToolContext = { workspace: { id: 'workspace', root, gitRoot: root, branch: null, createdAt: new Date().toISOString() }, sessionId: 's', runId: 'r', toolCallId: 'call', turnId: 'turn', attemptId: 'attempt', signal: new AbortController().signal, limits: { ...DEFAULT_LIMITS }, artifactDir: root, recordCheckpoint: cp => checkpoints.push(cp) }; return { root, checkpoints, context }; }
 test('exact edit preserves BOM and untouched CRLF with checkpoint and structured result', async t => {

@@ -8,7 +8,8 @@ import type { ApprovalPort, PreparedTool, ToolContext, ToolDefinition } from '..
 import { RoleResourcePolicy, type RoleResourcePolicySnapshot } from '../../permission/role-resources.js';
 import { RoleResourcePolicyRegistry } from '../../permission/role-policy-registry.js';
 import { CommandPreflightRegistry } from '../../permission/preflight.js';
-import { ScopedToolRuntime, ToolPolicy } from './index.js';
+import { ScopedToolRuntime } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
 
 const profile = { id: 'editor', revision: 'host-profile-1' };
 const snapshot = (decision: 'allow' | 'deny' = 'allow'): RoleResourcePolicySnapshot => ({ revision: 7, rules: [{ id: 'host-allowance', roleId: profile.id, resource: { kind: 'all' }, decision }] });

@@ -1,7 +1,7 @@
 import { Worker } from 'node:worker_threads';
 import { EngineError } from '@moodcode/contracts';
-export interface SearchWorkerInput { kind: 'glob' | 'regex'; pattern: string; flags: string; files: { path: string; content?: string }[]; maxResults: number }
-export interface SearchWorkerResult { files: string[]; matches: { path: string; line: number; column: number; text: string; snippetTruncated: boolean }[]; truncated: boolean }
+interface SearchWorkerInput { kind: 'glob' | 'regex'; pattern: string; flags: string; files: { path: string; content?: string }[]; maxResults: number }
+interface SearchWorkerResult { files: string[]; matches: { path: string; line: number; column: number; text: string; snippetTruncated: boolean }[]; truncated: boolean }
 // This worker receives only bounded in-memory strings, and has no tool/filesystem bridge.
 const SOURCE = `
 const { parentPort, workerData } = require('node:worker_threads');

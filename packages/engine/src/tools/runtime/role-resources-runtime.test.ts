@@ -8,7 +8,8 @@ import { DEFAULT_LIMITS, EngineError, type ApprovalRecord, type JsonValue } from
 import type { ApprovalPort, PreparedTool, ToolContext, ToolDefinition } from '../../ports.js';
 import { RoleResourcePolicy, type RoleResource, type RoleResourceRule } from '../../permission/role-resources.js';
 import { CommandPreflightRegistry } from '../../permission/preflight.js';
-import { ScopedToolRuntime, ToolPolicy, type RuntimeCommandPreflightOptions, type RuntimePreparedToolObservation, type RuntimeToolProfile, type ScopedToolRuntimeOptions } from './index.js';
+import { ScopedToolRuntime, type RuntimeCommandPreflightOptions, type RuntimePreparedToolObservation, type RuntimeToolProfile, type ScopedToolRuntimeOptions } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
 
 async function fixture(t: test.TestContext) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-role-runtime-'))); await mkdir(join(root, 'src')); await mkdir(join(root, 'private')); await writeFile(join(root, 'src', 'a.ts'), 'a'); await writeFile(join(root, 'private', 'key'), 'private');

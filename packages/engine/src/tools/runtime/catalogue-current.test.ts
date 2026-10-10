@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ToolContext, ToolDefinition, ToolEffectClass } from '../../ports.js';
-import { ScopedToolRuntime, ToolPolicy, type ToolCatalogue } from './index.js';
+import { ScopedToolRuntime, type ToolCatalogue } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
 
 // Authored in-memory observations only. No producer filesystem/network effects,
 // native evidence synthesis, project storage, approval decisions or upstream fixtures.

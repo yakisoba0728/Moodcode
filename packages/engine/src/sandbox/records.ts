@@ -174,7 +174,7 @@ function outcome(input: unknown, command: boolean): Record<string, any> {
     sandboxError("SANDBOX_COMPLETION_INVALID");
   return o;
 }
-export function validateSandboxRecord(input: unknown): SandboxRecord {
+function validateSandboxRecord(input: unknown): SandboxRecord {
   const r = sandboxDigest(input),
     g = sandboxDigest(r.grant),
     backend = sandboxDigest(g.backend),
@@ -555,7 +555,7 @@ function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
     }
   }
 }
-export function readSandboxRecords(
+function readSandboxRecords(
   db: DatabaseSync,
   workspaceId?: string,
 ): SandboxRecord[] {

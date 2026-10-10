@@ -6,7 +6,9 @@ import { join } from 'node:path';
 import { DEFAULT_LIMITS, EngineError, type ApprovalRecord } from '@moodcode/contracts';
 import type { ApprovalPort, ToolContext, ToolDefinition } from '../../ports.js';
 import { ArtifactStore, createToolResultEnvelope } from '../../artifacts/index.js';
-import { ScopedToolRuntime, ScopedToolGrants, ToolPolicy } from './index.js';
+import { ScopedToolRuntime } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
+import { ScopedToolGrants } from '../../permission/grants.js';
 const code = (expected: string) => (e: unknown) => { assert.equal((e as { code: string }).code, expected); return true; };
 function context(): ToolContext { return { workspace: { id: 'w', root: '/workspace', gitRoot: '/workspace', branch: null, createdAt: new Date().toISOString() }, sessionId: 's', runId: 'r', toolCallId: 'call', turnId: 'turn', attemptId: 'attempt', signal: new AbortController().signal, limits: { ...DEFAULT_LIMITS }, artifactDir: '/artifacts', recordCheckpoint() {} }; }
 function tool(name = 'custom', requiresApproval = false): ToolDefinition & { calls: number } { const source = { name, description: 'test', inputSchema: { type: 'object' }, calls: 0, async prepare(input: unknown) { return { name, input: input as never, fingerprint: 'inner-hash', requiresApproval, preview: { action: name } }; }, async execute() { source.calls++; return { content: 'full result', data: { value: 1 } }; } }; return source; }

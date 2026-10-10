@@ -463,8 +463,3 @@ export class ScopedToolRuntime {
     return this.execute(prepared, context);
   }
 }
-export { ToolPolicy, ScopedToolGrants, inferToolEffect };
-export type { ToolEffectClass, ToolPolicyRule, ToolPolicyResult } from '../../permission/policy.js';
-export type { GrantScope, ScopedToolGrant } from '../../permission/grants.js';
-export { DEFAULT_TOOL_DISCOVERY_POLICY, TOOL_DISCOVERY_LIMITS, validateToolDiscoveryPolicy } from './discovery.js';
-export type { ToolDiscoveryPolicy, ResolvedToolDiscoveryPolicy, ToolDiscoveryCatalogue, ToolDiscoveryMetadata, ToolDiscoveryMaterializeLimits } from './discovery.js';

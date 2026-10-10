@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import test from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ApprovalPort, ToolContext, ToolDefinition, ToolEffectClass } from '../../ports.js';
-import { ScopedToolRuntime, ToolPolicy } from './index.js';
+import { ScopedToolRuntime } from './index.js';
+import { ToolPolicy } from '../../permission/policy.js';
 import { discoveryCatalogueSignature, TOOL_DISCOVERY_LIMITS, validateDiscoveryQuery, validateToolDiscoveryPolicy } from './discovery.js';
 
 // Authored in-memory fixtures: registration, selection and exact approval only.

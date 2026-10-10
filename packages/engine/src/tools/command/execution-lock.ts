@@ -47,8 +47,8 @@ export function readExecutionLockReservation(reservation: ExecutionLockReservati
 }
 
 /** Version 0 is the existing, unmigrated command_execution schema. */
-export const EXECUTION_LOCK_SCHEMA_VERSION = 0;
-export const EXECUTION_LOCK_INSPECTION_LIMITS = Object.freeze({ maxDatabaseBytes: 1_048_576, maxTimestampBytes: 128 });
+const EXECUTION_LOCK_SCHEMA_VERSION = 0;
+const EXECUTION_LOCK_INSPECTION_LIMITS = Object.freeze({ maxDatabaseBytes: 1_048_576, maxTimestampBytes: 128 });
 export interface ExecutionLockInspectionOptions { signal?: AbortSignal }
 export type ExecutionLockInspection =
   | { status: 'not_initialized'; marker: null; schemaVersion: number | null }

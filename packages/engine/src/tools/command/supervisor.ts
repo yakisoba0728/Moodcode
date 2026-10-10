@@ -132,7 +132,7 @@ process.on('message', async (message: unknown) => {
     started = true;
     try {
       const outcome = await executeShell(input, abort.signal, forwardOutput,
-        pid => { lock?.recordGroup(pid); send({ type: 'started', pid }); }, warning => send({ type: 'warning', warning }), undefined, interactive ? control => { stdin = control; } : undefined);
+        pid => { lock?.recordGroup(pid); send({ type: 'started', pid }); }, warning => send({ type: 'warning', warning }), interactive ? control => { stdin = control; } : undefined);
       finish(outcome);
     } catch (error) {
       finish({ exitCode: null, signal: null, cancelled: abort.signal.aborted, timedOut: false, cleanupConfirmed: false, started: true, error: error instanceof Error ? error.message : String(error) });

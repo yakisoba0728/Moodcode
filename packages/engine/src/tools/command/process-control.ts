@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { EngineError } from '@moodcode/contracts';
-import type { CommandProcessBackend } from './backends.js';
 
 export const TERMINATION_LIMITS = Object.freeze({ termGraceMs: 250, killWaitMs: 2_000, pollMs: 20 });
 export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: import('../../sandbox/types.js').SandboxLaunch }
@@ -83,15 +82,8 @@ export async function cleanupGroup(pid: number, closed: () => boolean = () => tr
 
 export interface ShellStdinControl { write(data: Buffer): Promise<void>; end(): Promise<void> }
 
-export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, backend?: CommandProcessBackend, stdinControl?: (control: ShellStdinControl) => void): Promise<ProcessOutcome> {
+export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, stdinControl?: (control: ShellStdinControl) => void): Promise<ProcessOutcome> {
   if (signal.aborted) return { exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false };
-  if (backend) {
-    if(input.sandbox)throw new EngineError('SANDBOX_BACKEND_UNSUPPORTED','A custom backend cannot claim the native Seatbelt launch');
-    const capability = backend.capability();
-    if (!capability.available || capability.platform !== process.platform || capability.processTree === 'unsupported') throw new EngineError('COMMAND_BACKEND_UNAVAILABLE', 'The injected command backend has no supported ownership on this platform');
-    if (stdinControl) throw new EngineError('COMMAND_STDIN_UNSUPPORTED', 'The injected backend has no original stdin control');
-    return backend.execute(input, signal, output, started, warn);
-  }
   if (!['darwin', 'linux', 'freebsd'].includes(process.platform)) throw new EngineError('COMMAND_PLATFORM_UNSUPPORTED', 'Shell execution requires a supported owned process backend');
   const launch=input.sandbox;
   if(launch && (process.platform!=='darwin'||launch.version!==1||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768))throw new EngineError('SANDBOX_LAUNCH_INVALID','Unsupported sandbox never falls back to the host backend');

@@ -2,8 +2,6 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ToolDefinition } from '../../ports.js';
 import { createPatchAdapter } from './adapter.js';
 import { exactPath, readExactText } from './text.js';
-export { createPatchAdapter } from './adapter.js';
-export { readExactText, textHash, exactPath, TEXT_FILE_LIMIT } from './text.js';
 export function createFileActionTools(): ToolDefinition[] {
   return (['rename_file', 'delete_file'] as const).map(name => createPatchAdapter({ name,
     description: name === 'rename_file' ? 'Move one exact UTF-8 text file to an absent destination using a hash-checked create then delete checkpoint. Partial effects are possible and are reviewable. Requires approval.' : 'Delete one exact UTF-8 text file after verifying expectedHash. Directory and binary deletion are unsupported. Requires approval.',

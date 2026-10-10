@@ -8,7 +8,8 @@ import {
 } from "@moodcode/contracts";
 import type { ApprovalPort, PreparedTool, ToolContext } from "../ports.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { ScopedToolRuntime, ToolPolicy } from "../tools/runtime/index.js";
+import { ScopedToolRuntime } from "../tools/runtime/index.js";
+import { ToolPolicy } from "../permission/policy.js";
 import {
   createTeamModelTools,
   parseTeamModelInput,
