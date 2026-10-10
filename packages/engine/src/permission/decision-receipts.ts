@@ -31,7 +31,12 @@ export function readPolicyDecisionReceipts(reader: TrajectoryReader, options: Tr
       const payload = boundedJson(event.payload, 131_072) as JsonObject;
       if (!event.runId || payload.authority !== 'observation-only' || ['toolCallId', 'toolName', 'preparedFingerprint'].some(key => typeof payload[key] !== 'string' || !payload[key] || Buffer.byteLength(payload[key] as string) > 1024) || !payload.receipt || typeof payload.receipt !== 'object' || Array.isArray(payload.receipt)) throw new EngineError('POLICY_RECEIPT_SOURCE_INVALID', 'Decision observation has invalid typed identity');
       result.receipts.push({ seq: event.seq, runId: event.runId, toolCallId: payload.toolCallId as string, toolName: payload.toolName as string, preparedFingerprint: payload.preparedFingerprint as string, receipt: payload.receipt as JsonObject });
-      if (Buffer.byteLength(JSON.stringify(result)) > maxBytes - 256) { result.receipts.pop(); result.truncated = true; result.omittedReceipts++; result.inspectedThroughSeq = event.seq; break; }
+      if (Buffer.byteLength(JSON.stringify(result)) > maxBytes - 256) {
+        result.receipts.pop(); result.truncated = true;
+        // Only a receipt that overflows an empty page can never fit; any other starts the next page.
+        if (result.receipts.length === 0) { result.omittedReceipts++; result.inspectedThroughSeq = event.seq; }
+        break;
+      }
     }
     result.inspectedThroughSeq = event.seq;
   }

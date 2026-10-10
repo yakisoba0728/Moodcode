@@ -18,6 +18,13 @@ test('an oversized observation is omitted explicitly and advances the cursor wit
   assert.equal(first.receipts.length, 0); assert.equal(first.omittedReceipts, 1); assert.equal(first.truncated, true); assert.equal(first.nextCursor!.afterSeq, 1); assert.ok(Buffer.byteLength(JSON.stringify(first)) <= 2048);
   const next = readPolicyDecisionReceipts(reader(source), { sessionId: 's', afterSeq: first.nextCursor!.afterSeq, maxBytes: 2048 }); assert.equal(next.receipts[0]!.seq, 2);
 });
+test('a receipt that overflows a page holding other receipts is deferred to the next page, not omitted', () => {
+  const source = [event(1, 'x'.repeat(700)), { ...event(2), type: 'message.part.updated' }, event(3, 'y'.repeat(700)), event(4)];
+  const first = readPolicyDecisionReceipts(reader(source), { sessionId: 's', maxBytes: 2048 });
+  assert.deepEqual(first.receipts.map(item => item.seq), [1]); assert.equal(first.truncated, true); assert.equal(first.omittedReceipts, 0); assert.equal(first.inspectedThroughSeq, 2); assert.equal(first.nextCursor!.afterSeq, 2);
+  const next = readPolicyDecisionReceipts(reader(source), { sessionId: 's', afterSeq: first.nextCursor!.afterSeq, maxBytes: 2048 });
+  assert.deepEqual(next.receipts.map(item => item.seq), [3, 4]); assert.equal(next.truncated, false); assert.equal(next.omittedReceipts, 0);
+});
 test('a short native page retains a continuation because its byte frontier can be earlier than its count frontier', () => {
   const page = readPolicyDecisionReceipts(reader([event(1)]), { sessionId: 's', limit: 100 }); assert.equal(page.nextCursor!.afterSeq, 1);
   assert.equal(readPolicyDecisionReceipts(reader([]), { sessionId: 's', afterSeq: 1 }).nextCursor, null);
