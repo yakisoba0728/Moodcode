@@ -13,10 +13,7 @@ import {
 } from "../formatters/edits.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import { projectNativeBOMRange } from "./native-bom.js";
-import {
-  excludedTraversalPath,
-  ignoredWorkspacePaths,
-} from "../workspace/ignore.js";
+import { excludedWorkspacePaths } from "../workspace/ignore.js";
 
 export const LSP_NAVIGATION_LIMITS = Object.freeze({
   rawBytes: 65_536,
@@ -213,9 +210,7 @@ export async function projectNavigation(
         .filter((path): path is string => path !== null),
     ),
   ];
-  const ignored = workspace.gitRoot
-    ? await ignoredWorkspacePaths(workspace, paths, signal)
-    : new Set<string>();
+  const excluded = await excludedWorkspacePaths(workspace, paths, signal);
   let fileBytes = Buffer.byteLength(source.content);
   const seen = new Set<string>();
   for (const candidate of candidates) {
@@ -226,7 +221,7 @@ export async function projectNavigation(
       result.omitted.outsideWorkspace++;
       continue;
     }
-    if (ignored.has(path) || excludedTraversalPath(path, false)) {
+    if (excluded.has(path)) {
       result.omitted.ignored++;
       continue;
     }

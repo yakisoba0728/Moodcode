@@ -3,6 +3,7 @@ import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { buildContext } from './index.js';
+import { entriesBytes } from './memory.js';
 import type { ModelSpec } from './model-spec.js';
 import { boundedJson } from '../artifacts/validation.js';
 import { REPOSITORY_CONTRIBUTION_LIMITS } from './repository-contributions.js';
@@ -56,7 +57,7 @@ function assertKnowledgeData(value: unknown): void {
 export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; proposalMessages?: readonly ProviderMessage[]; lifecycleMessages?: readonly ProviderMessage[]; forkMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
   const envelopeBytes = request.reservedBytes ?? 0;
   const forkMessages = options.forkMessages ? boundedJson(options.forkMessages,65537) as unknown as ProviderMessage[] : [];
-  const forkBytes = forkMessages.reduce((sum,message)=>sum+Buffer.byteLength(JSON.stringify(message))+1,0);
+  const forkBytes = entriesBytes(forkMessages);
   if (forkBytes>65536) throw new EngineError('FORK_CONTEXT_LIMIT','Whole frozen transcript exceeds its reservation');
   let lifecycleMessages: ProviderMessage[] = [];
   if (options.lifecycleMessages !== undefined) {
@@ -66,7 +67,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
       || typeof message.content !== 'string' || !message.content.startsWith('[Moodcode lifecycle context data v1]\n') || Object.keys(message).sort().join(',') !== 'content,role'))
       throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context accepts one plain assistant data entry');
   }
-  const lifecycleBytes = lifecycleMessages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0);
+  const lifecycleBytes = entriesBytes(lifecycleMessages);
   if (lifecycleBytes > 16_384) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Lifecycle context exceeds the complete entry cap');
   let repositoryMessages: ProviderMessage[] = [];
   if (options.repositoryMessages !== undefined) {
@@ -76,7 +77,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
       || typeof message.content !== 'string' || Object.keys(message).sort().join(',') !== 'content,role'))
       throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository context accepts only a bounded plain assistant evidence entry');
   }
-  const repositoryBytes = repositoryMessages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0);
+  const repositoryBytes = entriesBytes(repositoryMessages);
   if (repositoryBytes > REPOSITORY_CONTRIBUTION_LIMITS.messageBytes) throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository evidence exceeds the additional message reservation cap');
   let knowledgeMessages: ProviderMessage[] = [];
   if (options.knowledgeMessages !== undefined) {
@@ -86,7 +87,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
       || typeof message.content !== 'string' || Object.keys(message).sort().join(',') !== 'content,role'))
       throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Knowledge context accepts one bounded assistant data entry');
   }
-  const knowledgeBytes = knowledgeMessages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0);
+  const knowledgeBytes = entriesBytes(knowledgeMessages);
   if (knowledgeBytes > 16_384) throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Whole knowledge evidence exceeds its additional message reservation cap');
   let proposalMessages: ProviderMessage[] = [];
   if (options.proposalMessages !== undefined) {
@@ -96,7 +97,7 @@ export async function planContext(request: ContextRequest, options: { model?: Mo
       || typeof message.content !== 'string' || !message.content.startsWith('[Moodcode pending proposal overlay v1]\n') || Object.keys(message).sort().join(',') !== 'content,role'))
       throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Proposal overlay accepts one plain pending data entry');
   }
-  const proposalBytes = proposalMessages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0);
+  const proposalBytes = entriesBytes(proposalMessages);
   if (proposalBytes > 32_768) throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Whole proposal overlay exceeds its message reservation cap');
   const model = options.model;
   if (model && (model.providerId !== request.config.providerId || model.modelId !== request.config.modelId)) throw new EngineError('MODEL_BINDING_MISMATCH', 'Context metadata belongs to a different provider/model');

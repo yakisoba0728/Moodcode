@@ -13,10 +13,7 @@ import type {
   LspProjectSourceSnapshot,
 } from "../lsp/index.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
-import {
-  excludedTraversalPath,
-  ignoredWorkspacePaths,
-} from "../workspace/ignore.js";
+import { excludedWorkspacePaths } from "../workspace/ignore.js";
 import { runGit, readBranch } from "../workspace/git.js";
 
 export const REPOSITORY_CONTEXT_LIMITS = Object.freeze({
@@ -182,14 +179,12 @@ export class RepositoryContextService implements RepositoryIndexPort {
     query: RepositoryQuery;
   }> {
     const query = repositoryQuery(input);
-    const ignored = workspace.gitRoot
-      ? await ignoredWorkspacePaths(workspace, query.paths, signal)
-      : new Set<string>();
-    if (
-      query.paths.some(
-        (path) => excludedTraversalPath(path, false) || ignored.has(path),
-      )
-    )
+    const excluded = await excludedWorkspacePaths(
+      workspace,
+      query.paths,
+      signal,
+    );
+    if (excluded.size)
       throw new EngineError(
         "REPOSITORY_PATH_IGNORED",
         "Requested repository sources are excluded by traversal or Git ignore rules",
@@ -199,7 +194,7 @@ export class RepositoryContextService implements RepositoryIndexPort {
       root: workspace.root,
       ...(await gitIdentity(workspace, signal)),
       effectiveIgnoreDigest: hash(
-        query.paths.map((path) => ({ path, ignored: ignored.has(path) })),
+        query.paths.map((path) => ({ path, ignored: excluded.has(path) })),
       ),
       files: [],
       bindings: [],
@@ -325,13 +320,10 @@ export class RepositoryContextService implements RepositoryIndexPort {
             "Synchronized source changed after preview",
           );
         const candidates = observation.sources.map((item) => item.path);
-        const ignored = workspace.gitRoot
-          ? await ignoredWorkspacePaths(workspace, candidates, activeSignal)
-          : new Set<string>();
-        const excluded = new Set(
-          candidates.filter(
-            (path) => ignored.has(path) || excludedTraversalPath(path, false),
-          ),
+        const excluded = await excludedWorkspacePaths(
+          workspace,
+          candidates,
+          activeSignal,
         );
         if (excluded.size) {
           observation.omitted.unavailable += observation.items.filter((item) =>
@@ -364,16 +356,14 @@ export class RepositoryContextService implements RepositoryIndexPort {
       const selected = result.observations.flatMap(
         (observation) => observation.sources,
       );
-      const ignored = workspace.gitRoot
-        ? await ignoredWorkspacePaths(
-            workspace,
-            [...new Set(selected.map((source) => source.path))],
-            activeSignal,
-          )
-        : new Set<string>();
+      const excluded = await excludedWorkspacePaths(
+        workspace,
+        [...new Set(selected.map((source) => source.path))],
+        activeSignal,
+      );
       for (const source of selected)
         if (
-          ignored.has(source.path) ||
+          excluded.has(source.path) ||
           (await readExactText(workspace, source.path, activeSignal)).hash !==
             source.hash
         )

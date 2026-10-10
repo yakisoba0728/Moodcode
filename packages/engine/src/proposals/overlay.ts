@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type Workspace } from "@moodcode/contracts";
+import { entriesBytes, entryBytes } from "../context/memory.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import {
   immutableKnowledgeJson,
@@ -403,12 +404,6 @@ function message(
       }),
   });
 }
-function charge(value: {
-  readonly role: "assistant";
-  readonly content: string;
-}): number {
-  return Buffer.byteLength(JSON.stringify(value)) + 1;
-}
 function manifest(value: ProposalSelection): ProposalContributionManifest {
   const { set, revision } = value;
   return Object.freeze({
@@ -596,7 +591,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
             true,
           );
           if (
-            charge(
+            entryBytes(
               message(request.workspace.id, policySha256, [
                 ...selected.map((s) => s.data),
                 mock,
@@ -608,7 +603,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
             return "context-budget" as const;
           const data = payload(current.revision, this.#ports.readBlobText);
           if (
-            charge(
+            entryBytes(
               message(request.workspace.id, policySha256, [
                 ...selected.map((s) => s.data),
                 data,
@@ -667,7 +662,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
               ),
             ]
           : [],
-        contributedBytes = messages.reduce((bytes, m) => bytes + charge(m), 0);
+        contributedBytes = entriesBytes(messages);
       const contribution: PreparedProposalContribution = Object.freeze({
         schemaVersion: 1,
         id: randomUUID(),

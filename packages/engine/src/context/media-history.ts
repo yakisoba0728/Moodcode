@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { EngineError, type InputImageAttachment, type Message, type SessionSnapshot } from '@moodcode/contracts';
 import type { ProviderMessage } from '../ports.js';
+import { entryBytes } from './memory.js';
 import { attachments, DEFAULT_IMAGE_LIMITS, sameAttachment } from '../media/validation.js';
 
 export const MEDIA_HISTORY_NOTICE_PREFIX = '[Moodcode image history provenance v1]\n';
@@ -174,7 +175,7 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     pixels: 'pixels unavailable in this request for the listed historical message occurrences; an identical reference may have pixels in a separately retained latest or host-pinned message',
     summarized: false, currentFileEvidence: false, permissionOrInstruction: false, sourceSha256, policySha256, omissions: provenance,
   }) } : null;
-  const noticeBytes = requiredNotice ? Buffer.byteLength(JSON.stringify(requiredNotice)) + 1 : 0;
+  const noticeBytes = requiredNotice ? entryBytes(requiredNotice) : 0;
   const metadataBytes = noticeBytes + Buffer.byteLength(JSON.stringify({ provenance, requiredTextMessageIds: [...requiredText], requiredExchangeMessageIds, policySha256, sourceSha256 }));
   if (metadataBytes > policy.maxMetadataBytes) fail('IMAGE_HISTORY_METADATA_LIMIT', 'Required image provenance and its model notice cannot fit the explicit metadata budget');
   checkAbort(signal);

@@ -20,7 +20,8 @@ interface Excerpt {
   truncated: boolean;
 }
 
-function prefix(text: string, length: number): string {
+/** Cut to at most `length` UTF-16 units without splitting a surrogate pair. */
+export function codepointPrefix(text: string, length: number): string {
   if (length < text.length) {
     const last = text.charCodeAt(length - 1);
     if (last >= 0xd800 && last <= 0xdbff) length--;
@@ -29,7 +30,7 @@ function prefix(text: string, length: number): string {
 }
 
 function reference(value: unknown): string {
-  return typeof value === 'string' ? prefix(value, 128) : '';
+  return typeof value === 'string' ? codepointPrefix(value, 128) : '';
 }
 
 function memoryMessage(excerpts: readonly Excerpt[], total: number): ProviderMessage {
@@ -48,9 +49,13 @@ function memoryMessage(excerpts: readonly Excerpt[], total: number): ProviderMes
   };
 }
 
-/** Entry cost includes its array delimiter; neither originals nor native items are modified. */
-function bytes(message: ProviderMessage): number {
+/** Serialized bytes of one array entry, including its delimiter. */
+export function entryBytes(message: ProviderMessage): number {
   return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1;
+}
+
+export function entriesBytes(messages: readonly ProviderMessage[]): number {
+  return messages.reduce((sum, message) => sum + entryBytes(message), 0);
 }
 
 /** Preserve the original goal and the most recent omitted discussion as verbatim data. */
@@ -67,7 +72,7 @@ export function extractiveMemory(sources: readonly MemorySource[], maximumEntryB
   const excerpts: Excerpt[] = [];
   for (const source of candidates) {
     const makeExcerpt = (length: number): Excerpt => {
-      const excerpt = prefix(source.message.content, length);
+      const excerpt = codepointPrefix(source.message.content, length);
       return {
         source: {
           ordinal: source.ordinal, messageId: reference(source.message.id),
@@ -83,7 +88,7 @@ export function extractiveMemory(sources: readonly MemorySource[], maximumEntryB
     while (low <= high) {
       const middle = Math.floor((low + high) / 2);
       const excerpt = makeExcerpt(middle);
-      if (bytes(memoryMessage([...excerpts, excerpt], sources.length)) <= maximum) {
+      if (entryBytes(memoryMessage([...excerpts, excerpt], sources.length)) <= maximum) {
         candidate = excerpt;
         low = middle + 1;
       } else high = middle - 1;

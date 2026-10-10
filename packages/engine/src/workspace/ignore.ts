@@ -78,6 +78,17 @@ export async function ignoredWorkspacePaths(workspace: Workspace, paths: readonl
   return ignored;
 }
 
+/** Outside a Git repository `git check-ignore` fails, and nothing is ignored. */
+export async function gitIgnoredPaths(workspace: Workspace, paths: readonly string[], signal?: AbortSignal): Promise<Set<string>> {
+  return workspace.gitRoot ? ignoredWorkspacePaths(workspace, paths, signal) : new Set();
+}
+
+/** Paths that are Git-ignored or inside an excluded traversal directory. */
+export async function excludedWorkspacePaths(workspace: Workspace, paths: readonly string[], signal?: AbortSignal): Promise<Set<string>> {
+  const ignored = await gitIgnoredPaths(workspace, paths, signal);
+  return new Set(paths.filter(path => ignored.has(path) || excludedTraversalPath(path, false)));
+}
+
 export function snapshotFingerprint(value: unknown): string {
   return createHash('sha256').update(JSON.stringify(value)).digest('hex');
 }

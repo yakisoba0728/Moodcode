@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment, type SessionSnapshot } from '@moodcode/contracts';
 import type { ProviderMessage } from '../ports.js';
+import { entryBytes } from './memory.js';
 import { attachments, sameAttachment } from '../documents/validation.js';
 
 export const DOCUMENT_HISTORY_NOTICE_PREFIX = '[Moodcode document history provenance v1]\n';
@@ -145,7 +146,7 @@ export function projectDocumentHistory(source: SessionSnapshot, options: Documen
     bytes: 'Document bytes are unavailable in this request for the listed older message occurrences. An identical reference may be available in the separately retained latest document message.',
     summarized: false, currentFileEvidence: false, permissionOrInstruction: false, policySha256, sourceSha256, omissions: provenance,
   }) } : null;
-  const noticeBytes = requiredNotice ? Buffer.byteLength(JSON.stringify(requiredNotice)) + 1 : 0;
+  const noticeBytes = requiredNotice ? entryBytes(requiredNotice) : 0;
   const metadataBytes = noticeBytes + Buffer.byteLength(JSON.stringify({ provenance, requiredTextMessageIds: [...required], policySha256, sourceSha256 }));
   if (metadataBytes > policy.maxMetadataBytes) fail('DOCUMENT_HISTORY_METADATA_LIMIT', 'Document provenance and its required model notice exceed the explicit metadata budget');
   cancelled(signal);

@@ -3,6 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, SESSION_SCHEMA_VERSION, type ContextRevision, type JsonObject, type Run, type RunConfig, type SessionSnapshot } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.js';
 import type { ModelHistoryPage, SqliteStore } from '../storage/index.js';
+import { entriesBytes } from './memory.js';
 import { ModelRegistry } from './model-spec.js';
 import { estimateTokens, planContext, type ContextPlan } from './plan.js';
 import { InstructionSources, instructionPathHints, type InstructionObservation, type InstructionSource } from './sources.js';
@@ -17,7 +18,7 @@ import type { KnowledgeContextPolicy, KnowledgeContextProfile, KnowledgeContextS
 import type { LifecycleCapture, LifecycleHookRegistry } from '../lifecycle/index.js';
 import { proposalContextPolicy, proposalContributionSourceIds } from '../proposals/overlay.js';
 import type { ProposalContextPolicy, ProposalContextProfile, ProposalContextSourcePort, PreparedProposalContribution } from '../proposals/overlay.js';
-import { ignoredWorkspacePaths } from '../workspace/ignore.js';
+import { gitIgnoredPaths } from '../workspace/ignore.js';
 
 export interface ContextServiceOptions { conversationFork?: { prepare(sessionId:string,config:RunConfig):ForkContextContribution|null; assertFresh(sessionId:string,sha256:string,config:RunConfig):void }; mediaHistoryPolicy?: MediaHistoryPolicy; activePrefixPolicy?: ActivePrefixPolicy; documentHistoryPolicy?: DocumentHistoryPolicy;
   lifecycleHooks?: LifecycleHookRegistry; lifecycleContextSlotBytes?: number;
@@ -217,7 +218,7 @@ export class ContextService {
           if (prior?.sha256 === source.sha256 && prior?.status === source.status && prior.workspaceRoot === source.workspaceRoot) return;
           this.store.putSessionDocument(sessionId, key(source.id), previous?.revision ?? 0, { source: JSON.parse(JSON.stringify(source)) as JsonObject });
         },
-      }, workspace.gitRoot ? (directories, signal) => ignoredWorkspacePaths(workspace, directories, signal) : undefined); cached = { source, leases: 0 }; this.sources.set(cacheKey, cached);
+      }, (directories, signal) => gitIgnoredPaths(workspace, directories, signal)); cached = { source, leases: 0 }; this.sources.set(cacheKey, cached);
     } else {
       this.sources.delete(cacheKey); this.sources.set(cacheKey, cached);
     }
@@ -269,7 +270,7 @@ export class ContextService {
         const required = await planContext(planRequest, { model, outputTokens: this.outputTokenReserve, ...forkOptions, requiredOnly: true });
         const requiredMessagesBytes = required.bytes - reservedBytes;
         if (this.repositoryContext) contribution = await prepareRepository(requiredMessagesBytes);
-        const repositoryBytes = contribution?.messages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0) ?? 0;
+        const repositoryBytes = contribution ? entriesBytes(contribution.messages) : 0;
         if (this.knowledgeContext) {
           const configured = this.knowledgeContext;
           knowledge = await configured.source.prepare({ workspace: request.workspace, policy: configured.policy,
@@ -281,7 +282,7 @@ export class ContextService {
         }
         if (this.proposalContext) {
           const configured = this.proposalContext;
-          const knowledgeBytes = knowledge?.messages.reduce((sum, message) => sum + Buffer.byteLength(JSON.stringify(message)) + 1, 0) ?? 0;
+          const knowledgeBytes = knowledge ? entriesBytes(knowledge.messages) : 0;
           proposal = await configured.source.prepare({ workspace: request.workspace, policy: configured.policy,
             owner: { sessionId, runId: request.run?.id ?? null, profile: request.run ? configured.getProfile?.(request.run) ?? null : null }, signal: request.signal,
             budget: { slotBytes: configured.policy.slotBytes, maxContextBytes: request.config.limits.maxContextBytes,
@@ -369,11 +370,10 @@ export class ContextService {
       let lifecycleMessages: ProviderMessage[] = [];
       if (dispatched.contextData) {
         lifecycleMessages = [{ role: 'assistant', content: '[Moodcode lifecycle context data v1]\n' + JSON.stringify({ schemaVersion: 1, authority: 'data-only', items: dispatched.contextData.items }) }];
-        const messageBytes = Buffer.byteLength(JSON.stringify(lifecycleMessages[0])) + 1;
-        if (messageBytes > lifecycleSlot) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'The complete lifecycle data entry exceeds its reserved slot');
+        if (entriesBytes(lifecycleMessages) > lifecycleSlot) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'The complete lifecycle data entry exceeds its reserved slot');
       }
       lifecycleDiagnostics = { registryRevision: lifecycle.registryRevision, baseContextSha256, dataSha256: dispatched.contextData?.sha256 ?? null,
-        messageBytes: lifecycleMessages.reduce((bytes, message) => bytes + Buffer.byteLength(JSON.stringify(message)) + 1, 0), hookIds: dispatched.contextData?.items.map(item => item.hookId) ?? [] };
+        messageBytes: entriesBytes(lifecycleMessages), hookIds: dispatched.contextData?.items.map(item => item.hookId) ?? [] };
       // Preserve the exact base snapshot accepted by the callbacks. Releasing
       // unused reservation never selects additional unobserved history.
       const index = plan.messages.findIndex(message => message.role !== 'system');

@@ -4,10 +4,7 @@ import { lstat, opendir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { EngineError, type Workspace } from "@moodcode/contracts";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
-import {
-  excludedDirectory,
-  ignoredWorkspacePaths,
-} from "../workspace/ignore.js";
+import { excludedDirectory, gitIgnoredPaths } from "../workspace/ignore.js";
 
 export interface LspProjectSourceSnapshot {
   readonly schemaVersion: 1;
@@ -128,13 +125,11 @@ export async function captureTypeScriptProjectSources(
         });
       }
       children.sort((a, b) => a.path.localeCompare(b.path, "en"));
-      const ignored = workspace.gitRoot
-        ? await ignoredWorkspacePaths(
-            workspace,
-            children.map((item) => item.path).filter(gitLiteralPath),
-            observedSignal,
-          )
-        : new Set<string>();
+      const ignored = await gitIgnoredPaths(
+        workspace,
+        children.map((item) => item.path).filter(gitLiteralPath),
+        observedSignal,
+      );
       for (const child of children) {
         if (ignored.has(child.path)) continue;
         // The native server can still read a name the snapshot cannot pin.

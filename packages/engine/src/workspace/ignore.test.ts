@@ -6,7 +6,7 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { promisify } from 'node:util';
 import { openWorkspace } from './index.js';
-import { continuationOffset, continuationToken, excludedDirectory, excludedTraversalPath, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from './ignore.js';
+import { continuationOffset, continuationToken, excludedDirectory, excludedTraversalPath, excludedWorkspacePaths, gitIgnoredPaths, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from './ignore.js';
 
 const exec = promisify(execFile);
 const errorCode = (wanted: string) => (error: unknown) => error instanceof Error && 'code' in error && error.code === wanted;
@@ -51,6 +51,20 @@ test('Git ignore lookup does not forward provider credentials to Git', { skip: p
     if (oldKey === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = oldKey;
   }
   assert.equal(await readFile(marker, 'utf8'), 'unset');
+});
+
+test('excluded workspace paths join Git ignore rules with traversal exclusions and skip Git outside a repository', async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'moodcode-ignore-'));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await exec('git', ['init', '--quiet', '--template=', root]);
+  await writeFile(path.join(root, '.gitignore'), '*.log\n');
+  const paths = ['src/app.ts', 'error.log', 'node_modules/pkg/index.js', 'node_modules'];
+  const workspace = await openWorkspace(root);
+  assert.deepEqual([...await gitIgnoredPaths(workspace, paths)], ['error.log']);
+  assert.deepEqual([...await excludedWorkspacePaths(workspace, paths)], ['error.log', 'node_modules/pkg/index.js']);
+  const outside = { ...workspace, gitRoot: '' };
+  assert.deepEqual([...await gitIgnoredPaths(outside, paths)], []);
+  assert.deepEqual([...await excludedWorkspacePaths(outside, paths)], ['node_modules/pkg/index.js']);
 });
 
 test('virtual environments and Python/build caches are excluded only as traversal directory components', () => {

@@ -3,7 +3,7 @@ import { EngineError, type JsonObject, type JsonValue, type Message, type Provid
 import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImageAttachments } from '@moodcode/contracts/validation';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { agentInstructions } from './instructions.js';
-import { extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
+import { codepointPrefix, entriesBytes, entryBytes, extractiveMemory, MAX_MEMORY_BYTES, MIN_MEMORY_BYTES, type MemorySource } from './memory.js';
 import { InstructionSources } from './sources.js';
 
 export { EXTRACTIVE_MEMORY_PREFIX } from './memory.js';
@@ -24,16 +24,12 @@ function checkAbort(signal: AbortSignal): void {
   if (signal.aborted) throw new EngineError('CANCELLED', 'Context construction was cancelled.');
 }
 
-function entryCost(message: ProviderMessage): number {
-  return Buffer.byteLength(JSON.stringify(message), 'utf8') + 1;
-}
-
 function arrayBytes(cost: number, count: number): number {
   return count === 0 ? 2 : cost + 1;
 }
 
 function block(messages: ProviderMessage[], sources: MemorySource[] = []): ContextBlock {
-  return { messages, sources, cost: messages.reduce((sum, message) => sum + entryCost(message), 0) };
+  return { messages, sources, cost: entriesBytes(messages) };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -257,12 +253,6 @@ async function readInstructions(request: ContextRequest): Promise<{ text: string
   return { text: new TextDecoder().decode(bytes.subarray(0, MAX_INSTRUCTION_BYTES), { stream: truncated }), truncated };
 }
 
-function codepointPrefix(text: string, length: number): string {
-  const last = text.charCodeAt(length - 1);
-  if (last >= 0xd800 && last <= 0xdbff) length -= 1;
-  return text.slice(0, length);
-}
-
 function fitInstructions(instructions: { text: string; truncated: boolean }, cost: number, count: number, limit: number): ProviderMessage | undefined {
   const makeMessage = (length: number): ProviderMessage => ({
     role: 'system',
@@ -270,7 +260,7 @@ function fitInstructions(instructions: { text: string; truncated: boolean }, cos
       + (instructions.truncated || length < instructions.text.length ? TRUNCATION_NOTICE : ''),
   });
   const fits = (message: ProviderMessage): boolean => Buffer.byteLength(message.content, 'utf8') <= MAX_INSTRUCTION_BYTES
-    && arrayBytes(cost + entryCost(message), count + 1) <= limit;
+    && arrayBytes(cost + entryBytes(message), count + 1) <= limit;
   const full = makeMessage(instructions.text.length);
   if (fits(full)) return full;
   // Every partial candidate includes a truncation notice, so costs are monotone.
@@ -346,49 +336,49 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   if (mediaNotice) {
     if (mediaNotice.role !== 'assistant' || typeof mediaNotice.content !== 'string' || mediaNotice.toolCalls !== undefined
       || mediaNotice.toolCallId !== undefined || mediaNotice.attachments !== undefined || mediaNotice.documents !== undefined || mediaNotice.media !== undefined || mediaNotice.providerReplay !== undefined
-      || arrayBytes(cost + entryCost(mediaNotice), count + 1) > limit) {
+      || arrayBytes(cost + entryBytes(mediaNotice), count + 1) > limit) {
       throw new EngineError('IMAGE_HISTORY_METADATA_LIMIT', 'Required image history provenance cannot fit beside the current exchange');
     }
-    cost += entryCost(mediaNotice); count++;
+    cost += entryBytes(mediaNotice); count++;
   }
   const documentNotice = request.documentHistoryNotice;
   if (documentNotice) {
     if (documentNotice.role !== 'assistant' || typeof documentNotice.content !== 'string' || documentNotice.toolCalls !== undefined
       || documentNotice.toolCallId !== undefined || documentNotice.attachments !== undefined || documentNotice.documents !== undefined || documentNotice.media !== undefined || documentNotice.providerReplay !== undefined
-      || arrayBytes(cost + entryCost(documentNotice), count + 1) > limit) throw new EngineError('DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
-    cost += entryCost(documentNotice); count++;
+      || arrayBytes(cost + entryBytes(documentNotice), count + 1) > limit) throw new EngineError('DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
+    cost += entryBytes(documentNotice); count++;
   }
   const verificationContinuation = request.verificationContinuation;
   if (verificationContinuation) {
-    if (verificationContinuation.role !== 'user' || typeof verificationContinuation.content !== 'string' || Buffer.byteLength(verificationContinuation.content) > 9216 || Object.keys(verificationContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryCost(verificationContinuation), count + 1) > limit) throw new EngineError('VERIFICATION_CONTEXT_LIMIT', 'Required verification control data cannot fit within the original context budget');
-    cost += entryCost(verificationContinuation); count++;
+    if (verificationContinuation.role !== 'user' || typeof verificationContinuation.content !== 'string' || Buffer.byteLength(verificationContinuation.content) > 9216 || Object.keys(verificationContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryBytes(verificationContinuation), count + 1) > limit) throw new EngineError('VERIFICATION_CONTEXT_LIMIT', 'Required verification control data cannot fit within the original context budget');
+    cost += entryBytes(verificationContinuation); count++;
   }
   const semantic = request.semanticMemory, prefixMemory = request.activePrefixMemory;
   const lifecycleContinuation = request.lifecycleContinuation;
   if (lifecycleContinuation) {
     if (lifecycleContinuation.role !== 'user' || typeof lifecycleContinuation.content !== 'string' || !lifecycleContinuation.content.startsWith('[Moodcode lifecycle continuation v1]\n')
-      || Buffer.byteLength(lifecycleContinuation.content) > 8192 || Object.keys(lifecycleContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryCost(lifecycleContinuation), count + 1) > limit)
+      || Buffer.byteLength(lifecycleContinuation.content) > 8192 || Object.keys(lifecycleContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryBytes(lifecycleContinuation), count + 1) > limit)
       throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Required lifecycle continuation must fit the original context budget as complete host control data');
-    cost += entryCost(lifecycleContinuation); count++;
+    cost += entryBytes(lifecycleContinuation); count++;
   }
   for (const memory of [semantic, prefixMemory]) {
     if (!memory) continue;
-    if (memory.role !== 'assistant' || typeof memory.content !== 'string' || arrayBytes(cost + entryCost(memory), count + 1) > limit) {
+    if (memory.role !== 'assistant' || typeof memory.content !== 'string' || arrayBytes(cost + entryBytes(memory), count + 1) > limit) {
       throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Required derived memory cannot fit beside the current exchange');
     }
-    cost += entryCost(memory); count++;
+    cost += entryBytes(memory); count++;
   }
   const profile = request.agentInstructions ? { role: 'system' as const, content: request.agentInstructions } : undefined;
-  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryCost(profile), count + 1) > limit)) throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
-  if (profile) { cost += entryCost(profile); count++; }
+  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryBytes(profile), count + 1) > limit)) throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
+  if (profile) { cost += entryBytes(profile); count++; }
   const instructions = await readInstructions(request);
   checkAbort(request.signal);
   const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
-  if (system) { cost += entryCost(system); count += 1; }
+  if (system) { cost += entryBytes(system); count += 1; }
   const defaults = agentInstructions(request.config.mode);
-  const includeDefaults = arrayBytes(cost + entryCost(defaults), count + 1) <= limit
+  const includeDefaults = arrayBytes(cost + entryBytes(defaults), count + 1) <= limit
     && Buffer.byteLength((system?.content ?? '') + defaults.content, 'utf8') <= MAX_INSTRUCTION_BYTES;
-  if (includeDefaults) { cost += entryCost(defaults); count += 1; }
+  if (includeDefaults) { cost += entryBytes(defaults); count += 1; }
   const olderCost = blocks.filter(item => !selected.has(item)).reduce((sum, item) => sum + item.cost, 0);
   const available = limit - arrayBytes(cost, count);
   // Reserve part of optional history space only when the full older transcript
