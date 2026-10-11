@@ -1394,7 +1394,7 @@ export class MoodcodeEngine implements EngineRuntime {
         readDisposal: original => this.backendProcesses.readDisposal(original),
       });
       this.backendRecords.recoverInterrupted();
-      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, clientEffectsEnabled: options.agentBackendClientEffects===true, terminalEffectsEnabled: options.agentBackendClientEffects===true&&this.jobsEnabled, lifetime: this.hostResources.signal });
+      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.hostResources.signal });
       this.codeModeHost=new CodeModeHost(this,this.store.createCodeModeStorage((original,record,revision)=>this.codeModeHost.assertRecordOwner(original,record,revision)),knowledgeBinding,options.codeMode===true);
       this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.closing, () => this.jobsEnabled, this.storagePaths.artifactDir);
       this.jobRecords = this.store.createJobStorage({

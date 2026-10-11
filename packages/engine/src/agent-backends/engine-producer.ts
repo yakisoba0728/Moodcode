@@ -608,7 +608,6 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
           request.tools.some((t) => t.name === "apply_patch"),
         terminal:
           this.terminalEffectsEnabled() &&
-          process.platform !== "win32" &&
           request.tools.some((t) => t.name === "run_command"),
       },
       launchSha256: registration.target.proof.launchSha256,

@@ -15,8 +15,6 @@ export interface AgentBackendHostOptions {
   clientReads: BackendNativeClientEffectPort;
   turns: ActualBackendTurnPort;
   lifetime?: AbortSignal;
-  clientEffectsEnabled?: boolean;
-  terminalEffectsEnabled?: boolean;
 }
 
 /** Root constructs this host; registered descriptions alone cannot construct runtime ports. */
