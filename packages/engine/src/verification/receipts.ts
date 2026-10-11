@@ -8,6 +8,11 @@ import {
 
 const OBSERVATION_KEYS = ['disposition', 'command', 'cwd', 'profileId', 'profileRevision', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'sourceAfter', 'executionCheckpointId', 'exitCode', 'signal', 'started', 'cancelled', 'timedOut', 'cleanup', 'observedOutputBytes', 'outputAccountingComplete', 'artifactRefs', 'reasonCode', 'executionComplete', 'commandCapability'];
 function hashReceipt(value: Omit<VerificationReceipt, 'receiptSha256'>): VerificationReceipt { return { ...value, receiptSha256: verificationHash(value) }; }
+function rehash(old: VerificationReceipt, change: Partial<Omit<VerificationReceipt, 'receiptSha256'>>): VerificationReceipt {
+  const { receiptSha256: _omitted, ...body } = { ...old, ...change };
+  return hashReceipt(body);
+}
+export function replaced(snapshot: VerificationState, receipt: VerificationReceipt): VerificationReceipt[] { return snapshot.receipts.map(value => value.id === receipt.id ? receipt : value); }
 function current(snapshot: VerificationSnapshot, id: string): VerificationReceipt {
   verificationText(id); const receipt = snapshot.receipts.find(value => value.id === id);
   if (!receipt) return verificationFail('VERIFICATION_RECEIPT_NOT_FOUND', 'Verification receipt does not belong to this Run');
@@ -94,9 +99,8 @@ export class VerificationReceiptService {
   markUncertain(sessionId: string, runId: string, expectedRevision: number, receiptId: string): VerificationReceiptResult {
     const snapshot = this.snapshot(sessionId, runId, expectedRevision), old = current(snapshot, receiptId);
     if (old.phase === 'settled') verificationFail('VERIFICATION_RECEIPT_TERMINAL', 'Verification receipt is already terminal');
-    const { receiptSha256: _omitted, ...body } = old;
-    const receipt = hashReceipt({ ...body, phase: 'settled', status: 'uncertain', settledAt: this.plans.now(), observation: null, sourceStale: null, recovery: 'producer-without-outcome' });
-    const saved = this.plans.writeReceipts(snapshot, snapshot.receipts.map(value => value.id === old.id ? receipt : value));
+    const receipt = rehash(old, { phase: 'settled', status: 'uncertain', settledAt: this.plans.now(), observation: null, sourceStale: null, recovery: 'producer-without-outcome' });
+    const saved = this.plans.writeReceipts(snapshot, replaced(snapshot, receipt));
     return { revision: saved.revision, receipt };
   }
   dispatch(sessionId: string, runId: string, expectedRevision: number, receiptId: string, currentSource: VerificationSource): VerificationReceiptResult {
@@ -104,18 +108,16 @@ export class VerificationReceiptService {
     const old = current(snapshot, receiptId);
     if (old.phase !== 'prepared') verificationFail('VERIFICATION_RECEIPT_PHASE', 'Verification dispatch requires a newly prepared record');
     if (verificationHash(source) !== verificationHash(old.sourceBefore)) verificationFail('VERIFICATION_SOURCE_STALE', 'Source changed immediately before verification dispatch');
-    const { receiptSha256: _omitted, ...body } = old;
-    const receipt = hashReceipt({ ...body, phase: 'dispatched', dispatchedAt: this.plans.now() });
-    const saved = this.plans.writeReceipts(snapshot, snapshot.receipts.map(value => value.id === old.id ? receipt : value));
+    const receipt = rehash(old, { phase: 'dispatched', dispatchedAt: this.plans.now() });
+    const saved = this.plans.writeReceipts(snapshot, replaced(snapshot, receipt));
     return { revision: saved.revision, receipt };
   }
   settle(sessionId: string, runId: string, expectedRevision: number, receiptId: string, value: VerificationObservation): VerificationReceiptResult {
     const snapshot = this.snapshot(sessionId, runId, expectedRevision), old = current(snapshot, receiptId);
     if (old.phase === 'settled') verificationFail('VERIFICATION_RECEIPT_TERMINAL', 'Verification receipt already has a durable terminal observation');
     const observation = normalizeVerificationObservation(value, old, snapshot), { status, stale } = classifyVerificationObservation(observation);
-    const { receiptSha256: _omitted, ...body } = old;
-    const receipt = hashReceipt({ ...body, phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
-    const saved = this.plans.writeReceipts(snapshot, snapshot.receipts.map(value => value.id === old.id ? receipt : value));
+    const receipt = rehash(old, { phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
+    const saved = this.plans.writeReceipts(snapshot, replaced(snapshot, receipt));
     return { revision: saved.revision, receipt };
   }
   /** Only the original live owner can settle a consumed dispatched effect while ordinary cancellation writes remain blocked. */
@@ -123,8 +125,7 @@ export class VerificationReceiptService {
     const snapshot = this.snapshot(sessionId, runId, expectedRevision), old = current(snapshot, receiptId);
     if (old.phase !== 'dispatched') verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed settlement requires an existing dispatched receipt');
     const observation = normalizeVerificationObservation(value, old, snapshot), { status, stale } = classifyVerificationObservation(observation);
-    const { receiptSha256: _omitted, ...body } = old;
-    const receipt = hashReceipt({ ...body, phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
+    const receipt = rehash(old, { phase: 'settled', status, settledAt: this.plans.now(), observation, sourceStale: stale });
     const saved = this.plans.writeConsumedReceipt(snapshot, receipt, writer);
     return { revision: saved.revision, receipt };
   }
@@ -133,11 +134,7 @@ export class VerificationReceiptService {
     const snapshot = this.snapshot(sessionId, runId, expectedRevision);
     if (!snapshot.receipts.some(receipt => receipt.phase !== 'settled')) return snapshot;
     const stamp = this.plans.now();
-    const receipts = snapshot.receipts.map(old => {
-      if (old.phase === 'settled') return old;
-      const { receiptSha256: _omitted, ...body } = old;
-      return hashReceipt({ ...body, phase: 'settled', status: 'uncertain', settledAt: stamp, sourceStale: null, recovery: 'restart-without-outcome' });
-    });
+    const receipts = snapshot.receipts.map(old => old.phase === 'settled' ? old : rehash(old, { phase: 'settled', status: 'uncertain', settledAt: stamp, sourceStale: null, recovery: 'restart-without-outcome' }));
     return this.plans.writeReceipts(snapshot, receipts, true);
   }
 }

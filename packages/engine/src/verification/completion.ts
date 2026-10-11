@@ -1,3 +1,4 @@
+import { CHECK_RECORD_KEYS, PLAN_KEYS, RECEIPT_KEYS, latestReceipt } from './plans.js';
 import { classifyVerificationObservation, normalizeVerificationObservation } from './receipts.js';
 import { VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText,
   type VerificationSnapshot, type VerificationSource, type VerificationStatus } from './types.js';
@@ -7,8 +8,9 @@ export interface VerificationBoundary {
   id: string; phase: 'before-provider' | 'stop'; turnId: string | null;
   providerTerminal: boolean; nativeTurnCompleted: boolean;
 }
-export type CompletionReason = 'required_checks_passed' | 'provider_not_terminal' | 'turn_not_completed' | 'plan_missing' | 'no_required_checks' | 'source_stale' | 'profile_stale' | 'check_stale' | 'invalid_evidence' | 'check_missing' | 'check_failed' | 'verification_pending' | 'cleanup_uncertain' | 'verification_cancelled' | 'verification_unsupported' | 'verification_denied' | 'repair_limit' | 'stalled' | 'budget_exhausted' | 'controller_limit';
-export const COMPLETION_REASONS: readonly CompletionReason[] = Object.freeze(['required_checks_passed', 'provider_not_terminal', 'turn_not_completed', 'plan_missing', 'no_required_checks', 'source_stale', 'profile_stale', 'check_stale', 'invalid_evidence', 'check_missing', 'check_failed', 'verification_pending', 'cleanup_uncertain', 'verification_cancelled', 'verification_unsupported', 'verification_denied', 'repair_limit', 'stalled', 'budget_exhausted', 'controller_limit']);
+const REASONS = ['required_checks_passed', 'provider_not_terminal', 'turn_not_completed', 'plan_missing', 'no_required_checks', 'source_stale', 'profile_stale', 'check_stale', 'invalid_evidence', 'check_missing', 'check_failed', 'verification_pending', 'cleanup_uncertain', 'verification_cancelled', 'verification_unsupported', 'verification_denied', 'repair_limit', 'stalled', 'budget_exhausted', 'controller_limit'] as const;
+export type CompletionReason = (typeof REASONS)[number];
+export const COMPLETION_REASONS: readonly CompletionReason[] = Object.freeze(REASONS);
 export interface CompletionDecision {
   schemaVersion: 1; status: 'verified' | 'incomplete' | 'blocked'; taskVerified: boolean; reason: CompletionReason;
   planId: string | null; planSha256: string | null; sourceSha256: string;
@@ -56,20 +58,20 @@ export function evaluateVerificationCompletion(value: VerificationCompletionInpu
   verificationNumber(snapshot.revision, Number.MAX_SAFE_INTEGER, 1);
   const plans = new Map<string, typeof plan>();
   for (const item of snapshot.plans) {
-    verificationPlain(item, ['schemaVersion', 'id', 'revision', 'sessionId', 'runId', 'workspaceId', 'workspaceRoot', 'createdAt', 'source', 'runConfigSha256', 'registryRevision', 'checks', 'maxRepairs', 'budget', 'executionAuthority', 'planSha256']);
+    verificationPlain(item, PLAN_KEYS);
     verificationText(item.id); normalizeVerificationSource(item.source); verificationDigest(item.runConfigSha256); verificationNumber(item.revision, VERIFICATION_LIMITS.maxPlans, 1); verificationNumber(item.maxRepairs, VERIFICATION_LIMITS.maxRepairs);
     const { planSha256, ...body } = item;
     if (item.schemaVersion !== 1 || plans.has(item.id) || item.runId !== value.runId || item.sessionId !== value.sessionId || item.workspaceId !== value.workspaceId || item.executionAuthority !== 'none' || planSha256 !== verificationHash(body) || !Array.isArray(item.checks) || item.checks.length > VERIFICATION_LIMITS.maxChecks) return result('blocked', 'invalid_evidence');
     plans.set(item.id, item); const checkIds = new Set<string>();
     for (const check of item.checks) {
-      verificationPlain(check, ['id', 'revision', 'workspaceId', 'command', 'cwd', 'profileId', 'profileRevision', 'sourceRevision', 'timeoutMs', 'maxOutputBytes', 'required', 'registrationSha256']);
+      verificationPlain(check, CHECK_RECORD_KEYS);
       verificationText(check.id); verificationText(check.profileId); verificationText(check.profileRevision); const { registrationSha256, ...definition } = check;
       if (typeof check.required !== 'boolean' || check.workspaceId !== value.workspaceId || checkIds.has(check.id) || registrationSha256 !== verificationHash(definition)) return result('blocked', 'invalid_evidence'); checkIds.add(check.id);
     }
   }
   const receiptIds = new Set<string>();
   for (const receipt of snapshot.receipts) {
-    verificationPlain(receipt, ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'phase', 'status', 'createdAt', 'dispatchedAt', 'settledAt', 'observation', 'sourceStale', 'recovery', 'receiptSha256']);
+    verificationPlain(receipt, RECEIPT_KEYS);
     verificationText(receipt.id); normalizeVerificationSource(receipt.sourceBefore);
     const { receiptSha256, ...body } = receipt, ownPlan = plans.get(receipt.planId), check = ownPlan?.checks.find(item => item.id === receipt.checkId);
     if (receipt.schemaVersion !== 1 || receiptIds.has(receipt.id) || !['prepared', 'dispatched', 'settled'].includes(receipt.phase) || receipt.runId !== value.runId || receipt.sessionId !== value.sessionId || receipt.workspaceId !== value.workspaceId || receiptSha256 !== verificationHash(body) || !check || receipt.planSha256 !== ownPlan!.planSha256 || receipt.registrationSha256 !== check.registrationSha256) return result('blocked', 'invalid_evidence'); receiptIds.add(receipt.id);
@@ -80,10 +82,10 @@ export function evaluateVerificationCompletion(value: VerificationCompletionInpu
     if (classified.status !== receipt.status || classified.stale !== receipt.sourceStale) return result('blocked', 'invalid_evidence');
   }
   const required = plan.checks.filter(check => check.required);
-  for (const check of required) { const receipt = snapshot.receipts.filter(item => item.planId === plan.id && item.checkId === check.id).at(-1); requiredChecks.push({ checkId: check.id, receiptId: receipt?.id ?? null, status: receipt?.status ?? 'missing' }); }
+  for (const check of required) { const receipt = latestReceipt(snapshot, plan.id, check.id); requiredChecks.push({ checkId: check.id, receiptId: receipt?.id ?? null, status: receipt?.status ?? 'missing' }); }
   if (!value.planCurrent || plan.runConfigSha256 !== value.runConfigSha256) return result('blocked', 'check_stale');
   if (!profile || plan.checks.some(check => check.profileId !== profile.id || check.profileRevision !== profile.revision)) return result('blocked', 'profile_stale');
-  const latest = plan.checks.flatMap(check => { const receipt = snapshot.receipts.filter(item => item.planId === plan.id && item.checkId === check.id).at(-1); return receipt ? [receipt] : []; });
+  const latest = plan.checks.flatMap(check => { const receipt = latestReceipt(snapshot, plan.id, check.id); return receipt ? [receipt] : []; });
   if (latest.some(receipt => DENIED.has(receipt.observation!.reasonCode ?? ''))) return result('blocked', 'verification_denied');
   if (latest.some(receipt => receipt.status === 'cancelled')) return result('blocked', 'verification_cancelled');
   if (latest.some(receipt => receipt.status === 'unsupported' || receipt.status === 'skipped' && plan.checks.find(check => check.id === receipt.checkId)!.required)) return result('blocked', 'verification_unsupported');

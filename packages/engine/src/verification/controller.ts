@@ -1,6 +1,6 @@
 import { isTerminal, type JsonObject, type Run } from '@moodcode/contracts';
 import type { SessionDocument } from '../session-state/index.js';
-import type { VerificationPlanService } from './plans.js';
+import { DECISION_STATUSES, VERIFICATION_STATUSES, latestReceipt, type VerificationPlanService } from './plans.js';
 import { COMPLETION_REASONS, completionCandidate, completionDecision, evaluateVerificationCompletion, normalizeVerificationBoundary, normalizeVerificationControllerProfile,
   type CompletionCandidate, type CompletionDecision, type CompletionReason, type VerificationBoundary, type VerificationControllerProfile } from './completion.js';
 import { VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText, verificationTimestamp,
@@ -8,7 +8,8 @@ import { VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, v
 
 export const VERIFICATION_CONTROLLER_LIMITS = Object.freeze({ maxDocumentBytes: 65_536, maxBoundaries: 64, maxMessageBytes: 8192 });
 export interface VerificationRemainingBudget { turns: number; toolCalls: number; outputBytes: number; durationMs: number }
-export type VerificationExecutionBlocker = 'verification_denied' | 'cleanup_uncertain' | 'verification_cancelled' | 'verification_unsupported' | 'check_stale';
+const EXECUTION_BLOCKERS = ['verification_denied', 'cleanup_uncertain', 'verification_cancelled', 'verification_unsupported', 'check_stale'] as const;
+export type VerificationExecutionBlocker = (typeof EXECUTION_BLOCKERS)[number];
 export interface VerificationControllerPorts {
   observeSource(run: Run, signal: AbortSignal): Promise<VerificationSource>;
   readCurrentProfile(run: Run): VerificationControllerProfile | null;
@@ -65,7 +66,7 @@ function normalizeState(value: unknown, run: Run): VerificationControllerState {
     verificationPlain(result, ['id', 'phase', 'turnId', 'inputSha256', 'decisionSha256', 'action', 'status', 'taskVerified', 'reason', 'stageId', 'repairOrdinal']);
     verificationText(result.id); verificationDigest(result.inputSha256); verificationDigest(result.decisionSha256); verificationNumber(result.repairOrdinal, VERIFICATION_LIMITS.maxRepairs);
     if (result.turnId !== null) verificationText(result.turnId);
-    if (!COMPLETION_REASONS.includes(result.reason) || !['before-provider', 'stop'].includes(result.phase) || !['proceed', 'continue', 'stop'].includes(result.action) || !['verified', 'incomplete', 'blocked'].includes(result.status) || result.taskVerified !== (result.status === 'verified') || result.taskVerified && (result.phase !== 'stop' || result.action !== 'stop' || result.turnId === null) || result.stageId !== null && !ids.has(result.stageId) || boundaries.has(result.id)) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Stored controller boundary is inconsistent'); boundaries.add(result.id);
+    if (!COMPLETION_REASONS.includes(result.reason) || !['before-provider', 'stop'].includes(result.phase) || !['proceed', 'continue', 'stop'].includes(result.action) || !DECISION_STATUSES.includes(result.status) || result.taskVerified !== (result.status === 'verified') || result.taskVerified && (result.phase !== 'stop' || result.action !== 'stop' || result.turnId === null) || result.stageId !== null && !ids.has(result.stageId) || boundaries.has(result.id)) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Stored controller boundary is inconsistent'); boundaries.add(result.id);
   }
   if (!state.boundaries.some(result => verificationHash(result) === verificationHash(state.result))) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Current controller result is outside its committed boundary set');
   if (state.completion) {
@@ -74,8 +75,8 @@ function normalizeState(value: unknown, run: Run): VerificationControllerState {
     const result = state.completion.decision;
     verificationPlain(result, ['schemaVersion', 'status', 'taskVerified', 'reason', 'planId', 'planSha256', 'sourceSha256', 'requiredChecks', 'executionAuthority', 'decisionSha256']);
     verificationDigest(result.sourceSha256); verificationDigest(result.decisionSha256); if (result.planId !== null) verificationText(result.planId); if (result.planSha256 !== null) verificationDigest(result.planSha256);
-    if (state.completion.schemaVersion !== 1 || !boundaries.has(state.completion.boundaryId) || result.schemaVersion !== 1 || !COMPLETION_REASONS.includes(result.reason) || !['verified', 'incomplete', 'blocked'].includes(result.status) || result.taskVerified !== (result.status === 'verified') || !Array.isArray(result.requiredChecks) || result.requiredChecks.length > VERIFICATION_LIMITS.maxChecks) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Completion candidate has invalid descriptive fields');
-    const checkIds = new Set<string>(); for (const check of result.requiredChecks) { verificationPlain(check, ['checkId', 'receiptId', 'status']); verificationText(check.checkId); if (check.receiptId !== null) verificationText(check.receiptId); if (checkIds.has(check.checkId) || !['pass', 'fail', 'skipped', 'unsupported', 'timeout', 'cancelled', 'uncertain', 'stale', 'missing', 'pending'].includes(check.status)) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Completion check summaries must be bounded and unambiguous'); checkIds.add(check.checkId); }
+    if (state.completion.schemaVersion !== 1 || !boundaries.has(state.completion.boundaryId) || result.schemaVersion !== 1 || !COMPLETION_REASONS.includes(result.reason) || !DECISION_STATUSES.includes(result.status) || result.taskVerified !== (result.status === 'verified') || !Array.isArray(result.requiredChecks) || result.requiredChecks.length > VERIFICATION_LIMITS.maxChecks) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Completion candidate has invalid descriptive fields');
+    const checkIds = new Set<string>(); for (const check of result.requiredChecks) { verificationPlain(check, ['checkId', 'receiptId', 'status']); verificationText(check.checkId); if (check.receiptId !== null) verificationText(check.receiptId); if (checkIds.has(check.checkId) || ![...VERIFICATION_STATUSES, 'missing', 'pending'].includes(check.status)) verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Completion check summaries must be bounded and unambiguous'); checkIds.add(check.checkId); }
     const { candidateSha256, ...candidate } = state.completion, { decisionSha256, ...decision } = state.completion.decision;
     if (candidateSha256 !== verificationHash(candidate) || decisionSha256 !== verificationHash(decision) || state.completion.authority !== 'observation-only' || state.completion.decision.executionAuthority !== 'none') verificationFail('INVALID_VERIFICATION_CONTROLLER', 'Completion candidate digest or observation authority is invalid');
   }
@@ -84,7 +85,7 @@ function normalizeState(value: unknown, run: Run): VerificationControllerState {
 function signature(source: VerificationSource, snapshot: VerificationSnapshot | null): string {
   const plan = snapshot?.plans.at(-1);
   return verificationHash({ sourceSha256: source.sha256, checks: plan?.checks.filter(check => check.required).map(check => {
-    const receipt = snapshot!.receipts.filter(item => item.planId === plan.id && item.checkId === check.id).at(-1), observation = receipt?.observation;
+    const receipt = latestReceipt(snapshot!, plan.id, check.id), observation = receipt?.observation;
     return { checkId: check.id, registrationSha256: check.registrationSha256, status: receipt?.status ?? 'missing', phase: receipt?.phase ?? 'missing', exitCode: observation?.exitCode ?? null, signal: observation?.signal ?? null, reasonCode: observation?.reasonCode ?? null, cleanupConfirmed: observation?.cleanup.confirmed ?? null };
   }) ?? [] });
 }
@@ -110,33 +111,35 @@ export class VerificationController {
     const read = () => {
       const currentRun = active(), snapshot = this.plans.get(sessionId, runId), profile = normalizeVerificationControllerProfile(this.ports.readCurrentProfile(currentRun)), budget = normalizeBudget(this.ports.readRemainingBudget(currentRun), currentRun);
       const blocker = this.ports.readExecutionBlocker?.(currentRun) ?? null;
-      if (blocker !== null && !['verification_denied', 'cleanup_uncertain', 'verification_cancelled', 'verification_unsupported', 'check_stale'].includes(blocker)) verificationFail('INVALID_VERIFICATION_DATA', 'Controller blocker must be a known host observation');
+      if (blocker !== null && !EXECUTION_BLOCKERS.includes(blocker)) verificationFail('INVALID_VERIFICATION_DATA', 'Controller blocker must be a known host observation');
       if (verificationHash(currentRun.config) !== verificationHash(run.config) || (snapshot?.revision ?? 0) !== input.verificationRevision || (snapshot?.plans.at(-1)?.planSha256 ?? null) !== input.planSha256) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Controller plan or Run configuration changed at this boundary');
       let planCurrent = true; if (snapshot) { try { this.plans.assertCurrent(snapshot); } catch { planCurrent = false; } }
       return { run: currentRun, snapshot, profile, budget, planCurrent, blocker };
     };
+    const sameRead = (a: ReturnType<typeof read>, b: ReturnType<typeof read>) => verificationHash(a.profile) === verificationHash(b.profile) && a.blocker === b.blocker && a.planCurrent === b.planCurrent;
+    const override = (d: CompletionDecision, reason: CompletionReason, status?: 'blocked' | 'incomplete') => completionDecision({ ...d, ...(status ? { status, taskVerified: false } : {}), reason });
     const first = read(), source = normalizeVerificationSource(await this.ports.observeSource(run, signal)); active();
     if (verificationHash(source) !== verificationHash(input.source)) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Host source changed before controller evaluation');
-    const observed = read(); if (verificationHash(first.profile) !== verificationHash(observed.profile) || first.blocker !== observed.blocker || first.planCurrent !== observed.planCurrent) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Host profile, check or execution blocker changed during controller observation');
+    const observed = read(); if (!sameRead(first, observed)) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Host profile, check or execution blocker changed during controller observation');
     const current = this.get(sessionId, runId), inputSha256 = verificationHash({ input, profile: observed.profile, blocker: observed.blocker, runConfigSha256: verificationHash(run.config), snapshotSha256: verificationHash(observed.snapshot) }), existing = current?.boundaries.find(item => item.id === input.boundary.id);
     if (existing && existing.inputSha256 !== inputSha256) verificationFail('VERIFICATION_CONTROLLER_BOUNDARY_CONFLICT', 'The same logical boundary cannot change its verification inputs');
     if (!existing && (current?.revision ?? 0) !== expectedRevision) verificationFail('REVISION_CONFLICT', 'Verification controller CAS changed');
     let decision = evaluateVerificationCompletion({ sessionId, runId, workspaceId: run.workspaceId, runConfigSha256: verificationHash(run.config), source, snapshot: observed.snapshot, profile: observed.profile, boundary: input.boundary, planCurrent: observed.planCurrent });
-    if (observed.blocker) decision = completionDecision({ ...decision, status: 'blocked', taskVerified: false, reason: observed.blocker });
+    if (observed.blocker) decision = override(decision, observed.blocker, 'blocked');
     const firstPlan = observed.snapshot?.plans[0], lastPlan = observed.snapshot?.plans.at(-1), maxRepairs = Math.min(current?.maxRepairs ?? VERIFICATION_LIMITS.maxRepairs, firstPlan?.maxRepairs ?? 0), stages = structuredClone(current?.stages ?? []);
     let repairsUsed = Math.max(current?.repairsUsed ?? 0, stages.at(-1)?.ordinal ?? 0, (lastPlan?.revision ?? 1) - 1), stageId: string | null = null, action: VerificationControllerResult['action'] = input.boundary.phase === 'before-provider' ? 'proceed' : 'stop';
     const insufficient = (budget: VerificationRemainingBudget) => Object.values(budget).some(amount => amount <= 0) || !!firstPlan && (observed.snapshot?.receipts.length ?? 0) >= firstPlan.budget.maxExecutions;
     if (!existing) {
-      if ((current?.boundaries.length ?? 0) >= VERIFICATION_CONTROLLER_LIMITS.maxBoundaries - 1) decision = completionDecision({ ...decision, status: 'blocked', taskVerified: false, reason: 'controller_limit' });
+      if ((current?.boundaries.length ?? 0) >= VERIFICATION_CONTROLLER_LIMITS.maxBoundaries - 1) decision = override(decision, 'controller_limit', 'blocked');
       if (input.boundary.phase === 'before-provider') {
         const pending = stages.find(stage => stage.consumedByBoundaryId === null);
         if (pending) { if (verificationHash(pending.source) !== verificationHash(source) || pending.planSha256 !== input.planSha256 || pending.verificationRevision !== input.verificationRevision) verificationFail('VERIFICATION_CONTROLLER_STAGE_STALE', 'Unconsumed continuation no longer matches current source or plan'); pending.consumedByBoundaryId = input.boundary.id; stageId = pending.id; }
-        if (decision.status === 'blocked') action = 'stop'; else if (Object.values(observed.budget).some(amount => amount <= 0)) { decision = completionDecision({ ...decision, status: 'incomplete', taskVerified: false, reason: 'budget_exhausted' }); action = 'stop'; }
+        if (decision.status === 'blocked') action = 'stop'; else if (Object.values(observed.budget).some(amount => amount <= 0)) { decision = override(decision, 'budget_exhausted', 'incomplete'); action = 'stop'; }
       } else if (decision.status === 'incomplete' && ['plan_missing', 'source_stale', 'check_missing', 'check_failed'].includes(decision.reason) && input.boundary.providerTerminal && input.boundary.nativeTurnCompleted) {
         const stalled = stages.some(stage => stage.signatureSha256 === signature(source, observed.snapshot));
-        if (stalled) decision = completionDecision({ ...decision, reason: 'stalled' });
-        else if (repairsUsed >= maxRepairs) decision = completionDecision({ ...decision, reason: 'repair_limit' });
-        else if (insufficient(observed.budget)) decision = completionDecision({ ...decision, reason: 'budget_exhausted' });
+        if (stalled) decision = override(decision, 'stalled');
+        else if (repairsUsed >= maxRepairs) decision = override(decision, 'repair_limit');
+        else if (insufficient(observed.budget)) decision = override(decision, 'budget_exhausted');
         else {
           repairsUsed++; const createdAt = this.clock(); verificationTimestamp(createdAt); stageId = 'repair_stage_' + verificationHash({ runId, boundaryId: input.boundary.id, ordinal: repairsUsed }).slice(0, 40);
           stages.push({ id: stageId, ordinal: repairsUsed, boundaryId: input.boundary.id, inputSha256, signatureSha256: signature(source, observed.snapshot), source, planId: lastPlan?.id ?? null, planSha256: input.planSha256, verificationRevision: input.verificationRevision, checkIds: lastPlan?.checks.filter(check => check.required).map(check => check.id) ?? [], reason: decision.reason, createdAt, consumedByBoundaryId: null, executionAuthority: 'none' }); action = 'continue';
@@ -144,14 +147,14 @@ export class VerificationController {
       }
     }
     const sourceAfter = normalizeVerificationSource(await this.ports.observeSource(run, signal)); const after = read();
-    if (verificationHash(sourceAfter) !== verificationHash(source) || verificationHash(after.profile) !== verificationHash(observed.profile) || after.planCurrent !== observed.planCurrent || after.blocker !== observed.blocker) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Source, profile or check changed before controller publication');
+    if (verificationHash(sourceAfter) !== verificationHash(source) || !sameRead(observed, after)) verificationFail('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Source, profile or check changed before controller publication');
     this.ports.assertBoundaryCurrent(active(), input.boundary);
     if (existing) {
       if (existing.action === 'continue' && insufficient(after.budget)) verificationFail('VERIFICATION_CONTROLLER_BUDGET_EXHAUSTED', 'Original Run budget no longer permits continuation');
       const { revision, stateSha256: _savedSha, ...savedBody } = current!, body = { ...savedBody, result: structuredClone(existing) };
       return { ...body, stateSha256: verificationHash(body), revision };
     }
-    if (action === 'continue' && insufficient(after.budget)) { stages.pop(); repairsUsed--; stageId = null; action = 'stop'; decision = completionDecision({ ...decision, reason: 'budget_exhausted' }); }
+    if (action === 'continue' && insufficient(after.budget)) { stages.pop(); repairsUsed--; stageId = null; action = 'stop'; decision = override(decision, 'budget_exhausted'); }
     const result: VerificationControllerResult = { id: input.boundary.id, phase: input.boundary.phase, turnId: input.boundary.turnId, inputSha256, decisionSha256: decision.decisionSha256, action, status: decision.status, taskVerified: decision.taskVerified, reason: decision.reason, stageId, repairOrdinal: repairsUsed };
     const body = { schemaVersion: 1 as const, sessionId, runId, workspaceId: run.workspaceId, runConfigSha256: verificationHash(run.config), maxRepairs, repairsUsed, stages, boundaries: [...current?.boundaries ?? [], result], completion: completionCandidate(input.boundary, source, after.snapshot, after.profile, decision), result }, state = { ...body, stateSha256: verificationHash(body) };
     const json = controllerJson(state); normalizeState(json, run); const saved = this.ports.commitCurrent(runId, verificationControllerDocumentKind(runId), current?.revision ?? 0, json, input.verificationRevision);

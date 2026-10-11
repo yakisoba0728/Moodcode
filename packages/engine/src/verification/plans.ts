@@ -1,19 +1,28 @@
 import { randomUUID } from 'node:crypto';
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { isTerminal } from '@moodcode/contracts';
-import { normalizeVerificationObservation, classifyVerificationObservation } from './receipts.js';
+import type { CompletionDecision } from './completion.js';
+import { normalizeVerificationObservation, classifyVerificationObservation, replaced } from './receipts.js';
 import {
   VERIFICATION_LIMITS, normalizeVerificationSource, verificationDigest, verificationFail, verificationHash, verificationJson, verificationNumber, verificationPlain, verificationText, verificationTimestamp,
-  type VerificationCheck, type VerificationCheckRegistration, type VerificationClock, type VerificationConsumedSettlementWriter, type VerificationIndexPage, type VerificationPlan, type VerificationPlanSelection, type VerificationReceipt, type VerificationSnapshot, type VerificationState, type VerificationStore,
+  type VerificationCheck, type VerificationCheckRegistration, type VerificationClock, type VerificationConsumedSettlementWriter, type VerificationIndexPage, type VerificationPlan, type VerificationPlanSelection, type VerificationReceipt, type VerificationSnapshot, type VerificationState, type VerificationStatus, type VerificationStore,
 } from './types.js';
 
 const INDEX_KIND = 'verification.index';
-const CHECK_KEYS = ['id', 'revision', 'workspaceId', 'command', 'cwd', 'profileId', 'profileRevision', 'sourceRevision', 'timeoutMs', 'maxOutputBytes', 'required'] as const;
-const RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'phase', 'status', 'createdAt', 'dispatchedAt', 'settledAt', 'observation', 'sourceStale', 'recovery', 'receiptSha256'];
-const IMMUTABLE_RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'createdAt', 'dispatchedAt'] as const;
+export const PLAN_KEYS = ['schemaVersion', 'id', 'revision', 'sessionId', 'runId', 'workspaceId', 'workspaceRoot', 'createdAt', 'source', 'runConfigSha256', 'registryRevision', 'checks', 'maxRepairs', 'budget', 'executionAuthority', 'planSha256'];
+export const CHECK_KEYS = ['id', 'revision', 'workspaceId', 'command', 'cwd', 'profileId', 'profileRevision', 'sourceRevision', 'timeoutMs', 'maxOutputBytes', 'required'] as const;
+export const CHECK_RECORD_KEYS = [...CHECK_KEYS, 'registrationSha256'];
+export const RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'phase', 'status', 'createdAt', 'dispatchedAt', 'settledAt', 'observation', 'sourceStale', 'recovery', 'receiptSha256'];
+const IDENTITY_RECEIPT_KEYS = ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'createdAt'] as const;
+const IMMUTABLE_RECEIPT_KEYS = [...IDENTITY_RECEIPT_KEYS, 'dispatchedAt'] as const;
+export const VERIFICATION_STATUSES: readonly VerificationStatus[] = ['pass', 'fail', 'skipped', 'unsupported', 'timeout', 'cancelled', 'uncertain', 'stale'];
+export const DECISION_STATUSES: readonly CompletionDecision['status'][] = ['verified', 'incomplete', 'blocked'];
 export function verificationDocumentKind(runId: string): string { verificationText(runId); return 'verification.run.' + verificationHash(runId).slice(0, 40); }
 export function latestRequiredReceipts(snapshot: VerificationState, plan: VerificationPlan, sameRun: (receipt: VerificationReceipt) => boolean): (VerificationReceipt | undefined)[] {
   return plan.checks.filter(check => check.required).map(check => snapshot.receipts.filter(receipt => sameRun(receipt) && receipt.checkId === check.id).at(-1));
+}
+export function latestReceipt(snapshot: VerificationState, planId: string, checkId: string): VerificationReceipt | undefined {
+  return snapshot.receipts.findLast(receipt => receipt.planId === planId && receipt.checkId === checkId);
 }
 function normalizeCheck(value: VerificationCheckRegistration): VerificationCheckRegistration {
   verificationPlain(value, CHECK_KEYS);
@@ -51,14 +60,14 @@ export class VerificationCheckRegistry {
 }
 
 function validatePlan(plan: VerificationPlan): void {
-  verificationPlain(plan, ['schemaVersion', 'id', 'revision', 'sessionId', 'runId', 'workspaceId', 'workspaceRoot', 'createdAt', 'source', 'runConfigSha256', 'registryRevision', 'checks', 'maxRepairs', 'budget', 'executionAuthority', 'planSha256']);
+  verificationPlain(plan, PLAN_KEYS);
   for (const value of [plan.id, plan.sessionId, plan.runId, plan.workspaceId]) verificationText(value);
   verificationText(plan.workspaceRoot, 4096); verificationTimestamp(plan.createdAt); normalizeVerificationSource(plan.source); verificationDigest(plan.runConfigSha256); verificationDigest(plan.planSha256);
   verificationNumber(plan.revision, VERIFICATION_LIMITS.maxPlans, 1); verificationNumber(plan.registryRevision); verificationNumber(plan.maxRepairs, VERIFICATION_LIMITS.maxRepairs);
   if (plan.schemaVersion !== 1 || plan.executionAuthority !== 'none' || !isAbsolute(plan.workspaceRoot) || resolve(plan.workspaceRoot) !== plan.workspaceRoot || !Array.isArray(plan.checks) || plan.checks.length < 1 || plan.checks.length > VERIFICATION_LIMITS.maxChecks) verificationFail('INVALID_VERIFICATION_STATE', 'Stored verification plan has invalid schema or bounds');
   const ids = new Set<string>();
   for (const check of plan.checks) {
-    verificationPlain(check, [...CHECK_KEYS, 'registrationSha256']);
+    verificationPlain(check, CHECK_RECORD_KEYS);
     const { registrationSha256, ...definition } = check;
     const normalized = normalizeCheck(definition); verificationDigest(registrationSha256);
     const rel = relative(plan.workspaceRoot, check.cwd);
@@ -81,7 +90,7 @@ function validateReceipt(receipt: VerificationReceipt, state: VerificationState)
   const plan = state.plans.find(value => value.id === receipt.planId), check = plan?.checks.find(value => value.id === receipt.checkId);
   if (receipt.schemaVersion !== 1 || receipt.sessionId !== state.sessionId || receipt.runId !== state.runId || receipt.workspaceId !== state.workspaceId || !plan || !check || receipt.planSha256 !== plan.planSha256 || receipt.registrationSha256 !== check.registrationSha256 || verificationHash(receipt.sourceBefore) !== verificationHash(plan.source) || !['prepared', 'dispatched', 'settled'].includes(receipt.phase) || !['none', 'restart-without-outcome', 'producer-without-outcome'].includes(receipt.recovery)) verificationFail('VERIFICATION_RECEIPT_BINDING_MISMATCH', 'Stored verification receipt has invalid ownership or binding');
   if (receipt.phase === 'settled') {
-    if (!receipt.settledAt || !['pass', 'fail', 'skipped', 'unsupported', 'timeout', 'cancelled', 'uncertain', 'stale'].includes(receipt.status ?? '') || receipt.sourceStale !== null && typeof receipt.sourceStale !== 'boolean' || receipt.recovery === 'none' && receipt.observation === null || receipt.recovery !== 'none' && receipt.status !== 'uncertain') verificationFail('INVALID_VERIFICATION_STATE', 'Settled verification receipt needs its truthful observation');
+    if (!receipt.settledAt || receipt.status === null || !VERIFICATION_STATUSES.includes(receipt.status) || receipt.sourceStale !== null && typeof receipt.sourceStale !== 'boolean' || receipt.recovery === 'none' && receipt.observation === null || receipt.recovery !== 'none' && receipt.status !== 'uncertain') verificationFail('INVALID_VERIFICATION_STATE', 'Settled verification receipt needs its truthful observation');
   } else if (receipt.status !== null || receipt.settledAt !== null || receipt.observation !== null || receipt.sourceStale !== null || receipt.recovery !== 'none' || (receipt.phase === 'dispatched') !== (receipt.dispatchedAt !== null)) verificationFail('INVALID_VERIFICATION_STATE', 'Pending verification receipt cannot claim an outcome');
   if (receipt.observation !== null) {
     const observation = normalizeVerificationObservation(receipt.observation, receipt, state), result = classifyVerificationObservation(observation);
@@ -183,10 +192,14 @@ export class VerificationPlanService {
     const saved = this.store.putActiveRunDocument(runId, verificationDocumentKind(runId), expectedRevision, data);
     return { ...next, revision: saved.revision };
   }
+  private currentFor(snapshot: VerificationSnapshot, message: string): VerificationSnapshot {
+    const current = this.get(snapshot.sessionId, snapshot.runId);
+    if (!current || current.revision !== snapshot.revision || verificationHash(current.plans) !== verificationHash(snapshot.plans)) return verificationFail('REVISION_CONFLICT', message);
+    return current;
+  }
   /** @internal Receipt module bridge; it preserves immutable plans and previously settled records. */
   writeReceipts(snapshot: VerificationSnapshot, receipts: VerificationReceipt[], recovery = false): VerificationSnapshot {
-    const current = this.get(snapshot.sessionId, snapshot.runId);
-    if (!current || current.revision !== snapshot.revision || verificationHash(current.plans) !== verificationHash(snapshot.plans)) verificationFail('REVISION_CONFLICT', 'Verification receipt source document changed');
+    const current = this.currentFor(snapshot, 'Verification receipt source document changed');
     const normalized = verificationJson({ receipts });
     if (!Array.isArray(normalized.receipts)) verificationFail('INVALID_VERIFICATION_STATE', 'Verification receipts must be a bounded array');
     receipts = normalized.receipts as unknown as VerificationReceipt[];
@@ -194,7 +207,7 @@ export class VerificationPlanService {
     for (const old of current.receipts) {
       const next = receipts.find(value => value.id === old.id);
       if (!next || old.phase === 'settled' && verificationHash(old) !== verificationHash(next)) verificationFail('VERIFICATION_RECEIPT_TERMINAL', 'Settled verification receipts are immutable');
-      for (const field of ['schemaVersion', 'id', 'sessionId', 'runId', 'workspaceId', 'planId', 'planSha256', 'checkId', 'registrationSha256', 'attempt', 'toolCallId', 'preparedFingerprint', 'sourceBefore', 'createdAt'] as const) if (verificationHash(old[field]) !== verificationHash(next[field])) verificationFail('VERIFICATION_RECEIPT_BINDING_MISMATCH', 'Captured verification receipt identity cannot change');
+      for (const field of IDENTITY_RECEIPT_KEYS) if (verificationHash(old[field]) !== verificationHash(next[field])) verificationFail('VERIFICATION_RECEIPT_BINDING_MISMATCH', 'Captured verification receipt identity cannot change');
       if (old.phase === 'dispatched' && next.phase === 'prepared' || old.dispatchedAt !== null && next.dispatchedAt !== old.dispatchedAt) verificationFail('VERIFICATION_RECEIPT_PHASE', 'Verification dispatch evidence cannot regress');
       if (recovery && old.phase !== 'settled' && (next.phase !== 'settled' || next.status !== 'uncertain' || next.observation !== null || next.sourceStale !== null || next.recovery !== 'restart-without-outcome')) verificationFail('INVALID_VERIFICATION_RECOVERY', 'Recovery only converts unresolved records to uncertain');
     }
@@ -206,12 +219,11 @@ export class VerificationPlanService {
   }
   /** @internal The live execution owner supplies a separately authenticated consumed-settlement writer. */
   writeConsumedReceipt(snapshot: VerificationSnapshot, receipt: VerificationReceipt, writer: VerificationConsumedSettlementWriter): VerificationSnapshot {
-    const current = this.get(snapshot.sessionId, snapshot.runId);
-    if (!current || current.revision !== snapshot.revision || verificationHash(current.plans) !== verificationHash(snapshot.plans)) verificationFail('REVISION_CONFLICT', 'Consumed verification source document changed');
+    const current = this.currentFor(snapshot, 'Consumed verification source document changed');
     const { run } = this.owner(snapshot.sessionId, snapshot.runId);
     if (isTerminal(run.state)) verificationFail('RUN_TERMINAL', 'A terminal Run cannot accept a consumed verification observation');
     if (typeof writer !== 'function') verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed verification requires the captured host writer');
-    const { revision, ...before } = current, data = verificationJson({ ...before, receipts: current.receipts.map(old => old.id === receipt.id ? receipt : old) });
+    const { revision, ...before } = current, data = verificationJson({ ...before, receipts: replaced(current, receipt) });
     validateConsumedVerificationSettlement(before, data, { sessionId: before.sessionId, runId: before.runId, toolCallId: receipt.toolCallId });
     const next = normalizeState(data, before.sessionId, before.runId, before.workspaceId), saved = writer(verificationDocumentKind(before.runId), revision, data);
     if (saved.revision !== revision + 1 || verificationHash(saved.data) !== verificationHash(data)) verificationFail('INVALID_CONSUMED_VERIFICATION_SETTLEMENT', 'Consumed writer did not return the exact committed document');

@@ -1,9 +1,9 @@
-import { EngineError, isTerminal } from '@moodcode/contracts';
-import type { PreparedTool, ToolContext, ToolDefinition } from '../ports.js';
+import { EngineError, isTerminal, type Checkpoint } from '@moodcode/contracts';
+import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
 import { assertVerificationCwd, importOwnedCommandEvidence, observeOwnedCommandResult, observeVerificationSource, observeVerificationSourceAfter,
   verificationCatalogueIdentity, verificationExecutionBinding, verificationNestedContext, verificationResult,
-  type VerificationToolHost, VERIFICATION_EXECUTION_LIMITS } from './execution.js';
+  type OwnedCommandObservation, type VerificationToolHost, VERIFICATION_EXECUTION_LIMITS } from './execution.js';
 import { normalizeVerificationCommandCapability, normalizeVerificationSource, verificationFail, verificationHash, verificationJson, verificationPlain, verificationText,
   type VerificationCheck, type VerificationCommandCapability, type VerificationObservation, type VerificationReceiptResult, type VerificationSnapshot, type VerificationSource } from './types.js';
 
@@ -38,6 +38,13 @@ function commandPolicy(host: VerificationToolHost, check: VerificationCheck, cat
   if (decision.version !== catalogue.policyVersion) verificationFail('TOOL_CATALOGUE_STALE', 'Native command policy changed after catalogue capture');
   if (decision.decision === 'deny') verificationFail('TOOL_POLICY_DENIED', 'Registered verification command is denied by its current base policy');
 }
+function reselect(host: VerificationToolHost, context: ToolContext, pinned: Pick<Capture, 'snapshot' | 'check' | 'catalogueIdentity' | 'capability'>, message: string, policy = false): ReturnType<typeof select> {
+  const current = select(host, context, pinned.check.id);
+  if (current.snapshot.revision !== pinned.snapshot.revision || verificationCatalogueIdentity(current.catalogue) !== pinned.catalogueIdentity) verificationFail('VERIFICATION_PREPARED_STALE', message);
+  sameCapability(capability(host, context, current.catalogue), pinned.capability);
+  if (policy) commandPolicy(host, pinned.check, current.catalogue);
+  return current;
+}
 
 /** One registered check, one retained command capability, one exact outer approval. */
 export function createVerificationTool(host: VerificationToolHost): ToolDefinition {
@@ -57,9 +64,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
       const innerPreview = inner?.preview ?? { command: selected.check.command, cwd: selected.check.cwd, timeoutMs: nested.limits.toolTimeoutMs, workspaceId: context.workspace.id, runId: context.runId, toolCallId: context.toolCallId,
         platform: commandCapability!.platform, termination: 'unsupported', commandPreparation: 'unsupported-no-inner-preflight', commandCapability: commandCapability! };
       // Host policy/preflight may have awaited external analysis. Recheck the frozen owner and source after it.
-      const current = select(host, context, selected.check.id);
-      if (current.snapshot.revision !== selected.snapshot.revision || verificationCatalogueIdentity(current.catalogue) !== verificationCatalogueIdentity(selected.catalogue)) verificationFail('VERIFICATION_PREPARED_STALE', 'Verification plan or authenticated catalogue changed during preparation');
-      sameCapability(capability(host, context, current.catalogue), commandCapability);
+      reselect(host, context, { ...selected, catalogueIdentity: verificationCatalogueIdentity(selected.catalogue), capability: commandCapability }, 'Verification plan or authenticated catalogue changed during preparation');
       sameSource(await observeVerificationSource(host, context, context.signal), source); active(context);
       const fingerprint = verificationHash({ version: 1, binding: verificationExecutionBinding(context), planId: plan.id, planSha256: plan.planSha256, checkSha256: selected.check.registrationSha256, source,
         innerFingerprint: inner?.fingerprint ?? null, innerPreviewSha256: verificationHash(innerPreview), commandCapability, catalogue: verificationCatalogueIdentity(selected.catalogue), maxOutputBytes: nested.limits.maxOutputBytes, timeoutMs: nested.limits.toolTimeoutMs });
@@ -78,11 +83,9 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
       capture.used = true;
       verificationPlain(prepared, ['name', 'input', 'fingerprint', 'requiresApproval', 'preview', 'data']); verificationJson(prepared);
       if (JSON.stringify(prepared) !== capture.preparedSnapshot || JSON.stringify(capture.inner) !== capture.innerSnapshot || verificationExecutionBinding(context) !== capture.binding) verificationFail('VERIFICATION_APPROVAL_STALE', 'Exact verification preview or execution owner changed');
-      const selected = select(host, context, capture.check.id);
-      if (selected.snapshot.revision !== capture.snapshot.revision || verificationCatalogueIdentity(selected.catalogue) !== capture.catalogueIdentity) verificationFail('VERIFICATION_PREPARED_STALE', 'Verification plan or authenticated catalogue changed after approval');
-      sameCapability(capability(host, context, selected.catalogue), capture.capability); commandPolicy(host, capture.check, selected.catalogue);
+      reselect(host, context, capture, 'Verification plan or authenticated catalogue changed after approval', true);
       await assertVerificationCwd(context, capture.check);
-      const checkpoints: import('@moodcode/contracts').Checkpoint[] = [];
+      const checkpoints: Checkpoint[] = [];
       const nested = verificationNestedContext(context, capture.check, checkpoint => {
         if (checkpoints.length >= VERIFICATION_EXECUTION_LIMITS.maxCheckpoints) verificationFail('VERIFICATION_CHECKPOINT_LIMIT', 'Actual command published too many verification checkpoints');
         checkpoints.push(structuredClone(checkpoint));
@@ -91,9 +94,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
       if (capture.inner) await host.commandRuntime.assertPreparedCurrent(capture.inner, nested);
       const source = await observeVerificationSource(host, context, context.signal); sameSource(source, capture.source); active(context);
       // Physical role/preflight/source checks may await. Never publish intent for a changed owner afterwards.
-      const ready = select(host, context, capture.check.id);
-      if (ready.snapshot.revision !== capture.snapshot.revision || verificationCatalogueIdentity(ready.catalogue) !== capture.catalogueIdentity) verificationFail('VERIFICATION_PREPARED_STALE', 'Verification owner changed during command authority revalidation');
-      sameCapability(capability(host, context, ready.catalogue), capture.capability); commandPolicy(host, capture.check, ready.catalogue);
+      const ready = reselect(host, context, capture, 'Verification owner changed during command authority revalidation', true);
       const begun = host.receipts.begin(context.sessionId, context.runId, ready.snapshot.revision, { checkId: capture.check.id, toolCallId: context.toolCallId, preparedFingerprint: prepared.fingerprint, source });
       if (!capture.inner) {
         if (!capture.capability || capture.capability.supported) verificationFail('INVALID_VERIFICATION_COMMAND_CAPABILITY', 'Unsupported verification requires the pinned native capability');
@@ -105,7 +106,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
         catch { return verificationResult(result, begun.receipt, 'pending', nested, 'RECEIPT_PUBLICATION_REJECTED'); }
       }
       const dispatched = host.receipts.dispatch(context.sessionId, context.runId, begun.revision, begun.receipt.id, source);
-      let result: import('../ports.js').ToolResult;
+      let result: ToolResult;
       try { result = await (host.executeCommand ? host.executeCommand(context, nested, capture.inner) : host.commandRuntime.execute(capture.inner, nested)); }
       catch {
         // The retained capability may have consumed an effect before failing. Error details are not evidence.
@@ -113,7 +114,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
         throw new EngineError('CLEANUP_UNCERTAIN', 'Verification command returned no owned terminal outcome; its consumed capability must never be replayed');
       }
       const sourceAfter = await observeVerificationSourceAfter(host, context);
-      let owned: ReturnType<typeof observeOwnedCommandResult>;
+      let owned: OwnedCommandObservation;
       try { owned = observeOwnedCommandResult(result, capture.check, dispatched.receipt, nested, checkpoints, sourceAfter); }
       catch {
         let failed: VerificationReceiptResult | null = null;

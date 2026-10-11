@@ -3,7 +3,7 @@ import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 import { type ArtifactReference, type Checkpoint, type JsonObject, type Run } from '@moodcode/contracts';
-import type { ToolContext, ToolResult } from '../ports.js';
+import type { PreparedTool, ToolContext, ToolResult } from '../ports.js';
 import { ArtifactStore } from '../artifacts/store.js';
 import { createToolResultEnvelope } from '../artifacts/result.js';
 import { textPrefix } from '../artifacts/validation.js';
@@ -29,7 +29,7 @@ export interface VerificationToolHost {
   /** Only the original still-live actual outer context can publish one consumed observation while cancelling. */
   consumedSettlementWriter?(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): SessionDocument;
   /** Only Root may authenticate a narrowed nested command using the original live verification context. */
-  executeCommand?(outer: ToolContext, nested: ToolContext, prepared: import('../ports.js').PreparedTool): Promise<ToolResult>;
+  executeCommand?(outer: ToolContext, nested: ToolContext, prepared: PreparedTool): Promise<ToolResult>;
   artifacts: ArtifactStore | Promise<ArtifactStore> | (() => ArtifactStore | Promise<ArtifactStore>);
 }
 
