@@ -417,8 +417,7 @@ function manifestExpired(
 export class KnowledgeContextSource implements KnowledgeContextSourcePort {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgeContextSourcePorts;
-  readonly #states = new WeakMap<object, State>();
-  readonly #active = new Set<object>();
+  readonly #states = new Map<object, State>();
   constructor(db: DatabaseSync, ports: KnowledgeContextSourcePorts) {
     for (const key of [
       "readTx",
@@ -946,7 +945,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
     input: KnowledgeContextRequest,
   ): Promise<PreparedKnowledgeContribution> {
     const captured = snapshot(input);
-    if (this.#active.size >= KNOWLEDGE_CONTEXT_LIMITS.handles)
+    if (this.#states.size >= KNOWLEDGE_CONTEXT_LIMITS.handles)
       fail(
         "KNOWLEDGE_CONTEXT_LIMIT",
         "Knowledge context original capture limit reached",
@@ -1004,7 +1003,6 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
       bindingSha256: observed.bindingSha256,
       documents: result.documents,
     });
-    this.#active.add(result);
     return result;
   }
   private owned(contribution: PreparedKnowledgeContribution): State {
@@ -1012,19 +1010,13 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
       !contribution ||
       typeof contribution !== "object" ||
       types.isProxy(contribution) ||
-      !this.#active.has(contribution)
+      !this.#states.has(contribution)
     )
       fail(
         "KNOWLEDGE_CONTEXT_CAPTURE_INVALID",
         "Knowledge contribution is copied, foreign, released or never issued",
       );
-    return (
-      this.#states.get(contribution) ??
-      fail(
-        "KNOWLEDGE_CONTEXT_CAPTURE_INVALID",
-        "Knowledge contribution has no original host capture",
-      )
-    );
+    return this.#states.get(contribution)!;
   }
   async assertFresh(
     contribution: PreparedKnowledgeContribution,
@@ -1057,7 +1049,6 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
   }
   release(contribution: PreparedKnowledgeContribution): void {
     this.owned(contribution);
-    this.#active.delete(contribution);
     this.#states.delete(contribution);
   }
 }

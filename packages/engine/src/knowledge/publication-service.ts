@@ -191,8 +191,7 @@ function abort(signal?: AbortSignal): void {
 /** Explicit host approval of exact tools-free output; this service creates no Run, provider or tool owner. */
 export class KnowledgePublicationService {
   readonly #ports: KnowledgePublicationServicePorts;
-  readonly #previews = new WeakMap<object, PreviewState>();
-  readonly #active = new Set<object>();
+  readonly #previews = new Map<object, PreviewState>();
   readonly #commits = new Map<string, CommitState>();
   #reserved = 0;
   constructor(ports: KnowledgePublicationServicePorts) {
@@ -239,7 +238,7 @@ export class KnowledgePublicationService {
     existingPublication: KnowledgePublicationRecord | null,
     requestedExpiry?: string,
   ): KnowledgePublicationPreview {
-    if (this.#active.size >= MAX_PREVIEWS)
+    if (this.#previews.size >= MAX_PREVIEWS)
       fail(
         "KNOWLEDGE_PUBLICATION_LIMIT",
         "Release old publication previews before capturing more",
@@ -345,7 +344,6 @@ export class KnowledgePublicationService {
     const preview = Object.freeze({ ...base, sha256: knowledgeHash(base) });
     this.current(preview);
     this.#previews.set(preview, { preview, used: false });
-    this.#active.add(preview);
     return preview;
   }
   previewPublish(
@@ -541,23 +539,16 @@ export class KnowledgePublicationService {
       !preview ||
       typeof preview !== "object" ||
       types.isProxy(preview) ||
-      !this.#active.has(preview)
+      !this.#previews.has(preview)
     )
       fail(
         "KNOWLEDGE_PUBLICATION_PREVIEW_INVALID",
         "Publication preview is foreign, copied, released or never issued",
       );
-    return (
-      this.#previews.get(preview) ??
-      fail(
-        "KNOWLEDGE_PUBLICATION_PREVIEW_INVALID",
-        "Publication preview has no host owner",
-      )
-    );
+    return this.#previews.get(preview)!;
   }
   releasePreview(preview: KnowledgePublicationPreview): void {
     this.owned(preview);
-    this.#active.delete(preview);
     this.#previews.delete(preview);
   }
   publish(

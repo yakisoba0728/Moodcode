@@ -142,8 +142,7 @@ const WRITE: GuardedWriteOptions = {
 export class KnowledgeStorage {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgeStoragePorts;
-  readonly #handles = new WeakMap<object, HandleState>();
-  readonly #activeHandles = new Set<object>();
+  readonly #handles = new Map<object, HandleState>();
   constructor(db: DatabaseSync, ports: KnowledgeStoragePorts) {
     if (
       !ports ||
@@ -622,7 +621,7 @@ export class KnowledgeStorage {
     identifier(workspaceId);
     identifier(planId);
     identifier(ownerId);
-    if (this.#activeHandles.size >= KNOWLEDGE_LIMITS.handles)
+    if (this.#handles.size >= KNOWLEDGE_LIMITS.handles)
       knowledgeError(
         "KNOWLEDGE_LIMIT",
         "Host must release generation handles before capturing more owners",
@@ -641,30 +640,18 @@ export class KnowledgeStorage {
     });
     const handle = Object.freeze({ planId, ownerId });
     this.#handles.set(handle, state);
-    this.#activeHandles.add(handle);
     return handle;
   }
   private owned(handle: KnowledgeGenerationHandle): HandleState {
-    if (
-      !handle ||
-      typeof handle !== "object" ||
-      !this.#activeHandles.has(handle)
-    )
+    if (!handle || typeof handle !== "object" || !this.#handles.has(handle))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Generation handle is foreign, copied, released or never issued",
       );
-    return (
-      this.#handles.get(handle) ??
-      knowledgeError(
-        "KNOWLEDGE_GENERATION_HANDLE_INVALID",
-        "Generation handle has no owner",
-      )
-    );
+    return this.#handles.get(handle)!;
   }
   releaseGenerationOwner(handle: KnowledgeGenerationHandle): void {
     this.owned(handle);
-    this.#activeHandles.delete(handle);
     this.#handles.delete(handle);
   }
   appendCandidate(

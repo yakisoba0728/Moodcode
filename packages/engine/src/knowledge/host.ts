@@ -135,8 +135,7 @@ const SOURCE_READ: GuardedWriteOptions = {
 export class KnowledgeHostAdapter {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgeHostAdapterPorts;
-  readonly #captures = new WeakMap<object, Capture>();
-  readonly #active = new Set<object>();
+  readonly #captures = new Map<object, Capture>();
   constructor(db: DatabaseSync, ports: KnowledgeHostAdapterPorts) {
     if (
       !ports ||
@@ -566,7 +565,7 @@ export class KnowledgeHostAdapter {
         "INVALID_KNOWLEDGE",
         "Source capture accepts only workspace and exact host selectors",
       );
-    if (this.#active.size >= KNOWLEDGE_HOST_LIMITS.projections)
+    if (this.#captures.size >= KNOWLEDGE_HOST_LIMITS.projections)
       knowledgeError(
         "KNOWLEDGE_LIMIT",
         "Host must release its bounded active source projections",
@@ -576,26 +575,19 @@ export class KnowledgeHostAdapter {
         this.project(this.binding(request.workspaceId), selected, signal),
       );
     this.#captures.set(projection, { signal });
-    this.#active.add(projection);
     return projection;
   }
   private owned(projection: KnowledgeSourceProjection): Capture {
     if (
       !projection ||
       typeof projection !== "object" ||
-      !this.#active.has(projection)
+      !this.#captures.has(projection)
     )
       knowledgeError(
         "KNOWLEDGE_SOURCE_CAPTURE_INVALID",
         "Source projection is copied, foreign, released or never issued",
       );
-    return (
-      this.#captures.get(projection) ??
-      knowledgeError(
-        "KNOWLEDGE_SOURCE_CAPTURE_INVALID",
-        "Source projection has no host owner",
-      )
-    );
+    return this.#captures.get(projection)!;
   }
   assertProjectionFresh(
     projection: KnowledgeSourceProjection,
@@ -610,7 +602,6 @@ export class KnowledgeHostAdapter {
   }
   releaseProjection(projection: KnowledgeSourceProjection): void {
     this.owned(projection);
-    this.#active.delete(projection);
     this.#captures.delete(projection);
   }
   assertSourcesCurrent(

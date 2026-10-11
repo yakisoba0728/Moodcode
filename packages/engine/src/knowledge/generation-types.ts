@@ -100,7 +100,7 @@ export interface KnowledgeGenerationAttempt {
   readonly errorCode: string | null;
   readonly sha256: string;
 }
-/** Identity is checked through instance-owned weak maps; copying either object loses authority. */
+/** Identity is checked through instance-owned maps; copying either object loses authority. */
 export interface KnowledgeGenerationCapture {
   readonly workspaceId: string;
   readonly generationId: string;

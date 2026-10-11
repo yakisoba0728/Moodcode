@@ -210,8 +210,7 @@ export class KnowledgePublicationStorage {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgePublicationStoragePorts;
   readonly #epoch = randomUUID();
-  readonly #owners = new WeakMap<object, KnowledgePublicationRecord>();
-  readonly #live = new Set<object>();
+  readonly #owners = new Map<object, KnowledgePublicationRecord>();
   constructor(db: DatabaseSync, ports: KnowledgePublicationStoragePorts) {
     for (const key of [
       "writeTx",
@@ -470,7 +469,7 @@ export class KnowledgePublicationStorage {
     const request = validatePrepareKnowledgePublication(input);
     const duplicate = this.findRequest(request);
     if (duplicate) return { kind: "duplicate", record: duplicate };
-    if (this.#live.size >= KNOWLEDGE_LIMITS.handles)
+    if (this.#owners.size >= KNOWLEDGE_LIMITS.handles)
       knowledgeError(
         "KNOWLEDGE_PUBLICATION_LIMIT",
         "Release original approval captures before preparing more",
@@ -534,24 +533,17 @@ export class KnowledgePublicationStorage {
         runtimeEpoch: this.#epoch,
       });
     this.#owners.set(capture, record);
-    this.#live.add(capture);
     return { kind: "created", capture, record };
   }
   private owned(
     capture: KnowledgePublicationCapture,
   ): KnowledgePublicationRecord {
-    if (!capture || typeof capture !== "object" || !this.#live.has(capture))
+    if (!capture || typeof capture !== "object" || !this.#owners.has(capture))
       knowledgeError(
         "KNOWLEDGE_PUBLICATION_HANDLE_INVALID",
         "Publication approval is foreign, copied or released",
       );
-    return (
-      this.#owners.get(capture) ??
-      knowledgeError(
-        "KNOWLEDGE_PUBLICATION_HANDLE_INVALID",
-        "Publication approval was never issued",
-      )
-    );
+    return this.#owners.get(capture)!;
   }
   private active(
     capture: KnowledgePublicationCapture,
@@ -783,7 +775,7 @@ export class KnowledgePublicationStorage {
         receipt: receiptValue,
       });
     });
-    this.#owners.set(capture, result.publication);
+    this.refresh(capture, result.publication);
     return result;
   }
   cancel(
@@ -804,8 +796,15 @@ export class KnowledgePublicationStorage {
       this.save(previous, next);
       return next;
     });
-    this.#owners.set(capture, record);
+    this.refresh(capture, record);
     return record;
+  }
+  /** A capture released while its write ran stays released. */
+  private refresh(
+    capture: KnowledgePublicationCapture,
+    record: KnowledgePublicationRecord,
+  ): void {
+    if (this.#owners.has(capture)) this.#owners.set(capture, record);
   }
   release(capture: KnowledgePublicationCapture): void {
     const issued = this.owned(capture);
@@ -814,7 +813,6 @@ export class KnowledgePublicationStorage {
       if (current.state === "prepared") this.cancel(capture);
     } finally {
       this.#owners.delete(capture);
-      this.#live.delete(capture);
     }
   }
   recoverInterruptedOwners(): { cancelled: number } {

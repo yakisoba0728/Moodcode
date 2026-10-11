@@ -244,14 +244,9 @@ export class KnowledgeGenerationStorage {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgeGenerationStoragePorts;
   readonly #epoch = randomUUID();
-  readonly #owners = new WeakMap<object, GenHandle>();
-  readonly #attempts = new WeakMap<object, AttemptHandle>();
-  readonly #liveOwners = new Set<object>();
-  readonly #liveAttempts = new Set<object>();
-  readonly #previews = new WeakMap<
-    object,
-    KnowledgeGenerationRecoveryPreview
-  >();
+  readonly #owners = new Map<object, GenHandle>();
+  readonly #attempts = new Map<object, AttemptHandle>();
+  readonly #previews = new Set<object>();
   readonly #livePreviews = new Map<
     string,
     KnowledgeGenerationRecoveryPreview
@@ -356,42 +351,23 @@ export class KnowledgeGenerationStorage {
       );
   }
   private owned(capture: KnowledgeGenerationCapture): GenHandle {
-    if (
-      !capture ||
-      typeof capture !== "object" ||
-      !this.#liveOwners.has(capture)
-    )
+    if (!capture || typeof capture !== "object" || !this.#owners.has(capture))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Generation owner is foreign, copied or released",
       );
-    return (
-      this.#owners.get(capture) ??
-      knowledgeError(
-        "KNOWLEDGE_GENERATION_HANDLE_INVALID",
-        "Generation owner was never issued",
-      )
-    );
+    return this.#owners.get(capture)!;
   }
   private attempted(
     owner: KnowledgeGenerationCapture,
     capture: KnowledgeGenerationAttemptCapture,
   ): AttemptHandle {
-    if (
-      !capture ||
-      typeof capture !== "object" ||
-      !this.#liveAttempts.has(capture)
-    )
+    if (!capture || typeof capture !== "object" || !this.#attempts.has(capture))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Attempt owner is foreign, copied or released",
       );
-    const value =
-      this.#attempts.get(capture) ??
-      knowledgeError(
-        "KNOWLEDGE_GENERATION_HANDLE_INVALID",
-        "Attempt owner was never issued",
-      );
+    const value = this.#attempts.get(capture)!;
     if (value.owner !== owner)
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
@@ -537,7 +513,7 @@ export class KnowledgeGenerationStorage {
   }
   create(input: CreateKnowledgeGeneration): CreateKnowledgeGenerationResult {
     const request = this.request(input);
-    if (this.#liveOwners.size >= 128)
+    if (this.#owners.size >= 128)
       knowledgeError(
         "KNOWLEDGE_GENERATION_LIMIT",
         "Release original host captures before admitting more",
@@ -644,7 +620,6 @@ export class KnowledgeGenerationStorage {
       runtimeEpoch: this.#epoch,
     });
     this.#owners.set(capture, { record: result.record });
-    this.#liveOwners.add(capture);
     return { ...result, capture };
   }
   private saveGeneration(
@@ -775,7 +750,6 @@ export class KnowledgeGenerationStorage {
       runtimeEpoch: this.#epoch,
     });
     this.#attempts.set(attempt, { record: result.record, owner: capture });
-    this.#liveAttempts.add(attempt);
     return { capture: attempt, record: result.record };
   }
 
@@ -1157,10 +1131,8 @@ export class KnowledgeGenerationStorage {
       return { generation: next, attempt };
     });
     this.owned(owner).record = result.generation;
-    for (const capture of this.#liveAttempts) {
-      const a = this.#attempts.get(capture);
-      if (a?.owner === owner && result.attempt) a.record = result.attempt;
-    }
+    for (const a of this.#attempts.values())
+      if (a.owner === owner && result.attempt) a.record = result.attempt;
     return result.generation;
   }
   markCandidate(
@@ -1353,31 +1325,23 @@ export class KnowledgeGenerationStorage {
     });
     if (result) {
       issued.record = result.generation;
-      for (const capture of this.#liveAttempts) {
-        const a = this.#attempts.get(capture);
-        if (a?.owner === owner) a.record = result.attempt;
-      }
+      for (const a of this.#attempts.values())
+        if (a.owner === owner) a.record = result.attempt;
     }
   }
   release(owner: KnowledgeGenerationCapture): void {
     this.owned(owner);
     this.abandon(owner);
-    this.#liveOwners.delete(owner);
     this.#owners.delete(owner);
   }
   releaseAttempt(attempt: KnowledgeGenerationAttemptCapture): void {
-    if (
-      !attempt ||
-      typeof attempt !== "object" ||
-      !this.#liveAttempts.has(attempt)
-    )
+    if (!attempt || typeof attempt !== "object" || !this.#attempts.has(attempt))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Attempt capture is foreign or released",
       );
     const a = this.#attempts.get(attempt)!;
     this.abandon(a.owner);
-    this.#liveAttempts.delete(attempt);
     this.#attempts.delete(attempt);
   }
   hasBlocker(workspaceId: string): boolean {
@@ -1623,7 +1587,7 @@ export class KnowledgeGenerationStorage {
         "Native recovery preview exceeds its bounded projection",
       );
     if (previous) this.releaseRecoveryPreview(previous);
-    this.#previews.set(preview, preview);
+    this.#previews.add(preview);
     this.#livePreviews.set(workspaceId, preview);
     return preview;
   }
@@ -1667,11 +1631,7 @@ export class KnowledgeGenerationStorage {
     preview: KnowledgeGenerationRecoveryPreview,
     input: { requestId: string; reason: string },
   ): KnowledgeGenerationRecoveryResult {
-    if (
-      !preview ||
-      typeof preview !== "object" ||
-      this.#previews.get(preview) !== preview
-    )
+    if (!preview || typeof preview !== "object" || !this.#previews.has(preview))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Recovery requires its original instance-owned preview",
@@ -1827,7 +1787,7 @@ export class KnowledgeGenerationStorage {
     });
   }
   releaseRecoveryPreview(preview: KnowledgeGenerationRecoveryPreview): void {
-    if (!preview || this.#previews.get(preview) !== preview)
+    if (!preview || !this.#previews.has(preview))
       knowledgeError(
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Recovery preview is foreign or released",
