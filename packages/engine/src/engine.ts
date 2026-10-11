@@ -70,7 +70,7 @@ import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
 import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
-import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingSourceIdentity } from './diagnostics/attempt-manifest.js';
+import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingEvidenceOptions } from './diagnostics/attempt-manifest.js';
 import { getTrajectoryStallObservation, type StallObservation, type StallOptions } from './diagnostics/stall.js';
 import { EngineExecutionObserver } from './diagnostics/execution-observer.js';
 import { WorkspaceExecutionSource, type WorkspaceExecutionSourceLimits } from './diagnostics/execution-source.js';
@@ -1806,7 +1806,7 @@ export class MoodcodeEngine implements EngineRuntime {
     return exportTrajectory(this.store, options);
   }
 
-  getAttemptManifest(runId: string, options: Omit<TrajectoryOptions, 'sessionId' | 'runId'> & { source?: CodingSourceIdentity } = {}): CodingEvidenceManifest {
+  getAttemptManifest(runId: string, options: CodingEvidenceOptions = {}): CodingEvidenceManifest {
     this.assertOpen();
     validateCodingEvidenceOptions(options);
     const run = this.store.getRun(runId), { source, ...page } = options;

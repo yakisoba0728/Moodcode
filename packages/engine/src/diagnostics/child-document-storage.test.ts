@@ -25,6 +25,15 @@ test('sparse/selectors with accessors, extra fields, duplicate IDs and caps abov
   assert.equal(gets,0);
 });
 
+test('signal is accepted only through its native brand without invoking shadowed getters or prototype traps',()=>{
+  let traps=0;const base={sessionId:'session',sourceRunId:'run',taskIds:[]};
+  const shadowed=new AbortController().signal;Object.defineProperty(shadowed,'aborted',{get(){traps++;return false;}});
+  const inherited=new AbortController().signal;Object.setPrototypeOf(inherited,new Proxy(AbortSignal.prototype,{getPrototypeOf(){traps++;throw new Error('private');}}));
+  for(const signal of [shadowed,inherited,Object.create(AbortSignal.prototype),new Proxy(new AbortController().signal,{get(){traps++;return false;}})])assert.throws(()=>validateChildDocumentStorageRequest({...base,signal}),code('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS'));
+  assert.equal(traps,0);
+  const signal=new AbortController().signal;assert.equal(validateChildDocumentStorageRequest({...base,signal}).signal,signal);
+});
+
 test('root-only diagnostic is an index observation and never adds filesystem bytes',async()=>{
   const rootIndex=index(),frame=createChildDocumentReadFrame();frame.chargeIndex(rootIndex);
   const report=await inspectChildDocumentStorage({selection:selection(),rootIndex,frame,limits:DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS});

@@ -1,11 +1,10 @@
-import { types } from 'node:util';
 import { isAbsolute, relative, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import type { ChildStorageSelectionReport } from '../child-tasks/storage-binding.js';
 import { CHILD_DOCUMENT_READ_LIMITS, readChildDocumentIndex, type ChildDocumentReadFrame, type ChildDocumentReadLimits, type ChildDocumentReadStats } from '../storage/child-document-reader.js';
 import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { isBoundedId, plainRecord } from '../shared/data.js';
-import { denseValues } from './validation.js';
+import { boundedLimits, childTaskIds, nativeAbortSignal } from './validation.js';
 
 export interface ChildDocumentStorageLimits extends ChildDocumentReadLimits { maxReportBytes: number }
 export const DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS: Readonly<ChildDocumentStorageLimits> = Object.freeze({ ...CHILD_DOCUMENT_READ_LIMITS,maxChildren:8,maxReportBytes:32_768 });
@@ -27,18 +26,12 @@ export interface ChildDocumentStorageReport {
     snapshot:'separate-bounded-index-snapshots-with-physical-rechecks';deadline:'cooperative-at-filesystem-and-sql-boundaries';physicalReadBytes:null;physicalAllocatedBytes:null;rows:'charged-header-rows-and-index-body-records'};
 }
 function invalid():never {throw new EngineError('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS','Child document storage inspection requires exact bounded host options.');}
-function plain(value:unknown,allowed:readonly string[]):Record<string,unknown>{return plainRecord(value,[],allowed,invalid);}
 export function validateChildDocumentStorageRequest(value:unknown):ValidatedChildDocumentStorageRequest{
-  const options=plain(value,['sessionId','sourceRunId','taskIds','signal','limits']);
+  const options=plainRecord(value,[],['sessionId','sourceRunId','taskIds','signal','limits'],invalid);
   if(!isBoundedId(options.sessionId)||!isBoundedId(options.sourceRunId))invalid();
-  const taskIds:string[]=[];
-  for(const value of denseValues(options.taskIds,32,invalid)){if(typeof value!=='string'||!/^child_[a-f0-9]{32}$/u.test(value)||taskIds.includes(value))invalid();taskIds.push(value);}
-  if(types.isProxy(options.signal)||options.signal!==undefined&&!(options.signal instanceof AbortSignal))invalid();
-  const limits=options.limits===undefined?{}:plain(options.limits,Object.keys(DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS));
-  const selected={...DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS,...limits};
-  for(const key of Object.keys(DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS) as (keyof ChildDocumentStorageLimits)[]){const max=key==='maxChildren'?32:DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS[key];if(!Number.isSafeInteger(selected[key])||selected[key]<1||selected[key]>max)invalid();}
-  if(selected.maxReportBytes<4096||taskIds.length>selected.maxChildren)invalid();
-  return {sessionId:options.sessionId,sourceRunId:options.sourceRunId,taskIds:Object.freeze(taskIds),...(options.signal?{signal:options.signal as AbortSignal}:{}),limits:Object.freeze(selected)};
+  const limits=boundedLimits(options.limits,DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS,{maxChildren:{max:32},maxReportBytes:{min:4096}},invalid);
+  const taskIds=childTaskIds(options.taskIds,limits.maxChildren,invalid),signal=nativeAbortSignal(options.signal,invalid);
+  return {sessionId:options.sessionId,sourceRunId:options.sourceRunId,taskIds:Object.freeze(taskIds),...(signal?{signal}:{}),limits};
 }
 /** Explicit host observation. It neither scans child trees nor changes execution/queue state. */
 export async function inspectChildDocumentStorage(input:{selection:ChildStorageSelectionReport;rootIndex?:InputDocumentIndexReport;frame:ChildDocumentReadFrame;limits:Readonly<ChildDocumentStorageLimits>}):Promise<ChildDocumentStorageReport>{

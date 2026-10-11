@@ -1,11 +1,10 @@
 import { isAbsolute, resolve } from 'node:path';
-import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 import { attachment } from '../documents/validation.js';
 import { CHILD_DOCUMENT_READ_LIMITS, type ChildDocumentReadLimits, type ChildDocumentReadStats } from '../storage/child-document-reader.js';
 import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
-import { denseValues } from './validation.js';
+import { boundedLimits, childTaskIds, denseValues, isChildTaskId, nativeAbortSignal } from './validation.js';
 
 export interface ArchivedChildDocumentStorageLimits extends ChildDocumentReadLimits { maxReportBytes: number; maxDocumentSamples: number }
 export const DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS: Readonly<ArchivedChildDocumentStorageLimits> = Object.freeze({ ...CHILD_DOCUMENT_READ_LIMITS, maxChildren: 8, maxReportBytes: 32_768, maxDocumentSamples: 16 });
@@ -45,34 +44,17 @@ function invalidRequest(): never { return fail('INVALID_ARCHIVED_CHILD_DOCUMENT_
 function invalidReport(): never { return fail('ARCHIVE_CHILD_REPORT_INVALID'); }
 type Reject = () => never;
 function plain(value: unknown, keys: readonly string[], reject: Reject): Record<string, unknown> { return plainRecord(value, [], keys, reject); }
-function task(value: unknown): value is string { return typeof value === 'string' && /^child_[a-f0-9]{32}$/u.test(value); }
 function amount(value: unknown, max = Number.MAX_SAFE_INTEGER): value is number { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value <= max; }
-function selectors(value: unknown, max: number, reject: Reject): string[] {
-  const ids = denseValues(value, max, reject), seen = new Set<string>(), selected: string[] = [];
-  for (const value of ids) { if (!task(value) || seen.has(value)) reject(); seen.add(value); selected.push(value); }
-  return selected;
-}
 function limits(value: unknown, reject: Reject): Readonly<ArchivedChildDocumentStorageLimits> {
-  const fields = value === undefined ? {} : plain(value, Object.keys(DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS), reject);
-  const selected = { ...DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS, ...fields };
-  for (const key of Object.keys(selected) as (keyof ArchivedChildDocumentStorageLimits)[]) {
-    const ceiling = key === 'maxChildren' ? 32 : key === 'maxDocumentSamples' ? 128 : DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS[key];
-    if (!amount(selected[key], ceiling) || selected[key] < (key === 'maxDocumentSamples' ? 0 : 1)) reject();
-  }
-  if (selected.maxReportBytes < 4096) reject();
-  return Object.freeze(selected);
+  return boundedLimits(value, DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS, { maxChildren: { max: 32 }, maxReportBytes: { min: 4096 }, maxDocumentSamples: { min: 0, max: 128 } }, reject);
 }
 function signal(value: unknown): { signal?: AbortSignal; releaseSignal(): void } {
-  if (value === undefined) return { releaseSignal() {} };
-  if (types.isProxy(value) || !value || typeof value !== 'object' || Object.getPrototypeOf(value) !== AbortSignal.prototype) invalidRequest();
-  // Native brand validation avoids invoking a caller's shadowed aborted getter.
-  if (Reflect.ownKeys(value).some(key => ['aborted', 'reason', 'throwIfAborted'].includes(String(key)) || !Object.hasOwn(Object.getOwnPropertyDescriptor(value, key)!, 'value'))) invalidRequest();
-  const aborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')?.get;
-  try { if (!aborted || typeof aborted.call(value) !== 'boolean') invalidRequest(); } catch { invalidRequest(); }
+  const source = nativeAbortSignal(value, invalidRequest);
+  if (!source) return { releaseSignal() {} };
   // Node's unobserved composite signals can compute cancellation lazily from
   // a public source surface. A live native observer activates the dependency
   // throughout this operation; the inspector must release it in finally.
-  const selected = AbortSignal.any([value as AbortSignal]), observer = () => {};
+  const selected = AbortSignal.any([source]), observer = () => {};
   EventTarget.prototype.addEventListener.call(selected, 'abort', observer, { once: true });
   let released = false;
   return { signal: selected, releaseSignal() { if (released) return; released = true; EventTarget.prototype.removeEventListener.call(selected, 'abort', observer); } };
@@ -82,14 +64,14 @@ export function validateArchivedChildDocumentStorageRequest(value: unknown): Val
   const request = plain(value, ['directory', 'expectedManifestSha256', 'sessionId', 'sourceRunId', 'taskIds', 'signal', 'limits'], invalidRequest);
   if (typeof request.directory !== 'string' || !isAbsolute(request.directory) || resolve(request.directory) !== request.directory || Buffer.byteLength(request.directory) > 8192 || /[\u0000-\u001f\u007f]/u.test(request.directory)
     || !isSha256(request.expectedManifestSha256) || !isBoundedId(request.sessionId) || !isBoundedId(request.sourceRunId)) invalidRequest();
-  const selectedLimits = limits(request.limits, invalidRequest), taskIds = selectors(request.taskIds, selectedLimits.maxChildren, invalidRequest), preparedSignal = signal(request.signal);
+  const selectedLimits = limits(request.limits, invalidRequest), taskIds = childTaskIds(request.taskIds, selectedLimits.maxChildren, invalidRequest), preparedSignal = signal(request.signal);
   return Object.freeze({ directory: request.directory, expectedManifestSha256: request.expectedManifestSha256, sessionId: request.sessionId, sourceRunId: request.sourceRunId, taskIds: Object.freeze(taskIds), ...preparedSignal, limits: selectedLimits });
 }
 function reason(value: unknown): string { if (typeof value !== 'string' || !/^[A-Za-z][A-Za-z0-9_.-]{0,127}$/u.test(value)) invalidReport(); return value; }
 function lineage(value: unknown, sourceRunId: string): ArchivedChildDocumentLineage | undefined {
   if (value === undefined) return undefined;
   const object = plain(value, ['rootRunId', 'parentRunId', 'parentTaskId', 'taskRequestId', 'depth'], invalidReport);
-  if (object.rootRunId !== sourceRunId || !isBoundedId(object.parentRunId) || !amount(object.depth, 16) || object.depth < 1 || object.parentTaskId !== undefined && !task(object.parentTaskId) || object.taskRequestId !== undefined && !isBoundedId(object.taskRequestId)) invalidReport();
+  if (object.rootRunId !== sourceRunId || !isBoundedId(object.parentRunId) || !amount(object.depth, 16) || object.depth < 1 || object.parentTaskId !== undefined && !isChildTaskId(object.parentTaskId) || object.taskRequestId !== undefined && !isBoundedId(object.taskRequestId)) invalidReport();
   return { rootRunId: sourceRunId, parentRunId: object.parentRunId, depth: object.depth, ...(object.parentTaskId !== undefined ? { parentTaskId: object.parentTaskId as string } : {}), ...(object.taskRequestId !== undefined ? { taskRequestId: object.taskRequestId as string } : {}) };
 }
 function stats(value: unknown, bounds: Readonly<ArchivedChildDocumentStorageLimits>): ChildDocumentReadStats {
@@ -100,7 +82,7 @@ function stats(value: unknown, bounds: Readonly<ArchivedChildDocumentStorageLimi
 }
 function child(observation: unknown, sourceRunId: string, sampleBudget: { remaining: number }, maxRefs: number): ArchivedChildDocumentStorageItem {
   const object = plain(observation, ['taskId', 'status', 'reason', 'reasons', 'childSessionId', 'childRunId', 'lineage', 'index'], invalidReport);
-  if (!task(object.taskId) || typeof object.status !== 'string' || !['observed', 'unchecked'].includes(object.status) || object.childSessionId !== undefined && !isBoundedId(object.childSessionId) || object.childRunId !== undefined && !isBoundedId(object.childRunId)) invalidReport();
+  if (!isChildTaskId(object.taskId) || typeof object.status !== 'string' || !['observed', 'unchecked'].includes(object.status) || object.childSessionId !== undefined && !isBoundedId(object.childSessionId) || object.childRunId !== undefined && !isBoundedId(object.childRunId)) invalidReport();
   const reasons = object.reasons === undefined ? [] : denseValues(object.reasons, 16, invalidReport).map(reason);
   if (object.reason !== undefined) reasons.push(reason(object.reason));
   const selectedLineage = lineage(object.lineage, sourceRunId);
@@ -129,11 +111,11 @@ export function buildArchivedChildDocumentStorageReport(value: ArchivedChildDocu
   const input = plain(value, ['archiveId', 'manifestSha256', 'expectedManifestSha256', 'sessionId', 'sourceRunId', 'archiveDocumentAuditCoverage', 'requestedTaskIds', 'observations', 'stats', 'limits'], invalidReport);
   if (typeof input.archiveId !== 'string' || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(input.archiveId) || !isSha256(input.manifestSha256) || !isSha256(input.expectedManifestSha256) || !isBoundedId(input.sessionId) || !isBoundedId(input.sourceRunId) || typeof input.archiveDocumentAuditCoverage !== 'string' || !['complete', 'partial', 'unchecked'].includes(input.archiveDocumentAuditCoverage)) invalidReport();
   if (input.manifestSha256 !== input.expectedManifestSha256) fail('ARCHIVE_MANIFEST_SHA_MISMATCH');
-  const bounds = limits(input.limits, invalidReport), requested = selectors(input.requestedTaskIds, bounds.maxChildren, invalidReport), proofStats = stats(input.stats, bounds), sampleBudget = { remaining: bounds.maxDocumentSamples };
+  const bounds = limits(input.limits, invalidReport), requested = childTaskIds(input.requestedTaskIds, bounds.maxChildren, invalidReport), proofStats = stats(input.stats, bounds), sampleBudget = { remaining: bounds.maxDocumentSamples };
   const supplied = denseValues(input.observations, 32, invalidReport), byTask = new Map<string, unknown>();
   for (const item of supplied) {
     const header = plain(item, ['taskId', 'status', 'reason', 'reasons', 'childSessionId', 'childRunId', 'lineage', 'index'], invalidReport);
-    if (!task(header.taskId) || !requested.includes(header.taskId) || byTask.has(header.taskId)) invalidReport(); byTask.set(header.taskId, item);
+    if (!isChildTaskId(header.taskId) || !requested.includes(header.taskId) || byTask.has(header.taskId)) invalidReport(); byTask.set(header.taskId, item);
   }
   const children = requested.map(taskId => child(byTask.get(taskId) ?? { taskId, status: 'unchecked', reason: 'child-observation-unavailable' }, input.sourceRunId as string, sampleBudget, bounds.maxRefs));
   if (children.reduce((sum, item) => sum + (item.observedReferences ?? 0), 0) > bounds.maxRefs) invalidReport();

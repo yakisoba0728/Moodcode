@@ -22,7 +22,7 @@ import type { ManagedWorktree } from '../worktrees/index.js';
 import { childStoragePhysicalIdentity, readChildStorageSelection, validateChildStorageRecord, type ChildStorageHostIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { createArchiveDocumentReadFrame, createChildDocumentReadFrame, openChildDocumentReader, validateArchiveDocumentBudgetMs } from './child-document-reader.js';
 import { buildArchivedChildDocumentStorageReport, validateArchivedChildDocumentStorageRequest,
-  type ArchivedChildDocumentStorageRequest, type ArchivedChildDocumentStorageReport } from '../diagnostics/archive-child-documents.js';
+  type ArchivedChildDocumentStorageRequest, type ArchivedChildDocumentStorageReport, type ValidatedArchivedChildDocumentStorageRequest } from '../diagnostics/archive-child-documents.js';
 type DocumentFrame = ReturnType<typeof createChildDocumentReadFrame>;
 
 const ENGINE_ARCHIVE_VERSION = 1;
@@ -432,7 +432,7 @@ export function validateEngineArchive(options: ValidateEngineArchiveOptions): En
   return { directory: checkedDirectory(options.directory), ...parsed };
 }
 /** Scalar owner/task preflight precedes selected index bodies; no current-host authority is accepted. */
-function preflightArchivedChildSelection(root:string,request:ReturnType<typeof validateArchivedChildDocumentStorageRequest>,frame:DocumentFrame,check:()=>void):void {
+function preflightArchivedChildSelection(root:string,request:ValidatedArchivedChildDocumentStorageRequest,frame:DocumentFrame,check:()=>void):void {
   const primary=sqlite(join(root,databaseFiles.primary));
   try {
     primary.exec('BEGIN');check();frame.chargeRows(1);
