@@ -16,6 +16,13 @@ export function imageLimits(input: Partial<ImageLimits> = {}): Readonly<ImageLim
 export function fail(code: string): never { throw new EngineError(code, 'Image input validation failed.'); }
 export function cancelled(signal?: AbortSignal): void { if (signal?.aborted) fail('IMAGE_CANCELLED'); }
 export function digest(bytes: Uint8Array): string { return createHash('sha256').update(bytes).digest('hex'); }
+/** Canonical base64 of exactly ref's bytes; invalid gets the failed stage, the encoding or the decoded bytes. */
+export function decodeExactBase64(data: string, ref: { bytes: number; sha256: string }, invalid: (stage: 'encoding' | 'bytes') => never): Buffer {
+  if (data.length !== Math.ceil(ref.bytes / 3) * 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(data)) invalid('encoding');
+  const bytes = Buffer.from(data, 'base64');
+  if (bytes.length !== ref.bytes || bytes.toString('base64') !== data || digest(bytes) !== ref.sha256) invalid('bytes');
+  return bytes;
+}
 export function attachment(value: unknown, limits = DEFAULT_IMAGE_LIMITS): InputImageAttachment {
   if (value === null || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('IMAGE_INVALID_REFERENCE');
   const keys = ['id', 'kind', 'mimeType', 'bytes', 'sha256'];

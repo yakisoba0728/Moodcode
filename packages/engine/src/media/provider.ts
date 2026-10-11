@@ -1,7 +1,7 @@
 import { EngineError, type InputImageAttachment } from '@moodcode/contracts';
 import type { ProviderMessage, ResolvedInputImage } from '../ports.js';
 import type { ProviderTransportRequest } from '../provider/generation.js';
-import { attachment, attachments, DEFAULT_IMAGE_LIMITS, digest, sameAttachment, validateImageBytes } from './validation.js';
+import { attachment, attachments, decodeExactBase64, DEFAULT_IMAGE_LIMITS, sameAttachment, validateImageBytes } from './validation.js';
 
 /** Transport-only projection. The engine must verify session ownership before supplying bytes. */
 export function providerImages(request: ProviderTransportRequest, supported: boolean, signal?: AbortSignal): ReadonlyMap<string, ResolvedInputImage> {
@@ -31,10 +31,8 @@ export function providerImages(request: ProviderTransportRequest, supported: boo
         || !Object.getOwnPropertyDescriptor(image, 'attachment') || !('value' in Object.getOwnPropertyDescriptor(image, 'attachment')!)
         || !Object.getOwnPropertyDescriptor(image, 'data') || !('value' in Object.getOwnPropertyDescriptor(image, 'data')!)) invalid();
       const ref = attachment(image.attachment), expected = wanted.get(ref.id);
-      if (!expected || !sameAttachment(ref, expected) || resolved.has(ref.id) || typeof image.data !== 'string'
-        || image.data.length !== Math.ceil(ref.bytes / 3) * 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(image.data)) invalid();
-      const bytes = Buffer.from(image.data, 'base64');
-      if (bytes.length !== ref.bytes || bytes.toString('base64') !== image.data || digest(bytes) !== ref.sha256) invalid();
+      if (!expected || !sameAttachment(ref, expected) || resolved.has(ref.id) || typeof image.data !== 'string') invalid();
+      const bytes = decodeExactBase64(image.data, ref, invalid);
       validateImageBytes(bytes, ref.mimeType);
       resolved.set(ref.id, { attachment: ref, data: image.data });
     }

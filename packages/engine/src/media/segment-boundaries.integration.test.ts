@@ -18,6 +18,7 @@ import { exportEngineArchive } from "../storage/archive.js";
 import { LifecycleHookRegistry } from "../lifecycle/index.js";
 import { ResponsesProvider } from "../provider/responses.js";
 import { providerSegments } from "./segment-provider.js";
+import { segmentHash } from "./segments.js";
 import {
   validateMediaDatabase,
   validateMediaFiles,
@@ -385,6 +386,38 @@ test("media source transport metadata accessors/proxies reject with zero traps",
   });
   assert.throws(() => providerSegments(proxy as never, () => true));
   assert.equal(traps, 0);
+});
+test("resolved media reports a noncanonical encoding and changed bytes separately", () => {
+  const bytes = wav(),
+    ref = {
+      id: "med_" + "a".repeat(32),
+      kind: "audio",
+      mimeType: "audio/wav",
+      bytes: bytes.length,
+      sha256: segmentHash(bytes),
+      decoder: "wav-pcm16-v1",
+      segments: [{ startMs: 0, endMs: 100 }],
+    },
+    request = (data: string) =>
+      ({
+        messages: [{ role: "user", content: "listen", media: [ref] }],
+        resolvedMedia: [{ attachment: ref, data }],
+      }) as never,
+    changed = Buffer.from(bytes);
+  changed.writeUInt8(changed.readUInt8(100) ^ 1, 100);
+  assert.equal(
+    providerSegments(request(bytes.toString("base64")), () => true).size,
+    1,
+  );
+  assert.throws(
+    () =>
+      providerSegments(request(bytes.toString("base64") + "\n"), () => true),
+    { code: "PROVIDER_INVALID_REQUEST", message: "Invalid resolved source" },
+  );
+  assert.throws(
+    () => providerSegments(request(changed.toString("base64")), () => true),
+    { code: "PROVIDER_INVALID_REQUEST", message: "Source bytes changed" },
+  );
 });
 test("Responses consumes actual AVI PNG frames with explicit exact model; audio rejects before fetch", async (t) => {
   const f = await fixture(t),

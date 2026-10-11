@@ -12,9 +12,9 @@ import {
 import {
   decodeMediaSegments,
   SEGMENT_LIMITS,
-  segmentHash,
   type DecodedMediaAsset,
 } from "./segments.js";
+import { decodeExactBase64 } from "./validation.js";
 
 export interface ProviderSegmentSource {
   attachment: InputMediaAttachment;
@@ -81,13 +81,14 @@ export function providerSegments(
   signal?: AbortSignal,
 ): ReadonlyMap<string, ProviderSegmentSource> {
   cancelled(signal);
-  const wanted = new Map<string, InputMediaAttachment>();
+  const wanted = new Map<string, InputMediaAttachment>(),
+    messages: { message: unknown; media: InputMediaAttachment[] }[] = [];
   let sourceBytes = 0,
     occurrences = 0;
   for (const message of entries(own(request, "messages"))) {
-    const raw = own(message, "media");
-    if (raw === undefined) continue;
-    const refs = attachments(raw);
+    const raw = own(message, "media"),
+      refs = raw === undefined ? [] : attachments(raw);
+    messages.push({ message, media: refs });
     if (refs.length && own(message, "role") !== "user")
       throw new EngineError(
         "PROVIDER_INVALID_REQUEST",
@@ -143,23 +144,20 @@ export function providerSegments(
       !expected ||
       !sameAttachment(ref, expected) ||
       resolved.has(ref.id) ||
-      typeof safe.data !== "string" ||
-      safe.data.length !== Math.ceil(ref.bytes / 3) * 4 ||
-      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
-        safe.data,
-      )
+      typeof safe.data !== "string"
     )
       throw new EngineError(
         "PROVIDER_INVALID_REQUEST",
         "Invalid resolved source",
       );
-    const raw = Buffer.from(safe.data, "base64");
-    if (
-      raw.length !== ref.bytes ||
-      raw.toString("base64") !== safe.data ||
-      segmentHash(raw) !== ref.sha256
-    )
-      throw new EngineError("PROVIDER_INVALID_REQUEST", "Source bytes changed");
+    const raw = decodeExactBase64(safe.data, ref, (stage) => {
+      throw new EngineError(
+        "PROVIDER_INVALID_REQUEST",
+        stage === "encoding"
+          ? "Invalid resolved source"
+          : "Source bytes changed",
+      );
+    });
     const decoded = decodeMediaSegments(
       raw,
       ref.mimeType,
@@ -180,14 +178,14 @@ export function providerSegments(
   }
   let wireAssets = 0,
     wireBytes = 0;
-  for (const message of entries(own(request, "messages")))
-    for (const ref of attachments(own(message, "media") ?? [])) {
+  for (const { media } of messages)
+    for (const ref of media) {
       const source = resolved.get(ref.id)!;
       wireAssets += source.assets.length;
       wireBytes += source.assets.reduce((sum, a) => sum + a.bytes.length, 0);
     }
   if (wanted.size)
-    for (const message of entries(own(request, "messages")))
+    for (const { message } of messages)
       for (const family of ["attachments", "documents"])
         for (const raw of entries(own(message, family) ?? [])) {
           const value = jobJson(raw, 4096) as Record<string, unknown>;
