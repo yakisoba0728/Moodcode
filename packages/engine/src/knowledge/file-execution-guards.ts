@@ -87,32 +87,38 @@ function valid(input: unknown): Guard {
   if (knowledgeHash(body) !== sha256) fail();
   return value;
 }
+const HEADER =
+  "id,workspace_id,publication_id,lock_path,marker_owner_pid,marker_updated_at,length(CAST(data AS BLOB)) AS bytes";
+function loadGuard(db: DatabaseSync, header: Record<string, unknown>): Guard {
+  if (Number(header.bytes) > 4096) fail();
+  const row = db
+    .prepare(
+      `SELECT data FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} WHERE id=?`,
+    )
+    .get(String(header.id));
+  const guard = valid(JSON.parse(String(row?.data)));
+  if (
+    guard.id !== header.id ||
+    guard.workspaceId !== header.workspace_id ||
+    guard.publicationId !== header.publication_id ||
+    guard.lock.path !== header.lock_path ||
+    guard.marker.ownerPid !== header.marker_owner_pid ||
+    guard.marker.updatedAt !== header.marker_updated_at
+  )
+    fail();
+  return guard;
+}
 export function validateKnowledgeFileExecutionGuards(
   db: DatabaseSync,
   check: () => void = () => {},
 ): void {
   for (const header of db
     .prepare(
-      `SELECT id,workspace_id,publication_id,lock_path,marker_owner_pid,marker_updated_at,length(CAST(data AS BLOB)) AS bytes FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} ORDER BY id`,
+      `SELECT ${HEADER} FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} ORDER BY id`,
     )
     .iterate()) {
     check();
-    if (Number(header.bytes) > 4096) fail();
-    const row = db
-      .prepare(
-        `SELECT data FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} WHERE id=?`,
-      )
-      .get(String(header.id));
-    const guard = valid(JSON.parse(String(row?.data)));
-    if (
-      guard.id !== header.id ||
-      guard.workspaceId !== header.workspace_id ||
-      guard.publicationId !== header.publication_id ||
-      guard.lock.path !== header.lock_path ||
-      guard.marker.ownerPid !== header.marker_owner_pid ||
-      guard.marker.updatedAt !== header.marker_updated_at
-    )
-      fail();
+    const guard = loadGuard(db, header);
     const owner = db
       .prepare(
         "SELECT workspace_id,json_extract(data,'$.binding') AS binding FROM knowledge_file_publications WHERE id=?",
@@ -189,34 +195,14 @@ export class KnowledgeFileExecutionGuards {
     if (inspection.status !== "uncertain") return undefined;
     const headers = this.db
       .prepare(
-        `SELECT id,workspace_id,publication_id,lock_path,marker_owner_pid,marker_updated_at,length(CAST(data AS BLOB)) AS bytes FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} WHERE marker_updated_at=? AND marker_owner_pid=? AND lock_path=? LIMIT 2`,
+        `SELECT ${HEADER} FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} WHERE marker_updated_at=? AND marker_owner_pid=? AND lock_path=? LIMIT 2`,
       )
       .all(inspection.marker.updatedAt, inspection.marker.ownerPid, path);
     if (headers.length > 1) fail();
-    for (const row of headers) {
-      if (workspaceId !== undefined && row.workspace_id !== workspaceId)
+    for (const header of headers) {
+      if (workspaceId !== undefined && header.workspace_id !== workspaceId)
         continue;
-      if (Number(row.bytes) > 4096) fail();
-      const guard = valid(
-        JSON.parse(
-          String(
-            this.db
-              .prepare(
-                `SELECT data FROM ${KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE} WHERE id=?`,
-              )
-              .get(String(row.id))?.data,
-          ),
-        ),
-      );
-      if (
-        guard.id !== row.id ||
-        guard.workspaceId !== row.workspace_id ||
-        guard.publicationId !== row.publication_id ||
-        guard.lock.path !== row.lock_path ||
-        guard.marker.ownerPid !== row.marker_owner_pid ||
-        guard.marker.updatedAt !== row.marker_updated_at
-      )
-        fail();
+      const guard = loadGuard(this.db, header);
       if (
         knowledgeHash(guard.marker) !== knowledgeHash(inspection.marker) ||
         knowledgeHash(guard.lock) !== knowledgeHash(physical(path))
