@@ -250,6 +250,33 @@ test('restore lookup has a defined session bound', async (context) => {
   await assert.rejects(restoreCheckpoint(store, workspace, 'nope'), { code: 'RESTORE_LOOKUP_LIMIT_EXCEEDED' });
 });
 
+test('restore idle rechecks ask hasActiveRuns and load snapshots only to name active Runs', async (context) => {
+  const workspace = await fixture(context);
+  const target = path.join(workspace.root, 'a.txt');
+  const saved = checkpoint('idle', [file('a.txt', 'before', 'after')]);
+  const store = storeFor(workspace, [saved]);
+  const getSnapshot = store.getSnapshot.bind(store), listCheckpoints = store.listCheckpoints.bind(store);
+  let snapshots = 0, active = false;
+  store.getSnapshot = (id) => {
+    snapshots++;
+    const snapshot = getSnapshot(id);
+    return active ? { ...snapshot, runs: snapshot.runs.map((run) => ({ ...run, state: 'running' as const })) } : snapshot;
+  };
+  store.hasActiveRuns = (id) => { assert.equal(id, workspace.id); return active; };
+  await writeFile(target, 'after');
+  assert.deepEqual((await restoreCheckpoint(store, workspace, saved.id)).restored, ['a.txt']);
+  assert.equal(snapshots, 1, 'Only the checkpoint lookup loads session snapshots');
+  await writeFile(target, 'after');
+  store.listCheckpoints = (id) => { active = true; return listCheckpoints(id); };
+  await assert.rejects(restoreCheckpoint(store, workspace, saved.id), (error: unknown) => {
+    assert.ok(error instanceof EngineError);
+    assert.equal(error.code, 'RESTORE_WORKSPACE_BUSY');
+    assert.deepEqual(error.details, { activeRunIds: ['run'] });
+    return true;
+  });
+  assert.equal(await readFile(target, 'utf8'), 'after');
+});
+
 test('restore reports a write permission failure while completing other targets', { skip: typeof process.getuid === 'function' && process.getuid() === 0 }, async (context) => {
   const workspace = await fixture(context);
   await writeFile(path.join(workspace.root, 'safe.txt'), 'after');

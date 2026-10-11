@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { constants, type Stats } from 'node:fs';
-import { lstat, open, realpath, unlink } from 'node:fs/promises';
+import { lstat, open, realpath, unlink, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
-import { EngineError, isTerminal, type Checkpoint, type CheckpointFile, type FileDiff, type ReviewDiff, type Workspace } from '@moodcode/contracts';
+import { EngineError, isTerminal, type Checkpoint, type CheckpointFile, type FileDiff, type ReviewDiff, type Run, type Workspace } from '@moodcode/contracts';
 import type { EngineStore } from '../ports.js';
 import { sha256Hex } from '../shared/canonical.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from '../tools/command/execution-lock.js';
@@ -178,58 +178,55 @@ export function getReviewDiff(store: EngineStore, runId: string): ReviewDiff {
   };
 }
 
-function locateCheckpoint(store: EngineStore, workspace: Workspace, checkpointId: string, signal?: AbortSignal): { checkpoint: Checkpoint; activeRunIds: string[] } {
-  if (typeof checkpointId !== 'string' || checkpointId.length === 0 || checkpointId.length > 512) throw new EngineError('INVALID_CHECKPOINT_ID', 'A bounded checkpoint ID is required');
+/** Each distinct Run of the workspace once, after the session and run bounds and ownership checks. */
+function* workspaceRuns(store: EngineStore, workspace: Workspace, purpose: string, signal?: AbortSignal): Generator<Run> {
   const sessions = store.listSessions(workspace.id);
-  if (sessions.length > MAX_SESSIONS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many sessions for checkpoint lookup');
-  let runCount = 0;
-  let checkpointCount = 0;
-  const seenRuns = new Set<string>();
-  let found: Checkpoint | undefined;
-  const activeRunIds: string[] = [];
+  if (sessions.length > MAX_SESSIONS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', `Workspace has too many sessions for ${purpose}`);
+  let count = 0;
+  const seen = new Set<string>();
   for (const session of sessions) {
     assertRestoreActive(signal);
     if (session.workspaceId !== workspace.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Store returned a session from another workspace');
-    const snapshot = store.getSnapshot(session.id);
-    for (const run of snapshot.runs) {
-      if (++runCount > MAX_RUNS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many runs for checkpoint lookup');
+    for (const run of store.getSnapshot(session.id).runs) {
+      if (++count > MAX_RUNS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', `Workspace has too many runs for ${purpose}`);
       if (run.workspaceId !== workspace.id || run.sessionId !== session.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Store returned a run from another workspace or session');
-      if (seenRuns.has(run.id)) continue;
-      seenRuns.add(run.id);
-      if (!isTerminal(run.state)) activeRunIds.push(run.id);
-      const checkpoints = store.listCheckpoints(run.id);
-      checkpointCount += checkpoints.length;
-      if (checkpointCount > MAX_CHECKPOINTS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many checkpoints for lookup');
-      for (const checkpoint of checkpoints) {
-        if (checkpoint.id !== checkpointId) continue;
-        if (checkpoint.runId !== run.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Checkpoint belongs to a different run');
-        if (found) throw new EngineError('AMBIGUOUS_CHECKPOINT', 'Checkpoint ID is not unique in this workspace');
-        found = checkpoint;
-      }
+      if (seen.has(run.id)) continue;
+      seen.add(run.id);
+      yield run;
+    }
+  }
+}
+
+function locateCheckpoint(store: EngineStore, workspace: Workspace, checkpointId: string, signal?: AbortSignal): { checkpoint: Checkpoint; activeRunIds: string[] } {
+  if (typeof checkpointId !== 'string' || checkpointId.length === 0 || checkpointId.length > 512) throw new EngineError('INVALID_CHECKPOINT_ID', 'A bounded checkpoint ID is required');
+  let checkpointCount = 0;
+  let found: Checkpoint | undefined;
+  const activeRunIds: string[] = [];
+  for (const run of workspaceRuns(store, workspace, 'checkpoint lookup', signal)) {
+    if (!isTerminal(run.state)) activeRunIds.push(run.id);
+    const checkpoints = store.listCheckpoints(run.id);
+    checkpointCount += checkpoints.length;
+    if (checkpointCount > MAX_CHECKPOINTS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many checkpoints for lookup');
+    for (const checkpoint of checkpoints) {
+      if (checkpoint.id !== checkpointId) continue;
+      if (checkpoint.runId !== run.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Checkpoint belongs to a different run');
+      if (found) throw new EngineError('AMBIGUOUS_CHECKPOINT', 'Checkpoint ID is not unique in this workspace');
+      found = checkpoint;
     }
   }
   if (!found) throw new EngineError('CHECKPOINT_NOT_FOUND', 'Checkpoint was not found in the requested workspace');
   return { checkpoint: found, activeRunIds };
 }
 
-function activeWorkspaceRuns(store: EngineStore, workspace: Workspace): string[] {
-  const sessions = store.listSessions(workspace.id);
-  if (sessions.length > MAX_SESSIONS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many sessions for an execution check');
-  const active = new Set<string>();
-  let count = 0;
-  for (const session of sessions) {
-    if (session.workspaceId !== workspace.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Store returned a session from another workspace');
-    for (const run of store.getSnapshot(session.id).runs) {
-      if (++count > MAX_RUNS) throw new EngineError('RESTORE_LOOKUP_LIMIT_EXCEEDED', 'Workspace has too many runs for an execution check');
-      if (run.workspaceId !== workspace.id || run.sessionId !== session.id) throw new EngineError('CHECKPOINT_WORKSPACE_MISMATCH', 'Store returned a run from another workspace or session');
-      if (!isTerminal(run.state)) active.add(run.id);
-    }
-  }
-  return [...active];
-}
-function assertWorkspaceIdle(store: EngineStore, workspace: Workspace): void {
-  const activeRunIds = activeWorkspaceRuns(store, workspace);
+function assertNoActiveRuns(activeRunIds: string[]): void {
   if (activeRunIds.length) throw new EngineError('RESTORE_WORKSPACE_BUSY', 'An active workspace Run prevents checkpoint restoration', { activeRunIds });
+}
+/** The indexed probe answers the common idle case; only a busy or probe-less store pays the full traversal that names the Runs. */
+function assertWorkspaceIdle(store: EngineStore, workspace: Workspace): void {
+  if (store.hasActiveRuns?.(workspace.id) === false) return;
+  const active: string[] = [];
+  for (const run of workspaceRuns(store, workspace, 'an execution check')) if (!isTerminal(run.state)) active.push(run.id);
+  assertNoActiveRuns(active);
 }
 function checkpointBounds(checkpoint: Checkpoint): number {
   if (checkpoint.files.length > MAX_FILES) throw new EngineError('RESTORE_LIMIT_EXCEEDED', 'Checkpoint has too many files to restore');
@@ -318,6 +315,45 @@ async function checkedLstat(absolute: string): Promise<Stats> {
   }
 }
 
+async function hashHandle(handle: FileHandle, signal?: AbortSignal): Promise<{ sha256: string; bytes: number }> {
+  const digest = createHash('sha256');
+  const buffer = Buffer.alloc(64 * 1024);
+  let bytes = 0;
+  while (true) {
+    assertRestoreActive(signal);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, bytes);
+    if (bytesRead === 0) break;
+    bytes += bytesRead;
+    if (bytes > MAX_FILE_BYTES) throw new RestoreConflictError('Current file exceeds the restoration read limit');
+    digest.update(buffer.subarray(0, bytesRead));
+  }
+  return { sha256: digest.digest('hex'), bytes };
+}
+
+/** The path still resolves through safe parents to the regular file observed through the handle. */
+async function recheckTarget(root: string, relative: string, absolute: string, observed: Stats, signal: AbortSignal | undefined, message: string): Promise<void> {
+  await safeTarget(root, relative, signal);
+  const current = await checkedLstat(absolute);
+  if (!current.isFile() || !sameObservation(observed, current)) throw new RestoreConflictError(message);
+}
+
+async function writeAll(handle: FileHandle, content: Buffer, signal?: AbortSignal, beforeWrite?: () => void): Promise<void> {
+  let offset = 0;
+  while (offset < content.length) {
+    assertRestoreActive(signal);
+    beforeWrite?.();
+    const { bytesWritten } = await handle.write(content, offset, content.length - offset, offset);
+    if (bytesWritten === 0) throw new Error('Restoration made no progress while writing');
+    offset += bytesWritten;
+  }
+}
+
+function pathCounts(checkpoint: Checkpoint): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const file of checkpoint.files) counts.set(file.path, (counts.get(file.path) ?? 0) + 1);
+  return counts;
+}
+
 async function guardPresent(root: string, file: CheckpointFile, writable: boolean, signal?: AbortSignal) {
   const absolute = await safeTarget(root, file.path, signal);
   let initial: Stats;
@@ -337,22 +373,10 @@ async function guardPresent(root: string, file: CheckpointFile, writable: boolea
     const opened = await handle.stat();
     if (!opened.isFile() || opened.nlink !== 1 || !sameFile(initial, opened)) throw new RestoreConflictError('Current target changed while it was being opened');
     if (opened.size !== Buffer.byteLength(file.after ?? '', 'utf8')) throw new RestoreConflictError('Current file size does not match the recorded postimage; external edits were preserved');
-    const digest = createHash('sha256');
-    const buffer = Buffer.alloc(64 * 1024);
-    let offset = 0;
-    while (true) {
-      assertRestoreActive(signal);
-      const { bytesRead } = await handle.read(buffer, 0, buffer.length, offset);
-      if (bytesRead === 0) break;
-      offset += bytesRead;
-      if (offset > MAX_FILE_BYTES) throw new RestoreConflictError('Current file exceeds the restoration read limit');
-      digest.update(buffer.subarray(0, bytesRead));
-    }
+    const { sha256 } = await hashHandle(handle, signal);
     const observed = await handle.stat();
-    if (digest.digest('hex') !== file.afterHash || observed.size !== opened.size || observed.mtimeMs !== opened.mtimeMs || observed.ctimeMs !== opened.ctimeMs || observed.nlink !== 1) throw new RestoreConflictError('Current content does not match the recorded postimage; external edits were preserved');
-    await safeTarget(root, file.path, signal);
-    const current = await checkedLstat(absolute);
-    if (!current.isFile() || !sameObservation(observed, current)) throw new RestoreConflictError('Target path or content changed after its postimage was checked');
+    if (sha256 !== file.afterHash || observed.size !== opened.size || observed.mtimeMs !== opened.mtimeMs || observed.ctimeMs !== opened.ctimeMs || observed.nlink !== 1) throw new RestoreConflictError('Current content does not match the recorded postimage; external edits were preserved');
+    await recheckTarget(root, file.path, absolute, observed, signal, 'Target path or content changed after its postimage was checked');
     return { absolute, handle, observed };
   } catch (error) {
     await handle.close();
@@ -385,29 +409,16 @@ async function observeCurrent(root: string, relative: string, signal?: AbortSign
     const opened = await handle.stat();
     if (!opened.isFile() || opened.nlink !== 1 || !sameFile(initial, opened)) throw new RestoreConflictError('Target identity changed during observation');
     if (opened.size > MAX_FILE_BYTES) throw new RestoreConflictError('Current file exceeds the restoration read limit');
-    const digest = createHash('sha256');
-    const buffer = Buffer.alloc(64 * 1024);
-    let bytes = 0;
-    while (true) {
-      assertRestoreActive(signal);
-      const read = await handle.read(buffer, 0, buffer.length, bytes);
-      if (!read.bytesRead) break;
-      bytes += read.bytesRead;
-      if (bytes > MAX_FILE_BYTES) throw new RestoreConflictError('Current file exceeds the restoration read limit');
-      digest.update(buffer.subarray(0, read.bytesRead));
-    }
+    const { sha256, bytes } = await hashHandle(handle, signal);
     const observed = await handle.stat();
     if (!sameObservation(opened, observed)) throw new RestoreConflictError('File changed during observation');
-    await safeTarget(root, relative, signal);
-    const current = await checkedLstat(absolute);
-    if (!current.isFile() || !sameObservation(observed, current)) throw new RestoreConflictError('Target path or content changed during observation');
-    return { observation: { path: relative, state: 'present', currentHash: digest.digest('hex'), bytes }, stat: observed };
+    await recheckTarget(root, relative, absolute, observed, signal, 'Target path or content changed during observation');
+    return { observation: { path: relative, state: 'present', currentHash: sha256, bytes }, stat: observed };
   } finally { await handle.close(); }
 }
 
 async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint, activeRunIds: string[], totalBytes: number, options: RestoreOptions): Promise<RestorePreview> {
-  const counts = new Map<string, number>();
-  for (const file of checkpoint.files) counts.set(file.path, (counts.get(file.path) ?? 0) + 1);
+  const counts = pathCounts(checkpoint);
   const files: RestorePreviewFile[] = [];
   const diff: FileDiff[] = [];
   const identities: unknown[] = [];
@@ -459,10 +470,9 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
   const checkedOptions = { ...options };
   const checkedWorkspace = { ...workspace };
   const { checkpoint, activeRunIds, totalBytes } = loadRestore(store, checkedWorkspace, checkpointId, checkedOptions.signal);
-  if (activeRunIds.length) throw new EngineError('RESTORE_WORKSPACE_BUSY', 'An active workspace Run prevents checkpoint restoration', { activeRunIds });
+  assertNoActiveRuns(activeRunIds);
   const result: RestoreResult = { checkpointId, runId: checkpoint.runId, atomic: false, restored: [], conflicts: [], failed: [], warnings: restoreWarnings(checkpoint), cancelled: false, observations: [], effectsUncertain: false, executionBlocked: false };
-  const counts = new Map<string, number>();
-  for (const file of checkpoint.files) counts.set(file.path, (counts.get(file.path) ?? 0) + 1);
+  const counts = pathCounts(checkpoint);
   const duplicates = new Set<string>();
   const ready: CheckpointFile[] = [];
   const preflightIdentity = new Map<CheckpointFile, Stats>();
@@ -530,14 +540,7 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
             }
             attempt.mayHaveChanged = true; // exclusive open created the empty file
             try {
-              const content = Buffer.from(file.before, 'utf8');
-              let offset = 0;
-              while (offset < content.length) {
-                assertRestoreActive(checkedOptions.signal);
-                const { bytesWritten } = await handle.write(content, offset, content.length - offset, offset);
-                if (bytesWritten === 0) throw new Error('Restoration made no progress while writing');
-                offset += bytesWritten;
-              }
+              await writeAll(handle, Buffer.from(file.before, 'utf8'), checkedOptions.signal);
               assertRestoreActive(checkedOptions.signal);
               await handle.sync();
             } finally { await close(handle); }
@@ -560,14 +563,7 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
               if (!sameObservation(target.observed, await target.handle.stat())) throw new RestoreConflictError('Target content changed immediately before restoration');
               assertRestoreActive(checkedOptions.signal);
               assertWorkspaceIdle(store, checkedWorkspace);
-              let offset = 0;
-              while (offset < content.length) {
-                assertRestoreActive(checkedOptions.signal);
-                attempt.mayHaveChanged = true;
-                const { bytesWritten } = await target.handle.write(content, offset, content.length - offset, offset);
-                if (bytesWritten === 0) throw new Error('Restoration made no progress while writing');
-                offset += bytesWritten;
-              }
+              await writeAll(target.handle, content, checkedOptions.signal, () => { attempt.mayHaveChanged = true; });
               assertRestoreActive(checkedOptions.signal);
               attempt.mayHaveChanged = true;
               await target.handle.truncate(content.length);

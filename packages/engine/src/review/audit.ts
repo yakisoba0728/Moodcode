@@ -165,10 +165,7 @@ function boundedResult(source: RestoreResult): BoundedRestoreResult {
   const pathText = (value: string): string => shortText(value, REVIEW_JOURNAL_LIMITS.maxPathBytes, shortened);
   const message = (value: string): string => shortText(value, REVIEW_JOURNAL_LIMITS.maxTextBytes, shortened);
   function add<T>(target: T[], input: readonly T[]): void {
-    const count = Math.min(input.length, REVIEW_JOURNAL_LIMITS.maxEntries);
-    if (count !== input.length) shortened();
-    for (let index = 0; index < count; index++) {
-      const entry = input[index]!;
+    for (const entry of input) {
       const cost = Buffer.byteLength(JSON.stringify(entry), 'utf8') + (target.length ? 1 : 0);
       if (bytes + cost > REVIEW_JOURNAL_LIMITS.maxResultBytes) { shortened(); break; }
       target.push(entry);
