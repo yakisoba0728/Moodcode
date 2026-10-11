@@ -4,6 +4,7 @@ import {
   type AcceptInput,
   type InputRecord,
   type Run,
+  type RunConfig,
   type RunConfigInput,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
@@ -105,7 +106,6 @@ interface Request<S> {
   error?: unknown;
 }
 
-/** Explicit Root delivery of one settled command observation, retained by its original target. */
 export class CommandResultDelivery<S, P extends CommandDeliveryTargetProof<S>> {
   private readonly targets = new Map<object, P>();
   private readonly requests = new Map<string, Request<S>>();
@@ -318,6 +318,16 @@ export class EngineCommandDeliveryProducer<
     assertPhysicalKnowledgeRoot(binding);
     return binding;
   }
+  private pin(workspaceId: string, sessionId: string, config: RunConfig) {
+    return describeQueueTarget(
+      this.engine,
+      (id) => this.binding(id),
+      workspaceId,
+      sessionId,
+      config,
+      jobTargetChanged,
+    ).pin;
+  }
   private issue<T>(map: WeakMap<object, T>, data: T): object {
     this.open();
     if (this.retained.size >= 256) fail("JOB_HANDLE_LIMIT");
@@ -364,14 +374,7 @@ export class EngineCommandDeliveryProducer<
         sessionId,
         normalized.config,
       );
-      const target = describeQueueTarget(
-        this.engine,
-        (id) => this.binding(id),
-        data.workspaceId,
-        sessionId,
-        normalized.config,
-        jobTargetChanged,
-      ).pin;
+      const target = this.pin(data.workspaceId, sessionId, normalized.config);
       const { jobSha256, sourceSha256 } = this.profile.digests(settled);
       const proof = this.profile.validateTarget(
         signJobData(
@@ -408,14 +411,11 @@ export class EngineCommandDeliveryProducer<
     )
       fail("COMMAND_JOB_TARGET_STALE");
     this.profile.formatResult(settled, proof);
-    const current = describeQueueTarget(
-      this.engine,
-      (id) => this.binding(id),
+    const current = this.pin(
       proof.workspaceId,
       proof.target.sessionId,
       proof.target.config,
-      jobTargetChanged,
-    ).pin;
+    );
     if (knowledgeHash(current) !== knowledgeHash(proof.target))
       fail("JOB_TARGET_STALE");
     this.engine.coordinator.assertWorkspaceCleanupConfirmed(proof.workspaceId);
@@ -505,14 +505,7 @@ export class EngineCommandDeliveryProducer<
     )
       fail("COMMAND_JOB_DELIVERY_PAUSED");
     // Native accepted history is sufficient after a normal restart; no source Original is recreated.
-    const current = describeQueueTarget(
-      this.engine,
-      (id) => this.binding(id),
-      input.workspaceId,
-      input.sessionId,
-      input.config,
-      jobTargetChanged,
-    ).pin;
+    const current = this.pin(input.workspaceId, input.sessionId, input.config);
     if (knowledgeHash(current) !== knowledgeHash(receipt.target))
       fail("JOB_TARGET_STALE");
     return receipt;

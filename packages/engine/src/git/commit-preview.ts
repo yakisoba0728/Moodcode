@@ -388,10 +388,7 @@ export async function indexProjection(
 ): Promise<string> {
   return projection(await indexRecords(root, signal), entries);
 }
-/**
- * The real index before the worker's working-tree update: every unrelated row is
- * unchanged and each selected row still equals its row in `head` or is absent.
- */
+/** True before the worker's working-tree update: unrelated rows unchanged, selected rows equal their `head` rows or absent. */
 export async function indexBeforeUpdate(
   root: string,
   head: string,

@@ -78,6 +78,20 @@ const BOUNDS = {
   stdinBytes: [0, 65536],
   transfers: [0, 16],
 } as const;
+const ORIGIN_IDS = [
+  "runId",
+  "toolCallId",
+  "turnId",
+  "attemptId",
+  "approvalId",
+] as const;
+const ORIGIN_DIGESTS = [
+  "approvalFingerprint",
+  "catalogueSha256",
+  "configSha256",
+  "inputSha256",
+  "profileSha256",
+] as const;
 export function validateCommandLifetimeRecord(
   value: unknown,
 ): CommandLifetimeRecord {
@@ -163,34 +177,9 @@ export function validateCommandLifetimeRecord(
       if (!Number.isSafeInteger(p[k]) || Number(p[k]) < 1) fail();
   }
   if (r.origin !== null) {
-    const p = jobObject(r.origin, [
-      "runId",
-      "toolCallId",
-      "turnId",
-      "attemptId",
-      "approvalId",
-      "approvalFingerprint",
-      "catalogueSha256",
-      "configSha256",
-      "inputSha256",
-      "profileSha256",
-    ]);
-    for (const k of [
-      "runId",
-      "toolCallId",
-      "turnId",
-      "attemptId",
-      "approvalId",
-    ])
-      jobIdentifier(p[k]);
-    for (const k of [
-      "approvalFingerprint",
-      "catalogueSha256",
-      "configSha256",
-      "inputSha256",
-      "profileSha256",
-    ])
-      jobSha256(p[k]);
+    const p = jobObject(r.origin, [...ORIGIN_IDS, ...ORIGIN_DIGESTS]);
+    for (const k of ORIGIN_IDS) jobIdentifier(p[k]);
+    for (const k of ORIGIN_DIGESTS) jobSha256(p[k]);
   }
   if (
     (r.state === "running" && r.physical === null) ||

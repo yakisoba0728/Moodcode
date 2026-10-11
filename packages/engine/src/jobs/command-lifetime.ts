@@ -20,7 +20,6 @@ import {
   type ToolCatalogue,
 } from "../tools/runtime/index.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { preparePhysicalCommand } from "../tools/command/index.js";
 import type {
   HostCommandService,
   PreviewHostCommandInput,
@@ -289,25 +288,13 @@ export class CommandLifetimeService {
       131072,
     );
   }
-  async start(input: {
-    workspaceId: string;
-    requestId: string;
-    preview: object;
-    fingerprint: string;
-    approved: boolean;
-    signal?: AbortSignal;
-  }): Promise<CommandLifetimeRecord> {
+  async start(
+    input: LifetimeDecision & { signal?: AbortSignal },
+  ): Promise<CommandLifetimeRecord> {
     return this.startOriginal(input);
   }
   private async startOriginal(
-    input: {
-      workspaceId: string;
-      requestId: string;
-      preview: object;
-      fingerprint: string;
-      approved: boolean;
-      signal?: AbortSignal;
-    },
+    input: LifetimeDecision & { signal?: AbortSignal },
     context?: ToolContext,
     origin?: CommandLifetimeOrigin,
   ): Promise<CommandLifetimeRecord> {
@@ -453,23 +440,16 @@ export class CommandLifetimeService {
           (control) => {
             if (!f || f.control) fail("COMMAND_LIFETIME_SOURCE_STALE");
             f.control = control;
+            const physical = {
+              supervisorPid: control.supervisorPid,
+              groupPid: control.groupPid,
+              epoch: control.epoch,
+            };
             f.record = this.write(
-              {
-                ...f.record,
-                state: "running",
-                physical: {
-                  supervisorPid: control.supervisorPid,
-                  groupPid: control.groupPid,
-                  epoch: control.epoch,
-                },
-              },
+              { ...f.record, state: "running", physical },
               "started",
               randomUUID(),
-              knowledgeHash({
-                supervisorPid: control.supervisorPid,
-                groupPid: control.groupPid,
-                epoch: control.epoch,
-              }),
+              knowledgeHash(physical),
               true,
             );
           },
@@ -726,6 +706,10 @@ export class CommandLifetimeService {
     );
     f.inputPending = true;
     try {
+      const requestSha = knowledgeHash({
+        fingerprint: p.fingerprint,
+        approved: true,
+      });
       f.record = this.write(
         {
           ...f.record,
@@ -735,7 +719,7 @@ export class CommandLifetimeService {
         },
         "input-intent",
         input.requestId,
-        knowledgeHash({ fingerprint: p.fingerprint, approved: true }),
+        requestSha,
         true,
       );
       if (p.eof) await f.control!.end();
@@ -744,7 +728,7 @@ export class CommandLifetimeService {
         f.record,
         "input-ack",
         input.requestId,
-        knowledgeHash({ fingerprint: p.fingerprint, approved: true }),
+        requestSha,
         true,
       );
       return structuredClone(f.record);
@@ -793,8 +777,7 @@ export class CommandLifetimeService {
         };
       f.wake.add(wake);
       input.signal?.addEventListener("abort", abort, { once: true });
-      // The original join can reject while both durable terminal writes fail,
-      // leaving the last readable record running. Every waiter must observe it.
+      // The join can reject with the last readable record still running; every waiter must observe that.
       void f.done.then(
         (record) => {
           cleanup();

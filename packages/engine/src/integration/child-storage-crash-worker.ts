@@ -10,8 +10,7 @@ import type { EngineChildRequest } from '../child-tasks/engine-host.js';
 import type { ProviderRecoveryRequest } from '../storage/provider-recovery-contract.js';
 import { CHILD_STORAGE_CRASH_PHASES, fixtureDatabase, fixtureSnapshot, stoppedFixtureSnapshot, type ChildStorageCrashPhase, type ChildStorageCrashReady } from './child-storage-crash.fixture.js';
 
-// A private process runs actual SQLite/engine/Git code and authored local
-// iterators only. The test kills this process, never a command/model account.
+// The test kills only this private fixture process, never a command or model account.
 const [suppliedDirectory, suppliedPhase] = process.argv.slice(2);
 if (!suppliedDirectory || !(CHILD_STORAGE_CRASH_PHASES as readonly string[]).includes(suppliedPhase ?? '')) throw new Error('Invalid child storage crash fixture');
 const directory = realpathSync(suppliedDirectory), phase = suppliedPhase as ChildStorageCrashPhase;
@@ -131,8 +130,7 @@ async function main(): Promise<void> {
   root = createEngine(options);
   const workspace = await command<Workspace>(root, 'workspace.open', { path: repository });
   session = await command<Session>(root, 'session.create', { workspaceId: workspace.id });
-  // Make a real pre-existing host decision so preservation checks do not merely
-  // compare empty ledgers. This explicit setup is never repeated after the cut.
+  // A real prior host decision keeps preservation checks off empty ledgers; it is never repeated after the cut.
   const historical = await command<RunReceipt>(root, 'run.submit', { sessionId: session.id, requestId: 'historical', prompt: preludePrompt });
   assert.equal((await root.waitForRun(historical.runId)).state, 'failed');
   await root.waitForSession(session.id);

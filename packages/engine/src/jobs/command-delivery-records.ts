@@ -1,4 +1,4 @@
-import type { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import {
@@ -97,7 +97,6 @@ export interface CommandResultProfile<
 > {
   /** Prefix of the Root delivery messages, such as "Owned command". */
   readonly label: string;
-  /** Request id prefix of the queued result input. */
   readonly inputPrefix: string;
   /** Request id and prompt of the input that only normalizes the target config. */
   readonly placeholder: string;
@@ -111,7 +110,6 @@ export interface CommandResultProfile<
   };
   readonly sessionOf: (settled: S) => string;
 }
-/** Record helpers a settled-source proof reports through. */
 export interface CommandDeliveryKit {
   fail(code?: string): never;
   parsed(value: unknown): unknown;
@@ -208,6 +206,15 @@ export function createCommandDeliveryRecords<
   }
   function synchronous(value: unknown): void {
     if (types.isPromise(value)) fail(code("ASYNC_PORT"));
+  }
+  function requireOriginal(value: unknown): void {
+    if (
+      !value ||
+      typeof value !== "object" ||
+      types.isProxy(value) ||
+      types.isPromise(value)
+    )
+      fail(code("ORIGINAL_REQUIRED"));
   }
   function inputData(value: unknown): CommandDeliveryInput {
     const p = jobObject(value, [
@@ -400,6 +407,20 @@ export function createCommandDeliveryRecords<
     if (hs.length > 1) fail();
     return hs[0];
   }
+  function eventJson(
+    db: DatabaseSync,
+    sessionId: string,
+    seq: SQLInputValue,
+    bytes: SQLInputValue,
+  ): Record<string, unknown> {
+    const row = db
+      .prepare(
+        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
+      )
+      .get(sessionId, seq, bytes);
+    if (!row) fail();
+    return parsed(row.data) as Record<string, unknown>;
+  }
   function eventBodies(
     db: DatabaseSync,
     sessionId: string,
@@ -419,13 +440,7 @@ export function createCommandDeliveryRecords<
       fail(code("LIMIT"));
     return hs.map((h) => {
       if (Number(h.bytes) < 1 || Number(h.bytes) > maximum) fail(code("LIMIT"));
-      const row = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-        )
-        .get(sessionId, h.seq!, h.bytes!);
-      if (!row) fail();
-      const e = parsed(row.data) as Record<string, unknown>;
+      const e = eventJson(db, sessionId, h.seq!, h.bytes!);
       if (
         e.sessionId !== sessionId ||
         e.seq !== h.seq ||
@@ -491,14 +506,8 @@ export function createCommandDeliveryRecords<
     const h = hs[0]!;
     if (Number(h.bytes) < 1 || Number(h.bytes) > limits.anchorBytes)
       fail(code("LIMIT"));
-    const row = db
-      .prepare(
-        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(sessionId, h.seq!, h.bytes!);
-    if (!row) fail();
     const e = jobObject(
-      parsed(row.data),
+      eventJson(db, sessionId, h.seq!, h.bytes!),
       [
         "schemaVersion",
         "stream",
@@ -605,13 +614,7 @@ export function createCommandDeliveryRecords<
       Number(hs[0]!.bytes) > limits.inputBytes
     )
       fail(code("INPUT_INVALID"));
-    const er = db
-      .prepare(
-        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(a.sessionId, hs[0]!.seq!, hs[0]!.bytes!);
-    if (!er) fail();
-    const e = parsed(er.data) as Record<string, unknown>,
+    const e = eventJson(db, a.sessionId, hs[0]!.seq!, hs[0]!.bytes!),
       b = (e.payload as Record<string, unknown>)?.input as Record<
         string,
         unknown
@@ -790,13 +793,7 @@ export function createCommandDeliveryRecords<
         failure("REQUEST_ID_CONFLICT");
       return Object.freeze({ kind: "duplicate", record: previous[0]! });
     }
-    if (
-      !original ||
-      typeof original !== "object" ||
-      types.isProxy(original) ||
-      types.isPromise(original)
-    )
-      fail(code("ORIGINAL_REQUIRED"));
+    requireOriginal(original);
     const proof = spec.validateTarget(ports.readTargetOriginal(original));
     if (
       proof.workspaceId !== x.workspaceId ||
@@ -823,13 +820,7 @@ export function createCommandDeliveryRecords<
       inputRequestId,
       prompt,
     });
-    if (
-      !acceptedOriginal ||
-      typeof acceptedOriginal !== "object" ||
-      types.isProxy(acceptedOriginal) ||
-      types.isPromise(acceptedOriginal)
-    )
-      fail(code("ORIGINAL_REQUIRED"));
+    requireOriginal(acceptedOriginal);
     try {
       const accepted = acceptedProof(ports.readAccepted(acceptedOriginal));
       const record = validateRecord(

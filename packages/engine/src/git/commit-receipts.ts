@@ -780,34 +780,33 @@ export class GitCommitStorage {
       return r;
     });
   }
+  private advance(old: GitCommitReceipt, patch: Partial<GitCommitReceipt>) {
+    this.write(
+      signedCommit({
+        ...old,
+        revision: old.revision + 1,
+        ...patch,
+        updatedAt: new Date().toISOString(),
+      }),
+      old.revision,
+    );
+  }
   recover() {
     for (const old of readGitCommitReceipts(this.db))
       if (["approved", "dispatched"].includes(old.state))
-        this.write(
-          signedCommit({
-            ...old,
-            revision: old.revision + 1,
-            state: "uncertain" as const,
-            errorCode: "GIT_COMMIT_INTERRUPTED",
-            updatedAt: new Date().toISOString(),
-          }),
-          old.revision,
-        );
+        this.advance(old, {
+          state: "uncertain",
+          errorCode: "GIT_COMMIT_INTERRUPTED",
+        });
   }
   pause(workspaceId: string, archiveSha256: string) {
     commitDigest(archiveSha256);
     for (const old of this.list(workspaceId))
       if (old.state !== "paused-import")
-        this.write(
-          signedCommit({
-            ...old,
-            revision: old.revision + 1,
-            state: "paused-import" as const,
-            importArchiveSha256: archiveSha256,
-            updatedAt: new Date().toISOString(),
-          }),
-          old.revision,
-        );
+        this.advance(old, {
+          state: "paused-import",
+          importArchiveSha256: archiveSha256,
+        });
   }
 }
 

@@ -37,56 +37,44 @@ export async function openGitCommitProcess(
     ready = false,
     result: GitCommitOutcome | undefined,
     closed = false,
-    resolveReady!: () => void,
-    rejectReady!: (e: unknown) => void,
-    resolveResult!: (v: GitCommitOutcome) => void,
-    resolveClosed!: () => void,
-    observationFailure = false,
-    rejectResult!: (e: unknown) => void;
-  const closedPromise = new Promise<void>((yes) => {
-    resolveClosed = yes;
-  });
-  const readiness = new Promise<void>((yes, no) => {
-      resolveReady = yes;
-      rejectReady = no;
-    }),
-    completion = new Promise<GitCommitOutcome>((yes, no) => {
-      resolveResult = yes;
-      rejectResult = no;
-    });
-  void completion.catch(() => {});
+    observationFailure = false;
+  const closing = Promise.withResolvers<void>(),
+    readiness = Promise.withResolvers<void>(),
+    completion = Promise.withResolvers<GitCommitOutcome>();
+  void completion.promise.catch(() => {});
   const stop = () => {
     if (child.connected) child.send({ type: "stop" });
   };
   signal.addEventListener("abort", stop, { once: true });
   const timer = setTimeout(() => {
     stop();
-    if (!ready) rejectReady(new Error("Git supervisor admission timed out"));
+    if (!ready)
+      readiness.reject(new Error("Git supervisor admission timed out"));
   }, 5000);
   const lost = () => {
     if (closed) return;
     closed = true;
-    resolveClosed();
+    closing.resolve();
     clearTimeout(timer);
     signal.removeEventListener("abort", stop);
-    if (!ready) rejectReady(new Error("Git supervisor unavailable"));
+    if (!ready) readiness.reject(new Error("Git supervisor unavailable"));
     if (!settled) {
       settled = true;
       result
-        ? resolveResult({
+        ? completion.resolve({
             ...result,
             ...(observationFailure
               ? { errorCode: "GIT_COMMIT_PROCESS_RECORD_FAILED" }
               : {}),
           })
-        : rejectResult(new Error("Git supervisor outcome was lost"));
+        : completion.reject(new Error("Git supervisor outcome was lost"));
     }
   };
   child.on("message", (message: any) => {
     if (message?.type === "ready") {
       ready = true;
       clearTimeout(timer);
-      resolveReady();
+      readiness.resolve();
     } else if (message?.type === "started") {
       try {
         onStarted(message.pid);
@@ -105,10 +93,10 @@ export async function openGitCommitProcess(
     input: { preview, executionLockPath, artifactDir },
   });
   try {
-    await readiness;
+    await readiness.promise;
   } catch {
     stop();
-    await closedPromise;
+    await closing.promise;
     gitCommitError("GIT_COMMIT_PROCESS_UNAVAILABLE");
   }
   let started = false;
@@ -119,11 +107,11 @@ export async function openGitCommitProcess(
       started = true;
       child.send({ type: "start" });
       if (signal.aborted) stop();
-      return completion;
+      return completion.promise;
     },
     async stopAndJoin() {
       stop();
-      await closedPromise;
+      await closing.promise;
     },
   };
 }
