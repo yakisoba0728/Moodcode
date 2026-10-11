@@ -11,7 +11,7 @@ import {
   knowledgeHash,
 } from "../knowledge/validation.js";
 import { sealRecord } from "../shared/canonical.js";
-import { exactPath } from "../tools/file-actions/text.js";
+import { exactPath } from "../workspace/text.js";
 
 import type {
   WorkflowObjectSchema,

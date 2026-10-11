@@ -10,7 +10,7 @@ import {
 import { usesNativeBOMProjection } from "./native-bom.js";
 import { boundedJson } from "../artifacts/validation.js";
 import { raceAbort, settleWithin } from "../shared/runtime.js";
-import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { exactPath, readExactText } from "../workspace/text.js";
 import {
   applyTextEdits,
   endPosition,

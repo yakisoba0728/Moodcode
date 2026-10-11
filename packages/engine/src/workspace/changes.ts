@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { EngineError, type Checkpoint, type Workspace } from '@moodcode/contracts';
 import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
-import { exactPath, readExactText } from '../tools/file-actions/text.js';
+import { exactPath, readExactText } from './text.js';
 import { workspaceRootIdentity } from './index.js';
 import { WorkspaceObserver, type WorkspaceObservation, type WorkspaceObserverOptions } from './observer.js';
 

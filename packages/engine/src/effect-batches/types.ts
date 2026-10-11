@@ -1,22 +1,4 @@
-export interface PreparedResourceClaim {
-  readonly version: 1;
-  readonly producer: "physical-patch";
-  readonly workspaceId: string;
-  readonly root: string;
-  readonly rootDevice: string;
-  readonly rootInode: string;
-  readonly sourceSha256: string;
-  readonly physicalPinsSha256: string;
-  readonly files: readonly {
-    path: string;
-    device: string;
-    inode: string;
-    beforeHash: string;
-    afterHash: string;
-  }[];
-  readonly parents: readonly { path: string; device: string; inode: string }[];
-  readonly sha256: string;
-}
+import type { PreparedResourceClaim } from "../tools/runtime/claims.js";
 export const EFFECT_MEMBER_STATES = Object.freeze([
   "proposed",
   "prepared",

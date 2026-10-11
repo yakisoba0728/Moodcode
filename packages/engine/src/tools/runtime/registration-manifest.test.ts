@@ -5,14 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
-import { createEngine } from "../engine.js";
-import { ToolPolicy } from "../permission/policy.js";
-import type { ToolDefinition } from "../ports.js";
-import {
-  ScopedToolRuntime,
-  type ToolRegistrationCapture,
-} from "../tools/runtime/index.js";
-import { createToolRegistrationManifest } from "./tool-registration-manifest.js";
+import { createEngine } from "../../engine.js";
+import { ToolPolicy } from "../../permission/policy.js";
+import type { ToolDefinition } from "../../ports.js";
+import { ScopedToolRuntime, type ToolRegistrationCapture } from "./index.js";
+import { createToolRegistrationManifest } from "./registration-manifest.js";
 
 const hash = (value: string) =>
   createHash("sha256").update(value).digest("hex");

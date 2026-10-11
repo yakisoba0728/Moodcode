@@ -7,11 +7,7 @@ import {
   createPatchAdapter,
   type FullContentChange,
 } from "../tools/file-actions/adapter.js";
-import {
-  exactPath,
-  readExactText,
-  textHash,
-} from "../tools/file-actions/text.js";
+import { exactPath, readExactText, textHash } from "../workspace/text.js";
 import type { WorktreeManager } from "../worktrees/index.js";
 import { safeCheckoutArguments } from "../worktrees/safe-checkout.js";
 import type { ChildTaskManager } from "./index.js";

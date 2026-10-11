@@ -7,7 +7,7 @@ import { entriesBytes, entryBytes } from './memory.js';
 import { repositoryQuery, REPOSITORY_CONTEXT_LIMITS, type RepositoryIndexPort, type RepositoryQuery, type RepositorySnapshot, type RepositorySourceManifest } from '../repository/index.js';
 import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
 import { raceAbort, settleWithin } from '../shared/runtime.js';
-import { exactPath, readExactText } from '../tools/file-actions/text.js';
+import { exactPath, readExactText } from '../workspace/text.js';
 import { excludedWorkspacePaths } from '../workspace/ignore.js';
 
 export const REPOSITORY_CONTRIBUTION_LIMITS = Object.freeze({

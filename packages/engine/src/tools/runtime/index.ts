@@ -1,4 +1,4 @@
-import {hasPreparedResourceProducer,capturePreparedResource} from '../../effect-batches/claims.js';
+import {hasPreparedResourceProducer,capturePreparedResource} from './claims.js';
 import { randomUUID } from 'node:crypto';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ApprovalPort, PreparedTool, ProviderTool, ToolContext, ToolDefinition, ToolResult } from '../../ports.js';
@@ -12,7 +12,7 @@ import { RoleResourcePolicyRegistry, type RoleResourcePolicyCapture, type RoleRe
 import { CommandPreflightRegistry, type CommandPreflightBinding, type CommandPreflightReceipt } from '../../permission/preflight.js';
 import { TOOL_DISCOVERY_LIMITS, discoveryCatalogueSignature, validateDiscoveryMaterializeLimits, validateDiscoveryNames, validateDiscoveryQuery,
   type ToolDiscoveryCatalogue, type ToolDiscoveryMaterializeLimits, type ToolDiscoveryMetadata } from './discovery.js';
-import { createToolRegistrationManifest, type ToolRegistrationManifest } from '../../diagnostics/tool-registration-manifest.js';
+import { createToolRegistrationManifest, type ToolRegistrationManifest } from './registration-manifest.js';
 import { canonicalJson, canonicalSha256, jsonTextSha256, sha256Hex } from '../../shared/canonical.js';
 import { deepFreeze, isBoundedText, plainRecord } from '../../shared/data.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }

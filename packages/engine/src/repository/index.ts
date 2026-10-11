@@ -13,7 +13,7 @@ import type {
 } from "../lsp/index.js";
 import { HOST_ID, LANGUAGE_ID } from "../lsp/stdio.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
-import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { exactPath, readExactText } from "../workspace/text.js";
 import { excludedWorkspacePaths } from "../workspace/ignore.js";
 import { runGit, readBranch } from "../workspace/git.js";
 

@@ -7,6 +7,8 @@ import { types } from "node:util";
 import { createHash } from "node:crypto";
 import type { ScheduleTargetPin } from "../schedules/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import type { SandboxLaunch } from "../tools/command/process-control.js";
+export type { SandboxLaunch };
 export const SANDBOX_LIMITS = Object.freeze({
   paths: 32,
   records: 256,
@@ -135,14 +137,6 @@ export interface SandboxCapability {
   executable: SandboxPhysicalPin | null;
   evidenceSha256: string | null;
   code: string | null;
-  sha256: string;
-}
-export interface SandboxLaunch {
-  version: 1;
-  backend: "darwin-seatbelt-v1";
-  executable: string;
-  profile: string;
-  grantSha256: string;
   sha256: string;
 }
 export interface PreviewSandboxGrantInput {

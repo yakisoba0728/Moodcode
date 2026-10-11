@@ -3,8 +3,8 @@ import { lstat, open, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { EngineError, type Workspace } from '@moodcode/contracts';
-import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
-import { plainRecord } from '../../shared/data.js';
+import { assertWorkspaceWriteParent, workspaceWritePath } from './index.js';
+import { plainRecord } from '../shared/data.js';
 export const TEXT_FILE_LIMIT = 1024 * 1024;
 export const textHash = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
 /** A plain input object with exactly `keys`; fails with `code` and the shape or the key-set message. */

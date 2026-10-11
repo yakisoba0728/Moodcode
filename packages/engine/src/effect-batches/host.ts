@@ -19,7 +19,7 @@ import {
   readPreparedResource,
   readResourcePermitCleanup,
   resourcePermitConsumed,
-} from "./claims.js";
+} from "../tools/runtime/claims.js";
 import { EFFECT_BATCH_LIMITS, signEffectBatch } from "./storage.js";
 import type { EffectBatchRecord, EffectBatchMember } from "./types.js";
 export interface EffectBatchHostPorts {

@@ -2,9 +2,9 @@ import { EngineError } from "@moodcode/contracts";
 import {
   TOOL_EFFECT_CLASSES,
   type ToolEffectClass,
-} from "../permission/policy.js";
-import { jsonTextSha256 } from "../shared/canonical.js";
-import { isSha256, plainRecord } from "../shared/data.js";
+} from "../../permission/policy.js";
+import { jsonTextSha256 } from "../../shared/canonical.js";
+import { isSha256, plainRecord } from "../../shared/data.js";
 
 /** Detached observations cannot be used as a prepared tool or producer capability. */
 export interface ToolRegistrationObservation {

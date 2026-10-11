@@ -1,8 +1,7 @@
 import {existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {supervisorExecArgv} from '../tools/command/index.js';
-import {groupExists,cleanupGroup} from '../tools/command/process-control.js';
-import type {SandboxLaunch} from '../sandbox/types.js';
+import {groupExists,cleanupGroup,type SandboxLaunch} from '../tools/command/process-control.js';
 import { fork,spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { once } from 'node:events';
 import { dirname, isAbsolute } from 'node:path';
@@ -41,8 +40,8 @@ export class StdioMcpTransport implements McpTransport {
     } catch { throw startFailed(); }
   }
   private async startSandboxed(launch: SandboxLaunch, onMessage: (message: JsonRpcMessage) => void): Promise<void> {
-    const compiled = fileURLToPath(new URL('../sandbox/mcp-supervisor.js', import.meta.url));
-    const source = fileURLToPath(new URL('../sandbox/mcp-supervisor.ts', import.meta.url));
+    const compiled = fileURLToPath(new URL('./mcp-supervisor.js', import.meta.url));
+    const source = fileURLToPath(new URL('./mcp-supervisor.ts', import.meta.url));
     const execArgv = supervisorExecArgv();
     this.options.observer?.beforeStart();
     const child = fork(existsSync(compiled) ? compiled : source, [], { cwd: dirname(process.execPath), env: { PATH: '/usr/bin:/bin', ELECTRON_RUN_AS_NODE: '1' }, execPath: process.execPath, execArgv, detached: true, stdio: ['pipe', 'pipe', 'pipe', 'ipc'] }) as ChildProcessWithoutNullStreams;

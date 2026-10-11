@@ -22,7 +22,7 @@ const selectedPaths = [
   'packages/engine/src/context/plan.ts',
   'packages/engine/src/workspace/index.ts',
   'packages/engine/src/workspace/ignore.ts',
-  'packages/engine/src/tools/file-actions/text.ts',
+  'packages/engine/src/workspace/text.ts',
   'packages/engine/src/provider/helpers.ts',
 ];
 const sha = data => createHash('sha256').update(data).digest('hex');
@@ -63,7 +63,7 @@ async function corpusInventory(root) {
   return { method: 'one-pass-git-code-inventory', roots: inventoryRoots, codeExtensions: [...codeExtensions], excludedComponents: [...excludedComponents], files: files.length, bytes, extensions, manifestSha256: jsonSha(files), elapsedMs: rounded(performance.now() - started), atomicTreeSnapshot: false, entries: files };
 }
 async function compiledBinding(root) {
-  const paths = ['packages/engine/dist/engine.js', 'packages/engine/dist/repository/index.js', 'packages/engine/dist/lsp/index.js', 'packages/engine/dist/lsp/navigation.js', 'packages/engine/dist/tools/file-actions/text.js', 'packages/engine/dist/workspace/ignore.js'];
+  const paths = ['packages/engine/dist/engine.js', 'packages/engine/dist/repository/index.js', 'packages/engine/dist/lsp/index.js', 'packages/engine/dist/lsp/navigation.js', 'packages/engine/dist/workspace/text.js', 'packages/engine/dist/workspace/ignore.js'];
   const files = []; for (const path of paths) files.push(await exactSource(root, path));
   return { module: 'packages/engine/dist/engine.js', files, sha256: jsonSha(files), role: 'recorded-runtime-implementation-files-not-entire-transitive-graph' };
 }

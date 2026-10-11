@@ -1,7 +1,10 @@
 import { types } from "node:util";
 import { EngineError, type InputMediaAttachment } from "@moodcode/contracts";
-import type { ProviderMessage, ResolvedInputMedia } from "../ports.js";
-import type { ProviderTransportRequest } from "../provider/generation.js";
+import type {
+  ProviderMessage,
+  ProviderTransportRequest,
+  ResolvedInputMedia,
+} from "../ports.js";
 import { jobJson } from "../jobs/validation.js";
 import {
   attachment,

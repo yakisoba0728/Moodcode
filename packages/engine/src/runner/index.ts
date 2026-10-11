@@ -1541,7 +1541,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       if (batch) {
         const resource = await this.toolOperation(owner,record,workspace,false,context=>this.options.toolRuntime!.capturePreparedResources(prepared,context));
         if (!this.options.store.commitRunObservation) throw new EngineError('EFFECT_BATCH_NATIVE_REQUIRED','Prepared effects require the native journal');
-        const {readPreparedResource}=await import('../effect-batches/claims.js');
+        const {readPreparedResource}=await import('../tools/runtime/claims.js');
         this.options.store.commitRunObservation(owner.run.id,'effect.batch.resource_prepared',{toolCallId:record.id,providerCallId:call.id,fingerprint:prepared.fingerprint,inputSha256:knowledgeHash(record.input),claim:resource?readPreparedResource(resource) as unknown as JsonObject:null},{turnId:owner.turn!.id,attemptId:owner.turn!.attemptId!});
         await batch.controller.prepared(batch.index,prepared.fingerprint,resource);
       }

@@ -1,8 +1,9 @@
 import { types } from 'node:util';
 import { EngineError, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
-import type { ProviderEvent, ProviderMessage, ProviderTool, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
+import type { ProviderEvent, ProviderTransportRequest } from '../ports.js';
 import { plainRecord } from '../shared/data.js';
 import { boundedText } from './helpers.js';
+export type { ProviderTransportRequest };
 
 /** Host-owned work has no coding Run, Session, Turn, or tool authority. */
 export interface HostGenerationOwner {
@@ -27,19 +28,6 @@ export interface HostGenerationRequest extends HostGenerationPayload {
 }
 export interface HostGenerationProviderPort {
   streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncIterable<ProviderEvent>;
-}
-
-/** Only fields consumed by provider encoding; coding ownership stays in the runner. */
-export interface ProviderTransportRequest {
-  readonly modelId: string;
-  readonly messages: readonly ProviderMessage[];
-  readonly tools: readonly ProviderTool[];
-  readonly reasoningEffort?: ReasoningEffort;
-  readonly includeMetadata?: boolean;
-  readonly sessionId?: string;
-  readonly resolvedImages?: readonly ResolvedInputImage[];
-  readonly resolvedDocuments?: readonly ResolvedInputDocument[];
-  readonly resolvedMedia?: readonly import('../ports.js').ResolvedInputMedia[];
 }
 
 export const HOST_GENERATION_REQUEST_LIMITS = Object.freeze({ maxBytes: 262_144, maxMessages: 256, maxIdentifierBytes: 256 });

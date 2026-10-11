@@ -7,7 +7,7 @@ import {
   findEventPayloads,
   type EventSearch,
 } from "../storage/native-records.js";
-import { planPreparedResources } from "./claims.js";
+import { planPreparedResources } from "../tools/runtime/claims.js";
 import { jobJson } from "../jobs/validation.js";
 import {
   EFFECT_BATCH_STATES,

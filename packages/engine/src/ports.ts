@@ -97,6 +97,8 @@ export interface ResolvedInputMedia { attachment: InputMediaAttachment; data: st
 export interface ProviderMessage { role: 'system' | 'user' | 'assistant' | 'tool'; content: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
 export interface ProviderTool { name: string; description: string; inputSchema: JsonObject }
 export interface TurnRequest { runId: string; turnIndex: number; modelId: string; messages: ProviderMessage[]; tools: ProviderTool[]; reasoningEffort?: ReasoningEffort; turnId?: string; attemptId?: string; includeMetadata?: boolean; sessionId?: string; resolvedImages?: ResolvedInputImage[]; resolvedDocuments?: ResolvedInputDocument[]; resolvedMedia?: ResolvedInputMedia[] }
+/** Only fields consumed by provider encoding; coding ownership stays in the runner. */
+export interface ProviderTransportRequest { readonly modelId: string; readonly messages: readonly ProviderMessage[]; readonly tools: readonly ProviderTool[]; readonly reasoningEffort?: ReasoningEffort; readonly includeMetadata?: boolean; readonly sessionId?: string; readonly resolvedImages?: readonly ResolvedInputImage[]; readonly resolvedDocuments?: readonly ResolvedInputDocument[]; readonly resolvedMedia?: readonly ResolvedInputMedia[] }
 /** Metadata of an ORIGINAL request at actual native provider entry. It grants no dispatch authority. */
 export interface ProviderRequestOwner {
   workspaceId: string; sessionId: string; runId: string; turnId: string; attemptId: string;

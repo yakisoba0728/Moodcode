@@ -4,7 +4,7 @@ import type { PreparedTool, ToolContext, ToolDefinition } from '../../ports.js';
 import { projectToolResult } from '../../artifacts/result.js';
 import { textPrefix } from '../../artifacts/validation.js';
 import { createReadTools } from '../read/index.js';
-import { readExactText } from '../file-actions/text.js';
+import { readExactText } from '../../workspace/text.js';
 import { pathRestriction, withPathRestriction } from '../../permission/policy.js';
 import { continuationOffset, continuationToken, snapshotFingerprint, validateContinuation } from '../../workspace/ignore.js';
 import { runSearchWorker } from './worker.js';

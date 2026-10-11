@@ -15,7 +15,6 @@ import type {
   ToolResult,
 } from "../../ports.js";
 import { within } from "../../shared/fs.js";
-import type { SandboxLaunch } from "../../sandbox/types.js";
 import {
   captureWorkspace,
   resolveWorkspacePath,
@@ -37,6 +36,7 @@ import {
   errorText,
   notStartedOutcome,
   type ProcessOutcome,
+  type SandboxLaunch,
 } from "./process-control.js";
 import {
   COMMAND_OBSERVATION_LIMITS,

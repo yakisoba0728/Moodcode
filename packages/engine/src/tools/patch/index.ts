@@ -1,4 +1,4 @@
-import {registerPreparedResourceProducer,issuePreparedPatchResource,consumeResourcePermit,settleResourcePermit} from '../../effect-batches/claims.js';
+import {registerPreparedResourceProducer,issuePreparedPatchResource,consumeResourcePermit,settleResourcePermit} from '../runtime/claims.js';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs/promises';
 import { EngineError, type Checkpoint, type JsonValue } from '@moodcode/contracts';

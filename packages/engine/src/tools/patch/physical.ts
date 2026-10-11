@@ -5,8 +5,8 @@ import fs, { type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
-import { textHash } from '../file-actions/text.js';
-import type { PreparedResourceClaim } from '../../effect-batches/types.js';
+import { textHash } from '../../workspace/text.js';
+import type { PreparedResourceClaim } from '../runtime/claims.js';
 
 const MAX_FILES = 32;
 const MAX_FILE_BYTES = 1024 * 1024;

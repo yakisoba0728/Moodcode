@@ -1,6 +1,5 @@
 import { EngineError, type InputImageAttachment } from '@moodcode/contracts';
-import type { ProviderMessage, ResolvedInputImage } from '../ports.js';
-import type { ProviderTransportRequest } from '../provider/generation.js';
+import type { ProviderMessage, ProviderTransportRequest, ResolvedInputImage } from '../ports.js';
 import { attachment, attachments, decodeExactBase64, DEFAULT_IMAGE_LIMITS, sameAttachment, validateImageBytes } from './validation.js';
 
 /** Transport-only projection. The engine must verify session ownership before supplying bytes. */

@@ -21,7 +21,7 @@ export * from './diagnostics/stall.js';
 export type { DiagnosticExecutionIdentity, DiagnosticExecutionObservation, DiagnosticExecutionPage, DiagnosticExecutionPageOptions, ExecutionSourceSnapshot } from './diagnostics/execution-observation-types.js';
 export type { WorkspaceExecutionSourceLimits } from './diagnostics/execution-source.js';
 export type { NativeCodingEvidenceOptions, NativeCodingEvidenceManifest, ExtractiveDiagnosticSummary } from './diagnostics/native-attempt-manifest.js';
-export type { ToolRegistrationManifest } from './diagnostics/tool-registration-manifest.js';
+export type { ToolRegistrationManifest } from './tools/runtime/registration-manifest.js';
 export * from './permission/role-resources.js';
 export * from './permission/role-policy-registry.js';
 export * from './verification/index.js';
@@ -191,7 +191,8 @@ export {validateAcpV1WriteTextFileParams,validateAcpV1TerminalCreateParams,valid
 
 export type {CommandLifetimeRecord,CommandLifetimeMode,CommandLifetimeOrigin} from './jobs/command-lifetime-records.js';
 
-export type {EffectBatchRecord,EffectBatchMember,PreparedResourceClaim} from './effect-batches/types.js';
+export type {EffectBatchRecord,EffectBatchMember} from './effect-batches/types.js';
+export type {PreparedResourceClaim} from './tools/runtime/claims.js';
 export {CODE_MODE_LIMITS,CODE_MODE_TOOLS,parseCodeProgram,validateCodeAllocation} from './code-mode/types.js';
 export type {CodeProgram,CodeExpression,CodeStatement,CodeModeAllocation,CodeModeRuntimeCapability} from './code-mode/types.js';
 export type {CodeModeRecord,CodeModeSource,NestedCallReceipt} from './code-mode/records.js';

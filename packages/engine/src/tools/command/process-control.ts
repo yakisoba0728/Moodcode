@@ -1,10 +1,10 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { EngineError } from '@moodcode/contracts';
-import type { SandboxLaunch } from '../../sandbox/types.js';
 import { cleanupGroup, createCommandEnvironment, groupExists, TERMINATION_LIMITS } from '../../shared/runtime.js';
 
 export { cleanupGroup, createCommandEnvironment, groupExists, registerCredentialEnvNames, TERMINATION_LIMITS } from '../../shared/runtime.js';
+export interface SandboxLaunch { version: 1; backend: 'darwin-seatbelt-v1'; executable: string; profile: string; grantSha256: string; sha256: string }
 export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: SandboxLaunch }
 export interface ProcessOutcome { exitCode: number | null; signal: NodeJS.Signals | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; started: boolean; outputDiscarded?: boolean; error?: string }
 export type ShellOutput = (stream: 'stdout' | 'stderr', bytes: Buffer) => void | Promise<void>;

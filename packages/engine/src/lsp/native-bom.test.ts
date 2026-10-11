@@ -90,7 +90,7 @@ test('native LocationLink and nested DocumentSymbol/SymbolInformation ranges use
   const scope: Workspace = { id: 'bom-targets', root, gitRoot: '', branch: null, createdAt: new Date().toISOString() };
   const target = pathToFileURL(join(root, 'target.ts')).href;
   const base = { serverId: 'native', workspaceId: scope.id, path: 'target.ts', documentVersion: 1, documentHash: 'fixture-hash', kind: 'symbols' as const };
-  const source = { content: text, hash: (await import('../tools/file-actions/text.js')).textHash(text) };
+  const source = { content: text, hash: (await import('../workspace/text.js')).textHash(text) };
   const values = [{ name: 'parent', kind: 12, range: range(0, 38), selectionRange: range(9, 15), children: [{ name: 'child', kind: 13, range: range(20, 36), selectionRange: range(26, 31) }] }];
   const nested = await projectNavigation(base, scope, navigationCandidates(values, 'symbols', target), source, signal(), true);
   assert.deepEqual(nested.items.map(x => x.range), [range(10, 16), range(27, 32)]); assert.deepEqual(nested.items.map(x => x.depth), [0, 1]);
@@ -109,7 +109,7 @@ test('native range projection preserves outside/ignored omissions and cancellati
   await writeFile(join(root, 'source.ts'), raw); await writeFile(join(root, 'ignored.ts'), raw); await writeFile(join(root, '.gitignore'), 'ignored.ts\n');
   const { runGit } = await import('../workspace/git.js'); assert.equal((await runGit(root, ['init', '--quiet', '--template='])).code, 0);
   const scope: Workspace = { id: 'bom-authority', root, gitRoot: root, branch: null, createdAt: new Date().toISOString() };
-  const source = { content: raw, hash: (await import('../tools/file-actions/text.js')).textHash(raw) };
+  const source = { content: raw, hash: (await import('../workspace/text.js')).textHash(raw) };
   const base = { serverId: 'native', workspaceId: scope.id, path: 'source.ts', documentVersion: 1, documentHash: source.hash, kind: 'definition' as const };
   const targets = [{ uri: pathToFileURL(join(root, '../must-not-read.ts')).href, range: range(9999, 10000) }, { uri: pathToFileURL(join(root, 'ignored.ts')).href, range: range(9999, 10000) }];
   const result = await projectNavigation(base, scope, navigationCandidates(targets, 'definition', ''), source, signal(), true);

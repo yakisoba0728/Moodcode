@@ -2,7 +2,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { ToolDefinition } from '../../ports.js';
 import { createPatchAdapter } from '../file-actions/adapter.js';
 import { isSha256 } from '../../shared/data.js';
-import { exactInput, exactPath, readExpectedText, TEXT_FILE_LIMIT } from '../file-actions/text.js';
+import { exactInput, exactPath, readExpectedText, TEXT_FILE_LIMIT } from '../../workspace/text.js';
 /** Exact substring replacement: no fuzzy matching or source-derived recovery heuristics. */
 export function createExactEditTool(): ToolDefinition {
   return createPatchAdapter({ name: 'edit_file', description: 'Replace exactly one occurrence of oldString in a bounded UTF-8 text file after verifying expectedHash. Preview and approval required. BOM and existing line endings are preserved.', inputSchema: { type: 'object', additionalProperties: false, required: ['path', 'expectedHash', 'oldString', 'newString'], properties: { path: { type: 'string' }, expectedHash: { type: 'string', pattern: '^[a-f0-9]{64}$' }, oldString: { type: 'string', minLength: 1 }, newString: { type: 'string' } } },

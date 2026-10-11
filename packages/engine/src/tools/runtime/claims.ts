@@ -1,7 +1,25 @@
 import { EngineError } from "@moodcode/contracts";
-import type { PreparedTool, ToolContext, ToolDefinition } from "../ports.js";
-import { knowledgeHash } from "../knowledge/validation.js";
-import type { PreparedResourceClaim } from "./types.js";
+import type { PreparedTool, ToolContext, ToolDefinition } from "../../ports.js";
+import { knowledgeHash } from "../../knowledge/validation.js";
+export interface PreparedResourceClaim {
+  readonly version: 1;
+  readonly producer: "physical-patch";
+  readonly workspaceId: string;
+  readonly root: string;
+  readonly rootDevice: string;
+  readonly rootInode: string;
+  readonly sourceSha256: string;
+  readonly physicalPinsSha256: string;
+  readonly files: readonly {
+    path: string;
+    device: string;
+    inode: string;
+    beforeHash: string;
+    afterHash: string;
+  }[];
+  readonly parents: readonly { path: string; device: string; inode: string }[];
+  readonly sha256: string;
+}
 interface Claim {
   proof: PreparedResourceClaim;
   physical: object;

@@ -1,7 +1,6 @@
 import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
-import type { ProviderMessage, ResolvedInputDocument } from '../ports.js';
-import type { ProviderTransportRequest } from '../provider/generation.js';
+import type { ProviderMessage, ProviderTransportRequest, ResolvedInputDocument } from '../ports.js';
 import { providerImages } from '../media/provider.js';
 import { attachments as imageAttachments, decodeExactBase64, DEFAULT_IMAGE_LIMITS } from '../media/validation.js';
 import { isPlainArray } from '../shared/data.js';

@@ -12,7 +12,7 @@ import {
   type TextPosition,
   type TextRange,
 } from "../formatters/edits.js";
-import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { exactPath, readExactText } from "../workspace/text.js";
 import { nativeBOMRangeProjection } from "./native-bom.js";
 import { excludedWorkspacePaths } from "../workspace/ignore.js";
 

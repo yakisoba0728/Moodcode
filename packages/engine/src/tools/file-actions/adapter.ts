@@ -1,4 +1,4 @@
-import {registerPreparedResourceProducer,capturePreparedResource} from '../../effect-batches/claims.js';
+import {registerPreparedResourceProducer,capturePreparedResource} from '../runtime/claims.js';
 import { createHash } from 'node:crypto';
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition } from '../../ports.js';

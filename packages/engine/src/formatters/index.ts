@@ -1,6 +1,6 @@
 import { EngineError, type Workspace } from "@moodcode/contracts";
 import { createPatchAdapter } from "../tools/file-actions/adapter.js";
-import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { exactPath, readExactText } from "../workspace/text.js";
 import type { ToolDefinition } from "../ports.js";
 import type { LspManager } from "../lsp/index.js";
 import { HOST_ID } from "../lsp/stdio.js";

@@ -3,7 +3,7 @@ import type { BigIntStats } from "node:fs";
 import { lstat, opendir, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { EngineError, type Workspace } from "@moodcode/contracts";
-import { exactPath, readExactText } from "../tools/file-actions/text.js";
+import { exactPath, readExactText } from "../workspace/text.js";
 import { excludedDirectory, gitIgnoredPaths } from "../workspace/ignore.js";
 
 export interface LspProjectSourceSnapshot {
