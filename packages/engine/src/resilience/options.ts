@@ -12,7 +12,22 @@ export interface ResolvedResilienceOptions {
   seed: number;
   boundaryTimeoutMs: number;
 }
-/** A seed chooses bounded fixture payloads. */
+export function assertIntegerBounds<K extends string>(
+  result: NoInfer<Record<K, number>>,
+  bounds: Record<K, readonly [number, number]>,
+): void {
+  for (const key of Object.keys(bounds) as K[]) {
+    const [min, max] = bounds[key];
+    if (
+      !Number.isSafeInteger(result[key]) ||
+      result[key] < min ||
+      result[key] > max
+    )
+      throw new RangeError(
+        `${key} must be an integer between ${min} and ${max}`,
+      );
+  }
+}
 export function resolveResilienceOptions(
   input: ResilienceOptions = {},
 ): ResolvedResilienceOptions {
@@ -28,22 +43,11 @@ export function resolveResilienceOptions(
       throw new RangeError("Unknown resilience option");
   if (profile !== "quick" && profile !== "extended")
     throw new RangeError("Profile must be quick or extended");
-  const bounds = {
+  assertIntegerBounds(result, {
     iterations: [3, 60],
     seed: [0, 0xffffffff],
     boundaryTimeoutMs: [1000, 30000],
-  } as const;
-  for (const key of Object.keys(bounds) as Array<keyof typeof bounds>) {
-    const [min, max] = bounds[key];
-    if (
-      !Number.isSafeInteger(result[key]) ||
-      result[key] < min ||
-      result[key] > max
-    )
-      throw new RangeError(
-        `${key} must be an integer between ${min} and ${max}`,
-      );
-  }
+  });
   return result;
 }
 export function scenarioAt(iteration: number): ResilienceScenario {

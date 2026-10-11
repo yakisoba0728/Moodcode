@@ -19,7 +19,6 @@ export interface RecoveryGatePorts {
     hasUncertainKnowledgeGeneration(workspaceId: string): boolean; hasUncertainKnowledgeFilePublication(workspaceId: string): boolean;
   };
   executionLockPath: string;
-  /** The engine is closing. */
   closed: AbortSignal;
   lease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T>;
   hold(workspaceId: string): void;

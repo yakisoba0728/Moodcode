@@ -32,7 +32,10 @@ export async function runPersistentLoad(
     timedLimit = options.maxSamples - 8,
     interval = options.durationMs / (timedLimit + 1),
     optionalCycles = options.maxCycles - 3,
-    commandStride = Math.max(1, Math.ceil(options.maxCycles / 88));
+    commandStride = Math.max(1, Math.ceil(options.maxCycles / 88)),
+    cycleAt = (cycle: number) =>
+      observationStarted +
+      ((cycle - 3) * options.durationMs) / Math.max(1, optionalCycles);
   let timedSamples = 0,
     nextSample = timedLimit ? observationStarted + interval : Infinity;
   while (performance.now() < deadline) {
@@ -46,9 +49,7 @@ export async function runPersistentLoad(
       sample("after-graceful-reopen");
     }
     const cycle = f.summary().cycles,
-      nextCycle =
-        observationStarted +
-        ((cycle - 3) * options.durationMs) / Math.max(1, optionalCycles);
+      nextCycle = cycleAt(cycle);
     if (
       performance.now() < deadline &&
       cycle < options.maxCycles &&
@@ -72,9 +73,7 @@ export async function runPersistentLoad(
     }
     const nextWork =
       f.summary().cycles < options.maxCycles && f.canAccept(checkpoint ? 7 : 8)
-        ? observationStarted +
-          ((f.summary().cycles - 3) * options.durationMs) /
-            Math.max(1, optionalCycles)
+        ? cycleAt(f.summary().cycles)
         : deadline;
     const pause = Math.max(
       1,

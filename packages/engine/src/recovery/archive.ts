@@ -55,29 +55,9 @@ export interface EngineArchiveResult { directory: string; manifest: EngineArchiv
 export interface ImportedEngineArchive extends EngineArchiveResult { dbPath: string; artifactDir: string; migratedFromVersion: number; schemaVersion: number; sessionsPaused: number; worktreesRelocated: number; childSessionsPaused: number; documentAuditCoverage: 'complete' | 'partial' | 'unchecked'; artifactPathMapping: { from: string; to: string }; executionResumed: false }
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function archiveDocumentBudget(options: unknown): number {
-  if (
-    types.isProxy(options) ||
-    !options ||
-    typeof options !== 'object' ||
-    Array.isArray(options) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(options))
-  )
-    fail(
-      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
-      'Archive options must contain a plain document budget.',
-    );
-  const descriptor = Object.getOwnPropertyDescriptor(
-    options,
-    'archiveDocumentBudgetMs',
-  );
-  if (
-    descriptor &&
-    (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))
-  )
-    fail(
-      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
-      'Archive document budget must be an enumerable data value.',
-    );
+  if (types.isProxy(options) || !options || typeof options !== 'object' || Array.isArray(options) || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) fail('INVALID_ARCHIVE_DOCUMENT_BUDGET', 'Archive options must contain a plain document budget.');
+  const descriptor = Object.getOwnPropertyDescriptor(options, 'archiveDocumentBudgetMs');
+  if (descriptor && (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value'))) fail('INVALID_ARCHIVE_DOCUMENT_BUDGET', 'Archive document budget must be an enumerable data value.');
   return validateArchiveDocumentBudgetMs(descriptor?.value);
 }
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARCHIVE_ABORTED', 'Engine archive operation was cancelled'); }
@@ -415,9 +395,7 @@ function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifes
   }
   const mediaPrimary=sqlite(join(members,databaseFiles.primary));try{validateMediaFiles(mediaPrimary,join(members,'artifacts'),check,parsed.manifest.artifacts);}finally{mediaPrimary.close();}
   validateReviewFiles(members, check);
-  // validateEngineArchive and importEngineArchive pass a factory so the
-  // document-proof deadline starts here, after member hashing;
-  // inspectArchivedChildDocumentStorage passes its already-running frame.
+  // A factory starts the document-proof deadline here, after member hashing; a frame is already running.
   const proofFrame=typeof frame==='function'?frame():frame;
   validateDocumentArchive(members,parsed.manifest,check,proofFrame);
   validateChildDocumentArchive(members,parsed.manifest,proofFrame,check,collect);
@@ -450,8 +428,7 @@ function preflightArchivedChildSelection(root:string,request:ValidatedArchivedCh
     if(!header)fail('ARCHIVE_CHILD_TASK_NOT_FOUND','Archived child task journal is absent');
     const bytes=Number(header.bytes);
     if(!Number.isSafeInteger(bytes)||bytes<2||bytes>245760)fail('ARCHIVE_CHILD_JOURNAL_INVALID','Archived child task journal exceeds its bounded format');
-    // JSON is inspected by SQLite; only bounded booleans escape this query. The
-    // authoritative journal body is read/charged once by the whole audit below.
+    // Only bounded booleans escape SQLite here; the whole audit reads and charges the journal body once.
     for(const taskId of request.taskIds){
       check();frame.chargeRows(1);
       const rows=primary.prepare(`SELECT json_extract(d.data,'$.schemaVersion')=1 AND json_type(d.data,'$.tasks')='array' AND json_array_length(d.data,'$.tasks')<=32
@@ -469,8 +446,7 @@ export async function inspectArchivedChildDocumentStorage(value:ArchivedChildDoc
   const request=validateArchivedChildDocumentStorageRequest(value);
   try{
     const {maxReportBytes:_maxReportBytes,maxDocumentSamples:_maxDocumentSamples,maxChildren:_requestedTaskCap,...readLimits}=request.limits;
-    // The requested subset has its own cap. All verified archive children still
-    // undergo the existing audit (manifest hard limit 32) in the same proof frame.
+    // The requested subset has its own cap; every archived child (at most 32) is still audited in this frame.
     const frame=createChildDocumentReadFrame({...(request.signal?{signal:request.signal}:{}),limits:{...readLimits,maxChildren:32}});
     const check=()=>{abort(request.signal);frame.check();};
     await new Promise<void>(resolve=>setImmediate(resolve));check();
@@ -497,8 +473,6 @@ export async function inspectArchivedChildDocumentStorage(value:ArchivedChildDoc
     check();
     const report=buildArchivedChildDocumentStorageReport({archiveId:parsed.manifest.archiveId,manifestSha256:parsed.manifestSha256,expectedManifestSha256:request.expectedManifestSha256,
       sessionId:request.sessionId,sourceRunId:request.sourceRunId,archiveDocumentAuditCoverage:audit?.coverage??'unchecked',requestedTaskIds:request.taskIds,observations,stats:frame.stats(),limits:request.limits});
-    // No I/O occurs in the pure builder; retain cancellation and the final exact
-    // manifest check immediately before publishing its detached bounded result.
     if(parseManifest(join(root,'manifest.json')).manifestSha256!==request.expectedManifestSha256)fail('ARCHIVE_SOURCE_CHANGED','Archive manifest changed before historical inspection completed');
     check();return report;
   }catch(error){if(error instanceof EngineError)throw error;fail('ARCHIVE_DATABASE_INVALID','Historical archive inspection could not validate its bounded read-only selection');}

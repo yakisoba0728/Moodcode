@@ -68,9 +68,7 @@ export class ScriptedProvider implements ProviderAdapter {
 
   constructor(turns: ScriptedTurn[] = [], generations: ScriptedGeneration[] = []) {
     for (const turn of [...turns, ...generations]) {
-      if (turn.delayMs !== undefined && (
-        !Number.isFinite(turn.delayMs) || turn.delayMs < 0 || turn.delayMs > MAX_TIMER_MS
-      )) {
+      if (turn.delayMs !== undefined && (!Number.isFinite(turn.delayMs) || turn.delayMs < 0 || turn.delayMs > MAX_TIMER_MS)) {
         throw new RangeError('Scripted turn delayMs must be a finite, non-negative timer duration.');
       }
     }
@@ -94,9 +92,7 @@ export class ScriptedProvider implements ProviderAdapter {
   }
 
   streamGeneration(request: HostGenerationRequest, signal: AbortSignal): AsyncIterable<ProviderEvent> {
-    const transport = hostGenerationTransportRequest(request);
-    const fixture = this.#generations[this.#generationCallCount++];
-    return this.#emit(transport, fixture, signal);
+    return this.#emit(hostGenerationTransportRequest(request), this.#generations[this.#generationCallCount++], signal);
   }
 
   async *#stream(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
@@ -107,8 +103,7 @@ export class ScriptedProvider implements ProviderAdapter {
     if (!Number.isSafeInteger(request.turnIndex) || request.turnIndex < 0) {
       throw new RangeError('Scripted provider turnIndex must be a non-negative safe integer.');
     }
-    const scripted = this.#turns[request.turnIndex];
-    yield* this.#emit(request, scripted, signal);
+    yield* this.#emit(request, this.#turns[request.turnIndex], signal);
   }
 
   async *#emit(request: ProviderTransportRequest, scripted: ScriptedTurn | undefined, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
@@ -127,8 +122,6 @@ export class ScriptedProvider implements ProviderAdapter {
       yield structuredClone(event);
     }
     checkCancellation(signal);
-    if (scripted?.error !== undefined) {
-      throw new Error(scripted.error);
-    }
+    if (scripted?.error !== undefined) throw new Error(scripted.error);
   }
 }

@@ -86,11 +86,8 @@ export function isEventStream(response: Response, allowMissing = false): boolean
   return type === null ? allowMissing : type.split(';')[0]?.trim().toLowerCase() === 'text/event-stream';
 }
 
-/**
- * Per-turn cancellation and deadline, covering the HTTP response and a stalled stream.
- * An owned body closes before fetch aborts: abort errors an unread body, so its
- * cancellation could not be confirmed. dispose() leaves the final abort to the adapter.
- */
+/** Per-turn cancellation and deadline. An owned body closes before fetch aborts, since abort errors an unread body
+ * and its cancellation could not be confirmed; dispose() leaves the final abort to the adapter. */
 export function turnTimer(signal: AbortSignal, timeoutMs: number, owned: () => { close(): Promise<boolean> } | undefined) {
   const controller = new AbortController();
   let timedOut = false;
@@ -126,7 +123,6 @@ export function optionalString(value: unknown): string | undefined {
   return value;
 }
 
-/** isBoundedText that also rejects whitespace-only text. */
 export function boundedText(value: unknown, maxBytes = 256): value is string {
   return isBoundedText(value, maxBytes) && value.trim() !== '';
 }
@@ -188,8 +184,7 @@ export function positiveLimit(value: number | undefined, fallback: number): numb
 }
 
 function redactionMarker(secret: string): string {
-  // Bearer credentials are printable ASCII. The block cannot contain a key,
-  // and prevents keys with brackets from reappearing across marker boundaries.
+  // Printable-ASCII keys cannot contain the block, and bracketed keys cannot reappear across marker boundaries.
   return '[REDACTED]'.includes(secret) || secret.includes('[') || secret.includes(']') ? '█' : '[REDACTED]';
 }
 export function redactText(text: string, secret: string | undefined): string {
@@ -233,10 +228,7 @@ export class CredentialTextRedactor {
 export class TextRedactor {
   #pending = '';
   readonly #secret: string | undefined;
-
-  constructor(secret: string | undefined) {
-    this.#secret = secret;
-  }
+  constructor(secret: string | undefined) { this.#secret = secret; }
 
   push(text: string, final = false): string {
     if (!this.#secret) return text;

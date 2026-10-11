@@ -156,7 +156,6 @@ export async function runCrashScenario(
     assert.equal(metrics.attemptUsage.inputTokens.tokens, null);
     assert.equal(metrics.attemptUsage.outputTokens.tokens, null);
     assert.equal(metrics.attempts.retries, 0);
-    result.providerCalls = { ...ready.providerCalls, reopened: 0 };
     result.processLaunches = launchCount(paths);
     result.noReplay = true;
     result.native = {

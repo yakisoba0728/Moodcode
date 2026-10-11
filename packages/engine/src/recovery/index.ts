@@ -1,13 +1,13 @@
 import { validateMediaDatabase } from '../media/native-validation.js';
 import { randomUUID } from 'node:crypto';
-import { closeSync, constants, fsyncSync, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { backupDatabase } from '../storage/maintenance.js';
 import { databaseVersion, primaryFeaturesFor, primaryTablesFor } from '../storage/migrations.js';
 import { canonical } from '../shared/canonical.js';
-import { sameIdentity } from '../shared/fs.js';
+import { sameIdentity, syncDirectory } from '../shared/fs.js';
 import { pidPresence, type PidPresence } from '../shared/runtime.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, reviewOperationBound, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
@@ -60,8 +60,7 @@ function ownershipBusy(file: string): boolean {
   const before = regular(file);
   if (!before) return false;
   for (const suffix of ['-wal', '-shm', '-journal']) regular(file + suffix);
-  // A readonly WAL connection can still create SHM. Only known DELETE-mode
-  // owner/effect files are eligible for an original lock probe.
+  // A readonly WAL connection can still create SHM, so only DELETE-mode owner/effect files get a lock probe.
   const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     if (!sameIdentity(before, fstatSync(fd))) fail('RECOVERY_SOURCE_CHANGED');
@@ -220,10 +219,6 @@ function backupDirectory(paths: RecoveryPaths, id: string): { root: string; dest
   if (!existing) preparePrivateDirectory(paths.artifacts, 'recovery');
   return { root, destination: preparePrivateDirectory(root, id) };
 }
-function durableDirectory(file: string): void {
-  const fd = openSync(file, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
-  try { fsyncSync(fd); } finally { closeSync(fd); }
-}
 
 /** Acknowledges stopped effects; never signals processes, reruns tools, or edits original Runs/review operations. */
 export async function recoverEngine(options: RecoverEngineOptions): Promise<RecoveryResult> {
@@ -266,8 +261,8 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
         fail('RECOVERY_BACKUP_FAILED');
       } finally { db.close(); }
     }
-    durableDirectory(destination);
-    durableDirectory(recoveryDirectory);
+    syncDirectory(destination);
+    syncDirectory(recoveryDirectory);
     verify();
     // The held source write leases prevent changes between this second inspection and commit.
     const current = inspect(options, false);
@@ -278,7 +273,7 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
     ledger = new DatabaseSync(paths.ledger, { timeout: 0 });
     ledger.exec('PRAGMA trusted_schema=OFF; PRAGMA busy_timeout=0; PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL; PRAGMA fullfsync=ON');
     initializeLedger(ledger);
-    durableDirectory(dirname(paths.db));
+    syncDirectory(dirname(paths.db));
     const acknowledgments = inspection.unresolved.map(({ operation, outcomeHash }) => {
       if (!outcomeHash || operation.state === 'started') fail('RECOVERY_BLOCKED');
       return acknowledgment(operation, outcomeHash);

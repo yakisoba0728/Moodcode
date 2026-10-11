@@ -11,10 +11,7 @@ import { hasDocumentInputs, messageDocuments, providerDocuments } from '../docum
 import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 import { boundedGenerationBody } from './generation-body.js';
 
-/**
- * includeStreamObfuscation, allowEmptyAudioMetadata, allowAudioExpiryCompletion, audioModelIds,
- * outputAudio and onMalformedStream are inherited but have no effect on this adapter.
- */
+/** Inherited audio, obfuscation and onMalformedStream options have no effect on this adapter. */
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
   maxOutputItems?: number;
@@ -138,6 +135,10 @@ export class ResponsesProvider implements ProviderAdapter {
     this.#cleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
   }
 
+  #replayLimits(maxBytes: number) {
+    return { secrets: this.#secrets, maxItems: this.#limits.maxOutputItems, maxBytes, maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls };
+  }
+
   supportsInputFile(modelId: string, mimeType: 'application/pdf'): boolean {
     return !this.#codexProfile && mimeType === 'application/pdf' && this.#pdfModelIds.has(modelId);
   }
@@ -165,11 +166,7 @@ export class ResponsesProvider implements ProviderAdapter {
       for (const message of request.messages) {
         let messageItems: Record<string, unknown>[];
         if (message.role === 'assistant' && replayCompatible(message, this.id, request.modelId, this.replayProtocol)) {
-          const replayItems = validateReplayItems(message.providerReplay!.items, {
-            secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
-            maxBytes: this.#limits.maxRequestBytes,
-            maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
-          });
+          const replayItems = validateReplayItems(message.providerReplay!.items, this.#replayLimits(this.#limits.maxRequestBytes));
           validateReplayBinding(message, replayItems);
           messageItems = replayItems;
         } else messageItems = inputItems(message, images, documents,segments);
@@ -228,8 +225,7 @@ export class ResponsesProvider implements ProviderAdapter {
         let bytes = Buffer.byteLength(delta, 'utf8');
         const last = item.arguments.charCodeAt(item.arguments.length - 1);
         const first = delta.charCodeAt(0);
-        // JSON escapes can split a UTF-16 pair across argument deltas. Its joined
-        // UTF-8 size is four bytes rather than two replacement characters (six).
+        // A UTF-16 pair split across deltas joins into four UTF-8 bytes, not two replacement characters (six).
         if (last >= 0xd800 && last <= 0xdbff && first >= 0xdc00 && first <= 0xdfff) bytes -= 2;
         argumentBytes += bytes;
         if (argumentBytes > this.#limits.maxToolArgumentBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider tool arguments exceed the byte limit.');
@@ -322,8 +318,7 @@ export class ResponsesProvider implements ProviderAdapter {
           if (!Array.isArray(terminal.output)) malformed();
           let output = terminal.output;
           if (this.#codexProfile && finish !== 'length' && output.length === 0 && items.size > 0) {
-            // Codex's terminal can omit snapshots already delivered by item.done.
-            // A completed status on item.added never substitutes for item.done.
+            // Codex can omit snapshots already delivered by item.done; item.added never substitutes for it.
             output = [];
             for (let outputIndex = 0; outputIndex < items.size; outputIndex++) {
               const item = items.get(outputIndex);
@@ -445,8 +440,7 @@ export class ResponsesProvider implements ProviderAdapter {
             const part = record(event.part);
             if (part.type !== 'summary_text' || optionalString(part.text) === undefined) malformed();
           } else if (optionalString(type.endsWith('.delta') ? event.delta : event.text) === undefined) malformed();
-          if (!generation && request.includeMetadata && type === 'response.reasoning_summary_text.delta') { const summary = summaryRedactor.push(event.delta as string); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
-          if (!generation && request.includeMetadata && type === 'response.reasoning_summary_text.done') { const summary = summaryRedactor.push('', true); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
+          if (!generation && request.includeMetadata && type.startsWith('response.reasoning_summary_text.')) { const summary = type.endsWith('.delta') ? summaryRedactor.push(event.delta as string) : summaryRedactor.push('', true); if (summary) { checkCancellation(); yield { type: 'reasoning.delta', delta: summary }; } }
           continue;
         }
         throw new EngineError('PROVIDER_UNSUPPORTED_EVENT', 'Provider returned an unsupported stream event.');
@@ -467,11 +461,7 @@ export class ResponsesProvider implements ProviderAdapter {
       }
       const usage = terminal.usage == null ? undefined : providerUsage(terminal.usage, USAGE_KEYS, request.includeMetadata);
       const tail = redactor.push('', true);
-      const replayItems = finish === 'length' ? undefined : validateReplayItems(replayOutput, {
-        secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
-        maxBytes: this.#limits.maxResponseBytes,
-        maxToolArgumentBytes: this.#limits.maxToolArgumentBytes, maxToolCalls: this.#limits.maxToolCalls,
-      });
+      const replayItems = finish === 'length' ? undefined : validateReplayItems(replayOutput, this.#replayLimits(this.#limits.maxResponseBytes));
       if (replayItems) validateReplayBinding({ role: 'assistant', content: publicText + tail, toolCalls: completed }, replayItems);
       if (generation && completed.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
       if (boundedBody && !await boundedBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');

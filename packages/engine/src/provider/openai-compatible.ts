@@ -414,8 +414,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       if ((finish === 'tool_calls') !== (calls.size > 0)) malformed();
       diagnosticStage = 'complete-audio';
       if(wantsAudio&&(!audioId||!audioBytes||!audioExpired||audioBytes%(this.#outputAudio!.channels*2)||finish!=='stop'))throw new EngineError('PROVIDER_INCOMPLETE_STREAM','Audio output lacks a complete bounded PCM and final expiry');
-      // Validate every call before exposing any call. Truncated, malformed, or duplicate
-      // tool inputs must never cause execution of an earlier otherwise valid call.
+      // Validate every call before exposing any, so a bad later call never lets an earlier one execute.
       const completed: ProviderToolCall[] = [];
       const identifiers = new Set<string>();
       diagnosticStage = 'completed-calls';

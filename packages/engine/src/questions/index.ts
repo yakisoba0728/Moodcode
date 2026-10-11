@@ -46,7 +46,7 @@ export class QuestionManager {
   }
   private save(question: QuestionRecord): void {
     const document = this.store.getSessionDocument(question.sessionId, 'questions');
-    let records = structuredClone((document?.data.records ?? []) as unknown as QuestionRecord[]);
+    const records = structuredClone((document?.data.records ?? []) as unknown as QuestionRecord[]);
     const index = records.findIndex(record => record.id === question.id);
     if (index < 0) records.push(question); else records[index] = question;
     while (records.length > 64) {
@@ -106,9 +106,11 @@ export class QuestionManager {
     try { this.save(expired); } catch (failure) { error = failure; }
     this.waits.delete(question.id); wait?.detach(); wait?.reject(error);
   }
+  private find(sessionId: string, questionId: string): QuestionRecord {
+    return this.all(sessionId).find(record => record.id === questionId) ?? fail('QUESTION_NOT_FOUND', 'Question does not belong to this session');
+  }
   answer(sessionId: string, questionId: string, version: number, value: unknown): QuestionRecord {
-    const question = this.all(sessionId).find(record => record.id === questionId);
-    if (!question) fail('QUESTION_NOT_FOUND', 'Question does not belong to this session');
+    const question = this.find(sessionId, questionId);
     const input = record(value);
     if (Object.keys(input).some(key => !['optionIds', 'text'].includes(key)) || !Array.isArray(input.optionIds) || input.optionIds.some(value => typeof value !== 'string')
       || new Set(input.optionIds).size !== input.optionIds.length || input.optionIds.some(id => !question.spec.options.some(option => option.id === id))
@@ -119,8 +121,7 @@ export class QuestionManager {
     return this.decide(question, version, 'answered', answer);
   }
   reject(sessionId: string, questionId: string, version: number): QuestionRecord {
-    const question = this.all(sessionId).find(record => record.id === questionId);
-    if (!question) fail('QUESTION_NOT_FOUND', 'Question does not belong to this session');
+    const question = this.find(sessionId, questionId);
     if (question.status === 'rejected' && question.version === version + 1) return question;
     return this.decide(question, version, 'rejected');
   }

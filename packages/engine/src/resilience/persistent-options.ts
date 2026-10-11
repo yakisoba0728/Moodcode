@@ -1,3 +1,5 @@
+import { assertIntegerBounds } from "./options.js";
+
 export interface PersistentSoakOptions {
   profile?: "quick" | "long";
   durationMs?: number;
@@ -42,7 +44,7 @@ export function resolvePersistentSoakOptions(
     maxSamples: input.maxSamples ?? 128,
     boundaryTimeoutMs: input.boundaryTimeoutMs ?? 10000,
   };
-  const bounds = {
+  assertIntegerBounds(result, {
     durationMs: [1000, 28_800_000],
     maxCycles: [3, 50000],
     maxInputs: [16, 200004],
@@ -51,18 +53,7 @@ export function resolvePersistentSoakOptions(
     seed: [0, 0xffffffff],
     maxSamples: [8, 256],
     boundaryTimeoutMs: [1000, 30000],
-  } as const;
-  for (const key of Object.keys(bounds) as Array<keyof typeof bounds>) {
-    const [min, max] = bounds[key];
-    if (
-      !Number.isSafeInteger(result[key]) ||
-      result[key] < min ||
-      result[key] > max
-    )
-      throw new RangeError(
-        `${key} must be an integer between ${min} and ${max}`,
-      );
-  }
+  });
   if (result.maxInputBytes < result.payloadBytes * 16)
     throw new RangeError(
       "Input byte ceiling must reserve three cycles and the crash checkpoint",

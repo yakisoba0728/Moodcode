@@ -54,8 +54,7 @@ function cloneJson(value: unknown, maximum: number): JsonValue {
 }
 
 function argumentCloneBudget(bytes: number): number {
-  // A compact finite numeric token such as 1e20 can expand when JSON.stringify
-  // prints it in decimal notation. A JSON number needs at most 24 characters.
+  // A compact number such as 1e20 can expand when re-serialized; any JSON number fits in 24 characters.
   return Math.min(ABSOLUTE_LIMIT, Math.max(1, bytes) * 24);
 }
 function argumentValue(argumentsText: string): JsonValue {
@@ -131,8 +130,7 @@ export function validateReplayItems(value: unknown, options: ReplayValidationOpt
     const safe = redacted.map(object);
     for (const call of calls) {
       const input = redactCredentialJson(call.input, secrets);
-      // Serialized arguments may contain JSON escapes hiding a credential. Redact
-      // their parsed values too, preserving original formatting when unchanged.
+      // JSON escapes can hide a credential, so parsed values are redacted too; unchanged text keeps its formatting.
       const rawRedacted = redactCredentialText(call.argumentsText, secrets);
       const changed = rawRedacted !== call.argumentsText || !isDeepStrictEqual(input, call.input);
       const argumentsText = changed ? JSON.stringify(input) : call.argumentsText;

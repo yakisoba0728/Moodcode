@@ -22,16 +22,13 @@ export class SseDataParser {
     this.#lineBuffer = new Uint8Array(Math.min(4096, maxFrameBytes));
   }
 
-  /** Whether an unterminated line or data frame is buffered. */
   get partial(): boolean { return this.#lineBytes > 0 || this.#data.length > 0; }
 
-  /** Yields the data of each frame that `bytes` completes. */
   *push(bytes: Uint8Array): Generator<string> {
     let start = 0;
     for (let index = 0; index < bytes.length; index++) {
       const byte = bytes[index];
-      // Defer a CR delimiter until the next byte, so the optional LF is
-      // included in the same frame's byte limit before it is dispatched.
+      // A deferred CR lets an optional LF count toward the same frame's byte limit before dispatch.
       if (this.#pendingCr) {
         this.#pendingCr = false;
         if (byte === 10) this.#account(1);
@@ -101,9 +98,7 @@ export async function* readSseData(body: ReadableStream<Uint8Array>, signal: Abo
   let responseBytes = 0;
   const abort = () => { void reader.cancel().catch(() => {}); };
   signal.addEventListener('abort', abort, { once: true });
-  const checkAbort = () => {
-    if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-  };
+  const checkAbort = () => { if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
   try {
     checkAbort();
     while (true) {

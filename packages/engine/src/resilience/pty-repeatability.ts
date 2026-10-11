@@ -156,6 +156,10 @@ function observedProcesses(pids: number[]) {
   );
   return rows;
 }
+const deadlineError = (phase: string) =>
+  Object.assign(new Error(`PTY repeatability deadline: ${phase}`), {
+    code: "PTY_REPEATABILITY_TIMEOUT",
+  });
 async function bounded<T>(
   operation: Promise<T>,
   ms: number,
@@ -177,15 +181,7 @@ async function bounded<T>(
           ]
         : []),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(
-          () =>
-            reject(
-              Object.assign(new Error(`PTY repeatability deadline: ${phase}`), {
-                code: "PTY_REPEATABILITY_TIMEOUT",
-              }),
-            ),
-          ms,
-        );
+        timer = setTimeout(() => reject(deadlineError(phase)), ms);
       }),
     ]);
   } finally {
@@ -203,10 +199,7 @@ async function until(
   for (;;) {
     signal?.throwIfAborted();
     if (check()) return;
-    if (performance.now() >= deadline)
-      throw Object.assign(new Error(`PTY repeatability deadline: ${phase}`), {
-        code: "PTY_REPEATABILITY_TIMEOUT",
-      });
+    if (performance.now() >= deadline) throw deadlineError(phase);
     await new Promise<void>((done) => setTimeout(done, 3));
   }
 }
@@ -399,6 +392,10 @@ export async function runPtyRepeatabilityCase(input: {
     groups: groups.map((pid) => presence(-pid)),
   });
   let phase = "engine-create";
+  const step = <T>(operation: Promise<T>) =>
+    bounded(operation, input.timeoutMs, phase, input.signal);
+  const wait = (check: () => boolean) =>
+    until(check, input.timeoutMs, phase, input.signal);
   try {
     engine = createEngine(options);
     const createdAt = new Date().toISOString();
@@ -422,7 +419,7 @@ export async function runPtyRepeatabilityCase(input: {
           ? 'test -t 0 || exit 9; printf "PIDS:%s\\n" "$$"; read first; stty size; read second; printf "REPLY:%s:%s\\n" "$first" "$second"'
           : 'test -t 0 || exit 9; printf "PIDS:%s\\n" "$$"; read answer; printf "NORMAL_DONE\\n"; exit 0';
     phase = "terminal-create";
-    const terminal = await bounded(
+    const terminal = await step(
       engine.terminals.create({
         owner,
         file: "/bin/sh",
@@ -430,9 +427,6 @@ export async function runPtyRepeatabilityCase(input: {
         cols: 80,
         rows: 24,
       }),
-      input.timeoutMs,
-      phase,
-      input.signal,
     );
     terminalId = terminal.id;
     const text = () =>
@@ -441,12 +435,7 @@ export async function runPtyRepeatabilityCase(input: {
         .output.map((item) => item.data)
         .join("");
     phase = "native-readiness";
-    await until(
-      () => /PIDS:\d+(?::\d+)?[\r\n]/.test(text()),
-      input.timeoutMs,
-      phase,
-      input.signal,
-    );
+    await wait(() => /PIDS:\d+(?::\d+)?[\r\n]/.test(text()));
     pids = /PIDS:(\d+)(?::(\d+))?/
       .exec(text())!
       .slice(1)
@@ -462,40 +451,24 @@ export async function runPtyRepeatabilityCase(input: {
       assert.equal(supervisor!.kill("SIGKILL"), true);
     else if (input.scenario === "ipc-disconnect") supervisor!.disconnect();
     else if (input.scenario === "cancel")
-      await bounded(
-        engine.terminals.cancel(terminal.id, owner),
-        input.timeoutMs,
-        phase,
-        input.signal,
-      );
+      await step(engine.terminals.cancel(terminal.id, owner));
     else {
       if (input.scenario === "input-resize")
-        await bounded(
-          engine.terminals.resize(terminal.id, owner, 100, 40),
-          input.timeoutMs,
-          phase,
-          input.signal,
-        );
-      await bounded(
+        await step(engine.terminals.resize(terminal.id, owner, 100, 40));
+      await step(
         engine.terminals.write(
           terminal.id,
           owner,
           input.scenario === "input-resize" ? "one\rtwo\r" : "finish\r",
         ),
-        input.timeoutMs,
-        phase,
-        input.signal,
       );
     }
     phase = "terminal-close";
-    await until(
+    await wait(
       () =>
         !["running", "starting"].includes(
           engine!.terminals.get(terminal.id, owner).state,
         ),
-      input.timeoutMs,
-      phase,
-      input.signal,
     );
     data.terminal = evidence(engine.terminals.get(terminal.id, owner));
     const output = text();
@@ -549,14 +522,10 @@ export async function runPtyRepeatabilityCase(input: {
     }
     if (input.scenario === "normal-exit") assert.equal(data.replay.input, true);
     phase = "physical-absence";
-    await until(
-      () =>
-        [...pids, ...groups.map((pid) => -pid)].every(
-          (pid) => presence(pid).presence === "absent",
-        ),
-      input.timeoutMs,
-      phase,
-      input.signal,
+    await wait(() =>
+      [...pids, ...groups.map((pid) => -pid)].every(
+        (pid) => presence(pid).presence === "absent",
+      ),
     );
     data.beforeClosePresence = observePresence();
     save();

@@ -103,20 +103,14 @@ function streamError(value: unknown): EngineError {
 function accumulateUsage(previous: JsonObject, value: unknown, metadata: boolean): JsonObject {
   const source = record(value);
   const result = { ...previous };
-  for (const key of ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens']) {
-    if (source[key] === undefined || source[key] === null) continue;
-    const next = count(source[key]);
+  const merge = (key: string, value: unknown) => {
+    if (value === undefined || value === null) return;
+    const next = count(value);
     if (result[key] !== undefined && next < count(result[key])) malformed();
     result[key] = next;
-  }
-  if (metadata && source.output_tokens_details !== undefined && source.output_tokens_details !== null) {
-    const details = record(source.output_tokens_details);
-    if (details.thinking_tokens !== undefined && details.thinking_tokens !== null) {
-      const next = count(details.thinking_tokens);
-      if (result.thinking_tokens !== undefined && next < count(result.thinking_tokens)) malformed();
-      result.thinking_tokens = next;
-    }
-  }
+  };
+  for (const key of ['input_tokens', 'cache_creation_input_tokens', 'cache_read_input_tokens', 'output_tokens']) merge(key, source[key]);
+  if (metadata && source.output_tokens_details !== undefined && source.output_tokens_details !== null) merge('thinking_tokens', record(source.output_tokens_details).thinking_tokens);
   if (result.thinking_tokens !== undefined && result.output_tokens !== undefined
     && count(result.thinking_tokens) > count(result.output_tokens)) malformed();
   return result;
@@ -221,8 +215,7 @@ export class AnthropicProvider implements ProviderAdapter {
       });
       const summaries = safeBlocks.filter(block => block.type === 'thinking').map(block => String(block.thinking)).join('');
       if (this.#secrets.some(secret => summaries.includes(secret))) invalidReplay();
-      // Each text block is redacted on its own, keeping block boundaries. A credential
-      // straddling blocks cannot be redacted without moving text between them.
+      // Blocks are redacted separately to keep their boundaries, so a credential straddling blocks is rejected.
       const texts = safeBlocks.filter(block => block.type === 'text').map(block => String(block.text)).join('');
       if (this.#secrets.some(secret => texts.includes(secret))) invalidReplay();
       return safeBlocks;
@@ -330,7 +323,6 @@ export class AnthropicProvider implements ProviderAdapter {
       if (generation && response.body) body = boundedGenerationBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       cancelled();
       if (!response.ok) {
-        // Shared bounded parser recognizes structured overflow codes, never remote prose.
         body ??= response.body ? boundedGenerationBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs) : undefined;
         const rejection = body ? new Response(body.stream, { status: response.status, headers: response.headers }) : response;
         throw await providerHttpFailure(rejection, controller.signal);
@@ -464,8 +456,7 @@ export class AnthropicProvider implements ProviderAdapter {
       throw providerTurnError(error, signal, turn.timedOut());
     } finally {
       turn.dispose();
-      // Cancel the owned reader before aborting fetch: abort can error an unread HTTP
-      // rejection body and make its later cancellation mask the original status.
+      // Cancel the owned reader before aborting fetch, or an errored unread rejection body masks the original status.
       let clean = false;
       try { clean = body ? await body.close() : response?.body && !response.body.locked ? await settles(response.body.cancel(), this.#limits.cleanupTimeoutMs) : true; }
       finally { controller.abort(); }

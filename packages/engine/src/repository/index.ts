@@ -67,15 +67,15 @@ export interface RepositoryIndexPort {
     expectedPreview?: string,
   ): Promise<RepositorySnapshot>;
 }
+function invalidQuery(message: string): never {
+  throw new EngineError("INVALID_REPOSITORY_QUERY", message);
+}
 export function repositoryQuery(value: unknown): RepositoryQuery {
   let input: JsonObject;
   try {
     input = boundedJson(value, 8192) as JsonObject;
   } catch {
-    throw new EngineError(
-      "INVALID_REPOSITORY_QUERY",
-      "Repository query must be a bounded JSON object",
-    );
+    invalidQuery("Repository query must be a bounded JSON object");
   }
   if (
     !input ||
@@ -89,24 +89,15 @@ export function repositoryQuery(value: unknown): RepositoryQuery {
     !input.paths.length ||
     input.paths.length > REPOSITORY_CONTEXT_LIMITS.paths
   )
-    throw new EngineError(
-      "INVALID_REPOSITORY_QUERY",
-      "Choose a known query and up to eight exact paths",
-    );
+    invalidQuery("Choose a known query and up to eight exact paths");
   const paths = input.paths.map(exactPath);
   if (new Set(paths).size !== paths.length)
-    throw new EngineError(
-      "INVALID_REPOSITORY_QUERY",
-      "Repository paths must be unique",
-    );
+    invalidQuery("Repository paths must be unique");
   const kind = input.kind as LspNavigationKind;
   let position: TextPosition | undefined;
   if (kind === "symbols") {
     if (input.position !== undefined)
-      throw new EngineError(
-        "INVALID_REPOSITORY_QUERY",
-        "Symbols query does not take a position",
-      );
+      invalidQuery("Symbols query does not take a position");
   } else {
     const p = input.position;
     if (
@@ -122,8 +113,7 @@ export function repositoryQuery(value: unknown): RepositoryQuery {
       Number(p.character) < 0 ||
       Number(p.character) > 1_000_000
     )
-      throw new EngineError(
-        "INVALID_REPOSITORY_QUERY",
+      invalidQuery(
         "Definition/references query needs one path and a bounded UTF-16 position",
       );
     position = { line: p.line as number, character: p.character as number };
@@ -135,8 +125,7 @@ async function gitIdentity(
   signal: AbortSignal,
 ): Promise<{ gitHead: string | null; branch: string | null }> {
   if (!workspace.gitRoot) return { gitHead: null, branch: null };
-  // One quiet probe distinguishes a commit (0) from an unborn repository (1); every other
-  // Git failure still fails rather than becoming a fabricated null HEAD.
+  // Exit 0 is a commit and 1 an unborn repository; any other Git failure must not become a null HEAD.
   const result = await runGit(
     workspace.root,
     ["rev-parse", "--verify", "--quiet", "HEAD"],

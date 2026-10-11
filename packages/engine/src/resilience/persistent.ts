@@ -161,6 +161,15 @@ export async function verifyEnginePersistentSoak(
     return result;
   }
   let engine: MoodcodeEngine | undefined, ready: Ready | undefined;
+  const hostSample = (phase: string) =>
+    samplePersistentResources(
+      paths.dbPath,
+      paths.artifactDir,
+      phase,
+      performance.now() - started,
+      result.summary.engineInstances,
+      ready!.summary.cycles,
+    );
   const worker = forkResilienceWorker("persistent-worker", [
     "--persistent-soak-worker",
     base,
@@ -373,16 +382,7 @@ export async function verifyEnginePersistentSoak(
     assert.equal(metrics.attemptUsage.inputTokens.tokens, null);
     assert.equal(metrics.attemptUsage.outputTokens.tokens, null);
     assert.equal(metrics.attempts.retries, 0);
-    result.samples.push(
-      samplePersistentResources(
-        paths.dbPath,
-        paths.artifactDir,
-        "recovery-host-before-close",
-        performance.now() - started,
-        result.summary.engineInstances,
-        ready.summary.cycles,
-      ),
-    );
+    result.samples.push(hostSample("recovery-host-before-close"));
     await bounded(
       engine.close(),
       resolved.boundaryTimeoutMs,
@@ -418,7 +418,6 @@ export async function verifyEnginePersistentSoak(
     assertIdentityStable(source, await sourceRuntimeIdentity());
     assert.equal(cliSha256, digest(readFileSync(cliUrl)));
     result.summary.sourceStable = true;
-    result.cleanup.nativeCleanupConfirmed = false;
     result.cleanup.retainedReason =
       "expected-uncertain-command-no-recovery-acknowledgment";
     verified = true;
@@ -465,16 +464,7 @@ export async function verifyEnginePersistentSoak(
         );
         assert.equal(result.cleanup.ownedLiveSurvivors.length, 0);
         result.cleanup.physicalCleanupConfirmed = true;
-        result.samples.push(
-          samplePersistentResources(
-            paths.dbPath,
-            paths.artifactDir,
-            "recovery-host-after-close",
-            performance.now() - started,
-            result.summary.engineInstances,
-            ready.summary.cycles,
-          ),
-        );
+        result.samples.push(hostSample("recovery-host-after-close"));
       }
     } catch (error) {
       result.failure = failureOf(error);

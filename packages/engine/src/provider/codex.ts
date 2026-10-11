@@ -8,7 +8,6 @@ import { providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
 import { hostGenerationTransportRequest, validateHostGenerationRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 
-// Codex OAuth credentials use this fixed native route.
 const BASE_URL = 'https://chatgpt.com/backend-api/codex';
 const ENDPOINT = BASE_URL + '/responses';
 const USER_AGENT = 'Moodcode/0.1.0';
@@ -89,13 +88,7 @@ export class CodexProvider implements ProviderAdapter {
         if (body === null || typeof body !== 'object' || Array.isArray(body)) invalidConfiguration();
         const payload = body as Record<string, unknown>;
         if (!Array.isArray(payload.input) || payload.store !== false || payload.stream !== true) invalidConfiguration();
-        payload.input = payload.input.map(item => {
-          if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
-            const native = item as Record<string, unknown>;
-            if (native.role === 'system') return { ...native, role: 'developer' };
-          }
-          return item;
-        });
+        payload.input = payload.input.map(item => item !== null && typeof item === 'object' && !Array.isArray(item) && (item as Record<string, unknown>).role === 'system' ? { ...item, role: 'developer' } : item);
         payload.instructions = '';
         const serialized = JSON.stringify(payload);
         if (Buffer.byteLength(serialized, 'utf8') > this.#requestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
