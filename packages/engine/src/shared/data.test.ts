@@ -6,7 +6,7 @@ import { jobJson, jobObject } from '../jobs/validation.js';
 import { filePublicationJson } from '../knowledge/file-publication-validation.js';
 import { assertKnowledgeSignal, immutableKnowledgeJson, knowledgeHash, knowledgeHostRecord, resealKnowledge, withKnowledgeHash } from '../knowledge/validation.js';
 import { canonicalSha256 } from './canonical.js';
-import { assertNativeSignal, deepFreeze, exactKeys, isBoundedId, isSha256, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
+import { assertNativeSignal, deepFreeze, exactKeys, isBoundedId, isPlainArray, isSha256, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
 
 const hasCode = (code: string, message?: string) => (error: unknown) => error instanceof EngineError && error.code === code && (message === undefined || error.message === message);
 const reported = (fault: string) => (error: unknown) => error instanceof Error && error.message === fault;
@@ -138,6 +138,8 @@ test('plain-record tiers separate hostile host input from parsed data', () => {
   assert.throws(() => fields(Object.defineProperty({}, 'id', { value: 1 })), reported('descriptor'));
   assert.ok(exactKeys({ a: 1, b: 2 }, ['a'], ['b'])); assert.ok(exactKeys({ a: 1 }, ['a'], ['b']));
   assert.ok(!exactKeys({ b: 2 }, ['a'], ['b'])); assert.ok(!exactKeys({ a: 1, c: 3 }, ['a']));
+  assert.ok(isPlainArray([])); assert.ok(isPlainArray([1, { a: 1 }]));
+  for (const value of [new Proxy([1], {}), Object.assign([1], { extra: 2 }), [, 1], Object.setPrototypeOf([1], Object.prototype), { length: 0 }]) assert.ok(!isPlainArray(value));
 });
 
 test('record guards bind one module code set and seal through the module walker', () => {

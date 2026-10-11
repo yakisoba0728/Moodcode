@@ -1,7 +1,7 @@
 import { types } from 'node:util';
 import { createHash } from 'node:crypto';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
-import { plainRecord } from '../shared/data.js';
+import { isPlainArray, plainRecord } from '../shared/data.js';
 
 const INPUT_DOCUMENT_ID = /^doc_[a-f0-9]{32}$/u;
 export interface DocumentLimits { maxDocumentBytes: number; maxInputDocuments: number; maxInputBytes: number; maxSessionDocuments: number; maxSessionBytes: number }
@@ -30,7 +30,7 @@ export function sameAttachment(left: InputDocumentAttachment, right: InputDocume
   return left.id === right.id && left.kind === right.kind && left.mimeType === right.mimeType && left.bytes === right.bytes && left.sha256 === right.sha256;
 }
 export function attachments(value: unknown, limits: Readonly<DocumentLimits> = DEFAULT_DOCUMENT_LIMITS): InputDocumentAttachment[] {
-  if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || Reflect.ownKeys(value).length !== value.length + 1) fail('DOCUMENT_INVALID_REFERENCE');
+  if (!isPlainArray(value)) fail('DOCUMENT_INVALID_REFERENCE');
   if (value.length > limits.maxInputDocuments) fail('DOCUMENT_LIMIT_EXCEEDED');
   const result: InputDocumentAttachment[] = [], ids = new Set<string>();
   for (let i = 0; i < value.length; i++) {

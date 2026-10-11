@@ -4,7 +4,7 @@ import { appendFileSync, chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
-import { errnoCode, readStableFile, sameRegularFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, within, type StableField } from './fs.js';
+import { errnoCode, openSingleLinkFile, readStableFile, sameRegularFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, syncDirectoryAsync, within, type StableField } from './fs.js';
 
 const fault = (name: string) => (): never => { throw new Error(name); };
 const reported = (name: string) => (error: unknown) => error instanceof Error && error.message === name;
@@ -126,4 +126,19 @@ test('syncDirectory refuses a symlink or a file, and errnoCode reads only string
   assert.equal(errnoCode({ code: 1 }), undefined);
   assert.equal(errnoCode(null), undefined);
   assert.equal(errnoCode('ENOENT'), undefined);
+});
+
+test('syncDirectoryAsync and openSingleLinkFile refuse symlinks, files and extra links', async t => {
+  const root = directory(t), path = join(root, 'file'), unsafe = fault('unsafe');
+  writeFileSync(path, 'abc');
+  symlinkSync(root, join(root, 'dir-link'));
+  symlinkSync(path, join(root, 'file-link'));
+  await syncDirectoryAsync(root);
+  await assert.rejects(syncDirectoryAsync(join(root, 'dir-link')), (error: unknown) => ['ELOOP', 'ENOTDIR'].includes(errnoCode(error)!));
+  await assert.rejects(syncDirectoryAsync(path), (error: unknown) => errnoCode(error) === 'ENOTDIR');
+  const handle = await openSingleLinkFile(path, unsafe);
+  try { assert.equal((await handle.readFile()).toString(), 'abc'); } finally { await handle.close(); }
+  for (const target of [root, join(root, 'file-link')]) await assert.rejects(openSingleLinkFile(target, unsafe), reported('unsafe'));
+  linkSync(path, join(root, 'second'));
+  await assert.rejects(openSingleLinkFile(path, unsafe), reported('unsafe'));
 });

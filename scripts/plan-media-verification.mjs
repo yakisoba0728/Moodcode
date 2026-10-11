@@ -22,6 +22,7 @@ const sources = [
   "packages/engine/src/media/segment-validation.ts",
   "packages/engine/src/media/segment-provider.ts",
   "packages/engine/src/media/segment-store.ts",
+  "packages/engine/src/storage/session-blob-store.ts",
   "packages/engine/src/media/output.ts",
   "packages/engine/src/media/native-validation.ts",
   "packages/engine/src/media/storage-capacity.ts",

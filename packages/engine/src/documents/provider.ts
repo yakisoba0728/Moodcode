@@ -1,11 +1,11 @@
-import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 import type { ProviderMessage, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
 import type { ProviderTransportRequest } from '../provider/generation.js';
 import { providerImages } from '../media/provider.js';
 import { attachments as imageAttachments, DEFAULT_IMAGE_LIMITS } from '../media/validation.js';
-import { attachments as documentAttachments, DEFAULT_DOCUMENT_LIMITS, validateDocumentBytes } from './validation.js';
+import { isPlainArray } from '../shared/data.js';
+import { attachments as documentAttachments, DEFAULT_DOCUMENT_LIMITS, digest, sameAttachment, validateDocumentBytes } from './validation.js';
 
 const MAX_DOCUMENT_BYTES = DEFAULT_DOCUMENT_LIMITS.maxDocumentBytes;
 const MAX_DOCUMENT_OCCURRENCES = DEFAULT_DOCUMENT_LIMITS.maxInputDocuments;
@@ -34,10 +34,6 @@ export function hasDocumentInputs(request: ProviderTransportRequest): boolean {
   if (resolved !== undefined && (!Array.isArray(resolved) || types.isProxy(resolved))) invalid();
   return Array.isArray(resolved) && resolved.length > 0;
 }
-function same(left: InputDocumentAttachment, right: InputDocumentAttachment): boolean {
-  return left.id === right.id && left.kind === right.kind && left.mimeType === right.mimeType
-    && left.bytes === right.bytes && left.sha256 === right.sha256;
-}
 
 /** Transport projection only. Session/workspace ownership must be checked by the host resolver. */
 export function providerDocuments(request: ProviderTransportRequest, supported: boolean, signal?: AbortSignal,
@@ -60,13 +56,12 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
       }
       for (const ref of documentAttachments(value)) {
         if (++occurrences > MAX_DOCUMENT_OCCURRENCES || ref.bytes > MAX_DOCUMENT_BYTES) limited();
-        const old = wanted.get(ref.id); if (old && !same(old, ref)) invalid();
+        const old = wanted.get(ref.id); if (old && !sameAttachment(old, ref)) invalid();
         wanted.set(ref.id, ref); total += ref.bytes;
       }
     }
     const supplied = ownValue(request, 'resolvedDocuments');
-    if (supplied !== undefined && (!Array.isArray(supplied) || types.isProxy(supplied) || Object.getPrototypeOf(supplied) !== Array.prototype
-      || Reflect.ownKeys(supplied).length !== supplied.length + 1)) invalid();
+    if (supplied !== undefined && !isPlainArray(supplied)) invalid();
     if (!supported && (wanted.size || Array.isArray(supplied) && supplied.length)) {
       throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Provider/model does not support PDF document input.');
     }
@@ -94,11 +89,11 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
       const refs = documentAttachments([rawRef]);
       const ref = refs[0]!;
       const data = ownValue(item, 'data'), expected = wanted.get(ref.id);
-      if (!expected || !same(ref, expected) || result.has(ref.id) || typeof data !== 'string'
+      if (!expected || !sameAttachment(ref, expected) || result.has(ref.id) || typeof data !== 'string'
         || data.length !== Math.ceil(ref.bytes / 3) * 4
         || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/u.test(data)) invalid();
       const bytes = Buffer.from(data, 'base64');
-      if (bytes.length !== ref.bytes || bytes.toString('base64') !== data || createHash('sha256').update(bytes).digest('hex') !== ref.sha256) invalid();
+      if (bytes.length !== ref.bytes || bytes.toString('base64') !== data || digest(bytes) !== ref.sha256) invalid();
       validateDocumentBytes(bytes, ref.mimeType);
       result.set(ref.id, { attachment: ref, data });
     }

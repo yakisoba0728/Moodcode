@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, openSync, readSync, realpathSync, writeSync, type BigIntStats, type Stats } from 'node:fs';
-import { lstat, mkdir, realpath } from 'node:fs/promises';
+import { lstat, mkdir, open, realpath, type FileHandle } from 'node:fs/promises';
 import { dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
 
 export function errnoCode(error: unknown): string | undefined {
@@ -44,9 +44,15 @@ export async function symlinkFreeDirectory(path: string, options: { readonly cre
   return info;
 }
 
+const DIRECTORY_FLAGS = constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0);
 export function syncDirectory(path: string): void {
-  const fd = openSync(path, constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0));
+  const fd = openSync(path, DIRECTORY_FLAGS);
   try { fsyncSync(fd); } finally { closeSync(fd); }
+}
+/** syncDirectory without blocking the event loop. */
+export async function syncDirectoryAsync(path: string): Promise<void> {
+  const handle = await open(path, DIRECTORY_FLAGS);
+  try { await handle.sync(); } finally { await handle.close(); }
 }
 
 export type StableField = 'size' | 'nlink' | 'mode' | 'mtime' | 'ctime';
@@ -59,6 +65,17 @@ function statField(info: FileStats, field: StableField): number | bigint {
 /** Same device and inode, and the same value for each listed field; times compare at the precision of the stats given. */
 export function stableStat<T extends FileStats>(a: T, b: T | undefined, fields: readonly StableField[] = []): boolean {
   return b !== undefined && a.dev === b.dev && a.ino === b.ino && fields.every(field => statField(a, field) === statField(b, field));
+}
+/** Opens path read-only without following a symlink; before and after the open it must be the same single-link regular file. */
+export async function openSingleLinkFile(path: string, onUnsafe: () => never): Promise<FileHandle> {
+  const before = await lstat(path);
+  if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1) onUnsafe();
+  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+  try {
+    const after = await handle.stat();
+    if (!after.isFile() || after.nlink !== 1 || !stableStat(before, after)) onUnsafe();
+    return handle;
+  } catch (error) { await handle.close(); throw error; }
 }
 /** actual is still the expected regular file: same identity, size, times and link count. */
 export function sameRegularFile<T extends FileStats>(expected: T, actual: T | undefined): boolean {

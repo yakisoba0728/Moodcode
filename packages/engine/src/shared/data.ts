@@ -135,6 +135,10 @@ export function plainRecord(value: unknown, required: readonly string[], optiona
   if (Object.values(descriptors).some(descriptor => !descriptor.enumerable || !('value' in descriptor))) fail('descriptor');
   return value as Record<string, unknown>;
 }
+/** Shape half of the hostile array check: a non-proxy Array.prototype array with exactly length + 1 own keys. Callers complete it by requiring each index to be an own enumerable data property. */
+export function isPlainArray(value: unknown): value is unknown[] {
+  return !types.isProxy(value) && Array.isArray(value) && Object.getPrototypeOf(value) === Array.prototype && Reflect.ownKeys(value).length === value.length + 1;
+}
 /** Post-parse tier: compares own enumerable keys only, for values that cannot hold proxies or accessors (JSON.parse or walker output). */
 export function exactKeys(value: object, required: readonly string[], optional: readonly string[] = []): boolean {
   return required.every(key => Object.hasOwn(value, key)) && Object.keys(value).every(key => required.includes(key) || optional.includes(key));
