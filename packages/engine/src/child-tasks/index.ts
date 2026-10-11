@@ -7,7 +7,7 @@ import {
 import type { GrantDocumentPort } from "../permission/grants.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
 import { utf8Prefix } from "../shared/data.js";
-import { raceAbort, settleWithin } from "../shared/runtime.js";
+import { raceAbort } from "../shared/runtime.js";
 import type { WorktreeManager } from "../worktrees/index.js";
 import {
   CHILD_BUDGET_KEYS as KEYS,
@@ -183,13 +183,24 @@ function boundedOutcome(
 function cancelled(): EngineError {
   return new EngineError("CANCELLED", "Child task was cancelled");
 }
-async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
-  if (!(await settleWithin(promise, ms)))
-    throw new EngineError(
-      "CHILD_CLEANUP_UNCERTAIN",
-      "Child dispatch or cancellation did not settle before the cleanup deadline",
-    );
-  return promise;
+// A direct race: settling through settleWithin adds microtask turns, and close() then still sees the child as live.
+function within<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () =>
+          reject(
+            new EngineError(
+              "CHILD_CLEANUP_UNCERTAIN",
+              "Child dispatch or cancellation did not settle before the cleanup deadline",
+            ),
+          ),
+        ms,
+      );
+    }),
+  ]).finally(() => clearTimeout(timer));
 }
 
 /** Durable allocation and lifecycle boundary. The host owns actual run execution and result-input deduplication. */
