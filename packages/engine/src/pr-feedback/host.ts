@@ -47,6 +47,7 @@ import {
   type PrRemoteSnapshot,
   type PrWatchRecord,
   type PrAcceptedInput,
+  type PrFeedbackOccurrence,
   type PrSourcePin,
   type PrPollResult,
 } from "./types.js";
@@ -158,6 +159,9 @@ export class PrFeedbackHost {
   private active() {
     this.open();
     if (!this.enabled()) prFail("PR_FEEDBACK_UNSUPPORTED");
+  }
+  private abortFor(signal?: AbortSignal): AbortSignal {
+    return signal ? AbortSignal.any([signal, this.lifetime]) : this.lifetime;
   }
   private physical(ws: string) {
     const b = this.binding(ws);
@@ -316,9 +320,7 @@ export class PrFeedbackHost {
         jobTargetChanged,
       ).pin;
       let source: PrSourcePin | null = null;
-      const abort = signal
-        ? AbortSignal.any([signal, this.lifetime])
-        : this.lifetime;
+      const abort = this.abortFor(signal);
       if (i.sourceRunId !== null) {
         prId(i.sourceRunId);
         const run = this.engine.store.getRun(i.sourceRunId);
@@ -469,9 +471,7 @@ export class PrFeedbackHost {
     this.current(watch.preview);
     if (watch.nextPollAt && Date.parse(watch.nextPollAt) > Date.now())
       return this.records.gap(i, "PR_RATE_LIMIT", watch.nextPollAt, durable);
-    const abort = signal
-      ? AbortSignal.any([signal, this.lifetime])
-      : this.lifetime;
+    const abort = this.abortFor(signal);
     let snapshot: PrRemoteSnapshot;
     try {
       snapshot = await this.reader(watch.preview).snapshot(
@@ -562,9 +562,6 @@ export class PrFeedbackHost {
     if (prior) return Promise.resolve(prior);
     return this.poll({ ...base, requestId }, signal);
   }
-  reconcileHead(input: PollPrWatchInput, signal?: AbortSignal) {
-    return this.poll(input, signal);
-  }
   private accept(
     original: object,
     prompt: string,
@@ -615,6 +612,18 @@ export class PrFeedbackHost {
       inputSha256: knowledgeHash(input),
     });
   }
+  private occurrenceCurrent(
+    o: PrFeedbackOccurrence,
+    watch: PrWatchRecord | null,
+  ): boolean {
+    return (
+      o.state === "accepted" &&
+      watch?.state === "active" &&
+      !watch.gap &&
+      watch.snapshot?.head === o.snapshot.head &&
+      watch.snapshot.semanticSha256 === o.snapshot.semanticSha256
+    );
+  }
   beforePromotion(input: InputRecord) {
     const o = this.records.findInput(input);
     if (!o) return null;
@@ -624,15 +633,7 @@ export class PrFeedbackHost {
       input.sessionId,
       o.watchId,
     );
-    if (
-      o.state !== "accepted" ||
-      !watch ||
-      watch.state !== "active" ||
-      watch.gap ||
-      watch.snapshot?.head !== o.snapshot.head ||
-      watch.snapshot.semanticSha256 !== o.snapshot.semanticSha256 ||
-      !this.sourceMatches(o.preview)
-    )
+    if (!this.occurrenceCurrent(o, watch) || !this.sourceMatches(o.preview))
       prFail("PR_FEEDBACK_STALE");
     return o;
   }
@@ -643,11 +644,7 @@ export class PrFeedbackHost {
     this.current(o.preview);
     const watch = this.records.get(run.workspaceId, run.sessionId, o.watchId);
     if (
-      o.state !== "accepted" ||
-      watch?.state !== "active" ||
-      watch.gap ||
-      watch.snapshot?.head !== o.snapshot.head ||
-      watch.snapshot.semanticSha256 !== o.snapshot.semanticSha256 ||
+      !this.occurrenceCurrent(o, watch) ||
       git(o.preview.binding.root, "rev-parse", "HEAD") !== o.snapshot.head ||
       !this.configurationMatches(o.preview) ||
       run.prompt !== o.prompt ||

@@ -2051,7 +2051,7 @@ export class MoodcodeEngine implements EngineRuntime {
   registerPrWatch(...args:Parameters<PrFeedbackHost['register']>){return this.prFeedbackHost.register(...args);}
   pollPrWatch(...args:Parameters<PrFeedbackHost['poll']>){return this.prFeedbackHost.poll(...args);}
   acceptCiFeedback(...args:Parameters<PrFeedbackHost['acceptWebhook']>){return this.prFeedbackHost.acceptWebhook(...args);}
-  reconcilePrHead(...args:Parameters<PrFeedbackHost['reconcileHead']>){return this.prFeedbackHost.reconcileHead(...args);}
+  reconcilePrHead(...args:Parameters<PrFeedbackHost['poll']>){return this.prFeedbackHost.poll(...args);}
   startPrWatch(...args:Parameters<PrFeedbackHost['start']>){return this.prFeedbackHost.start(...args);}
   stopPrWatch(...args:Parameters<PrFeedbackHost['stop']>){return this.prFeedbackHost.stop(...args);}
   disablePrWatch(...args:Parameters<PrFeedbackHost['disable']>){return this.prFeedbackHost.disable(...args);}
