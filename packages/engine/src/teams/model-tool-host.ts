@@ -10,6 +10,7 @@ import type { TeamOwnerPort } from "./input-port.js";
 import { teamHostData, teamHostObject } from "./policy.js";
 import { teamId, teamInteger } from "./validation.js";
 import {
+  isTeamModelRead,
   parseTeamModelInput,
   type TeamModelActorSnapshot,
   type TeamModelExpectation,
@@ -200,10 +201,13 @@ function contextShape(context: ToolContext): void {
   )
     fail();
 }
-function actorSnapshot(binding: Binding): JsonObject {
-  const member = binding.member;
+function actorSnapshot(
+  workspaceId: string,
+  member: TeamMemberRevision,
+  recipientAliases: readonly string[] = [],
+): JsonObject {
   return immutableKnowledgeJson({
-    workspaceId: binding.workspaceId,
+    workspaceId,
     teamId: member.teamId,
     memberId: member.memberId,
     generation: member.generation,
@@ -221,7 +225,7 @@ function actorSnapshot(binding: Binding): JsonObject {
       ownerEpoch: member.owner.ownerEpoch,
       sha256: member.owner.sha256,
     },
-    recipientAliases: [...(binding.selection.recipientAliases ?? [])],
+    recipientAliases: [...recipientAliases],
   });
 }
 
@@ -323,8 +327,11 @@ export class EngineTeamModelToolHost {
       key = executionKey(proof);
     if (this.selected.has(key)) fail("TEAM_MODEL_BINDING_CONFLICT");
     if (this.selected.size >= 32) fail("TEAM_MODEL_LIMIT");
+    const original = Object.freeze({
+      actor: actorSnapshot(workspaceId, member, selection.recipientAliases),
+    });
     const binding: Binding = {
-      original: undefined!,
+      original,
       selection,
       workspaceId,
       member,
@@ -332,10 +339,8 @@ export class EngineTeamModelToolHost {
       executionKey: key,
       released: false,
     };
-    const original = Object.freeze({ actor: actorSnapshot(binding) });
-    const actual: Binding = { ...binding, original };
-    this.bindings.set(original, actual);
-    this.selected.set(key, actual);
+    this.bindings.set(original, binding);
+    this.selected.set(key, binding);
     return original;
   }
   private binding(original: object): Binding {
@@ -468,7 +473,7 @@ export class EngineTeamModelToolHost {
     )
       fail("TEAM_MODEL_OUTPUT_LIMIT");
     if (
-      ["read_agent_mailbox", "read_team_board"].includes(operation)
+      isTeamModelRead(operation)
         ? !member.permissions.receive
         : operation === "review_team_task"
           ? !member.permissions.manageTasks || member.role !== "coordinator"
@@ -477,10 +482,7 @@ export class EngineTeamModelToolHost {
             : !member.permissions.claimTasks || member.role === "observer"
     )
       fail("TEAM_MODEL_PERMISSION_DENIED");
-    if (
-      phase === "execute" &&
-      !["read_agent_mailbox", "read_team_board"].includes(operation)
-    ) {
+    if (phase === "execute" && !isTeamModelRead(operation)) {
       if (
         run.config.mode !== "build" ||
         !fingerprint ||
@@ -635,7 +637,11 @@ export class EngineTeamModelToolHost {
       inputSha256: knowledgeHash(parsed),
       contextIdentity: contextIdentity(context),
       snapshot: immutableKnowledgeJson({
-        actor: actorSnapshot(binding),
+        actor: actorSnapshot(
+          binding.workspaceId,
+          binding.member,
+          binding.selection.recipientAliases,
+        ),
         resources,
       }),
       ...(recipient ? { recipient } : {}),
@@ -659,7 +665,7 @@ export class EngineTeamModelToolHost {
     context: ToolContext,
     phase: "prepare" | "execute",
     expected: TeamModelExpectation,
-  ): void {
+  ): TeamModelExecution {
     const captured = this.invocation(original);
     teamHostObject(expected, ["operation", "input"], ["fingerprint"]);
     if (phase !== "prepare" && phase !== "execute")
@@ -678,7 +684,7 @@ export class EngineTeamModelToolHost {
       (phase === "execute" && captured.preparedFingerprint === null)
     )
       fail("TEAM_MODEL_PREPARED_STALE");
-    this.current(
+    const execution = this.current(
       captured.binding,
       context,
       captured.operation,
@@ -748,6 +754,7 @@ export class EngineTeamModelToolHost {
     }
     if (phase === "prepare")
       captured.preparedFingerprint = expected.fingerprint;
+    return execution;
   }
   private invoke(
     original: object,
@@ -758,7 +765,7 @@ export class EngineTeamModelToolHost {
   ): JsonObject {
     const captured = this.invocation(original);
     if (captured.invoked) fail("TEAM_MODEL_PREPARED_REUSED");
-    this.assertCurrent(original, context, "execute", {
+    const execution = this.assertCurrent(original, context, "execute", {
       operation,
       input,
       fingerprint,
@@ -768,14 +775,6 @@ export class EngineTeamModelToolHost {
     if (operation === "read_team_board")
       return immutableKnowledgeJson(captured.snapshot.resources);
     if (["submit_team_task", "review_team_task"].includes(operation)) {
-      const execution = this.current(
-        captured.binding,
-        context,
-        operation,
-        "execute",
-        fingerprint,
-        captured.input,
-      );
       const approvals = execution.store
         .listToolApprovals(context.toolCallId)
         .filter(
@@ -851,11 +850,11 @@ export class EngineTeamModelToolHost {
         this.open();
         contextShape(context);
         const binding = this.selected.get(
-          JSON.stringify([
-            context.workspace.id,
-            context.sessionId,
-            context.runId,
-          ]),
+          executionKey({
+            workspaceId: context.workspace.id,
+            sessionId: context.sessionId,
+            runId: context.runId,
+          }),
         );
         const selectedBinding =
           binding ??
@@ -869,8 +868,9 @@ export class EngineTeamModelToolHost {
         return this.capture(selectedBinding, context, operation, input);
       },
       read: (original) => this.invocation(original).snapshot,
-      assertCurrent: (original, context, phase, expected) =>
-        this.assertCurrent(original, context, phase, expected),
+      assertCurrent: (original, context, phase, expected) => {
+        this.assertCurrent(original, context, phase, expected);
+      },
       invoke: (original, operation, input, context, fingerprint) =>
         this.invoke(original, operation, input, context, fingerprint),
       release: (original) => this.release(original),

@@ -30,6 +30,8 @@ export const TEAM_MODEL_WRITE_TOOL_NAMES = Object.freeze([
   "submit_team_task",
   "review_team_task",
 ] as const);
+export const isTeamModelRead = (operation: TeamModelOperation) =>
+  !(TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(operation);
 const TEAM_MODEL_LIMITS = Object.freeze({
   inputBytes: 8192,
   messageBytes: 4096,
@@ -126,6 +128,17 @@ function integer(value: unknown, maximum: number, minimum = 0): number {
     fail();
   return value as number;
 }
+function text(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    !value ||
+    value.includes("\0") ||
+    Buffer.byteLength(value) > TEAM_MODEL_LIMITS.messageBytes ||
+    Buffer.from(value).toString("utf8") !== value
+  )
+    fail();
+  return value;
+}
 export function parseTeamModelInput(
   operation: TeamModelOperation,
   value: unknown,
@@ -133,19 +146,12 @@ export function parseTeamModelInput(
   let parsed: TeamModelInput;
   switch (operation) {
     case "send_agent_message": {
-      const input = object(value, ["requestId", "recipient", "text"]);
-      if (
-        typeof input.text !== "string" ||
-        !input.text.length ||
-        input.text.includes("\0") ||
-        Buffer.byteLength(input.text) > TEAM_MODEL_LIMITS.messageBytes ||
-        Buffer.from(input.text).toString("utf8") !== input.text
-      )
-        fail();
+      const input = object(value, ["requestId", "recipient", "text"]),
+        message = text(input.text);
       parsed = {
         requestId: id(input.requestId, 128),
         recipient: id(input.recipient, 128),
-        text: input.text,
+        text: message,
       };
       break;
     }
@@ -171,14 +177,7 @@ export function parseTeamModelInput(
         "text",
         ...(review ? ["submissionId", "verdict"] : []),
       ]);
-      if (
-        typeof x.text !== "string" ||
-        !x.text ||
-        x.text.includes("\0") ||
-        Buffer.byteLength(x.text) > 4096 ||
-        Buffer.from(x.text).toString("utf8") !== x.text
-      )
-        fail();
+      const body = text(x.text);
       if (
         review &&
         (typeof x.verdict !== "string" ||
@@ -189,7 +188,7 @@ export function parseTeamModelInput(
         requestId: id(x.requestId, 128),
         taskId: id(x.taskId, 256),
         expectedRevision: integer(x.expectedRevision, Number.MAX_SAFE_INTEGER),
-        text: x.text,
+        text: body,
         ...(review
           ? {
               submissionId: id(x.submissionId, 256),
@@ -201,9 +200,9 @@ export function parseTeamModelInput(
     }
     case "read_agent_mailbox": {
       const input = object(value, [], ["limit"]);
-      parsed =
-        input.limit === undefined ? {} : { limit: integer(input.limit, 64, 1) };
-      if (Object.hasOwn(input, "limit") && input.limit === undefined) fail();
+      parsed = Object.hasOwn(input, "limit")
+        ? { limit: integer(input.limit, 64, 1) }
+        : {};
       break;
     }
     case "claim_team_task":
@@ -294,52 +293,45 @@ function binding(context: ToolContext): JsonObject {
     "TEAM_MODEL_OWNER_STALE",
   );
 }
+const str = (maxLength: number) => ({ type: "string", maxLength });
+const taskSchema = (
+  extra: JsonObject = {},
+  required: readonly string[] = [],
+): JsonObject => ({
+  type: "object",
+  properties: {
+    requestId: str(128),
+    taskId: str(256),
+    expectedRevision: { type: "integer", minimum: 0 },
+    ...extra,
+  },
+  required: ["requestId", "taskId", "expectedRevision", ...required],
+  additionalProperties: false,
+});
 const schemas: Record<TeamModelOperation, JsonObject> = {
   read_team_board: {
     type: "object",
     properties: {
       limit: { type: "integer", minimum: 1, maximum: 1 },
-      afterTaskId: { type: "string", maxLength: 256 },
+      afterTaskId: str(256),
     },
     additionalProperties: false,
   },
-  submit_team_task: {
-    type: "object",
-    properties: {
-      requestId: { type: "string", maxLength: 128 },
-      taskId: { type: "string", maxLength: 256 },
-      expectedRevision: { type: "integer", minimum: 0 },
-      text: { type: "string", maxLength: 4096 },
-    },
-    required: ["requestId", "taskId", "expectedRevision", "text"],
-    additionalProperties: false,
-  },
-  review_team_task: {
-    type: "object",
-    properties: {
-      requestId: { type: "string", maxLength: 128 },
-      taskId: { type: "string", maxLength: 256 },
-      expectedRevision: { type: "integer", minimum: 0 },
-      text: { type: "string", maxLength: 4096 },
-      submissionId: { type: "string", maxLength: 256 },
+  submit_team_task: taskSchema({ text: str(4096) }, ["text"]),
+  review_team_task: taskSchema(
+    {
+      text: str(4096),
+      submissionId: str(256),
       verdict: { type: "string", enum: ["accept", "request_changes"] },
     },
-    required: [
-      "requestId",
-      "taskId",
-      "expectedRevision",
-      "text",
-      "submissionId",
-      "verdict",
-    ],
-    additionalProperties: false,
-  },
+    ["text", "submissionId", "verdict"],
+  ),
   send_agent_message: {
     type: "object",
     properties: {
-      requestId: { type: "string", maxLength: 128 },
-      recipient: { type: "string", maxLength: 128 },
-      text: { type: "string", maxLength: 4096 },
+      requestId: str(128),
+      recipient: str(128),
+      text: str(4096),
     },
     required: ["requestId", "recipient", "text"],
     additionalProperties: false,
@@ -349,26 +341,8 @@ const schemas: Record<TeamModelOperation, JsonObject> = {
     properties: { limit: { type: "integer", minimum: 1, maximum: 64 } },
     additionalProperties: false,
   },
-  claim_team_task: {
-    type: "object",
-    properties: {
-      requestId: { type: "string", maxLength: 128 },
-      taskId: { type: "string", maxLength: 256 },
-      expectedRevision: { type: "integer", minimum: 0 },
-    },
-    required: ["requestId", "taskId", "expectedRevision"],
-    additionalProperties: false,
-  },
-  complete_team_task: {
-    type: "object",
-    properties: {
-      requestId: { type: "string", maxLength: 128 },
-      taskId: { type: "string", maxLength: 256 },
-      expectedRevision: { type: "integer", minimum: 0 },
-    },
-    required: ["requestId", "taskId", "expectedRevision"],
-    additionalProperties: false,
-  },
+  claim_team_task: taskSchema(),
+  complete_team_task: taskSchema(),
 };
 const descriptions: Record<TeamModelOperation, string> = {
   read_team_board:
@@ -411,7 +385,7 @@ function result(
   );
   const observation: JsonObject = {
     operation,
-    authority: ["read_agent_mailbox", "read_team_board"].includes(operation)
+    authority: isTeamModelRead(operation)
       ? "untrusted-team-data"
       : "native-team-receipt",
     result: data,
@@ -419,8 +393,7 @@ function result(
   const content = JSON.stringify(observation);
   if (Buffer.byteLength(content) <= limit)
     return { content, data: observation };
-  if (["read_agent_mailbox", "read_team_board"].includes(operation))
-    fail("TEAM_MODEL_OUTPUT_LIMIT");
+  if (isTeamModelRead(operation)) fail("TEAM_MODEL_OUTPUT_LIMIT");
   // The native write already returned a durable receipt. Preserve that fact if a
   // host result cannot fit instead of making the saved operation appear absent.
   const summary: JsonObject = {
@@ -438,9 +411,7 @@ export function createTeamModelTools(
 ): ToolDefinition[] {
   return TEAM_MODEL_TOOL_NAMES.map((operation) => {
     const handles = new WeakMap<object, Capture>();
-    const write = !["read_agent_mailbox", "read_team_board"].includes(
-      operation,
-    );
+    const write = !isTeamModelRead(operation);
     return {
       name: operation,
       effectClass: write ? "write" : "read",

@@ -1,5 +1,5 @@
 import { teamObject, teamId, teamSha, teamInteger } from "./validation.js";
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
@@ -12,6 +12,7 @@ import type {
 import {
   immutableKnowledgeJson,
   knowledgeHash,
+  sha256,
 } from "../knowledge/validation.js";
 import type { TeamModelInput, TeamModelOperation } from "./model-tools.js";
 export const TEAM_WORKFLOW_PREFIX = "team.workflow.";
@@ -57,9 +58,8 @@ export interface TeamBoardRecord {
   submissions: TeamBoardSubmission[];
   sha256: string;
 }
-const id = (value: string) => createHash("sha256").update(value).digest("hex");
 export const teamBoardKind = (team: string, task: string) =>
-  TEAM_WORKFLOW_PREFIX + id(JSON.stringify([team, task])).slice(0, 48);
+  TEAM_WORKFLOW_PREFIX + sha256(JSON.stringify([team, task])).slice(0, 48);
 export function validateTeamBoardRecord(value: unknown): TeamBoardRecord {
   const r = immutableKnowledgeJson(value) as unknown as TeamBoardRecord;
   teamObject(r, [
@@ -170,13 +170,8 @@ export function validateTeamBoardRecord(value: unknown): TeamBoardRecord {
     );
   for (const x of r.submissions) {
     if (
-      !x.id ||
-      !x.requestId ||
       typeof x.text !== "string" ||
       Buffer.byteLength(x.text) > 4096 ||
-      !x.native ||
-      !x.native.toolCallId ||
-      !x.native.approvalFingerprint ||
       (x.review && !["accept", "request_changes"].includes(x.review.verdict))
     )
       throw new EngineError(
@@ -314,32 +309,30 @@ export class TeamWorkflowBoard {
       );
     return immutableKnowledgeJson(value) as JsonObject;
   }
-  prepare(
+  private admit(
     member: TeamMemberRevision,
     operation: TeamModelOperation,
     input: TeamModelInput,
-  ): JsonObject {
+  ) {
     const i = input as {
       taskId: string;
       expectedRevision: number;
       submissionId?: string;
       requestId: string;
     };
-    const { task, record } = this.current(member, i.taskId);
+    const { task, sessionId, record } = this.current(member, i.taskId);
+    const requestSha256 = knowledgeHash({
+      operation,
+      data: input,
+      actor: member.sha256,
+    });
     const prior = record?.submissions
       .flatMap((x) => [x, x.review])
       .find((x) => x?.requestId === i.requestId);
     if (prior) {
-      if (
-        prior.requestSha256 !==
-        knowledgeHash({ operation, data: input, actor: member.sha256 })
-      )
+      if (prior.requestSha256 !== requestSha256)
         throw new EngineError("TEAM_REQUEST_CONFLICT", "Board request changed");
-      return immutableKnowledgeJson({
-        taskId: task.taskId,
-        workflowSha256: record!.sha256,
-        duplicate: true,
-      });
+      return { task, sessionId, record, prior, requestSha256 };
     }
     if (task.revision !== i.expectedRevision || task.state !== "claimed")
       throw new EngineError(
@@ -370,6 +363,20 @@ export class TeamWorkflowBoard {
         "TEAM_MODEL_PERMISSION_DENIED",
         "Independent coordinator review requires the exact unreviewed submission",
       );
+    return { task, sessionId, record, prior, requestSha256 };
+  }
+  prepare(
+    member: TeamMemberRevision,
+    operation: TeamModelOperation,
+    input: TeamModelInput,
+  ): JsonObject {
+    const { task, record, prior } = this.admit(member, operation, input);
+    if (prior)
+      return immutableKnowledgeJson({
+        taskId: task.taskId,
+        workflowSha256: record!.sha256,
+        duplicate: true,
+      });
     return immutableKnowledgeJson({
       taskId: task.taskId,
       taskRevisionId: task.id,
@@ -394,25 +401,17 @@ export class TeamWorkflowBoard {
       submissionId?: string;
       verdict?: "accept" | "request_changes";
     };
-    this.prepare(member, operation, input);
-    const { task, sessionId, record } = this.current(member, data.taskId);
-    const requestSha256 = knowledgeHash({
+    const { task, sessionId, record, prior, requestSha256 } = this.admit(
+      member,
       operation,
-      data,
-      actor: member.sha256,
-    });
-    const prior = record?.submissions
-      .flatMap((x) => [x, x.review])
-      .find((x) => x?.requestId === data.requestId);
-    if (prior) {
-      if (prior.requestSha256 !== requestSha256)
-        throw new EngineError("TEAM_REQUEST_CONFLICT", "Board request changed");
+      input,
+    );
+    if (prior)
       return {
         recordId: record!.taskId,
         recordSha256: record!.sha256,
         duplicate: true,
       };
-    }
     const native = {
       sessionId: context.sessionId,
       runId: context.runId,

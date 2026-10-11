@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { EngineError, isTerminal } from '@moodcode/contracts';
+import { EngineError, isTerminal, type Run } from '@moodcode/contracts';
 import type { EngineRuntime } from '../engine-runtime.js';
 import type { TeamMemberOwnerProof, TeamMemberRevision } from './types.js';
 import { knowledgeHash } from '../knowledge/validation.js';
@@ -7,7 +7,6 @@ import { teamOwnerIdentity } from './validation.js';
 
 interface Selection { workspaceId: string; rootSessionId: string; rootRunId?: string; childTaskId?: string }
 interface Capture { selection: Selection; runId: string; epoch: string }
-const hash = knowledgeHash;
 function fail(): never { throw new EngineError('TEAM_OWNER_STALE', 'Team membership requires its original actual engine owner'); }
 
 /** The private live engine graph authenticates owners; descriptive IDs never grant input authority. */
@@ -15,6 +14,13 @@ export class EngineTeamOwners {
   private readonly originals = new WeakMap<object, Capture>();
   private readonly epoch = randomUUID();
   constructor(private readonly engine: Pick<EngineRuntime, 'store' | 'coordinator' | 'children'>) {}
+
+  private assertLive(run: Run): boolean {
+    if (!['created', 'running', 'awaiting_approval'].includes(run.state)) return false;
+    if (this.engine.coordinator.activeRun(run.sessionId)?.id !== run.id || this.engine.store.getSessionControl(run.sessionId).paused || this.engine.coordinator.getRunCancellationSignal(run.id).aborted) fail();
+    this.engine.coordinator.assertWorkspaceCleanupConfirmed(run.workspaceId);
+    return true;
+  }
 
   capture(selection: Selection): object {
     const session = this.engine.store.getSession(selection.rootSessionId);
@@ -30,16 +36,13 @@ export class EngineTeamOwners {
       const run = selection.rootRunId === undefined ? this.engine.coordinator.activeRun(selection.rootSessionId) : this.engine.store.getRun(selection.rootRunId);
       if (!run || run.workspaceId !== selection.workspaceId || run.sessionId !== selection.rootSessionId) fail();
       this.engine.coordinator.getRunUsage(run.id);
-      if (['created', 'running', 'awaiting_approval'].includes(run.state)) {
-        if (this.engine.coordinator.activeRun(run.sessionId)?.id !== run.id || this.engine.store.getSessionControl(run.sessionId).paused || this.engine.coordinator.getRunCancellationSignal(run.id).aborted) fail();
-        this.engine.coordinator.assertWorkspaceCleanupConfirmed(run.workspaceId);
-      }
+      this.assertLive(run);
       runId = run.id;
       ownerIdentity = run.id;
     }
     const original = Object.freeze({});
     this.originals.set(original, { selection: structuredClone(selection), runId,
-      epoch: hash({ runtime: this.epoch, ownerIdentity }) });
+      epoch: knowledgeHash({ runtime: this.epoch, ownerIdentity }) });
     return original;
   }
 
@@ -56,11 +59,8 @@ export class EngineTeamOwners {
       const run = this.engine.store.getRun(runId);
       if (run.sessionId !== selection.rootSessionId || run.workspaceId !== selection.workspaceId) fail();
       let cleanup: TeamMemberOwnerProof['cleanup'] = 'unknown';
-      if (['created', 'running', 'awaiting_approval'].includes(run.state)) {
-        if (this.engine.coordinator.activeRun(run.sessionId)?.id !== run.id || this.engine.store.getSessionControl(run.sessionId).paused || this.engine.coordinator.getRunCancellationSignal(run.id).aborted) fail();
-        this.engine.coordinator.assertWorkspaceCleanupConfirmed(run.workspaceId);
-        cleanup = 'live';
-      } else if (isTerminal(run.state) && run.state !== 'interrupted' && !this.engine.store.hasUncertainWorkspace(run.workspaceId)) {
+      if (this.assertLive(run)) cleanup = 'live';
+      else if (isTerminal(run.state) && run.state !== 'interrupted' && !this.engine.store.hasUncertainWorkspace(run.workspaceId)) {
         // Retained actual coordinator usage requires an observed settled producer in this host.
         this.engine.coordinator.getRunUsage(run.id);
         cleanup = 'confirmed';
@@ -70,7 +70,7 @@ export class EngineTeamOwners {
         childTaskFingerprint: null, childStorageSha256: null, worktreeId: null,
         ownerEpoch: epoch, cleanup };
     }
-    return { ...fields, sha256: hash(fields) };
+    return { ...fields, sha256: knowledgeHash(fields) };
   }
 
   assertCurrent(original: object, member: TeamMemberRevision): void {

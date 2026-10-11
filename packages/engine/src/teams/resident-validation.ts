@@ -1,7 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
-import { knowledgeHash } from "../knowledge/validation.js";
+import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import {
   RESIDENT_KIND_PREFIX,
   validateResidentRecord,
@@ -120,9 +119,9 @@ function validateBoardNative(
 function rows(db: DatabaseSync) {
   const headers = db
     .prepare(
-      "SELECT session_id,kind,revision,length(CAST(data AS BLOB)) bytes FROM session_documents WHERE kind GLOB 'resident.child.*' OR kind GLOB 'team.workflow.*' ORDER BY session_id,kind LIMIT 161",
+      "SELECT session_id,kind,revision,length(CAST(data AS BLOB)) bytes FROM session_documents WHERE kind GLOB ? OR kind GLOB ? ORDER BY session_id,kind LIMIT 161",
     )
-    .all();
+    .all(RESIDENT_KIND_PREFIX + "*", TEAM_WORKFLOW_PREFIX + "*");
   if (
     headers.length > 160 ||
     headers.reduce((a, x) => a + Number(x.bytes), 0) > 8388608
@@ -160,7 +159,7 @@ export function validateResidentTeamDatabase(
     if (
       !docEvent ||
       JSON.parse(String(docEvent.data)).payload.sha256 !==
-        createHash("sha256").update(String(raw.data)).digest("hex")
+        sha256(String(raw.data))
     )
       fail();
     if (String(h.kind).startsWith(RESIDENT_KIND_PREFIX)) {
@@ -220,10 +219,10 @@ export function validateResidentTeamDatabase(
           "SELECT data FROM team_state_revisions WHERE id=? AND workspace_id=? AND team_id=? AND kind='task' AND length(CAST(data AS BLOB))<=65536",
         )
         .get(r.taskRevisionId, r.workspaceId, r.teamId);
-      if (!task || JSON.parse(String(task.data)).sha256 !== r.taskSha256)
-        fail();
+      if (!task) fail();
       const claimedTask = JSON.parse(String(task.data));
       if (
+        claimedTask.sha256 !== r.taskSha256 ||
         claimedTask.state !== "claimed" ||
         r.submissions.some(
           (x) =>
@@ -280,7 +279,7 @@ export function validateResidentTeamDatabase(
               r,
               x,
               actor === x.review,
-              JSON.parse(String(task.data)).revision,
+              claimedTask.revision,
             );
           }
         }
