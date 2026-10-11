@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
+import { DEFAULT_ENGINE_BUDGETS, DEFAULT_LIMITS, EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
 import { normalizeRunConfig } from '@moodcode/contracts/validation';
 import { providerURLAllowed } from '../provider/helpers.js';
 import { readBoundedTextFile, type BoundedReadFailure } from '../shared/fs.js';
@@ -8,15 +8,9 @@ const MAX_CONFIG_BYTES = 65_536;
 const MAX_PROVIDERS = 64;
 const signalAborted = Object.getOwnPropertyDescriptor(AbortSignal.prototype, 'aborted')!.get!;
 const RUN_FIELDS = ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort', 'budgets'] as const;
-const LIMIT_FIELDS: readonly (keyof RunLimits)[] = [
-  'maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs', 'maxOutputBytes', 'maxContextBytes',
-];
+const LIMIT_FIELDS = Object.keys(DEFAULT_LIMITS) as readonly (keyof RunLimits)[];
 type Source = 'options' | 'user' | 'workspace';
-const BUDGET_FIELDS: readonly (keyof EngineBudgets)[] = [
-  'turnAllowance', 'maxToolCallsPerTurn', 'maxPendingInputs', 'maxPendingBytes', 'maxSteerBatch',
-  'maxReadConcurrency', 'maxProviderAttempts', 'providerRequestTimeoutMs', 'providerInactivityTimeoutMs',
-  'retryBaseDelayMs', 'maxSummaryCalls', 'maxSummaryBytes', 'maxArtifactBytes', 'maxProducerBytes',
-];
+const BUDGET_FIELDS = Object.keys(DEFAULT_ENGINE_BUDGETS) as readonly (keyof EngineBudgets)[];
 
 export interface LoadConfigOptions {
   userConfigPath?: string;

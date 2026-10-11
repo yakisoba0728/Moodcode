@@ -27,7 +27,7 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
+import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeRunConfig, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
 import type { PreparedTool, ProviderAdapter, ProviderEvent, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
@@ -378,7 +378,7 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
           if(segmentRefs.size)resolved={...resolved,resolvedMedia:await segments.resolve(run.sessionId,[...segmentRefs.values()],signal)};
           const decoded=providerSegments(resolved,kind=>provider.supportsInputMedia?.(request.modelId,kind)===true,signal);
           const assetBytes=[...decoded.values()].reduce((sum,v)=>sum+v.assets.reduce((n,a)=>n+a.bytes.length,0),0);
-          if([...refs.values()].reduce((sum,v)=>sum+v.bytes,0)+[...documentRefs.values()].reduce((sum,v)=>sum+v.bytes,0)+assetBytes>1048576)throw new EngineError('INPUT_MEDIA_LIMIT','Combined input media wire budget exceeded');
+          if([...refs.values()].reduce((sum,v)=>sum+v.bytes,0)+[...documentRefs.values()].reduce((sum,v)=>sum+v.bytes,0)+assetBytes>INPUT_MEDIA_LIMITS.maxTotalBytes)throw new EngineError('INPUT_MEDIA_LIMIT','Combined input media wire budget exceeded');
           providerImages(resolved, true, signal);
           if (documentRefs.size) providerDocuments(resolved, true, signal);
         }

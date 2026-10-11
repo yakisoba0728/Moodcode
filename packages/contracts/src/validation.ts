@@ -1,5 +1,5 @@
-import { DEFAULT_LIMITS, DEFAULT_ENGINE_BUDGETS, EngineError, INPUT_DOCUMENT_LIMITS, INPUT_DOCUMENT_MIME_TYPES, INPUT_IMAGE_LIMITS, INPUT_IMAGE_MIME_TYPES, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, REASONING_EFFORTS } from './index.js';
-import type { AcceptInput, ArtifactCheckpointBinding, ArtifactReference, ContextRevision, EngineBudgets, EngineEvent, InputReceipt, InputRecord, MessagePart, ProviderAttempt, RunRecordV2, SessionCommandEnvelope, SessionCommandType, SessionEventCursor, SessionEventV2, ToolCallIdentity, ToolResultEnvelope, TurnRecord, CommandEnvelope, JsonObject, JsonValue, RunConfig, RunConfigInput, RunLimits, SubmitInput } from './index.js';
+import { DEFAULT_LIMITS, DEFAULT_ENGINE_BUDGETS, EngineError, INPUT_DOCUMENT_LIMITS, INPUT_DOCUMENT_MIME_TYPES, INPUT_IMAGE_LIMITS, INPUT_IMAGE_MIME_TYPES, INPUT_MEDIA_LIMITS, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, SESSION_COMMAND_TYPES, REASONING_EFFORTS } from './index.js';
+import type { AcceptInput, ArtifactCheckpointBinding, ArtifactIdentity, ArtifactReference, ContextRevision, EngineBudgets, EngineEvent, ExecutionUncertainty, InputDocumentAttachment, InputImageAttachment, InputMediaAttachment, InputMediaSegment, InputReceipt, InputRecord, MessagePart, ProviderAttempt, ReasoningEffort, RunRecordV2, SessionCommandEnvelope, SessionCommandType, SessionEventCursor, SessionEventV2, ToolCallIdentity, ToolResultEnvelope, TurnRecord, CommandEnvelope, JsonObject, JsonValue, RunConfig, RunConfigInput, RunLimits, SubmitInput } from './index.js';
 
 const MAX_ID_BYTES = 256;
 const MAX_PROMPT_BYTES = 131_072;
@@ -14,9 +14,7 @@ const LIMIT_MAXIMUMS: Readonly<RunLimits> = Object.freeze({
   maxOutputBytes: 1_048_576,
   maxContextBytes: 4_194_304,
 });
-const LIMIT_KEYS: readonly (keyof RunLimits)[] = [
-  'maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs', 'maxOutputBytes', 'maxContextBytes',
-];
+const LIMIT_KEYS = Object.keys(DEFAULT_LIMITS) as (keyof RunLimits)[];
 const COMMAND_TYPES = new Set([
   'engine.getCapabilities',
   'workspace.open', 'workspace.getStatus', 'file.list', 'file.read',
@@ -141,7 +139,7 @@ function normalizeConfig(value: unknown, defaults?: RunConfigInput): RunConfig {
     modelId: has(config, 'modelId') ? id(config.modelId, 'payload.config.modelId') : (baseline?.modelId ?? 'local'),
     mode,
     limits: normalizedLimits,
-    ...(reasoningEffort === undefined ? {} : { reasoningEffort: reasoningEffort as import('./index.js').ReasoningEffort }),
+    ...(reasoningEffort === undefined ? {} : { reasoningEffort: reasoningEffort as ReasoningEffort }),
     ...(profileId === undefined ? {} : { agentProfileId: profileId }),
     ...(profileRevision === undefined ? {} : { agentProfileRevision: profileRevision }),
     ...(!has(config, 'budgets') && baseline?.budgets === undefined ? {} : { budgets: normalizeEngineBudgets(config.budgets, baseline?.budgets) }),
@@ -161,7 +159,7 @@ export function normalizeSubmitInput(value: unknown, defaults?: RunConfigInput):
   const attachments = has(payload, 'attachments') ? normalizeImageAttachments(payload.attachments) : undefined;
   const documents = has(payload, 'documents') ? normalizeDocumentAttachments(payload.documents) : undefined;
   const media = has(payload, 'media') ? normalizeMediaAttachments(payload.media) : undefined;
-  assertInputMediaBudget(attachments, documents);
+  assertNormalizedMediaBudget(attachments ?? [], documents ?? [], 'payload');
   return {
     sessionId: id(payload.sessionId, 'payload.sessionId'),
     requestId: id(payload.requestId, 'payload.requestId'),
@@ -321,60 +319,61 @@ function rejectUncloneableReferences(value: unknown, path: string): void {
   try { structuredClone(value); } catch { invalid(path, 'must contain cloneable plain references'); }
 }
 
-/** Validate only imported immutable references; never interpret user URLs, paths or media bytes. */
-export function normalizeImageAttachments(value: unknown, path = 'payload.attachments'): import('./index.js').InputImageAttachment[] {
-  const { descriptors, length } = attachmentArray(value, path, INPUT_IMAGE_LIMITS.maxCount);
-  const result: import('./index.js').InputImageAttachment[] = [], ids = new Set<string>();
+type ReferenceSpec<T extends InputImageAttachment | InputDocumentAttachment> = {
+  kind: T['kind']; noun: string; pattern: RegExp; mimeTypes: readonly T['mimeType'][]; maxCount: number; maxItemBytes: number; maxTotalBytes: number;
+};
+
+function normalizeReferences<T extends InputImageAttachment | InputDocumentAttachment>(value: unknown, path: string, spec: ReferenceSpec<T>): T[] {
+  const { descriptors, length } = attachmentArray(value, path, spec.maxCount);
+  const result: T[] = [], ids = new Set<string>();
   let totalBytes = 0;
   for (let index = 0; index < length; index++) {
     const descriptor = descriptors[String(index)];
     if (!descriptor?.enumerable || !('value' in descriptor)) invalid(path, 'must contain plain dense data');
     const entryPath = `${path}.${index}`, input = object(descriptor.value, entryPath, ['id', 'kind', 'mimeType', 'bytes', 'sha256']);
     const identity = id(input.id, `${entryPath}.id`);
-    if (!/^img_[0-9a-f]{32}$/u.test(identity)) invalid(`${entryPath}.id`, 'must identify an imported image');
-    if (ids.has(identity)) invalid(path, 'must not repeat an image identity');
+    if (!spec.pattern.test(identity)) invalid(`${entryPath}.id`, `must identify an imported ${spec.kind}`);
+    if (ids.has(identity)) invalid(path, `must not repeat ${spec.noun} identity`);
     ids.add(identity);
-    if (input.kind !== 'image') invalid(`${entryPath}.kind`, 'must be image');
-    const mimeType = choice(input.mimeType, `${entryPath}.mimeType`, INPUT_IMAGE_MIME_TYPES);
-    const bytes = integer(input.bytes, `${entryPath}.bytes`, 1, INPUT_IMAGE_LIMITS.maxImageBytes);
+    if (input.kind !== spec.kind) invalid(`${entryPath}.kind`, `must be ${spec.kind}`);
+    const mimeType = choice(input.mimeType, `${entryPath}.mimeType`, spec.mimeTypes);
+    const bytes = integer(input.bytes, `${entryPath}.bytes`, 1, spec.maxItemBytes);
     totalBytes += bytes;
-    if (totalBytes > INPUT_IMAGE_LIMITS.maxTotalBytes) invalid(path, 'exceeds the total image byte limit');
-    result.push({ id: identity, kind: 'image', mimeType, bytes, sha256: hash(input.sha256, `${entryPath}.sha256`) });
+    if (totalBytes > spec.maxTotalBytes) invalid(path, `exceeds the total ${spec.kind} byte limit`);
+    result.push({ id: identity, kind: spec.kind, mimeType, bytes, sha256: hash(input.sha256, `${entryPath}.sha256`) } as T);
   }
   rejectUncloneableReferences(value, path);
   return result;
 }
 
+/** Validate only imported immutable references; never interpret user URLs, paths or media bytes. */
+export function normalizeImageAttachments(value: unknown, path = 'payload.attachments'): InputImageAttachment[] {
+  return normalizeReferences<InputImageAttachment>(value, path, {
+    kind: 'image', noun: 'an image', pattern: /^img_[0-9a-f]{32}$/u, mimeTypes: INPUT_IMAGE_MIME_TYPES,
+    maxCount: INPUT_IMAGE_LIMITS.maxCount, maxItemBytes: INPUT_IMAGE_LIMITS.maxImageBytes, maxTotalBytes: INPUT_IMAGE_LIMITS.maxTotalBytes,
+  });
+}
+
 /** PDF input is a separate immutable reference family; no filename, path or inline bytes are accepted. */
-export function normalizeDocumentAttachments(value: unknown, path = 'payload.documents'): import('./index.js').InputDocumentAttachment[] {
-  const { descriptors, length } = attachmentArray(value, path, INPUT_DOCUMENT_LIMITS.maxCount);
-  const result: import('./index.js').InputDocumentAttachment[] = [], ids = new Set<string>();
-  let totalBytes = 0;
-  for (let index = 0; index < length; index++) {
-    const descriptor = descriptors[String(index)];
-    if (!descriptor?.enumerable || !('value' in descriptor)) invalid(path, 'must contain plain dense data');
-    const entryPath = `${path}.${index}`, input = object(descriptor.value, entryPath, ['id', 'kind', 'mimeType', 'bytes', 'sha256']);
-    const identity = id(input.id, `${entryPath}.id`);
-    if (!/^doc_[0-9a-f]{32}$/u.test(identity)) invalid(`${entryPath}.id`, 'must identify an imported document');
-    if (ids.has(identity)) invalid(path, 'must not repeat a document identity');
-    ids.add(identity);
-    if (input.kind !== 'document') invalid(`${entryPath}.kind`, 'must be document');
-    const mimeType = choice(input.mimeType, `${entryPath}.mimeType`, INPUT_DOCUMENT_MIME_TYPES);
-    const bytes = integer(input.bytes, `${entryPath}.bytes`, 1, INPUT_DOCUMENT_LIMITS.maxDocumentBytes);
-    totalBytes += bytes;
-    if (totalBytes > INPUT_DOCUMENT_LIMITS.maxTotalBytes) invalid(path, 'exceeds the total document byte limit');
-    result.push({ id: identity, kind: 'document', mimeType, bytes, sha256: hash(input.sha256, `${entryPath}.sha256`) });
-  }
-  rejectUncloneableReferences(value, path);
-  return result;
+export function normalizeDocumentAttachments(value: unknown, path = 'payload.documents'): InputDocumentAttachment[] {
+  return normalizeReferences<InputDocumentAttachment>(value, path, {
+    kind: 'document', noun: 'a document', pattern: /^doc_[0-9a-f]{32}$/u, mimeTypes: INPUT_DOCUMENT_MIME_TYPES,
+    maxCount: INPUT_DOCUMENT_LIMITS.maxCount, maxItemBytes: INPUT_DOCUMENT_LIMITS.maxDocumentBytes, maxTotalBytes: INPUT_DOCUMENT_LIMITS.maxTotalBytes,
+  });
+}
+
+function assertNormalizedMediaBudget(images: readonly InputImageAttachment[], documents: readonly InputDocumentAttachment[], path: string): void {
+  const total = [...images, ...documents].reduce((sum, attachment) => sum + attachment.bytes, 0);
+  if (total > Math.min(INPUT_IMAGE_LIMITS.maxTotalBytes, INPUT_DOCUMENT_LIMITS.maxTotalBytes)) invalid(path, 'exceeds the combined input media byte limit');
 }
 
 /** Decoded imported image and document bytes share one input cap, independent of base64/JSON overhead. */
 export function assertInputMediaBudget(attachments: unknown, documents: unknown, path = 'payload'): void {
-  const images = attachments === undefined ? [] : normalizeImageAttachments(attachments, `${path}.attachments`);
-  const files = documents === undefined ? [] : normalizeDocumentAttachments(documents, `${path}.documents`);
-  const total = [...images, ...files].reduce((sum, attachment) => sum + attachment.bytes, 0);
-  if (total > Math.min(INPUT_IMAGE_LIMITS.maxTotalBytes, INPUT_DOCUMENT_LIMITS.maxTotalBytes)) invalid(path, 'exceeds the combined input media byte limit');
+  assertNormalizedMediaBudget(
+    attachments === undefined ? [] : normalizeImageAttachments(attachments, `${path}.attachments`),
+    documents === undefined ? [] : normalizeDocumentAttachments(documents, `${path}.documents`),
+    path,
+  );
 }
 
 function schema2(value: unknown, path: string, keys: readonly string[]): Record<string, unknown> {
@@ -456,11 +455,11 @@ function optionalId(input: Record<string, unknown>, key: string, path: string): 
 function optionalDate(input: Record<string, unknown>, key: string, path: string): Record<string, string> {
   return has(input, key) ? { [key]: date(input[key], `${path}.${key}`) } : {};
 }
-function uncertainty(value: unknown, path: string): import('./index.js').ExecutionUncertainty {
+function uncertainty(value: unknown, path: string): ExecutionUncertainty {
   const input = object(value, path, ['kind', 'message', 'requiresRecovery', 'summaryDependency']);
   if (input.requiresRecovery !== true) invalid(`${path}.requiresRecovery`, 'must be true');
   const kind = choice(input.kind, `${path}.kind`, ['provider_dispatch', 'tool_effect', 'cleanup', 'storage_commit']);
-  let summaryDependency: import('./index.js').ExecutionUncertainty['summaryDependency'];
+  let summaryDependency: ExecutionUncertainty['summaryDependency'];
   if (has(input, 'summaryDependency')) {
     if (kind !== 'cleanup' || path !== 'turn.uncertainty') invalid(`${path}.summaryDependency`, 'requires a Turn cleanup origin');
     const dependency = object(input.summaryDependency, `${path}.summaryDependency`, ['summaryAttemptId', 'failedAttemptId', 'cleanupRecordSha256']);
@@ -544,8 +543,7 @@ export function validateProviderAttempt(value: unknown): ProviderAttempt {
 }
 export function validateArtifactReference(value: unknown): ArtifactReference {
   const input = object(value, 'artifact', ['id', 'identity', 'sha256', 'storedBytes', 'observedBytes', 'producerTruncatedBytes', 'artifactTruncatedBytes', 'createdAt', 'expiresAt', 'complete', 'outcome']);
-  const identity = object(input.identity, 'artifact.identity', ['sessionId', 'runId', 'toolCallId', 'turnId', 'attemptId', 'source', 'providerId', 'modelId']);
-  if (has(identity, 'attemptId') && !has(identity, 'turnId')) invalid('artifact.identity.attemptId', 'requires a turn ID');
+  const identity = normalizeArtifactIdentity(input.identity);
   const storedBytes = integer(input.storedBytes, 'artifact.storedBytes', 0, 536_870_912);
   const observedBytes = integer(input.observedBytes, 'artifact.observedBytes', storedBytes, 536_870_912);
   const artifactTruncatedBytes = integer(input.artifactTruncatedBytes, 'artifact.artifactTruncatedBytes', 0, 536_870_912);
@@ -556,7 +554,7 @@ export function validateArtifactReference(value: unknown): ArtifactReference {
   const createdAt = date(input.createdAt, 'artifact.createdAt');
   const expiresAt = date(input.expiresAt, 'artifact.expiresAt');
   if (expiresAt <= createdAt) invalid('artifact.expiresAt', 'must follow creation');
-  return { id: id(input.id, 'artifact.id'), identity: normalizeArtifactIdentity(identity), sha256: hash(input.sha256, 'artifact.sha256'), storedBytes, observedBytes, producerTruncatedBytes, artifactTruncatedBytes, createdAt, expiresAt, complete, outcome: choice(input.outcome, 'artifact.outcome', ['completed', 'failed', 'interrupted']) };
+  return { id: id(input.id, 'artifact.id'), identity, sha256: hash(input.sha256, 'artifact.sha256'), storedBytes, observedBytes, producerTruncatedBytes, artifactTruncatedBytes, createdAt, expiresAt, complete, outcome: choice(input.outcome, 'artifact.outcome', ['completed', 'failed', 'interrupted']) };
 }
 export function validateMessagePart(value: unknown): MessagePart {
   const input = schema2(value, 'part', ['id', 'sessionId', 'runId', 'turnId', 'messageId', 'index', 'revision', 'state', 'createdAt', 'completedAt', 'type', 'text', 'providerData', 'toolCallId', 'providerCallId', 'name', 'input', 'result', 'mime', 'artifact']);
@@ -669,11 +667,11 @@ export function validateToolResultEnvelope(value: unknown): ToolResultEnvelope {
 }
 
 /** Exact source selections; host Node boundaries reject proxies before descriptor inspection. */
-export function normalizeMediaAttachments(value: unknown, path = 'payload.media'): import('./index.js').InputMediaAttachment[] {
-  const { descriptors, length } = attachmentArray(value, path, 4);
+export function normalizeMediaAttachments(value: unknown, path = 'payload.media'): InputMediaAttachment[] {
+  const { descriptors, length } = attachmentArray(value, path, INPUT_MEDIA_LIMITS.maxCount);
   let total = 0;
   const ids = new Set<string>();
-  const result: import('./index.js').InputMediaAttachment[] = [];
+  const result: InputMediaAttachment[] = [];
   for (let n = 0; n < length; n++) {
     const d = descriptors[String(n)];
     if (!d?.enumerable || !('value' in d)) invalid(path, 'requires dense data');
@@ -683,17 +681,17 @@ export function normalizeMediaAttachments(value: unknown, path = 'payload.media'
     ids.add(identity);
     const kind = choice(v.kind,path,['audio','video'] as const);
     if (v.mimeType !== (kind === 'audio' ? 'audio/wav' : 'video/x-msvideo') || v.decoder !== (kind === 'audio' ? 'wav-pcm16-v1' : 'avi-rgb24-v1')) invalid(path,'requires an exact supported MIME/decoder');
-    const bytes = integer(v.bytes,path,1,524288); total += bytes;
-    if (total > 1048576) invalid(path,'exceeds source byte cap');
-    const selection = attachmentArray(v.segments,path,4), segments: import('./index.js').InputMediaSegment[]=[];
+    const bytes = integer(v.bytes,path,1,INPUT_MEDIA_LIMITS.maxSourceBytes); total += bytes;
+    if (total > INPUT_MEDIA_LIMITS.maxTotalBytes) invalid(path,'exceeds source byte cap');
+    const selection = attachmentArray(v.segments,path,INPUT_MEDIA_LIMITS.maxSegments), segments: InputMediaSegment[]=[];
     if (!selection.length) invalid(path,'requires a bounded selection');
     let previous = -1;
     for (let i=0;i<selection.length;i++) {
       const descriptor=selection.descriptors[String(i)];
       if (!descriptor?.enumerable || !('value' in descriptor)) invalid(path,'requires dense selections');
       const segment=object(descriptor.value,path,['startMs','endMs']);
-      const startMs=integer(segment.startMs,path,0,30000),endMs=integer(segment.endMs,path,1,30000);
-      if(endMs<=startMs || startMs<previous || endMs-startMs>10000)invalid(path,'requires ordered nonoverlapping bounded timestamps');
+      const startMs=integer(segment.startMs,path,0,INPUT_MEDIA_LIMITS.maxOffsetMs),endMs=integer(segment.endMs,path,1,INPUT_MEDIA_LIMITS.maxOffsetMs);
+      if(endMs<=startMs || startMs<previous || endMs-startMs>INPUT_MEDIA_LIMITS.maxSegmentMs)invalid(path,'requires ordered nonoverlapping bounded timestamps');
       previous=endMs;segments.push({startMs,endMs});
     }
     result.push({id:identity,kind,mimeType:v.mimeType as 'audio/wav'|'video/x-msvideo',bytes,sha256:hash(v.sha256,path),decoder:v.decoder as 'wav-pcm16-v1'|'avi-rgb24-v1',segments});
@@ -702,14 +700,14 @@ export function normalizeMediaAttachments(value: unknown, path = 'payload.media'
   return result;
 }
 
-export function normalizeArtifactIdentity(value:unknown): import('./index.js').ArtifactIdentity {
+export function normalizeArtifactIdentity(value:unknown): ArtifactIdentity {
   const v=object(value,'artifact.identity',['sessionId','runId','toolCallId','turnId','attemptId','source','providerId','modelId']);
+  if(has(v,'attemptId')&&!has(v,'turnId'))invalid('artifact.identity.attemptId','requires a turn ID');
   const common={sessionId:id(v.sessionId,'artifact.identity.sessionId'),runId:id(v.runId,'artifact.identity.runId')};
   if(has(v,'source')) {
     if(v.source!=='provider'||has(v,'toolCallId'))invalid('artifact.identity','requires an exact provider owner without a Tool');
     return {...common,source:'provider',turnId:id(v.turnId,'artifact.identity.turnId'),attemptId:id(v.attemptId,'artifact.identity.attemptId'),providerId:id(v.providerId,'artifact.identity.providerId'),modelId:id(v.modelId,'artifact.identity.modelId')};
   }
   if(has(v,'providerId')||has(v,'modelId'))invalid('artifact.identity','provider fields require provider ownership');
-  if(has(v,'attemptId')&&!has(v,'turnId'))invalid('artifact.identity','attempt requires turn');
   return {...common,toolCallId:id(v.toolCallId,'artifact.identity.toolCallId'),...optionalId(v,'turnId','artifact.identity'),...optionalId(v,'attemptId','artifact.identity')};
 }

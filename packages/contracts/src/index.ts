@@ -30,6 +30,7 @@ export const INPUT_IMAGE_MIME_TYPES = ['image/png', 'image/jpeg', 'image/webp', 
 export const INPUT_IMAGE_LIMITS = Object.freeze({ maxCount: 4, maxImageBytes: 524_288, maxTotalBytes: 1_048_576 });
 export const INPUT_DOCUMENT_MIME_TYPES = ['application/pdf'] as const;
 export const INPUT_DOCUMENT_LIMITS = Object.freeze({ maxCount: 1, maxDocumentBytes: 524_288, maxTotalBytes: 1_048_576 });
+export const INPUT_MEDIA_LIMITS = Object.freeze({ maxCount: 4, maxSourceBytes: 524_288, maxTotalBytes: 1_048_576, maxSegments: 4, maxOffsetMs: 30_000, maxSegmentMs: 10_000 });
 /** Host-imported immutable bytes. Commands carry references, never paths, URLs, or base64 data. */
 export interface InputImageAttachment { id: string; kind: 'image'; mimeType: typeof INPUT_IMAGE_MIME_TYPES[number]; bytes: number; sha256: string }
 export interface InputDocumentAttachment { id: string; kind: 'document'; mimeType: typeof INPUT_DOCUMENT_MIME_TYPES[number]; bytes: number; sha256: string }
