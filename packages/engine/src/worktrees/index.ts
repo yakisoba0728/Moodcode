@@ -107,24 +107,27 @@ async function boundedBoot(
 /** Detached worktrees only; no user branch is created, reset, deleted or implicitly committed. */
 export class WorktreeManager {
   readonly directory: string;
+  private readonly bootTimeoutMs: number;
   private now: () => number;
   private closing = false;
   private operations = new Map<AbortController, Promise<ManagedWorktree>>();
   private bootPending = new Set<Promise<void>>();
   constructor(private readonly options: WorktreeManagerOptions) {
+    const bootTimeoutMs = options.bootTimeoutMs ?? 30_000;
     if (
       typeof options.directory !== "string" ||
       !options.directory ||
       options.directory.includes("\0") ||
-      !Number.isSafeInteger(options.bootTimeoutMs ?? 30_000) ||
-      (options.bootTimeoutMs ?? 30_000) < 1 ||
-      (options.bootTimeoutMs ?? 30_000) > 60_000
+      !Number.isSafeInteger(bootTimeoutMs) ||
+      bootTimeoutMs < 1 ||
+      bootTimeoutMs > 60_000
     )
       throw new EngineError(
         "INVALID_WORKTREE_CONFIG",
         "Managed worktree root and bounded boot deadline are required",
       );
     this.directory = resolve(options.directory);
+    this.bootTimeoutMs = bootTimeoutMs;
     this.now = options.now ?? Date.now;
   }
   private records(sessionId: string): {
@@ -185,6 +188,7 @@ export class WorktreeManager {
       data,
     );
   }
+  /** An undefined field in `update` removes that optional field. */
   private update(
     sessionId: string,
     id: string,
@@ -201,6 +205,8 @@ export class WorktreeManager {
       revision: record.revision + 1,
       updatedAt: new Date(this.now()).toISOString(),
     });
+    for (const [key, value] of Object.entries(update))
+      if (value === undefined) Reflect.deleteProperty(record, key);
     this.commit(sessionId, journal.records, journal.revision);
     return clone(record);
   }
@@ -247,19 +253,12 @@ export class WorktreeManager {
     id: string,
     ownerId: string,
   ): ManagedWorktree {
-    const record = this.get(sessionId, id);
-    if (record.ownerId !== ownerId)
+    if (this.get(sessionId, id).ownerId !== ownerId)
       throw new EngineError(
         "WORKTREE_OWNER_MISMATCH",
         "Only the recorded execution owner can release this worktree",
       );
-    const journal = this.records(sessionId);
-    const stored = journal.records.find((r) => r.id === id)!;
-    delete stored.ownerId;
-    stored.revision++;
-    stored.updatedAt = new Date(this.now()).toISOString();
-    this.commit(sessionId, journal.records, journal.revision);
-    return clone(stored);
+    return this.update(sessionId, id, { ownerId: undefined });
   }
   create(input: WorktreeCreate, signal: AbortSignal): Promise<ManagedWorktree> {
     if (this.closing)
@@ -432,7 +431,7 @@ export class WorktreeManager {
         this.bootPending.add(boot);
         boot.finally(() => this.bootPending.delete(boot)).catch(() => {});
         try {
-          await boundedBoot(boot, signal, this.options.bootTimeoutMs ?? 30_000);
+          await boundedBoot(boot, signal, this.bootTimeoutMs);
         } catch (error) {
           bootController.abort();
           throw error;

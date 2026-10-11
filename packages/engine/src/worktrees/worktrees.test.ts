@@ -16,6 +16,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { SqliteStore } from "../storage/index.js";
 import { openWorkspace } from "../workspace/index.js";
 import { WorktreeManager } from "./index.js";
+import { WORKTREE_JOURNAL } from "./journal.js";
 const signal = () => new AbortController().signal;
 const code = (expected: string) => (e: unknown) => {
   assert.equal((e as { code: string }).code, expected);
@@ -311,4 +312,26 @@ test("concurrent identical worktree requests record one Git preparation and one 
   assert.equal(first.id, second.id);
   assert.equal(manager.list(session.id).length, 1);
   assert.equal(manager.get(session.id, first.id).state, "ready");
+});
+test("only the recorded owner releases a worktree and release persists no owner", async (t) => {
+  const { manager, workspace, session, store } = await fixture(t);
+  const record = await manager.create(
+    { sessionId: session.id, requestId: "owned", workspace },
+    signal(),
+  );
+  const claimed = manager.claimOwnership(session.id, record.id, "owner-a");
+  assert.throws(
+    () => manager.releaseOwnership(session.id, record.id, "owner-b"),
+    code("WORKTREE_OWNER_MISMATCH"),
+  );
+  const released = manager.releaseOwnership(session.id, record.id, "owner-a");
+  assert.equal(Object.hasOwn(released, "ownerId"), false);
+  assert.equal(released.revision, claimed.revision + 1);
+  const stored = store.getSessionDocument(session.id, WORKTREE_JOURNAL.kind)!
+    .data as { records: Record<string, unknown>[] };
+  assert.equal(Object.hasOwn(stored.records[0]!, "ownerId"), false);
+  assert.equal(
+    manager.claimOwnership(session.id, record.id, "owner-b").ownerId,
+    "owner-b",
+  );
 });
