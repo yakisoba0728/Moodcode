@@ -6,7 +6,7 @@ import {
 } from '@moodcode/contracts';
 import { validateContextRevision, validateMessagePart, validateProviderAttempt, validateSessionEvent, validateTurnRecord } from '@moodcode/contracts/validation';
 import { sha256Hex } from '../shared/canonical.js';
-import { NativeSessionStorage, sameRecord, storedJson } from './native.js';
+import { boundedIds, NativeSessionStorage, sameRecord, storedJson } from './native.js';
 import { hasEvidenceRead, invalidateEvidenceRead, readBoundedBody, readBoundedHeader, readEvidenceBody } from './evidence-read.js';
 import type { ToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 
@@ -90,15 +90,10 @@ export class NativeExecutionStorage {
       after = Number(cursor.position);
     }
     const rows = this.database.prepare(`SELECT id,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE ${ownerColumn}=? AND ${orderColumn}>? ORDER BY ${orderColumn} LIMIT ?`).all(ownerId, after, limit + 1);
-    const ids: string[] = []; let bytes = 0;
-    for (const row of rows.slice(0, limit)) {
-      const length = Number(row.bytes);
-      if (length > 8_388_608) throw new EngineError(table === 'session_turns' ? 'TURN_PAGE_LIMIT' : 'PART_PAGE_LIMIT', 'One execution record exceeds the bounded page budget');
-      if (bytes + length > 8_388_608) break;
-      ids.push(String(row.id)); bytes += length;
-    }
+    const page = rows.slice(0, limit), ids = boundedIds(page, 'id', 8_388_608);
+    if (Number(page[ids.length]?.bytes) > 8_388_608) throw new EngineError(table === 'session_turns' ? 'TURN_PAGE_LIMIT' : 'PART_PAGE_LIMIT', 'One execution record exceeds the bounded page budget');
     const records = ids.length ? this.database.prepare(`SELECT data FROM ${table} WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY ${orderColumn}`).all(...ids).map(row => JSON.parse(String(row.data))) : [];
-    return { records, nextCursor: rows.length > ids.length ? ids.at(-1)! : null };
+    return { records, nextCursor: rows.length > ids.length ? String(ids.at(-1)) : null };
   }
   putTurn(value: TurnRecord): TurnRecord {
     const turn = validateTurnRecord(value);

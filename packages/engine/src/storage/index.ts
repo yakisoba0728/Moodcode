@@ -32,7 +32,7 @@ import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImage
 import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
-import { NativeSessionStorage, storedJson, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
+import { NativeSessionStorage, nonnegative, storedJson, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { isSqliteBusy } from './transaction.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, reclaimOwnedCommandJobs, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
@@ -100,6 +100,7 @@ export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './inpu
 
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;
+const EVENT_CURSOR = 'Event cursor must be a nonnegative safe integer';
 type DataRow = { data: string };
 type Waiter = { sessionId: string; wake: () => void };
 const ACTIVE_STATES = "'created','running','awaiting_approval','cancelling'";
@@ -117,9 +118,6 @@ function notJson(): never { throw new EngineError('INVALID_RECORD', 'Records mus
 function canonical(value: unknown): string { return canonicalJson(value, notJson); }
 function requireMatch(actual: unknown, expected: unknown, description: string): void {
   if (canonical(actual) !== canonical(expected)) throw new EngineError('RECORD_CONFLICT', description);
-}
-function cursor(value: number): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new EngineError('INVALID_CURSOR', 'Event cursor must be a nonnegative safe integer');
 }
 function assertSingleLink(path: string): void {
   if (statSync(path).nlink > 1) throw new EngineError('DB_PATH_UNSUPPORTED', 'Hard-linked SQLite database paths are unsupported');
@@ -1133,7 +1131,7 @@ export class SqliteStore implements SessionEngineStore {
     }, false);
   }
   readEvents(sessionId: string, afterSeq: number, limit = PAGE_SIZE): EngineEvent[] {
-    cursor(afterSeq);
+    nonnegative(afterSeq, EVENT_CURSOR);
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > MAX_PAGE_SIZE) throw new EngineError('INVALID_PAGE_SIZE', `Event page size must be between 1 and ${MAX_PAGE_SIZE}`);
     this.getSession(sessionId);
     return this.rows('SELECT data FROM events WHERE session_id=? AND seq>? ORDER BY seq LIMIT ?', sessionId, afterSeq, limit);
@@ -1145,7 +1143,7 @@ export class SqliteStore implements SessionEngineStore {
     return this.subscribeStream(sessionId, afterSeq, (id, position) => this.readSessionEvents(id, position), signal);
   }
   private async *subscribeStream<T extends { seq: number }>(sessionId: string, afterSeq: number, read: (id: string, position: number) => T[], signal?: AbortSignal): AsyncIterable<T> {
-    cursor(afterSeq);
+    nonnegative(afterSeq, EVENT_CURSOR);
     this.getSession(sessionId);
     let position = afterSeq;
     while (!this.closed && !signal?.aborted) {

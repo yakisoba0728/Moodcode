@@ -1,6 +1,6 @@
 import { assertMediaReferenceCapacity } from '../media/storage-capacity.js';
 import { randomUUID } from 'node:crypto';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type SQLOutputValue } from 'node:sqlite';
 import {
   EngineError, isTerminal, SESSION_SCHEMA_VERSION, type AcceptInput, type EngineBudgets,
   type InputCursor, type InputPage, type InputReceipt, type InputRecord, type JsonObject,
@@ -24,14 +24,28 @@ export interface NativeStorageHooks {
 export interface StoredInputPromotion { input: InputRecord; run: Run; receipt: RunReceipt }
 export type ExistingInputReceipt = InputReceipt | { inputId: string; state: 'promoted'; runId: string; legacyReceipt: RunReceipt };
 type EventRefs = Pick<SessionEventV2, 'runId' | 'inputId' | 'turnId' | 'attemptId'>;
+type LegacyInput = { id: string; input: SubmitInput; runId: string; admittedSeq: number };
 const PAGE_BYTES = 8_388_608;
 
 export function storedJson(value: unknown): JsonObject { return JSON.parse(JSON.stringify(value)) as JsonObject; }
 export function sameRecord(left: unknown, right: unknown, message: string): void {
   if (!sameCanonical(left, right)) throw new EngineError('RECORD_CONFLICT', message);
 }
-function nonnegative(value: number): void {
-  if (!Number.isSafeInteger(value) || value < 0) throw new EngineError('INVALID_CURSOR', 'Cursor must be a nonnegative safe integer');
+export function nonnegative(value: number, message = 'Cursor must be a nonnegative safe integer'): void {
+  if (!Number.isSafeInteger(value) || value < 0) throw new EngineError('INVALID_CURSOR', message);
+}
+/** Keys of the leading rows whose `bytes` fit one page. A first row larger than the page calls oversize, or ends the page without one. */
+export function boundedIds(rows: Record<string, SQLOutputValue>[], key: string, maxBytes: number, oversize?: () => never): SQLOutputValue[] {
+  const ids: SQLOutputValue[] = []; let bytes = 0;
+  for (const row of rows) {
+    const length = Number(row.bytes);
+    if (bytes + length > maxBytes) {
+      if (ids.length || !oversize) break;
+      oversize();
+    }
+    ids.push(row[key]!); bytes += length;
+  }
+  return ids;
 }
 function pageSize(limit: number): void {
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw new EngineError('INVALID_PAGE_SIZE', 'Page size must be between 1 and 100');
@@ -113,25 +127,30 @@ export class NativeSessionStorage {
       if(input.sessionId!==accepted.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH','Input belongs to a different session');
       return this.inputReceipt(input,true);
     }
-    const legacy=this.database.prepare('SELECT inputs.id,inputs.data,inputs.admitted_seq,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(accepted.sessionId,accepted.requestId);
+    const legacy=this.legacyInput(accepted.sessionId,accepted.requestId,fingerprint,'Request ID belongs to different legacy input');
     if(!legacy) return undefined;
-    const input=JSON.parse(String(legacy.data)) as SubmitInput;
-    if(requestIdentity({...input,delivery:'queue'})!==fingerprint) throw new EngineError('REQUEST_ID_CONFLICT','Request ID belongs to different legacy input');
-    const run=this.scopeRun(accepted.sessionId,String(legacy.run_id));
-    if(run.inputId!==legacy.id) throw new EngineError('RECORD_SCOPE_MISMATCH','Legacy receipt has inconsistent input identity');
-    const legacyReceipt:RunReceipt={inputId:String(legacy.id),runId:run.id,admittedSeq:Number(legacy.admitted_seq),duplicate:true};
-    return {inputId:legacyReceipt.inputId,state:'promoted',runId:run.id,legacyReceipt};
+    const legacyReceipt=this.legacyRunReceipt(accepted.sessionId,legacy);
+    return {inputId:legacyReceipt.inputId,state:'promoted',runId:legacyReceipt.runId,legacyReceipt};
   }
   lookupRunReceipt(input: SubmitInput): RunReceipt | undefined {
     this.hooks.session(input.sessionId);
     const native=this.legacyReceipt(input);
     if(native) return native;
-    const row=this.database.prepare('SELECT inputs.id,inputs.data,inputs.admitted_seq,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(input.sessionId,input.requestId);
-    if(!row) return undefined;
-    if(requestIdentity({...JSON.parse(String(row.data)),delivery:'queue'})!==requestIdentity({...input,delivery:'queue'})) throw new EngineError('REQUEST_ID_CONFLICT','Request ID belongs to different legacy input');
-    const run=this.scopeRun(input.sessionId,String(row.run_id));
-    if(run.inputId!==row.id) throw new EngineError('RECORD_SCOPE_MISMATCH','Legacy receipt has inconsistent input identity');
-    return {inputId:String(row.id),runId:run.id,admittedSeq:Number(row.admitted_seq),duplicate:true};
+    const legacy=this.legacyInput(input.sessionId,input.requestId,requestIdentity({...input,delivery:'queue'}),'Request ID belongs to different legacy input');
+    return legacy&&this.legacyRunReceipt(input.sessionId,legacy);
+  }
+  /** The v1 Run admission of a request, whose stored input must have the caller's queue identity. */
+  private legacyInput(sessionId: string, requestId: string, fingerprint: string, conflictMessage: string): LegacyInput | undefined {
+    const row = this.database.prepare('SELECT inputs.id,inputs.data,inputs.admitted_seq,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(sessionId, requestId);
+    if (!row) return undefined;
+    const input = JSON.parse(String(row.data)) as SubmitInput;
+    if (requestIdentity({ ...input, delivery: 'queue' }) !== fingerprint) throw new EngineError('REQUEST_ID_CONFLICT', conflictMessage);
+    return { id: String(row.id), input, runId: String(row.run_id), admittedSeq: Number(row.admitted_seq) };
+  }
+  private legacyRunReceipt(sessionId: string, legacy: LegacyInput): RunReceipt {
+    const run = this.scopeRun(sessionId, legacy.runId);
+    if (run.inputId !== legacy.id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Legacy receipt has inconsistent input identity');
+    return { inputId: legacy.id, runId: run.id, admittedSeq: legacy.admittedSeq, duplicate: true };
   }
   acceptInput(value: AcceptInput): InputReceipt {
     const accepted = normalizeAcceptInput(value);
@@ -144,12 +163,8 @@ export class NativeSessionStorage {
         return this.inputReceipt(this.getInput(String(existing.id)), true);
       }
       // A v1 admission after migration is still an existing durable request.
-      const legacy = this.database.prepare('SELECT inputs.id,inputs.data,runs.id AS run_id FROM inputs JOIN runs ON runs.input_id=inputs.id WHERE inputs.session_id=? AND inputs.request_id=?').get(accepted.sessionId, accepted.requestId);
-      if (legacy) {
-        const input = JSON.parse(String(legacy.data)) as SubmitInput;
-        if (requestIdentity({ ...input, delivery: 'queue' }) !== fingerprint) throw new EngineError('REQUEST_ID_CONFLICT', 'Request ID already belongs to legacy Run input');
-        return this.inputReceipt(this.bindLegacy(input, this.hooks.run(String(legacy.run_id)), String(legacy.id)), true);
-      }
+      const legacy = this.legacyInput(accepted.sessionId, accepted.requestId, fingerprint, 'Request ID already belongs to legacy Run input');
+      if (legacy) return this.inputReceipt(this.bindLegacy(legacy.input, this.hooks.run(legacy.runId), legacy.id), true);
       const requested = (accepted.config as typeof accepted.config & { budgets?: EngineBudgets }).budgets;
       const limits = requested === undefined ? this.budgets : normalizeEngineBudgets(requested);
       const maxInputs = Math.min(this.budgets.maxPendingInputs, limits.maxPendingInputs);
@@ -202,13 +217,7 @@ export class NativeSessionStorage {
     nonnegative(position?.afterSeq ?? 0);
     return this.hooks.transaction(() => {
       const rows = this.database.prepare('SELECT id,length(CAST(data AS BLOB)) AS bytes FROM session_inputs WHERE session_id=? AND admitted_seq>? ORDER BY admitted_seq LIMIT ?').all(sessionId, position?.afterSeq ?? 0, limit + 1);
-      const ids: string[] = []; let bytes = 0;
-      for (const row of rows.slice(0, limit)) {
-        const length = Number(row.bytes);
-        if (bytes + length > PAGE_BYTES && ids.length) break;
-        if (length > PAGE_BYTES) throw new EngineError('INPUT_PAGE_TOO_LARGE', 'One input exceeds the bounded page budget');
-        ids.push(String(row.id)); bytes += length;
-      }
+      const ids = boundedIds(rows.slice(0, limit), 'id', PAGE_BYTES, () => { throw new EngineError('INPUT_PAGE_TOO_LARGE', 'One input exceeds the bounded page budget'); });
       const inputs = ids.length ? this.database.prepare(`SELECT data FROM session_inputs WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY admitted_seq`).all(...ids).map(row => validateInputRecord(JSON.parse(String(row.data)))) : [];
       const last = inputs.at(-1);
       return { inputs, nextCursor: rows.length > inputs.length && last ? { sessionId, afterSeq: last.admittedSeq } : null };
@@ -220,11 +229,7 @@ export class NativeSessionStorage {
     const rows = delivery === undefined
       ? this.database.prepare("SELECT id,length(CAST(data AS BLOB)) AS bytes FROM session_inputs WHERE session_id=? AND state='pending' ORDER BY admitted_seq LIMIT ?").all(sessionId, limit)
       : this.database.prepare("SELECT id,length(CAST(data AS BLOB)) AS bytes FROM session_inputs WHERE session_id=? AND state='pending' AND delivery=? ORDER BY admitted_seq LIMIT ?").all(sessionId, delivery, limit);
-    let bytes = 0; const ids: string[] = [];
-    for (const row of rows) {
-      if (bytes + Number(row.bytes) > PAGE_BYTES) break;
-      ids.push(String(row.id)); bytes += Number(row.bytes);
-    }
+    const ids = boundedIds(rows, 'id', PAGE_BYTES);
     if (!ids.length) return [];
     return this.database.prepare(`SELECT data FROM session_inputs WHERE id IN (${ids.map(() => '?').join(',')}) ORDER BY admitted_seq`).all(...ids).map(row => validateInputRecord(JSON.parse(String(row.data))));
   }
@@ -322,14 +327,8 @@ export class NativeSessionStorage {
     nonnegative(afterSeq); pageSize(limit); this.hooks.session(sessionId);
     const read = () => {
       const rows = this.database.prepare('SELECT seq,length(CAST(data AS BLOB)) AS bytes FROM session_events WHERE session_id=? AND seq>? ORDER BY seq LIMIT ?').all(sessionId, afterSeq, limit);
-      const seqs: number[] = []; let bytes = 0;
-      for (const row of rows) {
-        const length = Number(row.bytes);
-        if (bytes + length > PAGE_BYTES && seqs.length) break;
-        if (length > PAGE_BYTES) throw new EngineError('EVENT_PAGE_TOO_LARGE', 'One event exceeds the bounded page budget');
-        seqs.push(Number(row.seq)); bytes += length;
-      }
-      return seqs.length ? this.database.prepare('SELECT data FROM session_events WHERE session_id=? AND seq>? AND seq<=? ORDER BY seq').all(sessionId, afterSeq, seqs.at(-1)!).map(row => validateSessionEvent(JSON.parse(String(row.data)))) : [];
+      const seqs = boundedIds(rows, 'seq', PAGE_BYTES, () => { throw new EngineError('EVENT_PAGE_TOO_LARGE', 'One event exceeds the bounded page budget'); });
+      return seqs.length ? this.database.prepare('SELECT data FROM session_events WHERE session_id=? AND seq>? AND seq<=? ORDER BY seq').all(sessionId, afterSeq, Number(seqs.at(-1))).map(row => validateSessionEvent(JSON.parse(String(row.data)))) : [];
     };
     return this.database.isTransaction ? read() : this.hooks.transaction(read);
   }
