@@ -429,6 +429,8 @@ export class MoodcodeEngine {
   readonly profiles: AgentProfiles;
   readonly terminals: TerminalService;
   readonly children: EngineChildren;
+  /** Built-in tools a child engine provides itself; it never adopts another scope's MCP or plugin tools. */
+  readonly childToolNames: readonly string[];
   readonly lsp: LspManager;
   readonly repository: RepositoryContextService;
   readonly lifecycleHooks: LifecycleHookRegistry;
@@ -1102,7 +1104,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         failed:(original:object,error:unknown)=>{const x=original as {own?:object;sandbox?:object};if(x.sandbox)this.sandboxHost.failed(x.sandbox,error);if(x.own)this.ownedCommandHost.failed(x.own,error);},
       } : undefined;
       const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:ToolContext)=>this.sandboxHost.launch(context)}:{}});
-      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...(options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[]), createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const lifetimeTools = options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[];
+      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...lifetimeTools, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      this.childToolNames = Object.freeze([...(options.tools ?? allCoreTools.filter(tool => tool.name !== 'delegate_task' && !lifetimeTools.includes(tool))).map(tool => tool.name), ...(this.verificationEnabled ? ['verify_changes'] : []), ...(toolDiscoveryPolicy ? ['discover_tools'] : []), ...(this.teamModelToolsEnabled ? TEAM_MODEL_TOOL_NAMES : [])]);
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
       const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined);

@@ -696,3 +696,41 @@ test("exact child retry after restart returns a task that failed before dispatch
     await restarted.close();
   }
 });
+
+test("child-eligible tools are the engine catalogue without delegation or command lifetimes", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "moodcode-child-tools-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const excluded = [
+    "delegate_task",
+    "run_command_job",
+    "command_job_input",
+    "wait_command_job",
+  ];
+  const configurations: Partial<EngineOptions>[] = [
+    {},
+    {
+      verificationTools: true,
+      jobs: true,
+      hostCommands: true,
+      commandLifetimes: true,
+      teams: true,
+      teamModelTools: true,
+      toolDiscoveryPolicy: { kind: "bounded-tool-discovery", version: 1 },
+    },
+  ];
+  for (const [index, options] of configurations.entries()) {
+    const engine = createEngine({
+      ...options,
+      dbPath: join(directory, `${index}.sqlite`),
+    });
+    try {
+      const names = engine.getCapabilities().tools.map((tool) => tool.name);
+      assert.deepEqual(
+        [...engine.childToolNames].sort(),
+        names.filter((name) => !excluded.includes(name)).sort(),
+      );
+    } finally {
+      await engine.close();
+    }
+  }
+});

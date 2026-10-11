@@ -22,7 +22,6 @@ import {
 } from "./storage-binding.js";
 import { ActualChildTeamBridge } from "./team-bridge.js";
 import { holdChildProviderAdmission } from "./provider-admission.js";
-import { TEAM_MODEL_TOOL_NAMES } from "../teams/model-tools.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   workflowAbort,
@@ -587,34 +586,7 @@ private readonly recoveredSessions = new Set<string>();
         "CHILD_TOOL_ESCALATION",
         "Requested child tools are outside its parent catalogue",
       );
-    // A child receives explicit core handlers; it does not silently adopt another scope's MCP connection.
-    const available = this.options.tools?.map((tool) => tool.name) ?? [
-      "list_files",
-      "read_file",
-      "search_files",
-      "apply_patch",
-      "run_command",
-      "edit_file",
-      "rename_file",
-      "delete_file",
-      "glob_files",
-      "regex_search",
-      "todo_read",
-      "todo_write",
-      "ask_user",
-      "skill_list",
-      "skill_read",
-      "reference_read",
-      "read_artifact",
-      "format_file",
-      "lsp_format_file",
-      "merge_child_changes",
-    ];
-    if (!this.options.tools && this.options.verificationTools === true) available.push("verify_changes");
-    if (this.options.toolDiscoveryPolicy) available.push("discover_tools");
-    if (this.options.teamModelTools === true)
-      available.push(...TEAM_MODEL_TOOL_NAMES);
-    if (request.tools.some((name) => !available.includes(name)))
+    if (request.tools.some((name) => !this.root.childToolNames.includes(name)))
       throw new EngineError(
         "CHILD_TOOL_UNAVAILABLE",
         "Child handler requires an explicit host adapter",
