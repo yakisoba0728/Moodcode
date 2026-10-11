@@ -8,6 +8,7 @@ import type { SessionDocument } from "../storage/native-records.js";
 import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import {
   isCanonicalJobTime,
+  isValidCommandOutcome,
   jobJson,
   jobIdentifier,
   jobInteger,
@@ -35,15 +36,17 @@ export interface OwnedCommandJobSource {
   readonly preparedSha256: string;
   readonly sha256: string;
 }
-export type OwnedCommandJobState =
-  | "starting"
-  | "running"
-  | "settling"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "uncertain"
-  | "paused-import";
+const OWNED_COMMAND_JOB_STATES = [
+  "starting",
+  "running",
+  "settling",
+  "completed",
+  "failed",
+  "cancelled",
+  "uncertain",
+  "paused-import",
+] as const;
+export type OwnedCommandJobState = (typeof OWNED_COMMAND_JOB_STATES)[number];
 export interface OwnedCommandCompletion {
   readonly outcome: ProcessOutcome;
   readonly stdout: CommandArtifactDescriptor;
@@ -225,33 +228,7 @@ function completion(
     ],
     ["outputDiscarded", "error"],
   );
-  if (
-    o.exitCode !== null &&
-    (!Number.isSafeInteger(o.exitCode) ||
-      Math.abs(o.exitCode as number) > 2_147_483_647)
-  )
-    fail();
-  if (
-    o.signal !== null &&
-    (typeof o.signal !== "string" || !/^SIG[A-Z0-9]+$/u.test(o.signal))
-  )
-    fail();
-  for (const k of ["cancelled", "timedOut", "cleanupConfirmed", "started"])
-    if (typeof o[k] !== "boolean") fail();
-  if (
-    Object.hasOwn(o, "outputDiscarded") &&
-    typeof o.outputDiscarded !== "boolean"
-  )
-    fail();
-  for (const [obj, k] of [
-    [o, "error"],
-    [p, "observationFailure"],
-  ] as const)
-    if (
-      Object.hasOwn(obj, k) &&
-      (typeof obj[k] !== "string" || Buffer.byteLength(obj[k] as string) > 4096)
-    )
-      fail();
+  if (!isValidCommandOutcome(o, p)) fail();
   validateCommandArtifactDescriptor(p.stdout);
   validateCommandArtifactDescriptor(p.stderr);
   const c = object(p.checkpoint, [
@@ -293,16 +270,7 @@ export function validateOwnedCommandJob(value: unknown): OwnedCommandJobRecord {
   if (
     p.version !== 1 ||
     jobInteger(p.revision) < 1 ||
-    ![
-      "starting",
-      "running",
-      "settling",
-      "completed",
-      "failed",
-      "cancelled",
-      "uncertain",
-      "paused-import",
-    ].includes(p.state as string)
+    !(OWNED_COMMAND_JOB_STATES as readonly string[]).includes(p.state as string)
   )
     fail();
   const s = source(p.source);
@@ -830,9 +798,9 @@ export function readOwnedCommandJob(
 ): OwnedCommandJobRecord | undefined {
   jobIdentifier(jobId);
   jobIdentifier(workspaceId);
+  const kind = ownedCommandJobKind(jobId);
   const matched = headers(db).filter(
-    (h) =>
-      h.workspace_id === workspaceId && h.kind === ownedCommandJobKind(jobId),
+    (h) => h.workspace_id === workspaceId && h.kind === kind,
   );
   if (matched.length > 1) fail("OWNED_COMMAND_DOCUMENT_INVALID");
   return matched.length ? read(db, matched[0]!) : undefined;

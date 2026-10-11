@@ -168,6 +168,36 @@ export function signJobData<T extends object>(
     readonly sha256: string;
   };
 }
+/** Values of a shape-checked ProcessOutcome and its holder's observationFailure. */
+export function isValidCommandOutcome(
+  o: Record<string, unknown>,
+  holder: Record<string, unknown>,
+): boolean {
+  if (
+    (o.exitCode !== null &&
+      (!Number.isSafeInteger(o.exitCode) ||
+        Math.abs(o.exitCode as number) > 2_147_483_647)) ||
+    (o.signal !== null &&
+      (typeof o.signal !== "string" || !/^SIG[A-Z0-9]+$/u.test(o.signal))) ||
+    ["cancelled", "timedOut", "cleanupConfirmed", "started"].some(
+      (k) => typeof o[k] !== "boolean",
+    ) ||
+    (Object.hasOwn(o, "outputDiscarded") &&
+      typeof o.outputDiscarded !== "boolean")
+  )
+    return false;
+  return (
+    [
+      [o, "error"],
+      [holder, "observationFailure"],
+    ] as const
+  ).every(
+    ([obj, k]) =>
+      !Object.hasOwn(obj, k) ||
+      (typeof obj[k] === "string" &&
+        Buffer.byteLength(obj[k] as string) <= 4096),
+  );
+}
 export function validateTerminalJobSourceProof(
   value: unknown,
 ): TerminalJobSourceProof {

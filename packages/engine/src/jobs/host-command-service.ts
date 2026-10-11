@@ -5,10 +5,14 @@ import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolContext } from "../ports.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import type { SandboxLaunch } from "../sandbox/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { commandBackendCapability } from "../tools/command/backends.js";
-import { reserveExecutionLock, readExecutionLockReservation } from "../tools/command/execution-lock.js";
+import {
+  reserveExecutionLock,
+  readExecutionLockReservation,
+} from "../tools/command/execution-lock.js";
 import { captureWorkspace, type WorkspaceCapture } from "../workspace/index.js";
 import {
   executePhysicalCommand,
@@ -92,6 +96,11 @@ interface Flight {
   ring: CommandOutputRing;
   done: Promise<HostCommandRecord>;
 }
+interface Admission {
+  requestSha256: string;
+  key: string;
+  jobId: string;
+}
 interface FrozenOutput {
   jobId: string;
   epoch: string;
@@ -136,6 +145,89 @@ function checkpointBefore(before: WorkspaceCapture): JsonObject {
     HOST_COMMAND_LIMITS.rowBytes,
   ) as unknown as JsonObject;
 }
+/** Appends one approved flight's revisions and its budgeted output journal. */
+class FlightJournal {
+  gap = false;
+  constructor(
+    private readonly native: HostCommandStorage,
+    private readonly flight: Flight,
+    private readonly assertBound: () => void,
+    private readonly maxOutputBytes: number,
+  ) {}
+  append(
+    kind: string,
+    state: HostCommandState,
+    payload: JsonObject,
+    extra: Partial<HostCommandRecord> = {},
+  ): HostCommandRecord {
+    this.assertBound();
+    const current = this.flight.record;
+    const next = this.native.append({
+      ...current,
+      ...extra,
+      id: randomUUID(),
+      revision: current.revision + 1,
+      previousId: current.id,
+      kind,
+      state,
+      payload,
+      createdAt: new Date().toISOString(),
+    });
+    this.flight.record = next;
+    return next;
+  }
+  persist(
+    emitted: ReturnType<CommandOutputRing["push"]>,
+    observed: number,
+  ): void {
+    for (const event of emitted) {
+      const record = this.flight.record;
+      if (record.outputStoredBytes + event.bytes > this.maxOutputBytes) {
+        this.gap = true;
+        continue;
+      }
+      if (this.gap) continue;
+      try {
+        this.append(
+          "output",
+          "running",
+          {
+            seq: record.outputSeq + 1,
+            stream: event.stream,
+            data: event.data,
+            bytes: event.bytes,
+          },
+          {
+            outputSeq: record.outputSeq + 1,
+            outputObservedBytes: observed,
+            outputStoredBytes: record.outputStoredBytes + event.bytes,
+          },
+        );
+      } catch (error) {
+        if (
+          error instanceof EngineError &&
+          error.code === "HOST_COMMAND_LIMIT"
+        ) {
+          this.gap = true;
+          continue;
+        }
+        throw error;
+      }
+    }
+  }
+  observe(stream: CommandOutputStream, bytes: Buffer): void {
+    const emitted = this.flight.ring.push(stream, bytes),
+      observed = this.flight.ring.snapshot().observedBytes;
+    this.persist(emitted, observed);
+    if (observed > this.maxOutputBytes)
+      this.flight.abort.abort(
+        new EngineError(
+          "HOST_COMMAND_OUTPUT_LIMIT",
+          "Independent command output exceeded its approved budget",
+        ),
+      );
+  }
+}
 export class HostCommandService {
   private readonly epoch = knowledgeHash({ nonce: randomUUID() });
   private readonly previews = new WeakMap<object, PreviewEntry>();
@@ -160,7 +252,7 @@ export class HostCommandService {
       artifactDir: string;
       executionLockPath: string;
       lifetime: AbortSignal;
-      sandbox?:(ws:string,session:string)=>import('../sandbox/types.js').SandboxLaunch;
+      sandbox?: (workspaceId: string, sessionId: string) => SandboxLaunch;
     },
   ) {
     native.recover();
@@ -200,7 +292,13 @@ export class HostCommandService {
       this.policy(p.proof.input) !== p.proof.policyVersion
     )
       fail("HOST_COMMAND_TARGET_STALE");
-    if(this.options.sandbox&&knowledgeHash(this.options.sandbox(p.proof.workspaceId,p.proof.sessionId))!==knowledgeHash(p.proof.sandbox))fail("HOST_COMMAND_TARGET_STALE");
+    if (
+      this.options.sandbox &&
+      knowledgeHash(
+        this.options.sandbox(p.proof.workspaceId, p.proof.sessionId),
+      ) !== knowledgeHash(p.proof.sandbox)
+    )
+      fail("HOST_COMMAND_TARGET_STALE");
     const session = this.engine.store.getSession(p.proof.sessionId);
     if (session.workspaceId !== p.proof.workspaceId)
       fail("HOST_COMMAND_TARGET_STALE");
@@ -268,7 +366,9 @@ export class HostCommandService {
       platform: process.platform,
       policyVersion: this.policy(command),
       limits: x.limits,
-      ...(this.options.sandbox?{sandbox:this.options.sandbox(workspace.id,session.id)}:{}),
+      ...(this.options.sandbox
+        ? { sandbox: this.options.sandbox(workspace.id, session.id) }
+        : {}),
     };
     const proof = jobJson(
         { ...body, fingerprint: knowledgeHash(body) },
@@ -289,11 +389,89 @@ export class HostCommandService {
     return this.startInternal(input);
   }
   /** Internal original model owner only; host callers cannot select a lease callback. */
-  async startLifetime(input: StartHostCommandInput, control: (control: CommandProcessControl) => void, context?: ToolContext): Promise<HostCommandRecord> {
-    if (context) this.engine.coordinator.readOwnedCommandContext(context, "start");
-    return this.startInternal(input, {control, ...(context ? {context} : {})});
+  async startLifetime(
+    input: StartHostCommandInput,
+    control: (control: CommandProcessControl) => void,
+    context?: ToolContext,
+  ): Promise<HostCommandRecord> {
+    if (context)
+      this.engine.coordinator.readOwnedCommandContext(context, "start");
+    return this.startInternal(input, {
+      control,
+      ...(context ? { context } : {}),
+    });
   }
-  private async startInternal(input: StartHostCommandInput, lifetime?: {control: (control: CommandProcessControl) => void; context?: ToolContext}): Promise<HostCommandRecord> {
+  /** Replays a committed or in-flight request, or names the new job. */
+  private admission(
+    input: StartHostCommandInput,
+  ):
+    | { prior: HostCommandRecord }
+    | { pending: Promise<HostCommandRecord> }
+    | Admission {
+    const requestSha256 = knowledgeHash({
+        workspaceId: input.workspaceId,
+        requestId: input.requestId,
+        fingerprint: input.fingerprint,
+        approved: input.approved,
+      }),
+      key = knowledgeHash([input.workspaceId, input.requestId]);
+    const prior = this.native.find(input.workspaceId, input.requestId);
+    if (prior) {
+      if (prior.requestSha256 !== requestSha256) fail("REQUEST_ID_CONFLICT");
+      return { prior };
+    }
+    const cached = this.pending.get(key);
+    if (cached) {
+      if (cached.sha !== requestSha256) fail("REQUEST_ID_CONFLICT");
+      return { pending: cached.admitted };
+    }
+    return {
+      requestSha256,
+      key,
+      jobId: `host_command_${knowledgeHash([input.workspaceId, input.requestId, requestSha256]).slice(0, 32)}`,
+    };
+  }
+  private appendInitial(
+    input: StartHostCommandInput,
+    p: PreviewEntry,
+    admission: Admission,
+    snapshot: JsonObject,
+    state: "approved" | "denied",
+  ): HostCommandRecord {
+    return this.native.append({
+      version: 1,
+      id: randomUUID(),
+      jobId: admission.jobId,
+      workspaceId: input.workspaceId,
+      sessionId: p.proof.sessionId,
+      revision: 1,
+      previousId: null,
+      kind: state,
+      state,
+      requestId: input.requestId,
+      requestSha256: admission.requestSha256,
+      preview: p.proof,
+      owner: {
+        epoch: this.epoch,
+        rootBindingSha256: p.proof.rootBindingSha256,
+        beforeSnapshotSha256: knowledgeHash(snapshot),
+      },
+      pid: null,
+      completion: null,
+      outputSeq: 0,
+      outputObservedBytes: 0,
+      outputStoredBytes: 0,
+      payload: snapshot,
+      createdAt: new Date().toISOString(),
+    });
+  }
+  private async startInternal(
+    input: StartHostCommandInput,
+    lifetime?: {
+      control: (control: CommandProcessControl) => void;
+      context?: ToolContext;
+    },
+  ): Promise<HostCommandRecord> {
     this.active();
     jobHostRecord(
       input,
@@ -311,64 +489,26 @@ export class HostCommandService {
       p.proof.fingerprint !== input.fingerprint
     )
       fail("HOST_COMMAND_APPROVAL_MISMATCH");
-    const requestSha256 = knowledgeHash({
-        workspaceId: input.workspaceId,
-        requestId: input.requestId,
-        fingerprint: input.fingerprint,
-        approved: input.approved,
-      }),
-      key = knowledgeHash([input.workspaceId, input.requestId]);
-    const prior = this.native.find(input.workspaceId, input.requestId);
-    if (prior) {
-      if (prior.requestSha256 !== requestSha256) fail("REQUEST_ID_CONFLICT");
-      return structuredClone(prior);
-    }
-    const cached = this.pending.get(key);
-    if (cached) {
-      if (cached.sha !== requestSha256) fail("REQUEST_ID_CONFLICT");
-      return structuredClone(await cached.admitted);
-    }
+    const admission = this.admission(input);
+    if ("prior" in admission) return structuredClone(admission.prior);
+    if ("pending" in admission) return structuredClone(await admission.pending);
+    const { key, jobId } = admission;
     let admit!: (r: HostCommandRecord) => void, reject!: (e: unknown) => void;
     const admitted = new Promise<HostCommandRecord>((yes, no) => {
       admit = yes;
       reject = no;
     });
     void admitted.catch(() => {});
-    this.pending.set(key, { sha: requestSha256, admitted });
-    const jobId = `host_command_${knowledgeHash([input.workspaceId, input.requestId, requestSha256]).slice(0, 32)}`;
-    const initial = (
-      snapshot: JsonObject,
-      state: "approved" | "denied",
-    ): HostCommandRecord =>
-      this.native.append({
-        version: 1,
-        id: randomUUID(),
-        jobId,
-        workspaceId: input.workspaceId,
-        sessionId: p.proof.sessionId,
-        revision: 1,
-        previousId: null,
-        kind: state,
-        state,
-        requestId: input.requestId,
-        requestSha256,
-        preview: p.proof,
-        owner: {
-          epoch: this.epoch,
-          rootBindingSha256: p.proof.rootBindingSha256,
-          beforeSnapshotSha256: knowledgeHash(snapshot),
-        },
-        pid: null,
-        completion: null,
-        outputSeq: 0,
-        outputObservedBytes: 0,
-        outputStoredBytes: 0,
-        payload: snapshot,
-        createdAt: new Date().toISOString(),
-      });
+    this.pending.set(key, { sha: admission.requestSha256, admitted });
     if (!input.approved) {
       try {
-        const denied = initial({ decision: "deny" }, "denied");
+        const denied = this.appendInitial(
+          input,
+          p,
+          admission,
+          { decision: "deny" },
+          "denied",
+        );
         admit(denied);
         return structuredClone(denied);
       } catch (e) {
@@ -381,230 +521,208 @@ export class HostCommandService {
     const abort = new AbortController(),
       ring = new CommandOutputRing();
     let flight: Flight | undefined;
-    let didAdmit = false,
-      journalGap = false;
-    const lease = lifetime?.context ? (operation: (signal: AbortSignal) => Promise<HostCommandRecord>) => this.engine.coordinator.withCommandWorkspaceLease(lifetime.context!, operation) : (operation: (signal: AbortSignal) => Promise<HostCommandRecord>) => this.engine.coordinator.withWorkspaceLease(input.workspaceId, operation);
-    const done = lease(
-      async (leaseSignal) => {
-        const signal = AbortSignal.any([
-          leaseSignal,
-          abort.signal,
-          this.options.lifetime,
-          AbortSignal.timeout(p.proof.limits.maxDurationMs),
-          ...(input.signal ? [input.signal] : []),
-        ]);
-        const workspace = this.engine.store.getWorkspace(input.workspaceId),
-          scope: PhysicalCommandScope = {
-            workspace,
-            signal,
-            limits: {
-              toolTimeoutMs: p.proof.limits.maxDurationMs,
-              maxOutputBytes: p.proof.limits.maxOutputBytes,
-            },
-            artifactDir: this.options.artifactDir,
-            executionLockPath: this.options.executionLockPath,
-            ...(process.platform === "win32" ? { executionLockReservation: reserveExecutionLock(this.options.executionLockPath) } : {}),
-            ...(p.proof.sandbox?{sandbox:p.proof.sandbox}:{}),
-          };
-        try {
-          jobHostAbort(signal);
-          this.current(p);
-          const checked = await preparePhysicalCommand(p.proof.input, scope);
-          if (knowledgeHash(checked) !== knowledgeHash(p.proof.input))
-            fail("HOST_COMMAND_TARGET_STALE");
-          const before = await captureWorkspace(workspace, {
-            signal,
-            maxFiles: 128,
-            maxFileBytes: 8192,
-            maxTotalBytes: HOST_COMMAND_LIMITS.snapshotBytes,
-          });
-          jobHostAbort(signal);
-          this.current(p);
-          const snapshot = checkpointBefore(before);
-          // Bind the committed crash marker before the native owner opens a job.
-          // Its process-group update is intentionally rolled back on a crash.
-          const record = initial(scope.executionLockReservation ? {
-            ...snapshot,
-            executionLock: { path: this.options.executionLockPath, marker: { ...readExecutionLockReservation(scope.executionLockReservation) } },
-          } : snapshot, "approved");
-          flight = { record, abort, ring, done };
-          this.retained.set(jobId, flight);
-          const update = (
-            kind: string,
-            state: HostCommandState,
-            payload: JsonObject,
-            extra: Partial<HostCommandRecord> = {},
-          ) => {
+    let didAdmit = false;
+    const lease = (
+      operation: (signal: AbortSignal) => Promise<HostCommandRecord>,
+    ) =>
+      lifetime?.context
+        ? this.engine.coordinator.withCommandWorkspaceLease(
+            lifetime.context,
+            operation,
+          )
+        : this.engine.coordinator.withWorkspaceLease(
+            input.workspaceId,
+            operation,
+          );
+    const done = lease(async (leaseSignal) => {
+      const signal = AbortSignal.any([
+        leaseSignal,
+        abort.signal,
+        this.options.lifetime,
+        AbortSignal.timeout(p.proof.limits.maxDurationMs),
+        ...(input.signal ? [input.signal] : []),
+      ]);
+      const workspace = this.engine.store.getWorkspace(input.workspaceId),
+        scope: PhysicalCommandScope = {
+          workspace,
+          signal,
+          limits: {
+            toolTimeoutMs: p.proof.limits.maxDurationMs,
+            maxOutputBytes: p.proof.limits.maxOutputBytes,
+          },
+          artifactDir: this.options.artifactDir,
+          executionLockPath: this.options.executionLockPath,
+          ...(process.platform === "win32"
+            ? {
+                executionLockReservation: reserveExecutionLock(
+                  this.options.executionLockPath,
+                ),
+              }
+            : {}),
+          ...(p.proof.sandbox ? { sandbox: p.proof.sandbox } : {}),
+        };
+      try {
+        jobHostAbort(signal);
+        this.current(p);
+        const checked = await preparePhysicalCommand(p.proof.input, scope);
+        if (knowledgeHash(checked) !== knowledgeHash(p.proof.input))
+          fail("HOST_COMMAND_TARGET_STALE");
+        const before = await captureWorkspace(workspace, {
+          signal,
+          maxFiles: 128,
+          maxFileBytes: 8192,
+          maxTotalBytes: HOST_COMMAND_LIMITS.snapshotBytes,
+        });
+        jobHostAbort(signal);
+        this.current(p);
+        const snapshot = checkpointBefore(before);
+        // Bind the committed crash marker before the native owner opens a job.
+        // Its process-group update is intentionally rolled back on a crash.
+        const record = this.appendInitial(
+          input,
+          p,
+          admission,
+          scope.executionLockReservation
+            ? {
+                ...snapshot,
+                executionLock: {
+                  path: this.options.executionLockPath,
+                  marker: {
+                    ...readExecutionLockReservation(
+                      scope.executionLockReservation,
+                    ),
+                  },
+                },
+              }
+            : snapshot,
+          "approved",
+        );
+        flight = { record, abort, ring, done };
+        this.retained.set(jobId, flight);
+        const journal = new FlightJournal(
+          this.native,
+          flight,
+          () => {
             if (
               knowledgeHash(this.binding(input.workspaceId)) !==
               p.proof.rootBindingSha256
             )
               fail("HOST_COMMAND_TARGET_STALE");
-            const current = flight!.record;
-            const next = this.native.append({
-              ...current,
-              ...extra,
-              id: randomUUID(),
-              revision: current.revision + 1,
-              previousId: current.id,
-              kind,
-              state,
-              payload,
-              createdAt: new Date().toISOString(),
-            });
-            flight!.record = next;
-            return next;
-          };
-          const persistOutput = (
-            emitted: ReturnType<CommandOutputRing["push"]>,
-            observed: number,
-          ) => {
-            for (const event of emitted) {
-              if (
-                flight!.record.outputStoredBytes + event.bytes >
-                p.proof.limits.maxOutputBytes
-              ) {
-                journalGap = true;
-                continue;
-              }
-              if (journalGap) continue;
-              try {
-                update(
-                  "output",
-                  "running",
-                  {
-                    seq: flight!.record.outputSeq + 1,
-                    stream: event.stream,
-                    data: event.data,
-                    bytes: event.bytes,
+          },
+          p.proof.limits.maxOutputBytes,
+        );
+        const original = Object.freeze({});
+        const result = await executePhysicalCommand(
+          p.proof.input,
+          scope,
+          before,
+          {
+            started: (actual, pid) => {
+              if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED");
+              const started = journal.append(
+                "running",
+                "running",
+                { pid },
+                { pid },
+              );
+              didAdmit = true;
+              admit(started);
+            },
+            ...(lifetime
+              ? {
+                  control: (actual: object, handle: CommandProcessControl) => {
+                    if (actual !== original)
+                      fail("HOST_COMMAND_ORIGINAL_REQUIRED");
+                    lifetime.control(handle);
                   },
-                  {
-                    outputSeq: flight!.record.outputSeq + 1,
-                    outputObservedBytes: observed,
-                    outputStoredBytes:
-                      flight!.record.outputStoredBytes + event.bytes,
-                  },
-                );
-              } catch (error) {
-                if (
-                  error instanceof EngineError &&
-                  error.code === "HOST_COMMAND_LIMIT"
-                ) {
-                  journalGap = true;
-                  continue;
                 }
-                throw error;
-              }
-            }
-          };
-          const events = (stream: CommandOutputStream, bytes: Buffer) => {
-            const emitted = ring.push(stream, bytes),
-              observed = ring.snapshot().observedBytes;
-            persistOutput(emitted, observed);
-            if (observed > p.proof.limits.maxOutputBytes)
+              : {}),
+            output: (actual, stream, bytes) => {
+              if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED");
+              journal.observe(stream, bytes);
+            },
+            failed: () => {
               abort.abort(
                 new EngineError(
-                  "HOST_COMMAND_OUTPUT_LIMIT",
-                  "Independent command output exceeded its approved budget",
+                  "HOST_COMMAND_OBSERVATION_FAILED",
+                  "Original physical command observation failed",
                 ),
               );
-          };
-          const original = Object.freeze({});
-          const result = await executePhysicalCommand(
-            p.proof.input,
-            scope,
-            before,
-            {
-              started: (actual, pid) => {
-                if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED");
-                const started = update("running", "running", { pid }, { pid });
-                didAdmit = true;
-                admit(started);
-              },
-              ...(lifetime ? {control:(actual: object, handle: CommandProcessControl) => { if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED"); lifetime.control(handle); }} : {}),
-              output: (actual, stream, bytes) => {
-                if (actual !== original) fail("HOST_COMMAND_ORIGINAL_REQUIRED");
-                events(stream, bytes);
-              },
-              failed: () => {
-                abort.abort(
-                  new EngineError(
-                    "HOST_COMMAND_OBSERVATION_FAILED",
-                    "Original physical command observation failed",
-                  ),
-                );
-              },
             },
-            () => {
-              jobHostAbort(signal);
-              this.current(p);
-              if(lifetime?.context)this.engine.coordinator.readOwnedCommandContext(lifetime.context,"start");
-              return original;
-            },
-          );
-          persistOutput(ring.end("stdout"), ring.snapshot().observedBytes);
-          persistOutput(ring.end("stderr"), ring.snapshot().observedBytes);
-          update("checkpoint", flight.record.state, {
+          },
+          () => {
+            jobHostAbort(signal);
+            this.current(p);
+            if (lifetime?.context)
+              this.engine.coordinator.readOwnedCommandContext(
+                lifetime.context,
+                "start",
+              );
+            return original;
+          },
+        );
+        journal.persist(ring.end("stdout"), ring.snapshot().observedBytes);
+        journal.persist(ring.end("stderr"), ring.snapshot().observedBytes);
+        journal.append("checkpoint", flight.record.state, {
+          files: result.files,
+          warnings: [...result.warnings],
+          incomplete: result.incomplete,
+          sha256: knowledgeHash({
             files: result.files,
-            warnings: [...result.warnings],
+            warnings: result.warnings,
             incomplete: result.incomplete,
-            sha256: knowledgeHash({
-              files: result.files,
-              warnings: result.warnings,
-              incomplete: result.incomplete,
-            }),
-          } as unknown as JsonObject);
-          const state: HostCommandState =
-            !result.outcome.cleanupConfirmed || result.observationFailure
-              ? "uncertain"
-              : result.outcome.cancelled || result.outcome.timedOut
-                ? "cancelled"
-                : result.outcome.exitCode === 0 && !result.outcome.error
-                  ? "completed"
-                  : "failed";
-          const closed = update(
-            "closed",
-            state,
-            {
-              completionSha256: knowledgeHash(result),
-              outputJournalGap: journalGap,
-            },
-            {
-              completion: result,
-              outputObservedBytes: ring.snapshot().observedBytes,
-            },
+          }),
+        } as unknown as JsonObject);
+        const state: HostCommandState =
+          !result.outcome.cleanupConfirmed || result.observationFailure
+            ? "uncertain"
+            : result.outcome.cancelled || result.outcome.timedOut
+              ? "cancelled"
+              : result.outcome.exitCode === 0 && !result.outcome.error
+                ? "completed"
+                : "failed";
+        const closed = journal.append(
+          "closed",
+          state,
+          {
+            completionSha256: knowledgeHash(result),
+            outputJournalGap: journal.gap,
+          },
+          {
+            completion: result,
+            outputObservedBytes: ring.snapshot().observedBytes,
+          },
+        );
+        if (!didAdmit && result.outcome.started)
+          reject(
+            new EngineError(
+              "CLEANUP_UNCERTAIN",
+              "Independent command process admission was not committed",
+            ),
           );
-          if (!didAdmit && result.outcome.started)
-            reject(
-              new EngineError(
-                "CLEANUP_UNCERTAIN",
-                "Independent command process admission was not committed",
-              ),
-            );
-          else admit(closed);
-          if (state === "uncertain")
-            this.engine.coordinator.quarantineWorkspace(input.workspaceId);
-          return closed;
-        } catch (error) {
-          if (!flight) {
-            reject(error);
-            throw error;
-          }
-          try {
-            flight.record = this.native.control(flight.record, "recovery", {
-              reason: "HOST_COMMAND_EXECUTION_UNCERTAIN",
-            });
-          } catch {}
+        else admit(closed);
+        if (state === "uncertain")
           this.engine.coordinator.quarantineWorkspace(input.workspaceId);
-          const uncertain = new EngineError(
-            "CLEANUP_UNCERTAIN",
-            "Independent command completion remains unconfirmed in its native evidence",
-          );
-          reject(uncertain);
-          throw uncertain;
+        return closed;
+      } catch (error) {
+        if (!flight) {
+          reject(error);
+          throw error;
         }
-      },
-    );
+        try {
+          flight.record = this.native.control(flight.record, "recovery", {
+            reason: "HOST_COMMAND_EXECUTION_UNCERTAIN",
+          });
+        } catch {}
+        this.engine.coordinator.quarantineWorkspace(input.workspaceId);
+        const uncertain = new EngineError(
+          "CLEANUP_UNCERTAIN",
+          "Independent command completion remains unconfirmed in its native evidence",
+        );
+        reject(uncertain);
+        throw uncertain;
+      }
+    });
     void done
       .catch((error) => {
         reject(error);
@@ -687,9 +805,21 @@ export class HostCommandService {
       stderr: r.completion.stderr,
     });
   }
-  assertLifetimeCurrent(workspaceId:string,jobId:string):void{
-    this.active();const flight=this.retained.get(jobId),r=this.native.get(workspaceId,jobId);
-    if(!flight||!r||r.owner.epoch!==this.epoch||r.sha256!==flight.record.sha256||r.state!=='running'||knowledgeHash(this.binding(workspaceId))!==r.owner.rootBindingSha256||cwdIdentity(r.preview.input.cwd)!==r.preview.cwdIdentitySha256||this.policy(r.preview.input)!==r.preview.policyVersion)fail('HOST_COMMAND_TARGET_STALE');
+  assertLifetimeCurrent(workspaceId: string, jobId: string): void {
+    this.active();
+    const flight = this.retained.get(jobId),
+      r = this.native.get(workspaceId, jobId);
+    if (
+      !flight ||
+      !r ||
+      r.owner.epoch !== this.epoch ||
+      r.sha256 !== flight.record.sha256 ||
+      r.state !== "running" ||
+      knowledgeHash(this.binding(workspaceId)) !== r.owner.rootBindingSha256 ||
+      cwdIdentity(r.preview.input.cwd) !== r.preview.cwdIdentitySha256 ||
+      this.policy(r.preview.input) !== r.preview.policyVersion
+    )
+      fail("HOST_COMMAND_TARGET_STALE");
   }
   captureOutput(input: { workspaceId: string; jobId: string }): object {
     this.active();

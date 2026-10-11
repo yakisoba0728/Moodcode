@@ -1,9 +1,15 @@
-import {sandboxDigest} from '../sandbox/types.js';
+import { sandboxDigest, type SandboxLaunch } from "../sandbox/types.js";
 import { isAbsolute, posix } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import { knowledgeHash, sha256 } from "../knowledge/validation.js";
-import { jobIdentifier, jobObject, signJobData } from "./validation.js";
+import {
+  isValidCommandOutcome,
+  jobIdentifier,
+  jobObject,
+  signJobData,
+} from "./validation.js";
+import type { ExecutionLockMarker } from "../tools/command/execution-lock.js";
 import type {
   CommandInput,
   PhysicalCommandResult,
@@ -37,17 +43,19 @@ CREATE TABLE host_command_heads (
 ) STRICT, WITHOUT ROWID;
 CREATE UNIQUE INDEX host_command_active_workspace ON host_command_heads(workspace_id) WHERE state IN ('approved','running');
 `;
-export type HostCommandState =
-  | "approved"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "denied"
-  | "uncertain"
-  | "paused-import";
+const HOST_COMMAND_STATES = [
+  "approved",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+  "denied",
+  "uncertain",
+  "paused-import",
+] as const;
+export type HostCommandState = (typeof HOST_COMMAND_STATES)[number];
 export interface HostCommandPreview {
-  readonly sandbox?:import('../sandbox/types.js').SandboxLaunch;
+  readonly sandbox?: SandboxLaunch;
   readonly version: 1;
   readonly workspaceId: string;
   readonly sessionId: string;
@@ -169,7 +177,17 @@ export function validateHostCommandRecord(value: unknown): HostCommandRecord {
     131072,
   );
   const { fingerprint, ...previewBody } = p;
-  if(p.sandbox){const launch=sandboxDigest(p.sandbox);if(p.platform!=='darwin'||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768)failure();}
+  if (p.sandbox) {
+    const launch = sandboxDigest(p.sandbox);
+    if (
+      p.platform !== "darwin" ||
+      launch.backend !== "darwin-seatbelt-v1" ||
+      launch.executable !== "/usr/bin/sandbox-exec" ||
+      typeof launch.profile !== "string" ||
+      Buffer.byteLength(launch.profile) > 32768
+    )
+      failure();
+  }
   if (
     p.version !== 1 ||
     typeof p.platform !== "string" ||
@@ -218,18 +236,7 @@ export function validateHostCommandRecord(value: unknown): HostCommandRecord {
     r.sha256,
   ])
     if (typeof h !== "string" || !/^[a-f0-9]{64}$/.test(h)) failure();
-  if (
-    ![
-      "approved",
-      "running",
-      "completed",
-      "failed",
-      "cancelled",
-      "denied",
-      "uncertain",
-      "paused-import",
-    ].includes(String(r.state))
-  )
+  if (!(HOST_COMMAND_STATES as readonly string[]).includes(String(r.state)))
     failure();
   if (
     typeof r.createdAt !== "string" ||
@@ -289,32 +296,8 @@ function validateCompletion(value: unknown): void {
     ],
     ["outputDiscarded", "error"],
   );
-  if (
-    (o.exitCode !== null &&
-      (!Number.isSafeInteger(o.exitCode) ||
-        Math.abs(Number(o.exitCode)) > 2147483647)) ||
-    (o.signal !== null &&
-      (typeof o.signal !== "string" || !/^SIG[A-Z0-9]+$/.test(o.signal)))
-  )
+  if (!isValidCommandOutcome(o, c) || typeof c.incomplete !== "boolean")
     failure();
-  for (const key of ["cancelled", "timedOut", "cleanupConfirmed", "started"])
-    if (typeof o[key] !== "boolean") failure();
-  if (
-    (Object.hasOwn(o, "outputDiscarded") &&
-      typeof o.outputDiscarded !== "boolean") ||
-    typeof c.incomplete !== "boolean"
-  )
-    failure();
-  for (const [obj, key] of [
-    [o, "error"],
-    [c, "observationFailure"],
-  ] as const)
-    if (
-      Object.hasOwn(obj, key) &&
-      (typeof obj[key] !== "string" ||
-        Buffer.byteLength(String(obj[key])) > 4096)
-    )
-      failure();
   validateCommandArtifactDescriptor(c.stdout);
   validateCommandArtifactDescriptor(c.stderr);
   if (
@@ -361,19 +344,21 @@ function validateCompletion(value: unknown): void {
   }
 }
 
-function caps(db: DatabaseSync): void {
+function caps(db: DatabaseSync): { n: number; bytes: number } {
   const row = db
     .prepare(
       "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM host_command_revisions",
     )
     .get()!;
+  const usage = { n: Number(row.n), bytes: Number(row.bytes) };
   if (
-    Number(row.n) > HOST_COMMAND_LIMITS.rows ||
-    Number(row.bytes) > HOST_COMMAND_LIMITS.totalBytes ||
+    usage.n > HOST_COMMAND_LIMITS.rows ||
+    usage.bytes > HOST_COMMAND_LIMITS.totalBytes ||
     Number(db.prepare("SELECT count(*) n FROM host_command_heads").get()!.n) >
       HOST_COMMAND_LIMITS.jobs
   )
     failure("HOST_COMMAND_LIMIT");
+  return usage;
 }
 function readRow(db: DatabaseSync, id: string): HostCommandRecord {
   const h = db
@@ -398,6 +383,7 @@ function readRow(db: DatabaseSync, id: string): HostCommandRecord {
     r.sha256 !== h.sha256
   )
     failure();
+  const [[, revision], ...witnesses] = anchorEvents(r);
   const anchors = db
     .prepare(
       "SELECT seq,data,run_id,input_id,turn_id,attempt_id FROM session_events WHERE session_id=? AND type='host.command.revision' AND json_extract(data,'$.payload.revisionId')=? LIMIT 2",
@@ -419,52 +405,60 @@ function readRow(db: DatabaseSync, id: string): HostCommandRecord {
     ["runId", "inputId", "turnId", "attemptId"].some(
       (k) => e[k] !== undefined,
     ) ||
-    knowledgeHash(e.payload) !==
-      knowledgeHash({
-        jobId: r.jobId,
-        revisionId: id,
-        kind: r.kind,
-        sha256: r.sha256,
-      })
+    knowledgeHash(e.payload) !== knowledgeHash(revision)
   )
     failure();
-  if (r.kind === "approved" || r.kind === "denied") {
-    const witness = anchor(db, r, "host.command.approval");
+  for (const [type, payload] of witnesses) {
+    const witness = knowledgeHash(anchor(db, r, type));
     if (
-      knowledgeHash(witness) !==
-      knowledgeHash({
-        jobId: r.jobId,
-        requestId: r.requestId,
-        requestSha256: r.requestSha256,
-        decision: r.kind === "approved" ? "allow" : "deny",
-        preview: r.preview,
-        owner: r.owner,
-        snapshot: r.payload,
-      })
-    )
-      failure();
-  }
-  if (r.kind === "running")
-    if (
-      knowledgeHash(anchor(db, r, "host.command.process")) !==
-      knowledgeHash({
-        jobId: r.jobId,
-        pid: r.pid,
-        owner: r.owner,
-        previewFingerprint: r.preview.fingerprint,
-      })
-    )
-      failure();
-  if (r.kind === "closed") {
-    const witness = knowledgeHash(anchor(db, r, "host.command.closed"));
-    if (
-      witness !== knowledgeHash(closedWitness(r)) &&
-      witness !==
-        knowledgeHash({ jobId: r.jobId, pid: r.pid, completion: r.completion })
+      witness !== knowledgeHash(payload) &&
+      (type !== "host.command.closed" ||
+        witness !==
+          knowledgeHash({
+            jobId: r.jobId,
+            pid: r.pid,
+            completion: r.completion,
+          }))
     )
       failure();
   }
   return r;
+}
+type AnchorEvent = [type: string, payload: JsonObject];
+/** The session events append() writes for a revision, in order; readRow verifies each. */
+function anchorEvents(r: HostCommandRecord): [AnchorEvent, ...AnchorEvent[]] {
+  const events: [AnchorEvent, ...AnchorEvent[]] = [
+    [
+      "host.command.revision",
+      { jobId: r.jobId, revisionId: r.id, kind: r.kind, sha256: r.sha256 },
+    ],
+  ];
+  if (r.kind === "approved" || r.kind === "denied")
+    events.push([
+      "host.command.approval",
+      {
+        jobId: r.jobId,
+        requestId: r.requestId,
+        requestSha256: r.requestSha256,
+        decision: r.kind === "approved" ? "allow" : "deny",
+        preview: r.preview as unknown as JsonObject,
+        owner: r.owner as unknown as JsonObject,
+        snapshot: r.payload,
+      },
+    ]);
+  if (r.kind === "running")
+    events.push([
+      "host.command.process",
+      {
+        jobId: r.jobId,
+        pid: r.pid,
+        owner: r.owner as unknown as JsonObject,
+        previewFingerprint: r.preview.fingerprint,
+      },
+    ]);
+  if (r.kind === "closed")
+    events.push(["host.command.closed", closedWitness(r)]);
+  return events;
 }
 /** Closed event witness: changed-file bodies stay in the revision, bound by their hashes. */
 function closedWitness(r: HostCommandRecord): JsonObject {
@@ -620,17 +614,7 @@ function transition(
   )
     failure();
   if (next.kind === "import" && next.state !== "paused-import") failure();
-  if (
-    ![
-      "running",
-      "output",
-      "checkpoint",
-      "closed",
-      "recovery",
-      "import",
-    ].includes(next.kind)
-  )
-    failure();
+  if (next.kind === "approved" || next.kind === "denied") failure();
 }
 export function readHostCommand(
   db: DatabaseSync,
@@ -640,6 +624,14 @@ export function readHostCommand(
   jobIdentifier(workspaceId);
   jobIdentifier(jobId);
   caps(db);
+  return readHead(db, workspaceId, jobId);
+}
+/** Callers check caps() once before reading heads. */
+function readHead(
+  db: DatabaseSync,
+  workspaceId: string,
+  jobId: string,
+): HostCommandRecord | undefined {
   const h = db
     .prepare(
       "SELECT * FROM host_command_heads WHERE workspace_id=? AND job_id=?",
@@ -678,9 +670,13 @@ function inspectHostCommands(
     )
     .all(workspaceId ?? null, workspaceId ?? null);
   return Object.freeze(
-    rows.map((h) =>
-      readHostCommand(db, String(h.workspace_id), String(h.job_id))!,
-    ),
+    rows.map((h) => {
+      const workspaceId = String(h.workspace_id),
+        jobId = String(h.job_id);
+      jobIdentifier(workspaceId);
+      jobIdentifier(jobId);
+      return readHead(db, workspaceId, jobId)!;
+    }),
   );
 }
 export function validateHostCommandDatabase(
@@ -743,25 +739,43 @@ export class HostCommandStorage {
     return inspectHostCommands(this.db, workspaceId);
   }
   /** Read-only crash correlation; it grants neither cleanup nor new effects. */
-  hasKnownWindowsExecutionMarker(marker: import("../tools/command/execution-lock.js").ExecutionLockMarker, path: string,
-    rootBinding: (workspaceId: string) => string): boolean {
+  hasKnownWindowsExecutionMarker(
+    marker: ExecutionLockMarker,
+    path: string,
+    rootBinding: (workspaceId: string) => string,
+  ): boolean {
     if (!marker.active || marker.groupPid !== null) return false;
-    const matches = this.inspect().filter(record => {
-      if (record.preview.platform !== "win32" || !["approved", "running", "uncertain"].includes(record.state) ||
-        record.completion !== null || record.owner.rootBindingSha256 !== rootBinding(record.workspaceId)) return false;
-      const row = this.db.prepare("SELECT id FROM host_command_revisions WHERE job_id=? AND revision=1").get(record.jobId);
+    const matches = this.inspect().filter((record) => {
+      if (
+        record.preview.platform !== "win32" ||
+        !["approved", "running", "uncertain"].includes(record.state) ||
+        record.completion !== null ||
+        record.owner.rootBindingSha256 !== rootBinding(record.workspaceId)
+      )
+        return false;
+      const row = this.db
+        .prepare(
+          "SELECT id FROM host_command_revisions WHERE job_id=? AND revision=1",
+        )
+        .get(record.jobId);
       if (!row) return false;
       const original = readRow(this.db, String(row.id));
       const proof = original.payload.executionLock;
-      return original.kind === "approved" && original.owner.epoch === record.owner.epoch &&
-        proof !== null && typeof proof === "object" && !Array.isArray(proof) &&
-        proof.path === path && knowledgeHash(proof.marker) === knowledgeHash(marker);
+      return (
+        original.kind === "approved" &&
+        original.owner.epoch === record.owner.epoch &&
+        proof !== null &&
+        typeof proof === "object" &&
+        !Array.isArray(proof) &&
+        proof.path === path &&
+        knowledgeHash(proof.marker) === knowledgeHash(marker)
+      );
     });
     return matches.length === 1;
   }
   append(body: Omit<HostCommandRecord, "sha256">): HostCommandRecord {
     return this.ports.transaction(() => {
-      caps(this.db);
+      const usage = caps(this.db);
       const record = validateHostCommandRecord(
         signJobData(
           body,
@@ -770,12 +784,7 @@ export class HostCommandStorage {
             : HOST_COMMAND_LIMITS.rowBytes - 1024,
         ),
       );
-      const size = Buffer.byteLength(JSON.stringify(record)),
-        usage = this.db
-          .prepare(
-            "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM host_command_revisions",
-          )
-          .get()!;
+      const size = Buffer.byteLength(JSON.stringify(record));
       const heads = this.db
         .prepare("SELECT job_id,state FROM host_command_heads")
         .all();
@@ -797,13 +806,11 @@ export class HostCommandStorage {
       );
       if (
         projected.length > HOST_COMMAND_LIMITS.jobs ||
-        Number(usage.n) + 1 > HOST_COMMAND_LIMITS.rows ||
-        Number(usage.bytes) + size > HOST_COMMAND_LIMITS.totalBytes ||
+        usage.n + 1 > HOST_COMMAND_LIMITS.rows ||
+        usage.bytes + size > HOST_COMMAND_LIMITS.totalBytes ||
         (["approved", "denied", "running", "output"].includes(record.kind) &&
-          (Number(usage.n) + 1 + reserved > HOST_COMMAND_LIMITS.rows ||
-            Number(usage.bytes) +
-              size +
-              reserved * HOST_COMMAND_LIMITS.rowBytes >
+          (usage.n + 1 + reserved > HOST_COMMAND_LIMITS.rows ||
+            usage.bytes + size + reserved * HOST_COMMAND_LIMITS.rowBytes >
               HOST_COMMAND_LIMITS.totalBytes))
       )
         failure("HOST_COMMAND_LIMIT");
@@ -839,35 +846,8 @@ export class HostCommandStorage {
           record.sha256,
           JSON.stringify(record),
         );
-      this.ports.appendEvent(record.sessionId, "host.command.revision", {
-        jobId: record.jobId,
-        revisionId: record.id,
-        kind: record.kind,
-        sha256: record.sha256,
-      });
-      if (record.kind === "approved" || record.kind === "denied")
-        this.ports.appendEvent(record.sessionId, "host.command.approval", {
-          jobId: record.jobId,
-          requestId: record.requestId,
-          requestSha256: record.requestSha256,
-          decision: record.kind === "approved" ? "allow" : "deny",
-          preview: record.preview as unknown as JsonObject,
-          owner: record.owner as unknown as JsonObject,
-          snapshot: record.payload,
-        });
-      if (record.kind === "running")
-        this.ports.appendEvent(record.sessionId, "host.command.process", {
-          jobId: record.jobId,
-          pid: record.pid,
-          owner: record.owner as unknown as JsonObject,
-          previewFingerprint: record.preview.fingerprint,
-        });
-      if (record.kind === "closed")
-        this.ports.appendEvent(
-          record.sessionId,
-          "host.command.closed",
-          closedWitness(record),
-        );
+      for (const [type, payload] of anchorEvents(record))
+        this.ports.appendEvent(record.sessionId, type, payload);
       if (previous)
         this.db
           .prepare(
