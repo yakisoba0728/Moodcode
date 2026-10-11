@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { canonicalSha256 } from '../shared/canonical.js';
-import { assertNotThenable, ownDataFields, proposalChecks, trackPending } from './validation.js';
+import { assertNotThenable, ownDataFields, proposalChecks, selfMeasuredBytes, trackPending } from './validation.js';
 
 const fail = (code = 'INVALID'): never => { throw new Error(code); };
 const reported = (code: string) => (error: unknown) => error instanceof Error && error.message === code;
@@ -49,4 +49,11 @@ test('tracked tasks leave the pending set once settled, including rejected ones'
   assert.equal(await resolved, 1); await assert.rejects(rejected, /late/u);
   await Promise.resolve();
   assert.equal(pending.size, 0);
+});
+
+test('self-measured bytes equal the serialized size, including where the size gains a digit', () => {
+  for (let length = 9_955; length < 9_970; length++) {
+    const body = { items: ['x'.repeat(length)], next: null }, bytes = selfMeasuredBytes(body);
+    assert.equal(bytes, Buffer.byteLength(JSON.stringify({ ...body, bytes })));
+  }
 });

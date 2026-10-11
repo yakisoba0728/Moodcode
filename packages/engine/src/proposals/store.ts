@@ -6,7 +6,11 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { sha256Hex } from "../shared/canonical.js";
 import { casReplace, guardedWrite } from "../storage/transaction.js";
 import { workspaceWritePath } from "../workspace/index.js";
-import { assertNotThenable, proposalChecks } from "./validation.js";
+import {
+  assertNotThenable,
+  proposalChecks,
+  selfMeasuredBytes,
+} from "./validation.js";
 import type {
   PreparedProposalSourceSnapshot,
   ProposalSourceManifest,
@@ -165,7 +169,9 @@ export function normalizeProposalCaptureInput(
   return r as unknown as ProposalCaptureInput;
 }
 export function proposalRequestFingerprint(input: unknown): string {
-  const r = normalizeProposalCaptureInput(input);
+  return fingerprintNormalized(normalizeProposalCaptureInput(input));
+}
+function fingerprintNormalized(r: ProposalCaptureInput): string {
   return knowledgeHash({
     workspaceId: r.workspaceId,
     requestId: r.requestId,
@@ -666,8 +672,13 @@ export class ProposalStorage {
     return new Date(now).toISOString();
   }
   findRequest(input: ProposalCaptureInput): ProposalSelection | undefined {
-    const normalized = normalizeProposalCaptureInput(input),
-      fingerprint = proposalRequestFingerprint(normalized);
+    const normalized = normalizeProposalCaptureInput(input);
+    return this.#findNormalized(normalized, fingerprintNormalized(normalized));
+  }
+  #findNormalized(
+    normalized: ProposalCaptureInput,
+    fingerprint: string,
+  ): ProposalSelection | undefined {
     const key = this.db
       .prepare(
         "SELECT id FROM proposal_revisions WHERE workspace_id=? AND request_id=?",
@@ -684,7 +695,8 @@ export class ProposalStorage {
   }
   beginCapture(input: ProposalCaptureInput): BeginProposalCaptureResult {
     const normalized = normalizeProposalCaptureInput(input),
-      duplicate = this.findRequest(normalized);
+      fingerprint = fingerprintNormalized(normalized),
+      duplicate = this.#findNormalized(normalized, fingerprint);
     if (duplicate) return Object.freeze({ kind: "duplicate", ...duplicate });
     if (this.#live.size >= PROPOSAL_LIMITS.handles)
       fail("PROPOSAL_CAPTURE_LIMIT");
@@ -716,7 +728,7 @@ export class ProposalStorage {
         revisionId: randomUUID(),
         expectedHeadRevision: normalized.expectedHeadRevision,
         binding,
-        requestInputSha256: proposalRequestFingerprint(normalized),
+        requestInputSha256: fingerprint,
       },
       PROPOSAL_LIMITS.headerBytes,
     ) as PreparedProposalCapture;
@@ -730,7 +742,10 @@ export class ProposalStorage {
   ): AppendProposalRevisionResult {
     const owned = this.#owned.get(capture);
     if (!owned || !this.#live.has(capture)) fail("PROPOSAL_CAPTURE_REQUIRED");
-    const duplicate = this.findRequest(owned.input);
+    const duplicate = this.#findNormalized(
+      owned.input,
+      capture.requestInputSha256,
+    );
     if (duplicate) return Object.freeze({ kind: "duplicate", ...duplicate });
     const snapshot = json(
       this.ports.readSourceCapture(source),
@@ -777,7 +792,10 @@ export class ProposalStorage {
         fail("PROPOSAL_HASH_MISMATCH");
     }
     return this.#tx(() => {
-      const raced = this.findRequest(owned.input);
+      const raced = this.#findNormalized(
+        owned.input,
+        capture.requestInputSha256,
+      );
       if (raced) return Object.freeze({ kind: "duplicate", ...raced });
       if (
         knowledgeHash(this.#binding(capture.workspaceId)) !==
@@ -956,8 +974,8 @@ export class ProposalStorage {
     return Object.freeze({ set, revision });
   }
   #page<T>(
-    keys: readonly { id: string }[],
     options: ProposalListOptions,
+    keysAfter: (after: string) => readonly { id: string }[],
     read: (key: string) => T | undefined,
   ): ProposalPage<T> {
     const detached = exact(
@@ -965,8 +983,8 @@ export class ProposalStorage {
       [],
       ["after", "limit", "maxBytes"],
     );
-    if (detached.after !== undefined) id(detached.after);
-    const limit =
+    const after = detached.after === undefined ? "" : id(detached.after),
+      limit =
         detached.limit === undefined
           ? PROPOSAL_LIMITS.pageRows
           : number(detached.limit, PROPOSAL_LIMITS.pageRows),
@@ -975,14 +993,9 @@ export class ProposalStorage {
           ? PROPOSAL_LIMITS.pageBytes
           : number(detached.maxBytes, PROPOSAL_LIMITS.pageBytes);
     if (!limit || !maximum) fail("PROPOSAL_LIMIT");
-    const items: T[] = [];
+    const keys = keysAfter(after),
+      items: T[] = [];
     let next: string | null = null;
-    function measured(selected: readonly T[], cursor: string | null): number {
-      const result = { items: selected, next: cursor, bytes: 0 };
-      result.bytes = Buffer.byteLength(JSON.stringify(result));
-      result.bytes = Buffer.byteLength(JSON.stringify(result));
-      return result.bytes;
-    }
     for (const [index, key] of keys.entries()) {
       if (items.length === limit) {
         next = keys[items.length - 1]!.id;
@@ -991,14 +1004,16 @@ export class ProposalStorage {
       const item = read(key.id);
       if (!item) fail("PROPOSAL_STALE");
       const cursor = index < keys.length - 1 ? key.id : null;
-      if (measured([...items, item], cursor) > maximum) {
+      if (
+        selfMeasuredBytes({ items: [...items, item], next: cursor }) > maximum
+      ) {
         if (!items.length) fail("PROPOSAL_PAGE_LIMIT");
         next = keys[items.length - 1]!.id;
         break;
       }
       items.push(item);
     }
-    const bytes = measured(items, next);
+    const bytes = selfMeasuredBytes({ items, next });
     if (bytes > maximum) fail("PROPOSAL_PAGE_LIMIT");
     return Object.freeze({ items: Object.freeze(items), next, bytes });
   }
@@ -1007,18 +1022,16 @@ export class ProposalStorage {
     options: ProposalListOptions = {},
   ): ProposalPage<ProposalSet> {
     id(ws);
-    const o = exact(
-      json(options, PROPOSAL_LIMITS.headerBytes),
-      [],
-      ["after", "limit", "maxBytes"],
+    return this.#page(
+      options,
+      (after) =>
+        this.db
+          .prepare(
+            "SELECT id FROM proposal_heads WHERE workspace_id=? AND id>? ORDER BY id LIMIT 65",
+          )
+          .all(ws, after) as { id: string }[],
+      (key) => this.getSet(ws, key),
     );
-    if (o.after !== undefined) id(o.after);
-    const keys = this.db
-      .prepare(
-        "SELECT id FROM proposal_heads WHERE workspace_id=? AND id>? ORDER BY id LIMIT 65",
-      )
-      .all(ws, o.after === undefined ? "" : id(o.after)) as { id: string }[];
-    return this.#page(keys, options, (key) => this.getSet(ws, key));
   }
 }
 

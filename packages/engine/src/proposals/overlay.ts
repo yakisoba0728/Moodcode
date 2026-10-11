@@ -15,7 +15,7 @@ import {
   recordGuards,
 } from "../shared/data.js";
 import { validateProposalRevision, validateProposalSet } from "./store.js";
-import { trackPending } from "./validation.js";
+import { selfMeasuredBytes, trackPending } from "./validation.js";
 import type {
   ProposalBlobReference,
   ProposalFileEntry,
@@ -859,9 +859,7 @@ export function buildProposalDiff(
     omissions: Object.freeze(omissions.map((o) => Object.freeze(o))),
     next: cursor < revision.files.length ? cursor : null,
   };
-  let bytes = Buffer.byteLength(JSON.stringify({ ...unsigned, bytes: 0 }));
-  for (let i = 0; i < 3; i++)
-    bytes = Buffer.byteLength(JSON.stringify({ ...unsigned, bytes }));
+  const bytes = selfMeasuredBytes(unsigned);
   if (bytes > maxBytes) fail("PROPOSAL_DIFF_LIMIT");
   return Object.freeze({ ...unsigned, bytes });
 }

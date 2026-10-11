@@ -39,6 +39,16 @@ export function assertNotThenable(value: unknown, fail: () => never): void {
   if (value && typeof value === 'object' && 'then' in value) fail();
 }
 
+/** UTF-8 size of body serialized with this size as its trailing bytes field. */
+export function selfMeasuredBytes(body: object): number {
+  let bytes = 0;
+  for (;;) {
+    const measured = Buffer.byteLength(JSON.stringify({ ...body, bytes }));
+    if (measured === bytes) return bytes;
+    bytes = measured;
+  }
+}
+
 /** Holds a task in its owner's close set until it settles. */
 export function trackPending<T>(pending: Set<Promise<unknown>>, task: Promise<T>): Promise<T> {
   const settled = (): void => { pending.delete(task); };
