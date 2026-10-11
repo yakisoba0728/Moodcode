@@ -26,15 +26,18 @@ import {
 import { OwnedCodeModeProcess } from "./process.js";
 import {
   CodeModeStorage,
+  nextCodeModeRevision,
   type CodeModeSource,
   type CodeModeRecord,
 } from "./records.js";
 import {
+  codeFields,
   codeJson,
   codeSign,
   codeModeError,
   parseCodeProgram,
   validateCodeAllocation,
+  validateCodeModePacket,
   CODE_MODE_TOOLS,
   type CodeModeAllocation,
   type CodeModeRuntimeCapability,
@@ -112,7 +115,7 @@ export class CodeModeHost {
     return this.runtime;
   }
   previewCodeModeGrant(input: unknown): object {
-    this.runtimeCurrent();
+    const runtime = this.runtimeCurrent();
     const x = codeJson(input) as any;
     if (
       !x ||
@@ -149,7 +152,7 @@ export class CodeModeHost {
       id: randomUUID(),
       ownerEpoch: this.epoch,
       target,
-      runtime: this.runtime!.capability,
+      runtime: runtime.capability,
     });
     if (this.retained.size >= 128) codeModeError("CODE_MODE_LIMIT");
     const original = Object.freeze({});
@@ -193,10 +196,10 @@ export class CodeModeHost {
     this.previews.delete(original);
   }
   private assertGrant(g: CodeModeGrant) {
-    this.runtimeCurrent();
+    const runtime = this.runtimeCurrent();
     if (
       g.ownerEpoch !== this.epoch ||
-      g.runtime.sha256 !== this.runtime!.capability.sha256 ||
+      g.runtime.sha256 !== runtime.capability.sha256 ||
       knowledgeHash(
         describeQueueTarget(
           this.engine,
@@ -224,14 +227,7 @@ export class CodeModeHost {
     return { proof, grant: g, binding: this.binding(proof.workspaceId) };
   }
   async prepare(input: unknown, context: ToolContext): Promise<PreparedTool> {
-    const x = codeJson(input) as any;
-    if (
-      !x ||
-      Object.keys(x).length !== 2 ||
-      !Object.hasOwn(x, "source") ||
-      !Object.hasOwn(x, "allocation")
-    )
-      codeModeError();
+    const x = codeFields(codeJson(input), ["source", "allocation"]);
     parseCodeProgram(x.source);
     const allocation = validateCodeAllocation(x.allocation),
       c = this.grantContext(context, "prepare");
@@ -285,14 +281,11 @@ export class CodeModeHost {
     return this.run(context, captured);
   }
   private update(f: Flight, change: Partial<CodeModeRecord>) {
-    const { sha256, ...body } = f.record;
-    const r = codeSign({
-      ...body,
-      ...change,
-      revision: f.record.revision + 1,
-      updatedAt: new Date().toISOString(),
-    });
-    f.record = this.native.put(f, r, f.record.revision);
+    f.record = this.native.put(
+      f,
+      nextCodeModeRevision(f.record, change),
+      f.record.revision,
+    );
   }
   private async run(
     context: ToolContext,
@@ -382,74 +375,16 @@ export class CodeModeHost {
       );
       const ids = new Set<string>();
       while (true) {
-        const packet = await f.process.next(signal);
-        if (packet.version !== 1 || packet.generation !== generation)
-          codeModeError("CODE_MODE_PROTOCOL_INVALID");
+        const packet = validateCodeModePacket(await f.process.next(signal), {
+          generation,
+          allocation: captured.allocation,
+          callsSoFar: f.record.calls.length,
+          seenIds: ids,
+        });
         if (packet.type === "result") {
-          if (
-            Object.keys(packet).some(
-              (k) =>
-                ![
-                  "version",
-                  "type",
-                  "generation",
-                  "ok",
-                  "value",
-                  "steps",
-                  "calls",
-                  "errorCode",
-                ].includes(k),
-            ) ||
-            !Number.isSafeInteger(packet.steps) ||
-            packet.steps < 0 ||
-            packet.steps >
-              captured.allocation.maxSteps +
-                (packet.ok === false &&
-                packet.errorCode === "CODE_MODE_STEP_LIMIT"
-                  ? 1
-                  : 0) ||
-            packet.calls !==
-              f.record.calls.length +
-                (packet.ok === false &&
-                packet.errorCode === "CODE_MODE_CALL_LIMIT"
-                  ? 1
-                  : 0) ||
-            (packet.ok !== true && packet.ok !== false)
-          )
-            codeModeError("CODE_MODE_PROTOCOL_INVALID");
-          if (packet.ok !== true)
-            codeModeError(
-              typeof packet.errorCode === "string"
-                ? packet.errorCode
-                : "CODE_MODE_RUNTIME_FAILED",
-            );
-          result = codeJson(packet.value, captured.allocation.maxResultBytes);
+          result = packet.value;
           break;
         }
-        if (
-          packet.type !== "call" ||
-          Object.keys(packet).some(
-            (k) =>
-              ![
-                "version",
-                "type",
-                "generation",
-                "id",
-                "tool",
-                "input",
-              ].includes(k),
-          ) ||
-          typeof packet.id !== "string" ||
-          packet.id.length > 256 ||
-          ids.has(packet.id) ||
-          !(CODE_MODE_TOOLS as readonly string[]).includes(packet.tool) ||
-          !packet.input ||
-          typeof packet.input !== "object" ||
-          Array.isArray(packet.input)
-        )
-          codeModeError("CODE_MODE_PROTOCOL_INVALID");
-        if (ids.size >= captured.allocation.maxNestedCalls)
-          codeModeError("CODE_MODE_CALL_LIMIT");
         ids.add(packet.id);
         assertCurrent();
         const callId = "code:" + knowledgeHash([generation, packet.id]);

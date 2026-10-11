@@ -5,6 +5,7 @@ import { sha256Hex } from "../shared/canonical.js";
 import type { SessionDocument } from "../storage/native-records.js";
 import {
   CODE_MODE_LIMITS,
+  CODE_MODE_TOOLS,
   codeJson,
   codeSign,
   codeModeError,
@@ -49,19 +50,21 @@ export interface NestedCallReceipt {
   outputBytes: number;
   approval: { id: string; fingerprint: string } | null;
 }
+const CODE_MODE_STATES = [
+  "prepared",
+  "running",
+  "settling",
+  "completed",
+  "failed",
+  "uncertain",
+  "paused-import",
+] as const;
 export interface CodeModeRecord {
   version: 1;
   id: string;
   revision: number;
   source: CodeModeSource;
-  state:
-    | "prepared"
-    | "running"
-    | "settling"
-    | "completed"
-    | "failed"
-    | "uncertain"
-    | "paused-import";
+  state: (typeof CODE_MODE_STATES)[number];
   process: CodeModeProcessProof | null;
   calls: readonly NestedCallReceipt[];
   pendingCall: { id: string; name: string; input: JsonObject } | null;
@@ -74,6 +77,16 @@ export interface CodeModeRecord {
 }
 export const codeModeRecordKind = (id: string) =>
   "code.mode." + knowledgeHash(id).slice(0, 32);
+export const nextCodeModeRevision = (
+  old: CodeModeRecord,
+  change: Partial<CodeModeRecord>,
+): CodeModeRecord =>
+  codeSign({
+    ...old,
+    ...change,
+    revision: old.revision + 1,
+    updatedAt: new Date().toISOString(),
+  });
 export interface CodeModeRecordPorts {
   assertOriginal(
     original: object,
@@ -111,15 +124,7 @@ function validateCodeModeRecord(value: unknown): CodeModeRecord {
     r.revision < 1 ||
     typeof r.id !== "string" ||
     r.id.length > 128 ||
-    ![
-      "prepared",
-      "running",
-      "settling",
-      "completed",
-      "failed",
-      "uncertain",
-      "paused-import",
-    ].includes(r.state)
+    !(CODE_MODE_STATES as readonly string[]).includes(r.state)
   )
     codeModeError();
   const s = r.source;
@@ -162,14 +167,7 @@ function validateCodeModeRecord(value: unknown): CodeModeRecord {
       !/^code:[a-f0-9]{64}$/.test(c.id) ||
       typeof c.toolCallId !== "string" ||
       c.toolCallId.length > 128 ||
-      ![
-        "read_file",
-        "list_files",
-        "search_files",
-        "apply_patch",
-        "run_command",
-        "verify_changes",
-      ].includes(c.name) ||
+      !(CODE_MODE_TOOLS as readonly string[]).includes(c.name) ||
       !["completed", "failed", "denied"].includes(c.state) ||
       !Number.isSafeInteger(c.outputBytes) ||
       c.outputBytes < 0
@@ -241,38 +239,48 @@ function validateCodeModeRecord(value: unknown): CodeModeRecord {
     codeModeError("CODE_MODE_CLEANUP_UNCERTAIN");
   return r;
 }
+const EVENT_COUNT = 8192,
+  EVENT_BYTES = 33554432,
+  EVENT_ROW_BYTES = 73728;
 function headerCaps(db: DatabaseSync): void {
-  const e = db
-    .prepare(
-      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes,max(length(CAST(data AS BLOB))) largest FROM session_events WHERE type GLOB 'code.mode.*'",
+  for (const [table, column, count, bytes, row] of [
+    ["session_events", "type", EVENT_COUNT, EVENT_BYTES, EVENT_ROW_BYTES],
+    [
+      "session_documents",
+      "kind",
+      CODE_MODE_LIMITS.records,
+      CODE_MODE_LIMITS.totalBytes,
+      CODE_MODE_LIMITS.rowBytes,
+    ],
+  ] as const) {
+    const h = db
+      .prepare(
+        `SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes,max(length(CAST(data AS BLOB))) largest FROM ${table} WHERE ${column} GLOB 'code.mode.*'`,
+      )
+      .get()!;
+    if (
+      Number(h.n) > count ||
+      Number(h.bytes) > bytes ||
+      Number(h.largest) > row
     )
-    .get()!;
-  if (
-    Number(e.n) > 8192 ||
-    Number(e.bytes) > 33554432 ||
-    Number(e.largest) > 73728
-  )
-    codeModeError("CODE_MODE_LIMIT");
-  const h = db
-    .prepare(
-      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes,max(length(CAST(data AS BLOB))) largest FROM session_documents WHERE kind GLOB 'code.mode.*'",
-    )
-    .get()!;
-  if (
-    Number(h.n) > 128 ||
-    Number(h.bytes) > 8388608 ||
-    Number(h.largest) > 65536
-  )
-    codeModeError("CODE_MODE_LIMIT");
+      codeModeError("CODE_MODE_LIMIT");
+  }
 }
+const NATIVE_COLUMNS = {
+  runs: { workspace_id: "workspaceId", state: "state" },
+  tools: { run_id: "runId", state: "state" },
+  approvals: { run_id: "runId", tool_call_id: "toolCallId", status: "status" },
+  message_parts: { run_id: "runId", state: "state" },
+} as const;
 function native(
   db: DatabaseSync,
-  table: "runs" | "tools" | "approvals" | "message_parts",
+  table: keyof typeof NATIVE_COLUMNS,
   id: string,
 ): Record<string, any> {
+  const columns = Object.entries(NATIVE_COLUMNS[table]);
   const h = db
     .prepare(
-      `SELECT id,session_id,${table === "runs" ? "" : "run_id,"}${table === "runs" ? "workspace_id,state" : table === "approvals" ? "tool_call_id,status" : "state"},length(CAST(data AS BLOB)) bytes FROM ${table} WHERE id=?`,
+      `SELECT id,session_id,${columns.map(([c]) => c).join(",")},length(CAST(data AS BLOB)) bytes FROM ${table} WHERE id=?`,
     )
     .get(id);
   if (!h || Number(h.bytes) > 2097152)
@@ -287,12 +295,7 @@ function native(
   if (
     r.id !== h.id ||
     r.sessionId !== h.session_id ||
-    (table !== "runs" && r.runId !== h.run_id) ||
-    (table === "runs" &&
-      (r.workspaceId !== h.workspace_id || r.state !== h.state)) ||
-    (table === "approvals" &&
-      (r.toolCallId !== h.tool_call_id || r.status !== h.status)) ||
-    (table !== "approvals" && r.state !== h.state)
+    columns.some(([c, k]) => r[k] !== h[c])
   )
     codeModeError("CODE_MODE_NATIVE_INVALID");
   return r;
@@ -310,18 +313,50 @@ function anchors(
     .all(s.sessionId, type, match);
   if (h.length > 256) codeModeError("CODE_MODE_LIMIT");
   return h.map((h) => {
-    if (Number(h.bytes) > 73728) codeModeError("CODE_MODE_LIMIT");
+    if (Number(h.bytes) > EVENT_ROW_BYTES) codeModeError("CODE_MODE_LIMIT");
     const x = db
       .prepare(
         "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
       )
       .get(s.sessionId, h.seq!, h.bytes!);
     if (!x) codeModeError();
-    return codeJson(JSON.parse(String(x.data)), 73728);
+    return codeJson(JSON.parse(String(x.data)), EVENT_ROW_BYTES);
   });
+}
+function assertOneToolPart(
+  db: DatabaseSync,
+  s: CodeModeSource,
+  tool: Record<string, any>,
+  states: readonly string[],
+  extra: (part: Record<string, any>) => boolean = () => true,
+): void {
+  const parts = db
+    .prepare(
+      "SELECT id FROM message_parts WHERE run_id=? AND turn_id=? AND instr(data,?)>0 LIMIT 17",
+    )
+    .all(s.runId, s.turnId, tool.id);
+  if (
+    parts.filter((p) => {
+      const x = native(db, "message_parts", String(p.id));
+      return (
+        x.type === "tool" &&
+        x.toolCallId === tool.id &&
+        x.name === tool.name &&
+        x.turnId === s.turnId &&
+        extra(x) &&
+        x.result?.output === tool.output &&
+        states.includes(x.state)
+      );
+    }).length !== 1
+  )
+    codeModeError("CODE_MODE_PART_INVALID");
 }
 function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
   const s = r.source,
+    sameRefs = (e: Record<string, any>) =>
+      e.runId === s.runId &&
+      e.turnId === s.turnId &&
+      e.attemptId === s.attemptId,
     run = native(db, "runs", s.runId),
     tool = native(db, "tools", s.toolCallId),
     approval = native(db, "approvals", s.approvalId);
@@ -357,9 +392,7 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
     codeModeError("CODE_MODE_SOURCE_INVALID");
   const source = anchors(db, s, "code.mode.source_admitted", s.sha256).filter(
     (e) =>
-      e.runId === s.runId &&
-      e.turnId === s.turnId &&
-      e.attemptId === s.attemptId &&
+      sameRefs(e) &&
       e.payload?.source?.sha256 === s.sha256 &&
       knowledgeHash(e.payload.source) === knowledgeHash(s),
   );
@@ -382,9 +415,7 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
         (e) =>
           e.payload?.id === r.id &&
           knowledgeHash(e.payload.process) === knowledgeHash(r.process) &&
-          e.runId === s.runId &&
-          e.turnId === s.turnId &&
-          e.attemptId === s.attemptId,
+          sameRefs(e),
       ).length !== 1
     )
       codeModeError("CODE_MODE_PROCESS_INVALID");
@@ -395,9 +426,7 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
       (e) =>
         e.payload?.id === r.id &&
         knowledgeHash(e.payload.outcome) === knowledgeHash(r.outcome) &&
-        e.runId === s.runId &&
-        e.turnId === s.turnId &&
-        e.attemptId === s.attemptId,
+        sameRefs(e),
     ).length !== 1
   )
     codeModeError("CODE_MODE_OUTCOME_INVALID");
@@ -427,27 +456,15 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
       c.state === "completed"
     )
       codeModeError("CODE_MODE_CALL_APPROVAL_REQUIRED");
-    const parts = db
-      .prepare(
-        "SELECT id FROM message_parts WHERE run_id=? AND turn_id=? AND instr(data,?)>0 LIMIT 17",
-      )
-      .all(s.runId, s.turnId, c.toolCallId);
-    if (
-      parts.filter((p) => {
-        const x = native(db, "message_parts", String(p.id));
-        return (
-          x.type === "tool" &&
-          x.toolCallId === c.toolCallId &&
-          x.providerCallId === c.providerToolCallId &&
-          x.name === c.name &&
-          x.turnId === s.turnId &&
-          knowledgeHash(x.input) === c.inputSha256 &&
-          x.result?.output === tool.output &&
-          ["completed", "failed"].includes(x.state)
-        );
-      }).length !== 1
-    )
-      codeModeError("CODE_MODE_PART_INVALID");
+    assertOneToolPart(
+      db,
+      s,
+      tool,
+      ["completed", "failed"],
+      (x) =>
+        x.providerCallId === c.providerToolCallId &&
+        knowledgeHash(x.input) === c.inputSha256,
+    );
   }
   if (["completed", "failed"].includes(r.state)) {
     // A cleanly closed run whose outer Tool was interrupted settles as cancelled;
@@ -461,30 +478,16 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
         : tool.state !== r.state
     )
       codeModeError("CODE_MODE_FINAL_INVALID");
-    const parts = db
-      .prepare(
-        "SELECT id FROM message_parts WHERE run_id=? AND turn_id=? AND instr(data,?)>0 LIMIT 17",
-      )
-      .all(s.runId, s.turnId, tool.id);
-    if (
-      parts.filter((p) => {
-        const x = native(db, "message_parts", String(p.id));
-        return (
-          x.type === "tool" &&
-          x.toolCallId === tool.id &&
-          x.name === tool.name &&
-          x.turnId === s.turnId &&
-          x.result?.output === tool.output &&
-          (cancelled
-            ? ["interrupted", "failed"]
-            : ["completed", "failed"]
-          ).includes(x.state)
-        );
-      }).length !== 1
-    )
-      codeModeError("CODE_MODE_PART_INVALID");
+    assertOneToolPart(
+      db,
+      s,
+      tool,
+      cancelled ? ["interrupted", "failed"] : ["completed", "failed"],
+    );
   }
 }
+const HEADERS =
+  "SELECT d.session_id,d.kind,d.revision,length(CAST(d.data AS BLOB)) bytes,s.workspace_id FROM session_documents d JOIN sessions s ON s.id=d.session_id";
 export class CodeModeStorage {
   constructor(
     private readonly db: DatabaseSync,
@@ -502,7 +505,11 @@ export class CodeModeStorage {
     return this.ports.writeTx(() => {
       headerCaps(this.db);
       const r = validateCodeModeRecord(record),
-        old = this.get(r.source.workspaceId, r.id);
+        old = this.db
+          .prepare(`${HEADERS} WHERE d.kind=? AND s.workspace_id=?`)
+          .all(codeModeRecordKind(r.id), r.source.workspaceId)
+          .map((h) => this.readValidated(h))
+          .find((x) => x.id === r.id);
       if (
         r.revision !== expected + 1 ||
         (old?.revision ?? 0) !== expected ||
@@ -552,71 +559,65 @@ export class CodeModeStorage {
       return codeJson(r);
     });
   }
+  private readValidated(h: Record<string, any>): CodeModeRecord {
+    if (Number(h.bytes) > CODE_MODE_LIMITS.rowBytes)
+      codeModeError("CODE_MODE_LIMIT");
+    const x = this.db
+      .prepare(
+        "SELECT data FROM session_documents WHERE session_id=? AND kind=? AND revision=? AND length(CAST(data AS BLOB))=?",
+      )
+      .get(h.session_id, h.kind, h.revision, h.bytes);
+    if (!x) codeModeError();
+    const raw = String(x.data),
+      r = validateCodeModeRecord(JSON.parse(raw));
+    if (
+      r.source.workspaceId !== h.workspace_id ||
+      r.source.sessionId !== h.session_id ||
+      r.revision !== h.revision ||
+      codeModeRecordKind(r.id) !== h.kind
+    )
+      codeModeError("CODE_MODE_DOCUMENT_INVALID");
+    const hash = sha256Hex(raw);
+    if (
+      anchors(this.db, r.source, "session.document.updated", hash).filter(
+        (e) =>
+          e.payload?.kind === h.kind &&
+          e.payload.revision === r.revision &&
+          e.payload.sha256 === hash,
+      ).length !== 1 ||
+      anchors(this.db, r.source, "code.mode.record", r.sha256).filter(
+        (e) => knowledgeHash(e.payload?.record) === knowledgeHash(r),
+      ).length !== 1
+    )
+      codeModeError("CODE_MODE_DOCUMENT_INVALID");
+    validateNative(this.db, r);
+    return r;
+  }
   inspect(workspaceId?: string): readonly CodeModeRecord[] {
     headerCaps(this.db);
     const hs = this.db
       .prepare(
-        "SELECT d.session_id,d.kind,d.revision,length(CAST(d.data AS BLOB)) bytes,s.workspace_id FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE d.kind GLOB 'code.mode.*' LIMIT 129",
+        `${HEADERS} WHERE d.kind GLOB 'code.mode.*' LIMIT ${CODE_MODE_LIMITS.records + 1}`,
       )
       .all();
-    if (hs.length > 128) codeModeError("CODE_MODE_LIMIT");
+    if (hs.length > CODE_MODE_LIMITS.records) codeModeError("CODE_MODE_LIMIT");
     return hs
       .filter((h) => !workspaceId || h.workspace_id === workspaceId)
-      .map((h) => {
-        if (Number(h.bytes) > 65536) codeModeError("CODE_MODE_LIMIT");
-        const x = this.db
-          .prepare(
-            "SELECT data FROM session_documents WHERE session_id=? AND kind=? AND revision=? AND length(CAST(data AS BLOB))=?",
-          )
-          .get(h.session_id!, h.kind!, h.revision!, h.bytes!);
-        if (!x) codeModeError();
-        const raw = String(x.data),
-          r = validateCodeModeRecord(JSON.parse(raw));
-        if (
-          r.source.workspaceId !== h.workspace_id ||
-          r.source.sessionId !== h.session_id ||
-          r.revision !== h.revision ||
-          codeModeRecordKind(r.id) !== h.kind
-        )
-          codeModeError("CODE_MODE_DOCUMENT_INVALID");
-        const hash = sha256Hex(raw);
-        if (
-          anchors(this.db, r.source, "session.document.updated", hash).filter(
-            (e) =>
-              e.payload?.kind === h.kind &&
-              e.payload.revision === r.revision &&
-              e.payload.sha256 === hash,
-          ).length !== 1 ||
-          anchors(this.db, r.source, "code.mode.record", r.sha256).filter(
-            (e) => knowledgeHash(e.payload?.record) === knowledgeHash(r),
-          ).length !== 1
-        )
-          codeModeError("CODE_MODE_DOCUMENT_INVALID");
-        validateNative(this.db, r);
-        return r;
-      });
+      .map((h) => this.readValidated(h));
   }
   get(workspaceId: string, id: string) {
     return this.inspect(workspaceId).find((r) => r.id === id);
   }
   pause(workspaceId: string) {
-    for (const old of this.inspect(workspaceId)) {
-      const { sha256, ...body } = old;
+    for (const old of this.inspect(workspaceId))
       this.append(
-        codeSign({
-          ...body,
-          revision: old.revision + 1,
-          state: "paused-import" as const,
-          updatedAt: new Date().toISOString(),
-        }),
+        nextCodeModeRevision(old, { state: "paused-import" }),
         old.revision,
       );
-    }
   }
   recover() {
     for (const old of this.inspect()) {
       if (["prepared", "running", "settling"].includes(old.state)) {
-        const { sha256, ...body } = old;
         const cancelled =
           old.state === "settling" &&
           old.outcome?.cleanupConfirmed &&
@@ -624,17 +625,15 @@ export class CodeModeStorage {
           native(this.db, "tools", old.source.toolCallId).state ===
             "interrupted";
         this.append(
-          codeSign({
-            ...body,
-            revision: old.revision + 1,
-            ...(cancelled
-              ? { state: "failed" as const, errorCode: "CANCELLED" }
+          nextCodeModeRevision(
+            old,
+            cancelled
+              ? { state: "failed", errorCode: "CANCELLED" }
               : {
-                  state: "uncertain" as const,
+                  state: "uncertain",
                   errorCode: "CODE_MODE_RESTART_UNCERTAIN",
-                }),
-            updatedAt: new Date().toISOString(),
-          }),
+                },
+          ),
           old.revision,
         );
       }
@@ -654,17 +653,13 @@ export function validateCodeModeDatabase(
   db: DatabaseSync,
   options: { check?: (c: string) => void } = {},
 ) {
-  try {
-    new CodeModeStorage(db, {
-      assertOriginal: denied,
-      writeTx: denied,
-      writeDocument: denied,
-      appendEvent: denied,
-    }).inspect();
-    options.check?.(
-      "Code-mode native source,approval,Tool/Part and immutable receipts valid",
-    );
-  } catch (error) {
-    throw error;
-  }
+  new CodeModeStorage(db, {
+    assertOriginal: denied,
+    writeTx: denied,
+    writeDocument: denied,
+    appendEvent: denied,
+  }).inspect();
+  options.check?.(
+    "Code-mode native source,approval,Tool/Part and immutable receipts valid",
+  );
 }

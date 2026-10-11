@@ -1,6 +1,7 @@
 import { rejectDuplicateJsonKeys } from "./source-json.js";
 import {
   EngineError,
+  type JsonObject,
   type JsonValue,
 } from "@moodcode/contracts";
 import { sandboxJson, sandboxSign } from "../sandbox/types.js";
@@ -15,6 +16,7 @@ export const CODE_MODE_LIMITS = Object.freeze({
   records: 128,
   totalBytes: 8388608,
 });
+const MAX_DURATION_MS = 30_000;
 export const CODE_MODE_TOOLS = Object.freeze([
   "read_file",
   "list_files",
@@ -94,6 +96,7 @@ const field = (
     codeModeError();
   return x;
 };
+export const codeFields = field;
 function codeIdentifier(value: unknown): string {
   if (typeof value !== "string" || !/^[-A-Za-z0-9_]{1,64}$/.test(value))
     codeModeError();
@@ -107,14 +110,100 @@ export function validateCodeAllocation(value: unknown): CodeModeAllocation {
     "maxDurationMs",
   ]);
   for (const [key, max] of Object.entries({
-    maxSteps: 4096,
-    maxNestedCalls: 16,
-    maxResultBytes: 32768,
-    maxDurationMs: 30000,
+    maxSteps: CODE_MODE_LIMITS.steps,
+    maxNestedCalls: CODE_MODE_LIMITS.calls,
+    maxResultBytes: CODE_MODE_LIMITS.resultBytes,
+    maxDurationMs: MAX_DURATION_MS,
   }))
     if (!Number.isSafeInteger(x[key]) || x[key] < 1 || x[key] > max)
       codeModeError("CODE_MODE_LIMIT");
   return x as unknown as CodeModeAllocation;
+}
+const onlyKeys = (packet: Record<string, any>, keys: readonly string[]) =>
+  Object.keys(packet).every((k) => keys.includes(k));
+export function validateCodeModePacket(
+  packet: Record<string, any>,
+  {
+    generation,
+    allocation,
+    callsSoFar,
+    seenIds,
+  }: {
+    generation: string;
+    allocation: CodeModeAllocation;
+    callsSoFar: number;
+    seenIds: ReadonlySet<string>;
+  },
+):
+  | { type: "result"; value: JsonValue }
+  | { type: "call"; id: string; tool: string; input: JsonObject } {
+  if (packet.version !== 1 || packet.generation !== generation)
+    codeModeError("CODE_MODE_PROTOCOL_INVALID");
+  if (packet.type === "result") {
+    if (
+      !onlyKeys(packet, [
+        "version",
+        "type",
+        "generation",
+        "ok",
+        "value",
+        "steps",
+        "calls",
+        "errorCode",
+      ]) ||
+      !Number.isSafeInteger(packet.steps) ||
+      packet.steps < 0 ||
+      packet.steps >
+        allocation.maxSteps +
+          (packet.ok === false && packet.errorCode === "CODE_MODE_STEP_LIMIT"
+            ? 1
+            : 0) ||
+      packet.calls !==
+        callsSoFar +
+          (packet.ok === false && packet.errorCode === "CODE_MODE_CALL_LIMIT"
+            ? 1
+            : 0) ||
+      (packet.ok !== true && packet.ok !== false)
+    )
+      codeModeError("CODE_MODE_PROTOCOL_INVALID");
+    if (packet.ok !== true)
+      codeModeError(
+        typeof packet.errorCode === "string"
+          ? packet.errorCode
+          : "CODE_MODE_RUNTIME_FAILED",
+      );
+    return {
+      type: "result",
+      value: codeJson(packet.value, allocation.maxResultBytes),
+    };
+  }
+  if (
+    packet.type !== "call" ||
+    !onlyKeys(packet, [
+      "version",
+      "type",
+      "generation",
+      "id",
+      "tool",
+      "input",
+    ]) ||
+    typeof packet.id !== "string" ||
+    packet.id.length > 256 ||
+    seenIds.has(packet.id) ||
+    !(CODE_MODE_TOOLS as readonly string[]).includes(packet.tool) ||
+    !packet.input ||
+    typeof packet.input !== "object" ||
+    Array.isArray(packet.input)
+  )
+    codeModeError("CODE_MODE_PROTOCOL_INVALID");
+  if (seenIds.size >= allocation.maxNestedCalls)
+    codeModeError("CODE_MODE_CALL_LIMIT");
+  return {
+    type: "call",
+    id: packet.id,
+    tool: packet.tool,
+    input: packet.input,
+  };
 }
 export function parseCodeProgram(source: unknown): CodeProgram {
   if (
