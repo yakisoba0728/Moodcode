@@ -1,6 +1,7 @@
 import type { DatabaseSync, SQLInputValue, SQLOutputValue } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { isBoundedId } from '../shared/data.js';
 
 export const EVIDENCE_READ_LIMITS = Object.freeze({ maxSelectedBytes: 8_388_608, maxCachedBodies: 4096 });
 const primaryKeys = {
@@ -134,4 +135,54 @@ export function readBoundedBody(db: DatabaseSync, source: BoundedBodySource, byt
   if (!row) return undefined;
   if (typeof row.data !== 'string' || Buffer.byteLength(row.data) !== bytes) return changed();
   return row.data;
+}
+
+export type OwnerReadFailure = 'owner' | 'payload' | 'limit';
+export interface RunOwnerHeader {
+  id: string; sessionId: string; workspaceId: string; inputId: unknown; state: unknown;
+  runBytes: number; sessionBytes: number; workspaceBytes: number;
+}
+type OwnerBody = { id?: unknown; sessionId?: unknown; workspaceId?: unknown; inputId?: unknown; state?: unknown } | null | undefined;
+function ownerBytes(value: SQLOutputValue | undefined, maxBytes: number, fail: (failure: OwnerReadFailure) => never): number {
+  return Number.isSafeInteger(value) && Number(value) >= 1 && Number(value) <= maxBytes ? Number(value) : fail('limit');
+}
+
+/** Bounds a Run's session and workspace SQL owners and all three body sizes before any body is read. */
+export function readRunOwnerHeader(db: DatabaseSync, runId: string, expected: { sessionId: string; workspaceId?: string }, maxBytes: number, fail: (failure: OwnerReadFailure) => never): RunOwnerHeader {
+  const row = db.prepare(`SELECT r.id,CASE WHEN length(CAST(r.session_id AS BLOB))<=256 THEN r.session_id END AS session_id,
+    CASE WHEN length(CAST(r.workspace_id AS BLOB))<=256 THEN r.workspace_id END AS workspace_id,
+    CASE WHEN length(CAST(r.input_id AS BLOB))<=256 THEN r.input_id END AS input_id,
+    CASE WHEN length(CAST(r.state AS BLOB))<=32 THEN r.state END AS state,length(CAST(r.data AS BLOB)) AS run_bytes,
+    CASE WHEN length(CAST(s.workspace_id AS BLOB))<=256 THEN s.workspace_id END AS session_workspace_id,
+    length(CAST(s.data AS BLOB)) AS session_bytes,length(CAST(w.data AS BLOB)) AS workspace_bytes
+    FROM runs r JOIN sessions s ON s.id=r.session_id JOIN workspaces w ON w.id=r.workspace_id WHERE r.id=?`).get(runId);
+  if (!row || row.id !== runId || row.session_id !== expected.sessionId || !isBoundedId(row.workspace_id) || row.session_workspace_id !== row.workspace_id
+    || expected.workspaceId !== undefined && row.workspace_id !== expected.workspaceId) return fail('owner');
+  return { id: runId, sessionId: expected.sessionId, workspaceId: row.workspace_id, inputId: row.input_id, state: row.state,
+    runBytes: ownerBytes(row.run_bytes, maxBytes, fail), sessionBytes: ownerBytes(row.session_bytes, maxBytes, fail), workspaceBytes: ownerBytes(row.workspace_bytes, maxBytes, fail) };
+}
+
+export function sameRunOwner(header: RunOwnerHeader, run: OwnerBody, session: OwnerBody, workspace: OwnerBody): boolean {
+  return run?.id === header.id && run.sessionId === header.sessionId && run.workspaceId === header.workspaceId && run.inputId === header.inputId && run.state === header.state
+    && session?.id === header.sessionId && session.workspaceId === header.workspaceId && workspace?.id === header.workspaceId;
+}
+
+/** The SQL owner must name this session, Run and Turn or none; the payload must repeat the SQL owner exactly. */
+export function assertContextRevisionOwner(db: DatabaseSync, contextRevisionId: string, owner: { sessionId: string; runId: string; turnId: string }, maxBytes: number, fail: (failure: OwnerReadFailure) => never): void {
+  const context = db.prepare(`SELECT id,CASE WHEN length(CAST(session_id AS BLOB))<=256 THEN session_id END AS session_id,
+    CASE WHEN run_id IS NULL OR length(CAST(run_id AS BLOB))<=256 THEN run_id END AS run_id,
+    CASE WHEN turn_id IS NULL OR length(CAST(turn_id AS BLOB))<=256 THEN turn_id END AS turn_id,
+    run_id IS NOT NULL AND length(CAST(run_id AS BLOB))>256 AS invalid_run,turn_id IS NOT NULL AND length(CAST(turn_id AS BLOB))>256 AS invalid_turn,
+    length(CAST(data AS BLOB)) AS bytes,
+    CASE WHEN length(CAST(json_extract(data,'$.id') AS BLOB))<=256 THEN json_extract(data,'$.id') END AS payload_id,
+    CASE WHEN length(CAST(json_extract(data,'$.sessionId') AS BLOB))<=256 THEN json_extract(data,'$.sessionId') END AS payload_session_id,
+    CASE WHEN json_extract(data,'$.runId') IS NULL OR length(CAST(json_extract(data,'$.runId') AS BLOB))<=256 THEN json_extract(data,'$.runId') END AS payload_run_id,
+    CASE WHEN json_extract(data,'$.turnId') IS NULL OR length(CAST(json_extract(data,'$.turnId') AS BLOB))<=256 THEN json_extract(data,'$.turnId') END AS payload_turn_id,
+    json_extract(data,'$.runId') IS NOT NULL AND length(CAST(json_extract(data,'$.runId') AS BLOB))>256 AS invalid_payload_run,
+    json_extract(data,'$.turnId') IS NOT NULL AND length(CAST(json_extract(data,'$.turnId') AS BLOB))>256 AS invalid_payload_turn FROM context_revisions WHERE id=?`).get(contextRevisionId);
+  if (!context || context.id !== contextRevisionId || context.session_id !== owner.sessionId || context.run_id !== null && context.run_id !== owner.runId
+    || context.turn_id !== null && context.turn_id !== owner.turnId || context.invalid_run !== 0 || context.invalid_turn !== 0) return fail('owner');
+  if (context.invalid_payload_run !== 0 || context.invalid_payload_turn !== 0 || context.payload_id !== context.id || context.payload_session_id !== context.session_id
+    || context.payload_run_id !== context.run_id || context.payload_turn_id !== context.turn_id) fail('payload');
+  ownerBytes(context.bytes, maxBytes, fail);
 }

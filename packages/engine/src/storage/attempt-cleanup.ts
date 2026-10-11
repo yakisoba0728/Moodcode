@@ -3,7 +3,7 @@ import { validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts
 import { jsonTextSha256 } from '../shared/canonical.js';
 import { isBoundedId, isCanonicalStamp, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
 import { NativeSessionStorage } from './native.js';
-import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
+import { assertContextRevisionOwner, invalidateEvidenceRead, readEvidenceBody, readRunOwnerHeader, sameRunOwner } from './evidence-read.js';
 
 export const ATTEMPT_CLEANUP_TABLES = ['attempt_cleanup'] as const;
 export const ATTEMPT_CLEANUP_LIMITS = Object.freeze({ maxRecordBytes: 16_384, maxOwnerBytes: 1_048_576, maxRequestBytes: 67_108_864, recoveryPageSize: 100 });
@@ -86,8 +86,9 @@ function record(value: AttemptCleanupRecord): void {
 }
 function canonicalIdentity(value: AttemptCleanupIdentity): string { return JSON.stringify(IDENTITY_KEYS.filter(key=>key!=='createdAt').map(key=>[key,value[key]])); }
 function canonicalSettlement(value: AttemptCleanupSettlement): string { return JSON.stringify(SETTLEMENT_KEYS.map(key=>[key,value[key]])); }
+function overBudget(): never { return fail('ATTEMPT_CLEANUP_LIMIT','Cleanup evidence exceeds its bounded read budget'); }
 function size(value: unknown, cap: number): number {
-  if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value)>cap) fail('ATTEMPT_CLEANUP_LIMIT','Cleanup evidence exceeds its bounded read budget');
+  if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value)>cap) overBudget();
   return Number(value);
 }
 function parse(value: unknown): unknown {
@@ -105,14 +106,11 @@ export class AttemptCleanupStorage {
   constructor(private readonly native: NativeSessionStorage, private readonly appendLegacy: (run: Run,type: string,payload: JsonObject)=>EngineEvent) {}
   private get db() { return this.native.database; }
   private owner(identityValue: AttemptCleanupIdentity): {run: Run; attempt: ProviderAttempt; turn: TurnRecord} {
-    const runHeader=this.db.prepare('SELECT r.id,r.input_id,r.session_id,r.workspace_id,r.state,length(CAST(r.data AS BLOB)) AS bytes,s.workspace_id AS session_workspace_id,length(CAST(s.data AS BLOB)) AS session_bytes,w.id AS workspace_id_check,length(CAST(w.data AS BLOB)) AS workspace_bytes FROM runs r JOIN sessions s ON s.id=r.session_id JOIN workspaces w ON w.id=r.workspace_id WHERE r.id=?').get(identityValue.runId);
-    if(!runHeader||runHeader.id!==identityValue.runId||runHeader.session_id!==identityValue.sessionId||runHeader.workspace_id!==identityValue.workspaceId||runHeader.session_workspace_id!==identityValue.workspaceId||runHeader.workspace_id_check!==identityValue.workspaceId)fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup Run, session and workspace owners do not match');
-    size(runHeader.bytes,ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes);size(runHeader.session_bytes,ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes);size(runHeader.workspace_bytes,ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes);
+    const runHeader=readRunOwnerHeader(this.db,identityValue.runId,identityValue,ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes,failure=>failure==='limit'?overBudget():fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup Run, session and workspace owners do not match'));
     const run=this.native.scopeRun(identityValue.sessionId,identityValue.runId);
-    const session=parse(readEvidenceBody(this.db,{table:'sessions',key:identityValue.sessionId},{expectedBytes:Number(runHeader.session_bytes),maxBytes:ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes})) as {id?:unknown;workspaceId?:unknown};
-    const workspace=parse(readEvidenceBody(this.db,{table:'workspaces',key:identityValue.workspaceId},{expectedBytes:Number(runHeader.workspace_bytes),maxBytes:ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes})) as {id?:unknown};
-    if (!run||run.id!==identityValue.runId||run.sessionId!==identityValue.sessionId||run.inputId!==runHeader.input_id||run.state!==runHeader.state||run.workspaceId!==identityValue.workspaceId
-      ||run.config?.providerId!==identityValue.providerId || run.config?.modelId!==identityValue.modelId||session?.id!==identityValue.sessionId||session.workspaceId!==identityValue.workspaceId||workspace?.id!==identityValue.workspaceId) fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup provider, Run payload or workspace does not match its SQL owner');
+    const session=parse(readEvidenceBody(this.db,{table:'sessions',key:identityValue.sessionId},{expectedBytes:runHeader.sessionBytes,maxBytes:ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes})) as {id?:unknown;workspaceId?:unknown};
+    const workspace=parse(readEvidenceBody(this.db,{table:'workspaces',key:identityValue.workspaceId},{expectedBytes:runHeader.workspaceBytes,maxBytes:ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes})) as {id?:unknown};
+    if (!sameRunOwner(runHeader,run,session,workspace)||run.config?.providerId!==identityValue.providerId || run.config?.modelId!==identityValue.modelId) fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup provider, Run payload or workspace does not match its SQL owner');
     const attemptHeader=this.db.prepare('SELECT session_id,run_id,turn_id,attempt_index,state,length(CAST(data AS BLOB)) AS bytes FROM provider_attempts WHERE id=?').get(identityValue.attemptId);
     const turnHeader=this.db.prepare('SELECT session_id,run_id,turn_index,state,length(CAST(data AS BLOB)) AS bytes FROM session_turns WHERE id=?').get(identityValue.turnId);
     if (!attemptHeader || !turnHeader || attemptHeader.session_id!==identityValue.sessionId || attemptHeader.run_id!==identityValue.runId || attemptHeader.turn_id!==identityValue.turnId
@@ -123,13 +121,8 @@ export class AttemptCleanupStorage {
     if (attempt.id!==identityValue.attemptId || attempt.sessionId!==identityValue.sessionId || attempt.runId!==identityValue.runId || attempt.turnId!==identityValue.turnId || attempt.state!==attemptHeader.state
       || attempt.providerId!==identityValue.providerId || attempt.modelId!==identityValue.modelId || attempt.contextRevisionId!==identityValue.contextRevisionId || attempt.index!==attemptHeader.attempt_index
       || turn.id!==identityValue.turnId || turn.sessionId!==identityValue.sessionId || turn.runId!==identityValue.runId || turn.state!==turnHeader.state || turn.index!==turnHeader.turn_index) fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup payload disagrees with its immutable owner');
-    if (identityValue.contextRevisionId) {
-      const context=this.db.prepare('SELECT id,session_id,run_id,turn_id,length(CAST(data AS BLOB)) AS bytes FROM context_revisions WHERE id=?').get(identityValue.contextRevisionId);
-      if (!context || context.id!==identityValue.contextRevisionId||context.session_id!==identityValue.sessionId || context.run_id!==null && context.run_id!==identityValue.runId || context.turn_id!==null && context.turn_id!==identityValue.turnId) fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup context revision belongs to another owner');
-      size(context.bytes,1_048_576);
-      const facts=this.db.prepare("SELECT json_extract(data,'$.id') AS id,json_extract(data,'$.sessionId') AS session_id,json_extract(data,'$.runId') AS run_id,json_extract(data,'$.turnId') AS turn_id FROM context_revisions WHERE id=?").get(identityValue.contextRevisionId)!;
-      if(facts.id!==context.id||facts.session_id!==context.session_id||facts.run_id!==context.run_id||facts.turn_id!==context.turn_id)fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup context payload disagrees with its SQL owner');
-    }
+    if (identityValue.contextRevisionId) assertContextRevisionOwner(this.db,identityValue.contextRevisionId,identityValue,ATTEMPT_CLEANUP_LIMITS.maxOwnerBytes,failure=>failure==='limit'?overBudget()
+      :fail('ATTEMPT_CLEANUP_BINDING_MISMATCH',failure==='owner'?'Cleanup context revision belongs to another owner':'Cleanup context payload disagrees with its SQL owner'));
     return {run,attempt,turn};
   }
   private read(id: string,expectedSessionId?: string): {value: AttemptCleanupRecord;run: Run;attempt: ProviderAttempt;turn: TurnRecord} {

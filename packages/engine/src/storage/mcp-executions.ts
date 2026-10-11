@@ -4,7 +4,7 @@ import type { McpCallSettlement, McpDispatchBoundary, McpExecutionReason } from 
 import { canonicalSha256, sameCanonical } from '../shared/canonical.js';
 import { isBoundedId, isCanonicalStamp, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
 import { NativeSessionStorage } from './native.js';
-import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
+import { assertContextRevisionOwner, invalidateEvidenceRead, readEvidenceBody, readRunOwnerHeader, sameRunOwner, withEvidenceRead } from './evidence-read.js';
 
 export const MCP_EXECUTION_TABLES = ['mcp_executions'] as const;
 export const MCP_EXECUTION_LIMITS = Object.freeze({ maxRecordBytes: 16_384, maxOwnerBytes: 1_048_576, maxMessageBytes: 1_048_576, recoveryPageSize: 100 });
@@ -57,8 +57,9 @@ function fail(suffix: string, message: string): never { throw new EngineError(`M
 function plain(value: unknown, keys: readonly string[]): void {
   plainRecord(value, [], keys, fault => fail('INVALID', fault === 'shape' ? 'MCP execution records require plain data' : 'MCP execution records reject accessors and unknown fields'));
 }
+function limit(): never { return fail('LIMIT', 'MCP selected evidence exceeds its bounded read limit'); }
 function size(value: unknown, maximum: number): number {
-  if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > maximum) fail('LIMIT', 'MCP selected evidence exceeds its bounded read limit');
+  if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > maximum) limit();
   return Number(value);
 }
 function parse(raw: unknown): unknown {
@@ -125,24 +126,21 @@ export class McpExecutionStorage {
     return parse(readEvidenceBody(this.db, { table, key }, { expectedBytes: size(bytes, MCP_EXECUTION_LIMITS.maxOwnerBytes), maxBytes: MCP_EXECUTION_LIMITS.maxOwnerBytes }));
   }
   private owner(input: McpExecutionIdentity) {
-    const row = this.db.prepare(`SELECT r.id,r.session_id,r.workspace_id,r.state,r.input_id,length(CAST(r.data AS BLOB)) AS run_bytes,
-      s.workspace_id AS session_workspace_id,length(CAST(s.data AS BLOB)) AS session_bytes,length(CAST(w.data AS BLOB)) AS workspace_bytes,
-      t.session_id AS turn_session_id,t.run_id AS turn_run_id,t.state AS turn_state,t.turn_index,length(CAST(t.data AS BLOB)) AS turn_bytes,
+    const mismatch: () => never = () => fail('BINDING_MISMATCH', 'MCP Run, native execution, tool and approval SQL owners disagree');
+    const runOwner = readRunOwnerHeader(this.db, input.runId, input, MCP_EXECUTION_LIMITS.maxOwnerBytes, failure => failure === 'limit' ? limit() : mismatch());
+    const row = this.db.prepare(`SELECT t.session_id AS turn_session_id,t.run_id AS turn_run_id,t.state AS turn_state,t.turn_index,length(CAST(t.data AS BLOB)) AS turn_bytes,
       a.session_id AS attempt_session_id,a.run_id AS attempt_run_id,a.turn_id AS attempt_turn_id,a.state AS attempt_state,a.attempt_index,length(CAST(a.data AS BLOB)) AS attempt_bytes,
       c.session_id AS tool_session_id,c.run_id AS tool_run_id,c.state AS tool_state,length(CAST(c.data AS BLOB)) AS tool_bytes,
       p.session_id AS approval_session_id,p.run_id AS approval_run_id,p.tool_call_id,p.status,length(CAST(p.data AS BLOB)) AS approval_bytes
-      FROM runs r JOIN sessions s ON s.id=r.session_id JOIN workspaces w ON w.id=r.workspace_id
-      JOIN session_turns t ON t.id=? JOIN provider_attempts a ON a.id=? JOIN tools c ON c.id=? JOIN approvals p ON p.id=? WHERE r.id=?`)
-      .get(input.turnId,input.attemptId,input.toolCallId,input.approvalId,input.runId);
-    if (!row || row.session_id !== input.sessionId || row.workspace_id !== input.workspaceId || row.session_workspace_id !== input.workspaceId
-      || row.turn_session_id !== input.sessionId || row.turn_run_id !== input.runId || row.attempt_session_id !== input.sessionId || row.attempt_run_id !== input.runId || row.attempt_turn_id !== input.turnId
-      || row.tool_session_id !== input.sessionId || row.tool_run_id !== input.runId || row.approval_session_id !== input.sessionId || row.approval_run_id !== input.runId || row.tool_call_id !== input.toolCallId || row.status !== 'allowed') fail('BINDING_MISMATCH', 'MCP Run, native execution, tool and approval SQL owners disagree');
-    for (const key of ['run_bytes','session_bytes','workspace_bytes','turn_bytes','attempt_bytes','tool_bytes','approval_bytes']) size(row[key],MCP_EXECUTION_LIMITS.maxOwnerBytes);
-    const run = this.body('runs',input.runId,row.run_bytes) as Run, session = this.body('sessions',input.sessionId,row.session_bytes) as Row, workspace = this.body('workspaces',input.workspaceId,row.workspace_bytes) as Row;
+      FROM session_turns t JOIN provider_attempts a ON a.id=? JOIN tools c ON c.id=? JOIN approvals p ON p.id=? WHERE t.id=?`)
+      .get(input.attemptId,input.toolCallId,input.approvalId,input.turnId);
+    if (!row || row.turn_session_id !== input.sessionId || row.turn_run_id !== input.runId || row.attempt_session_id !== input.sessionId || row.attempt_run_id !== input.runId || row.attempt_turn_id !== input.turnId
+      || row.tool_session_id !== input.sessionId || row.tool_run_id !== input.runId || row.approval_session_id !== input.sessionId || row.approval_run_id !== input.runId || row.tool_call_id !== input.toolCallId || row.status !== 'allowed') mismatch();
+    for (const key of ['turn_bytes','attempt_bytes','tool_bytes','approval_bytes']) size(row[key],MCP_EXECUTION_LIMITS.maxOwnerBytes);
+    const run = this.body('runs',input.runId,runOwner.runBytes) as Run, session = this.body('sessions',input.sessionId,runOwner.sessionBytes) as Row, workspace = this.body('workspaces',input.workspaceId,runOwner.workspaceBytes) as Row;
     const turn = validateTurnRecord(this.body('session_turns',input.turnId,row.turn_bytes)), attempt = validateProviderAttempt(this.body('provider_attempts',input.attemptId,row.attempt_bytes));
     const tool = this.body('tools',input.toolCallId,row.tool_bytes) as ToolCallRecord, approval = this.body('approvals',input.approvalId,row.approval_bytes) as ApprovalRecord;
-    if (run.id !== input.runId || run.sessionId !== input.sessionId || run.workspaceId !== input.workspaceId || run.inputId !== row.input_id || run.state !== row.state || run.config?.providerId !== input.providerId || run.config?.modelId !== input.modelId
-      || session?.id !== input.sessionId || session.workspaceId !== input.workspaceId || workspace?.id !== input.workspaceId
+    if (!sameRunOwner(runOwner, run, session, workspace) || run.config?.providerId !== input.providerId || run.config?.modelId !== input.modelId
       || turn.id !== input.turnId || turn.sessionId !== input.sessionId || turn.runId !== input.runId || turn.index !== row.turn_index || turn.state !== row.turn_state
       || attempt.id !== input.attemptId || attempt.sessionId !== input.sessionId || attempt.runId !== input.runId || attempt.turnId !== input.turnId || attempt.index !== row.attempt_index || attempt.state !== row.attempt_state
       || attempt.providerId !== input.providerId || attempt.modelId !== input.modelId || attempt.contextRevisionId !== input.contextRevisionId
@@ -152,12 +150,8 @@ export class McpExecutionStorage {
       || !sameCanonical(approval.preview.arguments, tool.input)) fail('BINDING_MISMATCH','MCP server, remote tool, catalogue and input must match the exact allowed approval preview');
     const latest = this.db.prepare('SELECT id FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(input.turnId);
     if (latest?.id !== input.attemptId) fail('BINDING_MISMATCH', 'MCP owner must be the latest native provider attempt for its Turn');
-    if (input.contextRevisionId) {
-      const context = this.db.prepare("SELECT id,session_id,run_id,turn_id,length(CAST(data AS BLOB)) AS bytes,json_extract(data,'$.id') AS payload_id,json_extract(data,'$.sessionId') AS payload_session_id,json_extract(data,'$.runId') AS payload_run_id,json_extract(data,'$.turnId') AS payload_turn_id FROM context_revisions WHERE id=?").get(input.contextRevisionId);
-      if (!context || context.session_id !== input.sessionId || context.run_id !== null && context.run_id !== input.runId || context.turn_id !== null && context.turn_id !== input.turnId
-        || context.id !== context.payload_id || context.session_id !== context.payload_session_id || context.run_id !== context.payload_run_id || context.turn_id !== context.payload_turn_id) fail('BINDING_MISMATCH', 'MCP context revision belongs to another native owner');
-      size(context.bytes,MCP_EXECUTION_LIMITS.maxOwnerBytes);
-    }
+    if (input.contextRevisionId) assertContextRevisionOwner(this.db, input.contextRevisionId, input, MCP_EXECUTION_LIMITS.maxOwnerBytes,
+      failure => failure === 'limit' ? limit() : fail('BINDING_MISMATCH', 'MCP context revision belongs to another native owner'));
     const parts = this.db.prepare("SELECT id,session_id,run_id,turn_id,message_id,part_index,revision,state,length(CAST(json_remove(data,'$.result') AS BLOB)) AS bytes FROM message_parts WHERE json_extract(data,'$.type')='tool' AND json_extract(data,'$.toolCallId')=? LIMIT 2").all(input.toolCallId);
     const header = parts[0];
     if (parts.length !== 1 || !header || header.session_id !== input.sessionId || header.run_id !== input.runId || header.turn_id !== input.turnId) fail('BINDING_MISMATCH', 'MCP tool must have exactly one matching native proposal');
