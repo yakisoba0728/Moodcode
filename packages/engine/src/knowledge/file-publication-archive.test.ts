@@ -16,10 +16,10 @@ import {
   KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE,
   validateKnowledgeFileExecutionGuards,
 } from "./file-execution-guards.js";
+import { validateKnowledgeFilePublicationDatabase } from "./file-publication-archive-relations.js";
 import {
   KNOWLEDGE_FILE_PUBLICATION_TABLES,
   validateKnowledgeFilePublicationArchiveRow,
-  validateKnowledgeFilePublicationDatabase,
 } from "./file-publication-store.js";
 import type { KnowledgeFilePublicationReceipt } from "./file-publication-types.js";
 import {

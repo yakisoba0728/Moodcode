@@ -14,9 +14,14 @@ import { workspaceWritePath } from "../workspace/index.js";
 import type {
   FilePhysicalObservation,
   FilePublicationCheckpoint,
+  KnowledgeFileCheckpointRecord,
+  KnowledgeFileObservationRevision,
+  KnowledgeFilePublicationReceipt,
+  KnowledgeFilePublicationRecord,
   KnowledgeFileTarget,
   PrepareKnowledgeFilePublication,
 } from "./file-publication-types.js";
+import type { KnowledgeCandidate } from "./types.js";
 
 export const KNOWLEDGE_FILE_PUBLICATION_LIMITS = Object.freeze({
   rowBytes: 65536,
@@ -436,4 +441,66 @@ export function validatePrepareKnowledgeFilePublication(
       "Unknown file publication operation",
     );
   return v as unknown as PrepareKnowledgeFilePublication;
+}
+export function candidateMatchesFileTarget(
+  candidate: KnowledgeCandidate,
+  target: KnowledgeFileTarget,
+): boolean {
+  const pinned = candidate.target;
+  return (
+    pinned.kind === "workspace-file" &&
+    pinned.revision === target.revision &&
+    pinned.sha256 === target.observation.sha256 &&
+    pinned.device === target.observation.device &&
+    pinned.inode === target.observation.inode
+  );
+}
+export function revokesCompletedPublish(
+  previous: KnowledgeFilePublicationRecord,
+  request: Pick<
+    PrepareKnowledgeFilePublication,
+    "path" | "provenance" | "existingPublicationSha256" | "expectedTarget"
+  >,
+): boolean {
+  return (
+    previous.state === "completed" &&
+    previous.operation === "publish" &&
+    previous.sha256 === request.existingPublicationSha256 &&
+    previous.path === request.path &&
+    sameKnowledge(previous.provenance, request.provenance) &&
+    previous.bodySha256 === request.expectedTarget.observation.sha256 &&
+    previous.targetRevisionId === request.expectedTarget.observationId
+  );
+}
+export function isCompletedFileEvidence(
+  owner: KnowledgeFilePublicationRecord,
+  checkpoint: KnowledgeFileCheckpointRecord,
+  target: KnowledgeFileObservationRevision,
+  receipt: KnowledgeFilePublicationReceipt,
+): boolean {
+  return (
+    checkpoint.publicationId === owner.id &&
+    target.publicationId === owner.id &&
+    receipt.publicationId === owner.id &&
+    receipt.checkpointId === checkpoint.id &&
+    receipt.targetRevisionId === target.id &&
+    receipt.requestId === owner.requestId &&
+    receipt.requestSha256 === owner.requestSha256 &&
+    receipt.operation === owner.operation &&
+    target.path === owner.path &&
+    sameKnowledge(checkpoint.before, owner.expectedTarget.observation) &&
+    checkpoint.beforeContent === owner.beforeContent &&
+    sameKnowledge(checkpoint.after, target.observation) &&
+    sameKnowledge(target.observation.binding, owner.binding) &&
+    checkpoint.cleanupConfirmed &&
+    !checkpoint.effects.partial &&
+    target.revision === owner.expectedTarget.revision + 1 &&
+    target.previousId === owner.expectedTarget.observationId &&
+    (owner.operation === "publish"
+      ? checkpoint.afterContent === owner.body &&
+        target.observation.present &&
+        target.observation.sha256 === owner.bodySha256 &&
+        target.observation.bytes === Buffer.byteLength(owner.body!)
+      : checkpoint.afterContent === null && !target.observation.present)
+  );
 }

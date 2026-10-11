@@ -17,7 +17,9 @@ import type {
   UncertainKnowledgeFilePublication,
 } from "./file-publication-types.js";
 import {
+  candidateMatchesFileTarget,
   filePublicationJson,
+  revokesCompletedPublish,
   sameFileHead,
 } from "./file-publication-validation.js";
 import {
@@ -370,24 +372,18 @@ export class KnowledgeFilePublicationService {
         );
       if (
         operation === "publish" &&
-        (candidate.target.revision !== target.revision ||
-          candidate.target.sha256 !== target.observation.sha256 ||
-          candidate.target.device !== target.observation.device ||
-          candidate.target.inode !== target.observation.inode)
+        !candidateMatchesFileTarget(candidate, target)
       )
         fail("KNOWLEDGE_FILE_STALE", "File candidate target preimage changed");
       if (
         operation === "revoke" &&
         (!existing ||
-          existing.operation !== "publish" ||
-          existing.state !== "completed" ||
-          existing.path !== target.path ||
-          !same(
-            existing.provenance,
-            knowledgePublicationProvenance(historical),
-          ) ||
-          existing.bodySha256 !== target.observation.sha256 ||
-          existing.targetRevisionId !== target.observationId)
+          !revokesCompletedPublish(existing, {
+            path: target.path,
+            provenance: knowledgePublicationProvenance(historical),
+            existingPublicationSha256: existing.sha256,
+            expectedTarget: target,
+          }))
       )
         fail(
           "KNOWLEDGE_FILE_STALE",

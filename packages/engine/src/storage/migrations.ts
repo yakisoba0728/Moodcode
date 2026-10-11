@@ -15,7 +15,8 @@ import { KNOWLEDGE_GENERATION_SCHEMA_SQL, KNOWLEDGE_GENERATION_TABLES, validateK
 import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
 import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
 import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
-import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
+import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_FILE_PUBLICATION_TABLES } from '../knowledge/file-publication-store.js';
+import { validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-archive-relations.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL, DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL, KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';

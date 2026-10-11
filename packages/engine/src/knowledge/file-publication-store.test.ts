@@ -22,11 +22,11 @@ import {
   KNOWLEDGE_GENERATION_SCHEMA_SQL,
 } from "./generation-store.js";
 import { normalizeKnowledgeGenerationBudget } from "./generation-budget.js";
+import { validateKnowledgeFilePublicationDatabase } from "./file-publication-archive-relations.js";
 import {
   KnowledgeFilePublicationStorage,
   KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL,
   hasKnowledgeFilePublicationBlocker,
-  validateKnowledgeFilePublicationDatabase,
 } from "./file-publication-store.js";
 import { knowledgeHash, sha256 } from "./validation.js";
 import type {
