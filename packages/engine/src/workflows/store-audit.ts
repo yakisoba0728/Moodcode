@@ -9,6 +9,7 @@ import {
   type WorkflowInstanceRevision,
   type WorkflowStageState,
   type WorkflowTransitionEvent,
+  type WorkflowWorktreePin,
 } from "./reducer.js";
 import { WORKFLOW_LIMITS, workflowError, workflowIdentifier } from "./spec.js";
 import type {
@@ -28,6 +29,14 @@ export function fields(value: object, required: readonly string[]): void {
 export function taskOutcomeSha(task: Record<string, unknown>): string {
   return knowledgeHash(
     task.outcome ?? { state: task.state, errorCode: task.errorCode ?? null },
+  );
+}
+/** The worktree id each stage selected. */
+export function worktreeIds(
+  pins: Readonly<Record<string, WorkflowWorktreePin>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(pins).map(([id, pin]) => [id, pin.id]),
   );
 }
 function stageData(
@@ -82,11 +91,7 @@ function replay(
       request.expectedSpecRevision !== storage.spec(after).revision ||
       knowledgeHash(request.parameters) !== knowledgeHash(after.parameters) ||
       knowledgeHash(request.worktrees) !==
-        knowledgeHash(
-          Object.fromEntries(
-            Object.entries(after.worktrees).map(([id, pin]) => [id, pin.id]),
-          ),
-        ) ||
+        knowledgeHash(worktreeIds(after.worktrees)) ||
       knowledgeHash(after.stages.map(stageData)) !==
         knowledgeHash(initialWorkflowStages(spec)) ||
       after.stages.some((stage) => stage.revision !== 1)

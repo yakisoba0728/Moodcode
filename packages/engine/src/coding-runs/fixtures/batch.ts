@@ -24,7 +24,7 @@ import type {
   ProviderEvent,
   TurnRequest,
 } from "../../ports.js";
-import { WORKFLOW_MODEL_NAMES } from "../../workflows/effects.js";
+import { WORKFLOW_MODEL_NAMES } from "../../workflows/spec.js";
 import { batchInputData } from "./batch-data.js";
 export const BEFORE = "batch baseline\n";
 export const batchHash = (s: string) =>

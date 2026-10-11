@@ -15,7 +15,9 @@ import {CommandJobModelHost,createCommandJobModelTools,type BindCommandJobModelT
 import {captureCommandReadSource} from './jobs/command-read-sources.js';
 
 import { CodingBatchHost } from "./coding-runs/batch-host.js";
-import { WorkflowEffects, WORKFLOW_MODEL_NAMES } from "./workflows/effects.js";
+import { WorkflowEffects } from "./workflows/effects.js";
+import { WorkflowModelTools } from "./workflows/model-tools.js";
+import { WORKFLOW_MODEL_NAMES } from "./workflows/spec.js";
 import {SandboxHost} from './sandbox/host.js';
 import type {PreviewSandboxGrantInput,ApproveSandboxGrantInput} from './sandbox/types.js';
 import { TeamWorkflowBoard, assertTeamTaskReviewAccepted } from './teams/workflow-board.js';
@@ -515,6 +517,7 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly workflowHost: WorkflowHost;
   private readonly workflowService: WorkflowService;
   private readonly workflowEffects:WorkflowEffects;
+  private readonly workflowModelTools:WorkflowModelTools;
   private readonly schedulesEnabled: boolean;
   private readonly scheduleRecords: ScheduleStorage;
   private readonly scheduleProducer: EngineScheduleProducer;
@@ -947,6 +950,7 @@ export class MoodcodeEngine implements EngineRuntime {
       this.workflowEffects=new WorkflowEffects(this,knowledgeBinding,()=>this.workflowService,workflowOwners,workflowChildren,!options.tools&&this.verificationEnabled,this.workflowsEnabled);
       const effectNative=this.store.createWorkflowEffectStorage({readEffect:o=>this.workflowEffects.readEffect(o),assertEffect:o=>this.workflowEffects.assertEffect(o),readTarget:o=>this.workflowEffects.readTarget(o),assertTarget:o=>this.workflowEffects.assertTarget(o),accept:(o,i)=>this.workflowEffects.accept(o,i)});
       this.workflowEffects.install(effectNative);
+      this.workflowModelTools=new WorkflowModelTools(this,this.workflowEffects,()=>this.workflowService,workflowOwners);
       this.workflowHost = new WorkflowHost({ owner: workflowOwners, getWorkflow: (...args) => this.workflowRecords.getWorkflow(...args),assertEffectsSupported:(o,spec)=>this.workflowEffects.assertSupported(o,spec) });
       this.workflowService = new WorkflowService({
         native: this.workflowRecords,
@@ -1148,10 +1152,10 @@ export class MoodcodeEngine implements EngineRuntime {
         }, artifacts: this.managedArtifacts }) : undefined;
       const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
       const codeModeTools:ToolDefinition[]=options.codeMode?[{name:'execute_code',description:'Execute a restricted moodcode-json-v1 program; source and nested effects require native approval.',effectClass:'execute',inputSchema:{type:'object',required:['source','allocation'],additionalProperties:false,properties:{source:{type:'string'},allocation:{type:'object'}}},prepare:(input,ctx)=>this.codeModeHost.prepare(input,ctx),execute:(p,ctx)=>this.codeModeHost.executePrepared(p,ctx)}]:[];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), createToolDiscoveryTool({
+      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowModelTools.tools():[]), createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      }), ...verificationTools] : [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowEffects.tools():[]), ...verificationTools];
+      }), ...verificationTools] : [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowModelTools.tools():[]), ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
@@ -1197,7 +1201,7 @@ export class MoodcodeEngine implements EngineRuntime {
             );
         },
         onWorkflowToolSettled: (record) =>
-          this.workflowEffects.toolSettled(record),
+          this.workflowModelTools.toolSettled(record),
         onCodeModeToolSettled:record=>this.codeModeHost?.toolSettled(record),
         onOwnedCommandToolSettled: (record) =>
           this.ownedCommandHost?.toolSettled(record),
@@ -2255,8 +2259,8 @@ export class MoodcodeEngine implements EngineRuntime {
     this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.inspectWorkflow(workspaceId, instanceId));
   }
-  bindWorkflowModelTools(input:Parameters<WorkflowEffects['bind']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.bind(input);}
-  releaseWorkflowModelTools(original:object){this.workflowEffects.release(original);}
+  bindWorkflowModelTools(input:Parameters<WorkflowModelTools['bind']>[0]){this.assertWorkflowsEnabled();return this.workflowModelTools.bind(input);}
+  releaseWorkflowModelTools(original:object){this.workflowModelTools.release(original);}
   captureWorkflowDeliveryTarget(input:Parameters<WorkflowEffects['captureTarget']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.captureTarget(input);}
   readWorkflowDeliveryTarget(original:object){this.assertWorkflowsEnabled();return this.workflowEffects.readTarget(original);}
   deliverWorkflowResult(input:Parameters<WorkflowEffects['deliver']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.deliver(input);}
@@ -2826,6 +2830,7 @@ export class MoodcodeEngine implements EngineRuntime {
             try {
               await this.codeModeHost.close();
               this.workflowEffects.close();
+              this.workflowModelTools.close();
               this.hostCommandDeliveryProducer.close();
               this.hostCommandDeliverySource.close();
               this.ownedCommandProducer.close();

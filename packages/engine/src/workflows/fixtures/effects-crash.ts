@@ -50,8 +50,9 @@ if (boundary === "stage-before-commit") {
   };
 }
 if (boundary === "merge-before-receipt") {
-  const prior = consumer.toolSettled.bind(consumer);
-  consumer.toolSettled = (tool: { name: string }) => {
+  const modelTools = Reflect.get(f.engine, "workflowModelTools"),
+    prior = modelTools.toolSettled.bind(modelTools);
+  modelTools.toolSettled = (tool: { name: string }) => {
     if (tool.name === "merge_workflow_stage") stop();
     return prior(tool);
   };

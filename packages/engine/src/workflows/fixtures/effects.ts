@@ -27,7 +27,7 @@ import type {
 } from "../../ports.js";
 import type { WorkflowInstanceRevision } from "../reducer.js";
 import { effectsSpecData } from "./effects-data.js";
-import { WORKFLOW_MODEL_NAMES } from "../effects.js";
+import { WORKFLOW_MODEL_NAMES } from "../spec.js";
 export const EFFECT_BEFORE = "before workflow\n",
   EFFECT_AFTER = "editor-approved change\n";
 export const effectHash = (v: string) =>

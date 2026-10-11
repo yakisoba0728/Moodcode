@@ -12,7 +12,7 @@ import {
   modelToolsFixture,
   untilModelTools,
 } from "../teams/fixtures/model-tools.js";
-import { WORKFLOW_MODEL_NAMES } from "../workflows/effects.js";
+import { WORKFLOW_MODEL_NAMES } from "../workflows/spec.js";
 import { workflowResult } from "../workflows/fixtures/workflow.js";
 
 type Lane = "team" | "workflow";

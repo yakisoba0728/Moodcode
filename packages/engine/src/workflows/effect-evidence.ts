@@ -1,4 +1,5 @@
 import type {
+  AttemptUsageRecord,
   SessionSnapshot,
   Run,
   MessagePart,
@@ -19,7 +20,6 @@ export interface WorkflowChildEvidence {
   readonly parts: readonly MessagePart[];
   readonly cleanups: readonly AttemptCleanupRecord[];
   readonly verification: VerificationSnapshot | null;
-
-readonly attemptUsages?: readonly import("@moodcode/contracts").AttemptUsageRecord[];
-readonly sha256: string;
+  readonly attemptUsages?: readonly AttemptUsageRecord[];
+  readonly sha256: string;
 }

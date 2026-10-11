@@ -14,7 +14,9 @@ import {
 import type {
   WorkflowInstanceRevision,
   WorkflowChildCompletionProof,
+  WorkflowOwnerProof,
 } from "./reducer.js";
+import type { WorkflowSpec, WorkflowStageSpec } from "./types.js";
 import type { WorkflowChildEvidence } from "./effect-evidence.js";
 import type { QueueTargetPin } from "../runner/queue-target.js";
 const EFFECT_PREFIX = "workflow.effect.";
@@ -201,31 +203,18 @@ function nativeRevision(
   if (data.sha256 !== head.sha256) effectFail();
   return data;
 }
-export function readWorkflowEffect(
+/** The effect's settled stage revision, its child's closed storage and journal entry, and the current instance and spec bind it. */
+function effectStageBinding(
   db: DatabaseSync,
-  sessionId: string,
-  instanceId: string,
-  stageId: string,
-): WorkflowEffectRecord | null {
-  const value = body(db, sessionId, effectKind(instanceId, stageId));
-  if (!value) return null;
-  const r = verifiedEffect(value) as unknown as WorkflowEffectRecord;
-  if (
-    r.version !== 1 ||
-    r.sessionId !== sessionId ||
-    r.instanceId !== instanceId ||
-    r.stageId !== stageId ||
-    !["editor", "validator"].includes(r.role) ||
-    !EFFECT_STATES.includes(r.state)
-  )
-    effectFail();
+  r: WorkflowEffectRecord,
+): { owner: WorkflowOwnerProof; selected: WorkflowStageSpec } {
   const stage = nativeRevision(db, r.stageRevisionId, r.workspaceId, "stage"),
     owner = stage.owner as WorkflowInstanceRevision["owner"],
     state = stage.stage as WorkflowInstanceRevision["stages"][number];
   if (
-    stage.instanceId !== instanceId ||
-    owner.sessionId !== sessionId ||
-    state.stageId !== stageId ||
+    stage.instanceId !== r.instanceId ||
+    owner.sessionId !== r.sessionId ||
+    state.stageId !== r.stageId ||
     state.state !== "completed" ||
     knowledgeHash(state.child) !== knowledgeHash(r.completion.child) ||
     state.outcomeSha256 !== r.completion.outcomeSha256 ||
@@ -234,7 +223,7 @@ export function readWorkflowEffect(
     effectFail();
   const storageValue = body(
     db,
-    sessionId,
+    r.sessionId,
     childStorageKind(r.completion.child.taskId),
   );
   if (!storageValue) effectFail();
@@ -250,7 +239,7 @@ export function readWorkflowEffect(
     storage.binding.lineage.taskFingerprint !== child.taskFingerprint
   )
     effectFail();
-  const taskDoc = body(db, sessionId, "engine.child_tasks") as {
+  const taskDoc = body(db, r.sessionId, "engine.child_tasks") as {
     tasks?: Record<string, unknown>[];
   } | null;
   const task = taskDoc?.tasks?.find((t) => t.id === child.taskId);
@@ -278,7 +267,7 @@ export function readWorkflowEffect(
       instance.specRevisionId,
       r.workspaceId,
       "spec",
-    ).spec as import("./types.js").WorkflowSpec,
+    ).spec as WorkflowSpec,
     selected = definition.stages.find((s) => s.id === r.stageId);
   if (
     instance.owner.sha256 !== owner.sha256 ||
@@ -291,12 +280,14 @@ export function readWorkflowEffect(
     r.artifacts.length > 32
   )
     effectFail();
-  const header = db
-    .prepare(
-      "SELECT revision FROM session_documents WHERE session_id=? AND kind=?",
-    )
-    .get(sessionId, effectKind(instanceId, stageId));
-  if (header?.revision !== r.revision) effectFail();
+  return { owner, selected };
+}
+/** The child's run, turns, tools, checkpoints and verification receipts prove the recorded role's effect. */
+function assertEffectEvidence(
+  r: WorkflowEffectRecord,
+  selected: WorkflowStageSpec,
+): void {
+  const child = r.completion.child;
   if (
     r.role === "editor" &&
     !r.evidence.checkpoints.some(
@@ -390,76 +381,109 @@ export function readWorkflowEffect(
     )
       effectFail("WORKFLOW_VERIFICATION_FAILED");
   }
-  anchor(db, sessionId, "workflow.effect.recorded", r.sha256, r);
-  if (r.state === "merged") {
-    if (!r.merge || r.merge.runId !== owner.runId) effectFail();
-    const tool = db
-      .prepare("SELECT run_id,state,data FROM tools WHERE id=?")
-      .get(r.merge.toolCallId);
-    if (!tool || tool.run_id !== r.merge.runId || tool.state !== "completed")
-      effectFail();
-    const native = JSON.parse(String(tool.data));
+}
+/** A merged effect's tool call, approval, message part and checkpoints match its merge record. */
+function assertMergeEvidence(
+  db: DatabaseSync,
+  r: WorkflowEffectRecord,
+  owner: WorkflowOwnerProof,
+): void {
+  if (!r.merge || r.merge.runId !== owner.runId) effectFail();
+  const tool = db
+    .prepare("SELECT run_id,state,data FROM tools WHERE id=?")
+    .get(r.merge.toolCallId);
+  if (!tool || tool.run_id !== r.merge.runId || tool.state !== "completed")
+    effectFail();
+  const native = JSON.parse(String(tool.data));
+  if (
+    native.name !== "merge_workflow_stage" ||
+    native.runId !== r.merge.runId ||
+    native.sessionId !== r.sessionId ||
+    native.input.stageId !== r.stageId
+  )
+    effectFail();
+  const approval = db
+    .prepare("SELECT data FROM approvals WHERE id=?")
+    .get(r.merge.approvalId);
+  if (!approval) effectFail();
+  const a = JSON.parse(String(approval.data));
+  if (
+    a.status !== "allowed" ||
+    a.fingerprint !== r.merge.preparedFingerprint ||
+    a.toolCallId !== native.id
+  )
+    effectFail();
+  const parts = db
+    .prepare(
+      "SELECT length(CAST(data AS BLOB)) bytes,data FROM message_parts WHERE turn_id=? AND json_extract(data,'$.toolCallId')=? LIMIT 3",
+    )
+    .all(r.merge.turnId, r.merge.toolCallId);
+  if (parts.length !== 1 || Number(parts[0]!.bytes) > 65536) effectFail();
+  const part = JSON.parse(String(parts[0]!.data));
+  if (
+    part.type !== "tool" ||
+    part.runId !== r.merge.runId ||
+    part.turnId !== r.merge.turnId ||
+    part.state !== "completed"
+  )
+    effectFail();
+  if (!r.merge.checkpointIds.length || !r.merge.parentFiles.length)
+    effectFail();
+  let root: string | undefined;
+  for (const id of r.merge.checkpointIds) {
+    const cp = db.prepare("SELECT data FROM checkpoints WHERE id=?").get(id);
+    if (!cp) effectFail();
+    const c = JSON.parse(String(cp.data));
     if (
-      native.name !== "merge_workflow_stage" ||
-      native.runId !== r.merge.runId ||
-      native.sessionId !== r.sessionId ||
-      native.input.stageId !== r.stageId
+      c.runId !== r.merge.runId ||
+      c.toolCallId !== r.merge.toolCallId ||
+      c.incomplete
     )
       effectFail();
-    const approval = db
-      .prepare("SELECT data FROM approvals WHERE id=?")
-      .get(r.merge.approvalId);
-    if (!approval) effectFail();
-    const a = JSON.parse(String(approval.data));
-    if (
-      a.status !== "allowed" ||
-      a.fingerprint !== r.merge.preparedFingerprint ||
-      a.toolCallId !== native.id
-    )
-      effectFail();
-    const parts = db
-      .prepare(
-        "SELECT length(CAST(data AS BLOB)) bytes,data FROM message_parts WHERE turn_id=? AND json_extract(data,'$.toolCallId')=? LIMIT 3",
-      )
-      .all(r.merge.turnId, r.merge.toolCallId);
-    if (parts.length !== 1 || Number(parts[0]!.bytes) > 65536) effectFail();
-    const part = JSON.parse(String(parts[0]!.data));
-    if (
-      part.type !== "tool" ||
-      part.runId !== r.merge.runId ||
-      part.turnId !== r.merge.turnId ||
-      part.state !== "completed"
-    )
-      effectFail();
-    if (!r.merge.checkpointIds.length || !r.merge.parentFiles.length)
-      effectFail();
-    for (const id of r.merge.checkpointIds) {
-      const cp = db.prepare("SELECT data FROM checkpoints WHERE id=?").get(id);
-      if (!cp) effectFail();
-      const c = JSON.parse(String(cp.data));
+    root ??= JSON.parse(
+      String(
+        db.prepare("SELECT data FROM workspaces WHERE id=?").get(r.workspaceId)!
+          .data,
+      ),
+    ).root as string;
+    for (const f of c.files)
       if (
-        c.runId !== r.merge.runId ||
-        c.toolCallId !== r.merge.toolCallId ||
-        c.incomplete
+        f.afterHash === null ||
+        !r.merge.parentFiles.some(
+          (p) => p.path === root + "/" + f.path && p.sha256 === f.afterHash,
+        )
       )
         effectFail();
-      const root = JSON.parse(
-        String(
-          db
-            .prepare("SELECT data FROM workspaces WHERE id=?")
-            .get(r.workspaceId)!.data,
-        ),
-      ).root;
-      for (const f of c.files)
-        if (
-          f.afterHash === null ||
-          !r.merge.parentFiles.some(
-            (p) => p.path === root + "/" + f.path && p.sha256 === f.afterHash,
-          )
-        )
-          effectFail();
-    }
   }
+}
+export function readWorkflowEffect(
+  db: DatabaseSync,
+  sessionId: string,
+  instanceId: string,
+  stageId: string,
+): WorkflowEffectRecord | null {
+  const value = body(db, sessionId, effectKind(instanceId, stageId));
+  if (!value) return null;
+  const r = verifiedEffect(value) as unknown as WorkflowEffectRecord;
+  if (
+    r.version !== 1 ||
+    r.sessionId !== sessionId ||
+    r.instanceId !== instanceId ||
+    r.stageId !== stageId ||
+    !["editor", "validator"].includes(r.role) ||
+    !EFFECT_STATES.includes(r.state)
+  )
+    effectFail();
+  const { owner, selected } = effectStageBinding(db, r);
+  const header = db
+    .prepare(
+      "SELECT revision FROM session_documents WHERE session_id=? AND kind=?",
+    )
+    .get(sessionId, effectKind(instanceId, stageId));
+  if (header?.revision !== r.revision) effectFail();
+  assertEffectEvidence(r, selected);
+  anchor(db, sessionId, "workflow.effect.recorded", r.sha256, r);
+  if (r.state === "merged") assertMergeEvidence(db, r, owner);
   return r;
 }
 export function readWorkflowDelivery(

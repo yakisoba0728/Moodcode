@@ -1,22 +1,14 @@
 import { realpathSync } from "node:fs";
 import { join, relative } from "node:path";
-import { types } from "node:util";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import {
   EngineError,
   type JsonObject,
   type Run,
   type RunConfigInput,
-  type ToolCallRecord,
 } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
-import type {
-  ToolContext,
-  ToolDefinition,
-  PreparedTool,
-  ToolResult,
-} from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { readStableFile } from "../shared/fs.js";
@@ -26,7 +18,6 @@ import {
   type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import { runGit } from "../workspace/git.js";
-import { createChildMergeTool } from "../child-tasks/merge.js";
 import {
   childStorageKind,
   validateChildStorageRecord,
@@ -42,14 +33,8 @@ import {
   workflowHostRecord,
   type ActualWorkflowOwnerPort,
 } from "./host.js";
+import { workflowJson, workflowIdentifier } from "./spec.js";
 import {
-  workflowJson,
-  workflowIdentifier,
-  WORKFLOW_MODEL_NAMES,
-  WORKFLOW_READ_TOOLS,
-} from "./spec.js";
-import {
-  advanceEffect,
   effectFail,
   signEffect,
   formatWorkflowResult,
@@ -58,9 +43,8 @@ import {
   type WorkflowDeliveryTargetProof,
   type WorkflowEffectStorage,
 } from "./effects-records.js";
-export { WORKFLOW_MODEL_NAMES };
 /** A missing, replaced or changing file is WORKFLOW_SOURCE_STALE; growth past 1 MiB while reading is WORKFLOW_EFFECT_LIMIT. */
-function filePin(path: string): WorkflowFilePin {
+export function filePin(path: string): WorkflowFilePin {
   const stale = (): never => effectFail("WORKFLOW_SOURCE_STALE");
   try {
     const { stats, bytes, sha256 } = readStableFile(path, {
@@ -83,79 +67,55 @@ function filePin(path: string): WorkflowFilePin {
     return stale();
   }
 }
-function pinsCurrent(pins: readonly WorkflowFilePin[]): void {
+export function pinsCurrent(pins: readonly WorkflowFilePin[]): void {
   for (const pin of pins)
     if (knowledgeHash(filePin(pin.path)) !== knowledgeHash(pin))
       effectFail("WORKFLOW_SOURCE_STALE");
 }
-function mergeBound(
-  inner: PreparedTool,
-  editor: WorkflowEffectRecord,
-  root: string,
-): void {
-  const files = inner.preview.files,
-    merged = Array.isArray(files)
-      ? files.map((file) => {
-          const { path, afterHash } = file as JsonObject;
-          return `${join(root, String(path))}\0${afterHash}`;
-        })
-      : [],
-    pinned = editor.files.map((pin) => `${pin.path}\0${pin.sha256}`);
-  if (knowledgeHash(merged.sort()) !== knowledgeHash(pinned.sort()))
-    effectFail("WORKFLOW_VERIFICATION_SOURCE_STALE");
-}
-interface Binding {
-  readonly workspaceId: string;
-  readonly instanceId: string;
-  readonly sessionId: string;
-  readonly runId: string;
-  readonly originalOwner: object;
-  readonly ownerSha256: string;
-  released: boolean;
+function effectPinsCurrent(effect: WorkflowEffectRecord): void {
+  pinsCurrent(effect.files);
+  pinsCurrent(effect.artifacts);
+  if (effect.merge) pinsCurrent(effect.merge.parentFiles);
 }
 interface EffectOriginal {
-  record: WorkflowEffectRecord;
+  record: WorkflowEffectRecord | null;
   check: () => void;
 }
 interface TargetOriginal {
   proof: WorkflowDeliveryTargetProof;
   check: () => void;
 }
-interface MergeCapture {
-  binding: object;
-  input: JsonObject;
-  record: WorkflowInstanceRevision;
-  editor: WorkflowEffectRecord;
-  validator: WorkflowEffectRecord;
-  inner: PreparedTool;
-  preparedSha: string;
-  tuple: string;
-  head: string;
-  used: boolean;
-batchSelection: JsonObject | null;
-
-}
-/** One Root-constructed consumer owns all ORIGINAL child/effect/model/target handles. */
+/** One Root-constructed consumer owns all ORIGINAL child effect and delivery target handles. */
 export class WorkflowEffects {
   private readonly effects = new Map<object, EffectOriginal>();
   private readonly targets = new Map<object, TargetOriginal>();
-  private readonly bindings = new Map<object, Binding>();
-  private readonly byRun = new Map<string, object>();
-  private readonly merges = new WeakMap<PreparedTool, MergeCapture>();
-  private readonly pendingMerge = new Map<
-    string,
-    {
-      record: WorkflowEffectRecord;
-      result: ToolResult;
-      expectedRevision: number;
-    }
-  >();
   private native!: WorkflowEffectStorage;
-
-batchPolicy?: {
+  private closed = false;
+  batchPolicy?: {
     merge(record: WorkflowInstanceRevision, stageId: string): JsonObject | null;
     settled(record: WorkflowEffectRecord): void;
   };
+  constructor(
+    private readonly engine: Pick<
+      EngineRuntime,
+      "coordinator" | "scheduler" | "children" | "verificationChecks"
+    > &
+      QueueTargetRuntime &
+      Pick<MoodcodeEngine, "getWorkflow">,
+    private readonly knowledgeBinding: (
+      workspaceId: string,
+    ) => KnowledgeHostBinding,
+    private readonly service: () => WorkflowService,
+    private readonly owners: ActualWorkflowOwnerPort,
+    private readonly children: ActualWorkflowChildObservationPort,
+    private readonly core: boolean,
+    private readonly enabled: boolean,
+  ) {}
+  install(native: WorkflowEffectStorage) {
+    this.native = native;
+    native.recover();
+    native.validate();
+  }
   assertCandidateFiles(workspaceId: string, instanceId: string): void {
     const { record, owner } = this.service().effectOwner(
       workspaceId,
@@ -183,11 +143,7 @@ batchPolicy?: {
   }
   /** An observed editor with an observed validator on its worktree can still be merged. */
   mergePending(record: WorkflowInstanceRevision): boolean {
-    const spec = this.engine.getWorkflow(
-        record.workspaceId,
-        record.workflowId,
-        record.specRevisionId,
-      )!.spec,
+    const spec = this.specOf(record),
       state = (stageId: string) =>
         this.native.read(record.owner.sessionId, record.instanceId, stageId)
           ?.state;
@@ -205,41 +161,32 @@ batchPolicy?: {
         ),
     );
   }
-private closed = false;
-  private readonly merge: ToolDefinition;
-  constructor(
-    private readonly engine: Pick<
-      EngineRuntime,
-      "coordinator" | "scheduler" | "children" | "verificationChecks"
-    > &
-      QueueTargetRuntime &
-      Pick<MoodcodeEngine, "getWorkflow">,
-    private readonly binding: (workspaceId: string) => KnowledgeHostBinding,
-    private readonly service: () => WorkflowService,
-    private readonly owners: ActualWorkflowOwnerPort,
-    private readonly children: ActualWorkflowChildObservationPort,
-    private readonly core: boolean,
-    private readonly enabled: boolean,
-  ) {
-    this.merge = createChildMergeTool(
-      engine.children.tasks,
-      engine.children.worktrees,
-    );
-  }
-  install(native: WorkflowEffectStorage) {
-    this.native = native;
-    native.recover();
-    native.validate();
-  }
-  private open() {
+  /** @internal */
+  open() {
     if (this.closed) effectFail("WORKFLOW_CLOSED");
   }
-  private issue<T>(map: Map<object, T>, value: T): object {
+  private specOf(record: WorkflowInstanceRevision): WorkflowSpec {
+    return this.engine.getWorkflow(
+      record.workspaceId,
+      record.workflowId,
+      record.specRevisionId,
+    )!.spec;
+  }
+  /** @internal */
+  issue<T>(map: Map<object, T>, value: T): object {
     this.open();
     if (map.size >= 64) effectFail("WORKFLOW_EFFECT_LIMIT");
     const original = Object.freeze(Object.create(null));
     map.set(original, value);
     return original;
+  }
+  /** @internal An effect ORIGINAL that the native store reads back through readEffect and assertEffect. */
+  issueEffect(record: WorkflowEffectRecord | null, check: () => void): object {
+    return this.issue(this.effects, { record, check });
+  }
+  /** @internal */
+  publish(original: object, expectedRevision: number): WorkflowEffectRecord {
+    return this.native.publish(original, expectedRevision);
   }
   assertSupported(original: object, spec: WorkflowSpec): void {
     if (!spec.stages.some((s) => ["editor", "validator"].includes(s.role)))
@@ -281,23 +228,11 @@ private closed = false;
     originalCompletion: object,
   ): Promise<object> {
     this.open();
-    const spec = this.engine.getWorkflow(
-        before.workspaceId,
-        before.workflowId,
-        before.specRevisionId,
-      )!.spec,
-      stage = spec.stages.find((s) => s.id === stageId)!;
-    if (!["editor", "validator"].includes(stage.role))
-      return this.issue(this.effects, {
-        record: null as unknown as WorkflowEffectRecord,
-        check: () => {},
-      });
+    const stage = this.specOf(before).stages.find((s) => s.id === stageId)!,
+      none = () => this.issueEffect(null, () => {});
+    if (!["editor", "validator"].includes(stage.role)) return none();
     const completion = this.children.readCompletion(originalCompletion);
-    if (completion.state !== "completed" || !completion.complete)
-      return this.issue(this.effects, {
-        record: null as unknown as WorkflowEffectRecord,
-        check: () => {},
-      });
+    if (completion.state !== "completed" || !completion.complete) return none();
     const evidence = this.children.readExecution(originalCompletion),
       pin = before.worktrees[stageId]!;
     if (
@@ -317,29 +252,29 @@ private closed = false;
     this.owners.assertWorktreeCurrent(owner.original, pin);
     let paths: string[];
     if (stage.role === "editor") {
-      const git = await runGit(
-          pin.root,
-          ["diff", "--no-renames", "--name-only", "-z", pin.baseCommit, "--"],
-          { signal: new AbortController().signal },
-        ),
-        untracked = await runGit(
-          pin.root,
-          ["ls-files", "--others", "--exclude-standard", "-z"],
-          { signal: new AbortController().signal },
-        ),
-        deleted = await runGit(
-          pin.root,
-          [
-            "diff",
-            "--no-renames",
-            "--diff-filter=D",
-            "--name-only",
-            "-z",
-            pin.baseCommit,
-            "--",
-          ],
-          { signal: new AbortController().signal },
-        );
+      const git = await runGit(pin.root, [
+          "diff",
+          "--no-renames",
+          "--name-only",
+          "-z",
+          pin.baseCommit,
+          "--",
+        ]),
+        untracked = await runGit(pin.root, [
+          "ls-files",
+          "--others",
+          "--exclude-standard",
+          "-z",
+        ]),
+        deleted = await runGit(pin.root, [
+          "diff",
+          "--no-renames",
+          "--diff-filter=D",
+          "--name-only",
+          "-z",
+          pin.baseCommit,
+          "--",
+        ]);
       if (git.code || untracked.code || deleted.code)
         effectFail("WORKFLOW_SOURCE_STALE");
       if (deleted.stdout.length) effectFail("WORKFLOW_CHILD_EFFECT_FAILED");
@@ -422,31 +357,25 @@ private closed = false;
       state: "observed" as const,
       merge: null,
     });
-    return this.issue(this.effects, {
-      record,
-      check: () => {
-        this.owners.assertSettling(owner.original, before.owner);
-        this.owners.assertWorktreeCurrent(owner.original, pin);
-        pinsCurrent(files);
-        pinsCurrent(artifacts);
-        if (
-          this.children.readCompletion(originalCompletion).sha256 !==
-          completion.sha256
-        )
-          effectFail("WORKFLOW_CHILD_STALE");
-      },
+    return this.issueEffect(record, () => {
+      this.owners.assertSettling(owner.original, before.owner);
+      this.owners.assertWorktreeCurrent(owner.original, pin);
+      pinsCurrent(files);
+      pinsCurrent(artifacts);
+      if (
+        this.children.readCompletion(originalCompletion).sha256 !==
+        completion.sha256
+      )
+        effectFail("WORKFLOW_CHILD_STALE");
     });
   }
   commitChild(original: object, settled: WorkflowInstanceRevision): void {
     const state = this.effects.get(original);
     if (!state) effectFail("WORKFLOW_ORIGINAL_REQUIRED");
-    if (!state.record) return;
-    state.record = signEffect({
-      ...state.record,
-      stageRevisionId: settled.stages.find(
-        (s) => s.stageId === state.record.stageId,
-      )!.id,
-    });
+    const { record } = state;
+    if (!record) return;
+    const stage = settled.stages.find((s) => s.stageId === record.stageId)!;
+    state.record = signEffect({ ...record, stageRevisionId: stage.id });
     this.native.publish(original, 0);
   }
   readEffect(original: object): WorkflowEffectRecord {
@@ -462,86 +391,12 @@ private closed = false;
   release(original: object): void {
     this.effects.delete(original);
     this.targets.delete(original);
-    const b = this.bindings.get(original);
-    if (b) {
-      b.released = true;
-      if (this.byRun.get(b.runId) === original) this.byRun.delete(b.runId);
-      this.bindings.delete(original);
-    }
-  }
-  bind(input: { workspaceId: string; instanceId: string }): object {
-    workflowHostRecord(input, ["workspaceId", "instanceId"]);
-    this.open();
-    const { record, owner } = this.service().effectOwner(
-      input.workspaceId,
-      input.instanceId,
-    );
-    this.owners.assertCurrent(owner.original, record.owner);
-    if (this.byRun.has(record.owner.runId))
-      effectFail("WORKFLOW_MODEL_ALREADY_BOUND");
-    const original = this.issue(this.bindings, {
-      workspaceId: record.workspaceId,
-      instanceId: record.instanceId,
-      sessionId: record.owner.sessionId,
-      runId: record.owner.runId,
-      originalOwner: owner.original,
-      ownerSha256: record.owner.sha256,
-      released: false,
-    });
-    this.byRun.set(record.owner.runId, original);
-    return original;
-  }
-  private actor(
-    context: ToolContext,
-    phase: "prepare" | "execute",
-    original?: object,
-  ): { original: object; binding: Binding; record: WorkflowInstanceRevision } {
-    this.open();
-    this.engine.coordinator.assertWorkflowToolContext(context, phase);
-    const key = original ?? this.byRun.get(context.runId),
-      actor = key && this.bindings.get(key);
-    if (
-      !key ||
-      !actor ||
-      actor.released ||
-      actor.sessionId !== context.sessionId ||
-      actor.runId !== context.runId ||
-      actor.workspaceId !== context.workspace.id
-    )
-      effectFail("WORKFLOW_MODEL_UNBOUND");
-    const { record, owner } = this.service().effectOwner(
-      actor.workspaceId,
-      actor.instanceId,
-    );
-    if (
-      owner.original !== actor.originalOwner ||
-      record.owner.sha256 !== actor.ownerSha256
-    )
-      effectFail("WORKFLOW_MODEL_STALE");
-    this.owners.assertCurrent(owner.original, record.owner);
-    return { original: key, binding: actor, record };
-  }
-  private tuple(c: ToolContext): string {
-    return knowledgeHash([
-      c.sessionId,
-      c.runId,
-      c.turnId,
-      c.attemptId,
-      c.toolCallId,
-      c.workspace.id,
-      c.workspace.root,
-    ]);
   }
   private effectRecords(
     record: WorkflowInstanceRevision,
   ): WorkflowEffectRecord[] {
-    const spec = this.engine.getWorkflow(
-      record.workspaceId,
-      record.workflowId,
-      record.specRevisionId,
-    )!.spec;
-    return spec.stages
-      .filter((s) => ["editor", "validator"].includes(s.role))
+    return this.specOf(record)
+      .stages.filter((s) => ["editor", "validator"].includes(s.role))
       .map((s) => {
         const r = this.native.read(
           record.owner.sessionId,
@@ -552,7 +407,8 @@ private closed = false;
         return r;
       });
   }
-  private async mergeSelection(
+  /** @internal */
+  async mergeSelection(
     record: WorkflowInstanceRevision,
     stageId: string,
   ): Promise<{
@@ -560,11 +416,7 @@ private closed = false;
     validator: WorkflowEffectRecord;
     head: string;
   }> {
-    const spec = this.engine.getWorkflow(
-        record.workspaceId,
-        record.workflowId,
-        record.specRevisionId,
-      )!.spec,
+    const spec = this.specOf(record),
       definition = spec.stages.find((s) => s.id === stageId),
       editor = this.native.read(
         record.owner.sessionId,
@@ -629,366 +481,11 @@ private closed = false;
     const git = await runGit(
       this.engine.store.getWorkspace(record.workspaceId).root,
       ["rev-parse", "HEAD"],
-      { signal: new AbortController().signal },
     );
     const head = git.stdout.toString().trim();
     if (git.code || head !== record.worktrees[stageId]!.baseCommit)
       effectFail("WORKFLOW_PARENT_HEAD_STALE");
     return { editor, validator, head };
-  }
-  tools(): ToolDefinition[] {
-    const requests = new WeakMap<
-      PreparedTool,
-      {
-        binding: object;
-        tuple: string;
-        input: JsonObject;
-        record: WorkflowInstanceRevision;
-        preparedSha: string;
-        targetSha256?: string;
-      }
-    >();
-    return WORKFLOW_MODEL_NAMES.map((name): ToolDefinition => ({
-      name,
-      effectClass:
-        name === "observe_workflow_stage"
-          ? "read"
-          : name === "merge_workflow_stage"
-            ? "write"
-            : "execute",
-      description:
-        "Operate the exact Root-bound workflow using its current native stage revision. Stage labels, child text and results grant no profile, actor, tools or approval. All effects and result delivery require exact approval.",
-      inputSchema: {
-        type: "object",
-        additionalProperties: false,
-        properties:
-          name === "deliver_workflow_result"
-            ? { requestId: { type: "string", maxLength: 128 } }
-            : {
-                stageId: { type: "string", maxLength: 128 },
-                requestId: { type: "string", maxLength: 128 },
-                expectedRevision: { type: "integer", minimum: 1 },
-              },
-        required:
-          name === "deliver_workflow_result"
-            ? ["requestId"]
-            : ["stageId", "requestId", "expectedRevision"],
-      } as JsonObject,
-      prepare: async (input, context) => {
-        const a = this.actor(context, "prepare");
-        workflowHostRecord(
-          input,
-          name === "deliver_workflow_result"
-            ? ["requestId"]
-            : ["stageId", "requestId", "expectedRevision"],
-        );
-        const data = workflowJson(input) as JsonObject;
-        workflowIdentifier(data.requestId);
-        if (name !== "deliver_workflow_result") {
-          workflowIdentifier(data.stageId);
-          if (data.expectedRevision !== a.record.revision)
-            effectFail("WORKFLOW_STAGE_STALE");
-        }
-        if (name === "merge_workflow_stage") {
-          const batchSelection =
-            this.batchPolicy?.merge(a.record, String(data.stageId)) ?? null;
-          const selection = await this.mergeSelection(
-              a.record,
-              String(data.stageId),
-            ),
-            inner = await this.merge.prepare(
-              { childTaskId: selection.editor.completion.child.taskId },
-              context,
-            );
-          mergeBound(
-            inner,
-            selection.editor,
-            a.record.worktrees[String(data.stageId)]!.root,
-          );
-          this.actor(context, "prepare", a.original);
-          const preview = {
-            ...inner.preview,
-            workflow: {
-              instanceId: a.record.instanceId,
-              stageId: data.stageId!,
-              revision: a.record.revision,
-              sourceSha256: selection.editor.sha256,
-              verificationSha256: selection.validator.sha256,
-              head: selection.head,
-              ...(batchSelection ? { codingSelection: batchSelection } : {}),
-            },
-          };
-          const prepared: PreparedTool = {
-            name,
-            input: data,
-            fingerprint: knowledgeHash({
-              name,
-              input: data,
-              preview,
-              inner: inner.fingerprint,
-              tuple: this.tuple(context),
-            }),
-            requiresApproval: true,
-            preview,
-          };
-          this.merges.set(prepared, {
-            ...selection,
-            binding: a.original,
-            input: data,
-            record: a.record,
-            inner,
-            preparedSha: knowledgeHash(prepared),
-            tuple: this.tuple(context),
-            used: false,
-            batchSelection,
-          });
-          return prepared;
-        }
-        const target =
-          name === "deliver_workflow_result"
-            ? this.target({
-                workspaceId: a.record.workspaceId,
-                instanceId: a.record.instanceId,
-                config: this.engine.store.getRun(a.record.owner.runId).config,
-              }).proof
-            : undefined;
-        const preview = {
-          instanceId: a.record.instanceId,
-          workflowId: a.record.workflowId,
-          stageId: data.stageId ?? null,
-          revision: a.record.revision,
-          ownerSha256: a.record.owner.sha256,
-          operation: name,
-          ...(target ? { target: target as unknown as JsonObject } : {}),
-        };
-        const prepared: PreparedTool = {
-          name,
-          input: data,
-          fingerprint: knowledgeHash({
-            preview,
-            input: data,
-            tuple: this.tuple(context),
-          }),
-          requiresApproval: name !== "observe_workflow_stage",
-          preview,
-        };
-        requests.set(prepared, {
-          binding: a.original,
-          tuple: this.tuple(context),
-          input: data,
-          record: a.record,
-          preparedSha: knowledgeHash(prepared),
-          ...(target ? { targetSha256: target.sha256 } : {}),
-        });
-        return prepared;
-      },
-      execute: async (prepared, context) => {
-        if (name === "merge_workflow_stage")
-          return this.executeMerge(prepared, context);
-        const p = requests.get(prepared);
-        if (!p) effectFail("WORKFLOW_ORIGINAL_REQUIRED");
-        const a = this.actor(context, "execute", p.binding);
-        if (
-          p.preparedSha !== knowledgeHash(prepared) ||
-          p.tuple !== this.tuple(context)
-        )
-          effectFail("WORKFLOW_ORIGINAL_REQUIRED");
-        requests.delete(prepared);
-        if (a.record.sha256 !== p.record.sha256)
-          effectFail("WORKFLOW_STAGE_STALE");
-        workflowAbort(context.signal);
-        if (name === "deliver_workflow_result") {
-          const target = this.captureTarget({
-            workspaceId: a.record.workspaceId,
-            instanceId: a.record.instanceId,
-            config: this.engine.store.getRun(a.record.owner.runId).config,
-          });
-          try {
-            if (this.readTarget(target).sha256 !== p.targetSha256)
-              effectFail("WORKFLOW_DELIVERY_STALE");
-            const r = this.deliver({
-              workspaceId: a.record.workspaceId,
-              requestId: String(p.input.requestId),
-              expectedRevision: 0,
-              target,
-              approved: true,
-              signal: context.signal,
-            });
-            return {
-              content: JSON.stringify({
-                instanceId: r.record.instanceId,
-                inputId: r.record.input.inputId,
-                sha256: r.record.sha256,
-                duplicate: r.duplicate,
-              }),
-            };
-          } finally {
-            this.release(target);
-          }
-        }
-        const input = {
-          workspaceId: a.record.workspaceId,
-          instanceId: a.record.instanceId,
-          stageId: String(p.input.stageId),
-          requestId: String(p.input.requestId),
-          expectedRevision: Number(p.input.expectedRevision),
-          signal: context.signal,
-        };
-        const r =
-          name === "request_workflow_stage"
-            ? await this.service().startStage({ ...input, approved: true })
-            : await this.service().observeStage(input);
-        return {
-          content: JSON.stringify({
-            instanceId: r.record.instanceId,
-            revision: r.record.revision,
-            state: r.record.state,
-            stage: r.record.stages.find((s) => s.stageId === input.stageId)
-              ?.state,
-            sha256: r.record.sha256,
-            duplicate: r.duplicate,
-          }),
-        };
-      },
-    }));
-  }
-  private async executeMerge(
-    prepared: PreparedTool,
-    context: ToolContext,
-  ): Promise<ToolResult> {
-    const p = this.merges.get(prepared);
-    if (!p || p.used) effectFail("WORKFLOW_ORIGINAL_REQUIRED");
-    const a = this.actor(context, "execute", p.binding);
-    if (
-      p.preparedSha !== knowledgeHash(prepared) ||
-      p.tuple !== this.tuple(context)
-    )
-      effectFail("WORKFLOW_ORIGINAL_REQUIRED");
-    p.used = true;
-    if (a.record.sha256 !== p.record.sha256) effectFail("WORKFLOW_STAGE_STALE");
-
-const currentBatchSelection =
-      this.batchPolicy?.merge(a.record, p.editor.stageId) ?? null;
-    if (
-      knowledgeHash(currentBatchSelection) !== knowledgeHash(p.batchSelection)
-    )
-      effectFail("CODING_SELECTION_STALE");
-const now = await this.mergeSelection(a.record, p.editor.stageId);
-    if (
-      now.editor.sha256 !== p.editor.sha256 ||
-      now.validator.sha256 !== p.validator.sha256 ||
-      now.head !== p.head
-    )
-      effectFail("WORKFLOW_SOURCE_STALE");
-    mergeBound(p.inner, now.editor, a.record.worktrees[p.editor.stageId]!.root);
-    this.actor(context, "execute", p.binding);
-    const approval = this.engine.coordinator.getWorkflowToolApproval(context);
-    const intent = advanceEffect(p.editor, {
-      state: "merge-dispatching",
-      merge: {
-        toolCallId: context.toolCallId,
-        runId: context.runId,
-        turnId: context.turnId!,
-        attemptId: context.attemptId!,
-        preparedFingerprint: approval.fingerprint,
-        approvalId: approval.id,
-        validatorSha256: p.validator.sha256,
-        checkpointIds: [],
-        parentFiles: [],
-      },
-    });
-    const original = this.issue(this.effects, {
-      record: intent,
-      check: () => {
-        this.actor(context, "execute", p.binding);
-        pinsCurrent(p.editor.files);
-        pinsCurrent(p.validator.artifacts);
-      },
-    });
-    try {
-      this.native.publish(original, p.editor.revision);
-    } finally {
-      this.release(original);
-    }
-    try {
-      const result = await this.merge.execute(p.inner, context);
-      this.pendingMerge.set(context.toolCallId, {
-        record: intent,
-        result: structuredClone(result),
-        expectedRevision: intent.revision,
-      });
-      return result;
-    } catch (error) {
-      this.pendingMerge.set(context.toolCallId, {
-        record: intent,
-        result: { content: "unconfirmed merge outcome", isError: true },
-        expectedRevision: intent.revision,
-      });
-      this.finishMergeUnknown(context.toolCallId);
-      throw error;
-    }
-  }
-  private finishMergeUnknown(id: string): void {
-    const p = this.pendingMerge.get(id);
-    if (!p) return;
-    const record = advanceEffect(p.record, { state: "uncertain" });
-    const o = this.issue(this.effects, { record, check: () => {} });
-    try {
-      this.native.publish(o, p.expectedRevision);
-    } finally {
-      this.release(o);
-      this.pendingMerge.delete(id);
-      this.service().reclaim(p.record.instanceId);
-    }
-  }
-  toolSettled(tool: ToolCallRecord): void {
-    const p = this.pendingMerge.get(tool.id);
-    if (!p) return;
-    if (tool.state !== "completed" || p.result.isError) {
-      this.finishMergeUnknown(tool.id);
-      return;
-    }
-    const checkpoints = this.engine.store
-      .listCheckpoints(tool.runId)
-      .filter((c) => c.toolCallId === tool.id);
-    if (!checkpoints.length || checkpoints.some((c) => c.incomplete)) {
-      this.finishMergeUnknown(tool.id);
-      return;
-    }
-    const record = advanceEffect(p.record, {
-        state: "merged",
-        merge: {
-          ...p.record.merge!,
-          checkpointIds: checkpoints.map((c) => c.id),
-          parentFiles: checkpoints.flatMap((c) =>
-            c.files.map((f) =>
-              filePin(
-                join(
-                  this.engine.store.getWorkspace(p.record.workspaceId).root,
-                  f.path,
-                ),
-              ),
-            ),
-          ),
-        },
-      }),
-      o = this.issue(this.effects, {
-        record,
-        check: () => {
-          if (this.engine.store.getToolCall(tool.id).state !== "completed")
-            effectFail();
-        },
-      });
-    try {
-      this.engine.store.withWorkflowEffectsTransaction(() => {
-        this.native.publish(o, p.expectedRevision);
-        this.batchPolicy?.settled(record);
-      });
-      this.pendingMerge.delete(tool.id);
-      this.service().reclaim(record.instanceId);
-    } finally {
-      this.release(o);
-    }
   }
   captureTarget(input: {
     workspaceId: string;
@@ -997,7 +494,8 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
   }): object {
     return this.issue(this.targets, this.target(input));
   }
-  private target(input: {
+  /** @internal */
+  target(input: {
     workspaceId: string;
     instanceId: string;
     config: RunConfigInput;
@@ -1032,7 +530,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     );
     const target = describeQueueTarget(
         this.engine,
-        this.binding,
+        this.knowledgeBinding,
         record.workspaceId,
         record.owner.sessionId,
         normalized.config,
@@ -1058,7 +556,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
         knowledgeHash(
           describeQueueTarget(
             this.engine,
-            this.binding,
+            this.knowledgeBinding,
             record.workspaceId,
             record.owner.sessionId,
             target.config,
@@ -1067,11 +565,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
         ) !== knowledgeHash(target)
       )
         effectFail("WORKFLOW_DELIVERY_STALE");
-      for (const effect of effects) {
-        pinsCurrent(effect.files);
-        pinsCurrent(effect.artifacts);
-        if (effect.merge) pinsCurrent(effect.merge.parentFiles);
-      }
+      for (const effect of effects) effectPinsCurrent(effect);
     };
     check();
     return { proof, check };
@@ -1139,7 +633,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     if (receipt.state !== "accepted") effectFail("WORKFLOW_IMPORT_PAUSED");
     const target = describeQueueTarget(
       this.engine,
-      this.binding,
+      this.knowledgeBinding,
       receipt.workspaceId,
       receipt.sessionId,
       run?.config ?? receipt.target.config,
@@ -1154,17 +648,12 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
         e.stageId,
       );
       if (current?.sha256 !== e.sha256) effectFail("WORKFLOW_SOURCE_STALE");
-      pinsCurrent(e.files);
-      pinsCurrent(e.artifacts);
-      if (e.merge) pinsCurrent(e.merge.parentFiles);
+      effectPinsCurrent(e);
     }
   }
   close(): void {
     this.closed = true;
     this.effects.clear();
     this.targets.clear();
-    this.bindings.clear();
-    this.byRun.clear();
-    this.pendingMerge.clear();
   }
 }

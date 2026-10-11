@@ -774,8 +774,8 @@ test(
   { timeout: 20000 },
   async (t) => {
     const f = await workflowEffectsFixture(t),
-      effects = Reflect.get(f.engine, "workflowEffects"),
-      tools = effects.tools() as import("../ports.js").ToolDefinition[],
+      modelTools = Reflect.get(f.engine, "workflowModelTools"),
+      tools = modelTools.tools() as import("../ports.js").ToolDefinition[],
       tool = tools.find((t) => t.name === "request_workflow_stage")!;
     const fake = Object.defineProperty(
       {

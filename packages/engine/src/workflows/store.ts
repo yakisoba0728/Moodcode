@@ -54,6 +54,7 @@ import {
   fields,
   taskOutcomeSha,
   validateWorkflowStorage,
+  worktreeIds,
 } from "./store-audit.js";
 export interface WorkflowSpecRevision {
   readonly id: string;
@@ -1030,7 +1031,7 @@ export class WorkflowStorage {
         syncVoid(this.ports.assertWorktreeCurrent(original, pin));
         worktrees[stage.id] = pin;
       }
-      validateNewWorkflowWorktreeSharing(spec.spec,Object.fromEntries(Object.entries(worktrees).map(([id,pin])=>[id,pin.id])));
+      validateNewWorkflowWorktreeSharing(spec.spec, worktreeIds(worktrees));
       if (
         Number(
           this.db
@@ -1176,10 +1177,9 @@ export class WorkflowStorage {
         workflowError("WORKFLOW_DATABASE_INVALID");
       ids.add(pin.id);
     }
-    validateWorkflowWorktreeSharing(spec,Object.fromEntries(Object.entries(instance.worktrees).map(([id,pin])=>[id,pin.id])));
+    validateWorkflowWorktreeSharing(spec, worktreeIds(instance.worktrees));
     let tasks: Record<string, unknown>[] | undefined;
-    const journal = () =>
-      (tasks ??= this.childTasks(instance.owner.sessionId));
+    const journal = () => (tasks ??= this.childTasks(instance.owner.sessionId));
     for (const stage of instance.stages) {
       const definition = spec.stages.find((def) => def.id === stage.stageId);
       if (!definition) workflowError("WORKFLOW_DATABASE_INVALID");
@@ -1296,11 +1296,7 @@ export class WorkflowStorage {
       workflowError("WORKFLOW_DATABASE_INVALID");
     this.receipt(instance);
   }
-  private childDocument(
-    sessionId: string,
-    kind: string,
-    cap: number,
-  ): unknown {
+  private childDocument(sessionId: string, kind: string, cap: number): unknown {
     return JSON.parse(
       boundedData(
         this.db,
