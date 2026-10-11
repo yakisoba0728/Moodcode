@@ -16,6 +16,12 @@ import { createToolRegistrationManifest, type ToolRegistrationManifest } from '.
 import { canonicalJson, canonicalSha256, jsonTextSha256, sha256Hex } from '../../shared/canonical.js';
 import { deepFreeze, isBoundedText, plainRecord } from '../../shared/data.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
+const declaredRegistrations = new WeakMap<ToolDefinition, Readonly<{ exactApproval: boolean }>>();
+/** The producing module declares its approval mode beside the unchanged definition. */
+export function declareToolRegistration<T extends ToolDefinition>(definition: T, registration: { exactApproval: boolean }): T {
+  declaredRegistrations.set(definition, Object.freeze({ exactApproval: registration.exactApproval })); return definition;
+}
+export function declaredToolRegistration(definition: ToolDefinition): Readonly<{ exactApproval: boolean }> | undefined { return declaredRegistrations.get(definition); }
 export interface RuntimeToolProfile { id: string; revision: string }
 /** Host-owned observation of one exact registration; carries no execute capability. */
 export interface ToolRegistrationCapture { readonly scopeId: string; readonly name: string }

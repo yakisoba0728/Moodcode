@@ -9,6 +9,7 @@ import type {
 } from "../ports.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { createChildMergeTool } from "../child-tasks/merge.js";
+import { declareToolRegistration } from "../tools/runtime/index.js";
 import type { WorkflowService } from "./service.js";
 import type { WorkflowInstanceRevision } from "./reducer.js";
 import {
@@ -181,7 +182,7 @@ export class WorkflowModelTools {
         name === "deliver_workflow_result"
           ? ["requestId"]
           : ["stageId", "requestId", "expectedRevision"];
-      return {
+      const definition: ToolDefinition = {
         name,
         effectClass:
           name === "observe_workflow_stage"
@@ -381,6 +382,9 @@ export class WorkflowModelTools {
           };
         },
       };
+      return declareToolRegistration(definition, {
+        exactApproval: name !== "observe_workflow_stage",
+      });
     });
   }
   private async executeMerge(

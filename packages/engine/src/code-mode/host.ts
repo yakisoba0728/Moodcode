@@ -7,7 +7,13 @@ import type {
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { EngineRuntime } from "../engine-runtime.js";
-import type { ToolContext, PreparedTool, ToolResult } from "../ports.js";
+import type {
+  ToolContext,
+  ToolDefinition,
+  PreparedTool,
+  ToolResult,
+} from "../ports.js";
+import { declareToolRegistration } from "../tools/runtime/index.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -63,6 +69,26 @@ interface Flight {
   record: CodeModeRecord;
   process?: OwnedCodeModeProcess;
   settlingTool?: ToolCallRecord;
+}
+/** The host is resolved per call because the catalogue is fixed before it exists. */
+export function createExecuteCodeTool(host: () => CodeModeHost): ToolDefinition {
+  return declareToolRegistration(
+    {
+      name: "execute_code",
+      description:
+        "Execute a restricted moodcode-json-v1 program; source and nested effects require native approval.",
+      effectClass: "execute",
+      inputSchema: {
+        type: "object",
+        required: ["source", "allocation"],
+        additionalProperties: false,
+        properties: { source: { type: "string" }, allocation: { type: "object" } },
+      },
+      prepare: (input, context) => host().prepare(input, context),
+      execute: (prepared, context) => host().executePrepared(prepared, context),
+    },
+    { exactApproval: true },
+  );
 }
 export class CodeModeHost {
   private readonly epoch = knowledgeHash({ nonce: randomUUID() });

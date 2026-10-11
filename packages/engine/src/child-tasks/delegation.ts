@@ -2,6 +2,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
 import { jsonTextSha256 } from '../shared/canonical.js';
 import { utf8Prefix } from '../shared/data.js';
+import { declareToolRegistration } from '../tools/runtime/index.js';
 import type { ChildBudget, ChildTaskRecord } from './index.js';
 import { CHILD_BUDGET_KEYS as KEYS, CHILD_BUDGET_MAX } from './journal.js';
 
@@ -51,7 +52,7 @@ function result(task: ChildTaskRecord, request: PreparedDelegation, context: Too
 /** Build-only, exact approval, one child per invocation; no implicit delivery or merge. */
 export function createDelegateTaskTool(host: DelegationHost): ToolDefinition {
   const handles = new WeakMap<PreparedTool, { request: PreparedDelegation; snapshot: string; binding: string; used: boolean }>();
-  return {
+  return declareToolRegistration({
     name: 'delegate_task', effectClass: 'write',
     description: 'Request an approved isolated read-only child task from the current Git commit. The child inherits the parent model, consumes reserved parent budgets and returns a bounded untrusted observation. Uncommitted parent files are not included; results are not merged or queued automatically.',
     inputSchema: { type: 'object', properties: { requestId: { type: 'string', maxLength: 128 }, prompt: { type: 'string', maxLength: 32768 }, allocation: { type: 'object', properties: { turns: { type: 'integer', minimum: 1 }, toolCalls: { type: 'integer', minimum: 1 }, outputBytes: { type: 'integer', minimum: 1 }, durationMs: { type: 'integer', minimum: 1 } }, required: [...KEYS], additionalProperties: false }, tools: { type: 'array', items: { type: 'string', enum: [...DELEGATION_READ_TOOLS] }, minItems: 1, maxItems: DELEGATION_READ_TOOLS.length, uniqueItems: true } }, required: ['requestId', 'prompt', 'allocation'], additionalProperties: false },
@@ -77,5 +78,5 @@ export function createDelegateTaskTool(host: DelegationHost): ToolDefinition {
       if (context.signal.aborted) throw new EngineError('CANCELLED', 'Delegation cancelled before dispatch');
       return result(await host.run(handle.request, context), handle.request, context);
     },
-  };
+  }, { exactApproval: true });
 }

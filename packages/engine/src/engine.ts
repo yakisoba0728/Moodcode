@@ -1,6 +1,6 @@
 import {CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
 import {EffectBatchHost} from './effect-batches/host.js';
-import {CodeModeHost} from './code-mode/host.js';
+import {CodeModeHost, createExecuteCodeTool} from './code-mode/host.js';
 import {jobJson} from './jobs/validation.js';
 import { plainRecord } from './shared/data.js';
 import { MediaSegmentStore } from './media/segment-store.js';
@@ -17,7 +17,6 @@ import {captureCommandReadSource} from './jobs/command-read-sources.js';
 import { CodingBatchHost } from "./coding-runs/batch-host.js";
 import { WorkflowEffects } from "./workflows/effects.js";
 import { WorkflowModelTools } from "./workflows/model-tools.js";
-import { WORKFLOW_MODEL_NAMES } from "./workflows/spec.js";
 import {SandboxHost} from './sandbox/host.js';
 import type {PreviewSandboxGrantInput,ApproveSandboxGrantInput} from './sandbox/types.js';
 import { TeamWorkflowBoard, assertTeamTaskReviewAccepted } from './teams/workflow-board.js';
@@ -80,7 +79,7 @@ import { InputScheduler } from './runner/input-scheduler.js';
 import { waitChildProviderAdmission } from './child-tasks/provider-admission.js';
 import { bindChildTeamModelCatalogue, consumeChildTeamModelCatalogue } from './teams/model-tool-catalogue.js';
 import { EngineTeamModelToolHost, type BindTeamModelToolsInput, type TeamModelToolsBinding } from './teams/model-tool-host.js';
-import { createTeamModelTools, TEAM_MODEL_TOOL_NAMES, TEAM_MODEL_WRITE_TOOL_NAMES } from './teams/model-tools.js';
+import { createTeamModelTools, TEAM_MODEL_TOOL_NAMES } from './teams/model-tools.js';
 import { ScriptedProvider } from './provider/index.js';
 import { validateHostGenerationRequest, type HostGenerationProviderPort, type HostGenerationRequest } from './provider/generation.js';
 import { ApprovalManager } from './permission/index.js';
@@ -97,7 +96,7 @@ import { registerCredentialEnvNames } from './tools/command/process-control.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
-import { ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions, type ToolRegistrationCapture } from './tools/runtime/index.js';
+import { declaredToolRegistration, ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions, type ToolRegistrationCapture } from './tools/runtime/index.js';
 import type { RoleResourcePolicy, RoleResourcePolicySnapshot } from './permission/role-resources.js';
 import { RoleResourcePolicyRegistry } from './permission/role-policy-registry.js';
 import { readPolicyDecisionReceipts, type PolicyDecisionReceiptPage } from './permission/decision-receipts.js';
@@ -1141,27 +1140,26 @@ export class MoodcodeEngine implements EngineRuntime {
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
-      const verificationTool = this.verificationEnabled ? createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
+      const verificationTools = this.verificationEnabled ? [createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), ensurePlan: (context, signal) => this.verificationHost.ensurePlan(context, signal), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
         executeCommand: (outer,nested,prepared) => this.coordinator.withVerificationCommandContext(outer,nested,()=>{ const execute = () => this.toolRuntime.execute(prepared,nested); return options.diagnosticObservations === true ? this.executionObserver.nested(outer,prepared,execute) : execute(); }),
         consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
         commandCapability: (_context, catalogue) => {
           if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');
           this.toolRuntime.assertRegistrationCurrent(catalogue, commandRegistration);
           return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: commandBackendCapability().available, catalogueRevision: catalogue.revision });
-        }, artifacts: this.managedArtifacts }) : undefined;
-      const verificationTools: ToolDefinition[] = verificationTool ? [{ ...verificationTool, prepare: async (input, context) => { await this.verificationHost.ensurePlan(context, context.signal); return verificationTool.prepare(input, context); } }] : [];
-      const codeModeTools:ToolDefinition[]=options.codeMode?[{name:'execute_code',description:'Execute a restricted moodcode-json-v1 program; source and nested effects require native approval.',effectClass:'execute',inputSchema:{type:'object',required:['source','allocation'],additionalProperties:false,properties:{source:{type:'string'},allocation:{type:'object'}}},prepare:(input,ctx)=>this.codeModeHost.prepare(input,ctx),execute:(p,ctx)=>this.codeModeHost.executePrepared(p,ctx)}]:[];
-      const availableTools = toolDiscoveryPolicy ? [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowModelTools.tools():[]), createToolDiscoveryTool({
+        }, artifacts: this.managedArtifacts })] : [];
+      const modelTools = [...coreTools, ...(options.codeMode ? [createExecuteCodeTool(() => this.codeModeHost)] : []), ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled ? this.workflowModelTools.tools() : [])];
+      const availableTools = [...modelTools, ...(toolDiscoveryPolicy ? [createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
-      }), ...verificationTools] : [...coreTools, ...codeModeTools, ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled?this.workflowModelTools.tools():[]), ...verificationTools];
+      })] : []), ...verificationTools];
       if (options.allowedToolNames && (new Set(options.allowedToolNames).size !== options.allowedToolNames.length || options.allowedToolNames.some(name => !availableTools.some(tool => tool.name === name)))) throw new EngineError('INVALID_TOOL_ALLOWLIST', 'Host tool allowlist must name unique available tools');
       this.hostAllowedTools = options.allowedToolNames ? [...options.allowedToolNames] : undefined;
       const tools = options.allowedToolNames ? availableTools.filter(tool => options.allowedToolNames!.includes(tool.name)) : availableTools;
-      for (const tool of tools) this.toolRuntime.register('engine', tool, (WORKFLOW_MODEL_NAMES as readonly string[]).includes(tool.name)?{exactApproval:tool.name!=='observe_workflow_stage'}:(TEAM_MODEL_TOOL_NAMES as readonly string[]).includes(tool.name) ? { exactApproval: (TEAM_MODEL_WRITE_TOOL_NAMES as readonly string[]).includes(tool.name) } : options.tools ? {} : ['delegate_task', 'verify_changes','run_command_job','command_job_input','wait_command_job','execute_code'].includes(tool.name) ? { exactApproval: true } : { revalidate: async (prepared, context) => {
+      for (const tool of tools) this.toolRuntime.register('engine', tool, declaredToolRegistration(tool) ?? (options.tools ? {} : { revalidate: async (prepared, context) => {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
-      } });
+      } }));
       if (this.verificationEnabled && tools.includes(coreCommand)) commandRegistration = this.toolRuntime.captureRegistration('engine', 'run_command', coreCommand);
       this.plugins = new EnginePluginManager(this.toolRuntime);
       const commandCapability = commandBackendCapability();

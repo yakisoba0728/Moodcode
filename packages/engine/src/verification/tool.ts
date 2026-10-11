@@ -1,6 +1,6 @@
 import { EngineError, isTerminal, type Checkpoint } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
-import type { ToolCatalogue } from '../tools/runtime/index.js';
+import { declareToolRegistration, type ToolCatalogue } from '../tools/runtime/index.js';
 import { assertVerificationCwd, importOwnedCommandEvidence, observeOwnedCommandResult, observeVerificationSource, observeVerificationSourceAfter,
   verificationCatalogueIdentity, verificationExecutionBinding, verificationNestedContext, verificationResult,
   type OwnedCommandObservation, type VerificationToolHost, VERIFICATION_EXECUTION_LIMITS } from './execution.js';
@@ -49,11 +49,12 @@ function reselect(host: VerificationToolHost, context: ToolContext, pinned: Pick
 /** One registered check, one retained command capability, one exact outer approval. */
 export function createVerificationTool(host: VerificationToolHost): ToolDefinition {
   const captures = new WeakMap<PreparedTool, Capture>();
-  return {
+  return declareToolRegistration({
     name: 'verify_changes', effectClass: 'execute',
     description: 'Execute one host registered verification check with exact command approval and durable source-bound outcome. Use only a check ID from the host plan. Failed or stale verification does not prove completion.',
     inputSchema: { type: 'object', additionalProperties: false, required: ['checkId'], properties: { checkId: { type: 'string', minLength: 1, maxLength: 256 } } },
     async prepare(input, context) {
+      await host.ensurePlan?.(context, context.signal);
       verificationPlain(input, ['checkId']); verificationText(input.checkId);
       const selected = select(host, context, input.checkId), plan = selected.snapshot.plans.at(-1)!;
       await assertVerificationCwd(context, selected.check);
@@ -135,7 +136,7 @@ export function createVerificationTool(host: VerificationToolHost): ToolDefiniti
       }
       return verificationResult(result, settled.receipt, 'saved', nested);
     },
-  };
+  }, { exactApproval: true });
 }
 
 export type { VerificationToolHost } from './execution.js';

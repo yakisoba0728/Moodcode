@@ -11,6 +11,7 @@ import {
   knowledgeHash,
 } from "../knowledge/validation.js";
 import { plainRecord } from "../shared/data.js";
+import { declareToolRegistration } from "../tools/runtime/index.js";
 import { boundedTeamJson } from "./validation.js";
 
 export const TEAM_MODEL_TOOL_NAMES = Object.freeze([
@@ -412,7 +413,7 @@ export function createTeamModelTools(
   return TEAM_MODEL_TOOL_NAMES.map((operation) => {
     const handles = new WeakMap<object, Capture>();
     const write = !isTeamModelRead(operation);
-    return {
+    const definition: ToolDefinition = {
       name: operation,
       effectClass: write ? "write" : "read",
       description: descriptions[operation],
@@ -539,5 +540,6 @@ export function createTeamModelTools(
         }
       },
     };
+    return declareToolRegistration(definition, { exactApproval: write });
   });
 }

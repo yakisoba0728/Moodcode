@@ -18,6 +18,8 @@ import { normalizeVerificationSource, verificationDigest, verificationFail, veri
 export interface VerificationToolHost {
   plans: VerificationPlanService; receipts: VerificationReceiptService;
   getRun(runId: string): Run;
+  /** Host may create the Run's plan before a check is selected. */
+  ensurePlan?(context: ToolContext, signal: AbortSignal): Promise<void>;
   /** Current authenticated parent catalogue, including its exact allowed/discovery/profile capture. */
   captureCatalogue(context: ToolContext): ToolCatalogue;
   /** Host observes a previously configured bounded physical source scope; no model-selected paths. */
