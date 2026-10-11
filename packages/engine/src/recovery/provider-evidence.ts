@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
@@ -6,6 +5,9 @@ import { normalizeSubmitInput, validateContextRevision, validateInputRecord, val
 import type { SqliteStore } from '../storage/index.js';
 import { canonicalAttemptCleanupSha256 } from '../storage/attempt-cleanup.js';
 import { readEvidenceBody } from '../storage/evidence-read.js';
+import { sha256Hex } from '../shared/canonical.js';
+import { isBoundedId, isSha256, parseJsonOr } from '../shared/data.js';
+import { CONTEXT_BASELINE_KINDS, digest, parseContextSourceReference } from './acknowledgment.js';
 import { canonical } from './snapshot.js';
 import { PROVIDER_RECOVERY_LIMITS as limits, type ProviderRecoveryBudget, type ProviderRecoveryEvidence, type ProviderRecoveryPin } from './provider-contract.js';
 
@@ -26,13 +28,12 @@ const columns = {
   context_revisions: 'id,session_id,run_id,turn_id,CAST(revision AS TEXT) AS revision,supersedes_id',
 } as const;
 const key = (table: Table) => table === 'attempt_cleanup' || table === 'attempt_usage' ? 'attempt_id' : table === 'events' ? 'event_id' : 'id';
-function hash(value: unknown): string { try { return createHash('sha256').update(canonical(value) ?? 'undefined').digest('hex'); } catch { return fail('SOURCE_CHANGED', 'Provider recovery evidence cannot be canonically encoded'); } }
-const textHash = (value: string) => createHash('sha256').update(value).digest('hex');
-const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
-const sha = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
-function fail(suffix: string, message: string): never { throw new EngineError(`PROVIDER_RECOVERY_${suffix}`, message); }
+function hash(value: unknown): string { try { return digest(value); } catch { return fail('SOURCE_CHANGED', 'Provider recovery evidence cannot be canonically encoded'); } }
+type Media = { attachments?: unknown; documents?: unknown; media?: unknown };
+const sameMedia = (left: Media, right: Media): boolean => (['attachments','documents','media'] as const).every(key => hash(left[key] ?? null) === hash(right[key] ?? null));
+export function fail(suffix: string, message: string): never { throw new EngineError(`PROVIDER_RECOVERY_${suffix}`, message); }
 function object(value: unknown): asserts value is JsonObject { if (!value || typeof value !== 'object' || Array.isArray(value)) fail('SOURCE_CHANGED', 'Stored provider recovery evidence must be JSON objects'); }
-function parse(value: unknown): JsonObject { let result: unknown; try { result = JSON.parse(String(value)); } catch { return fail('SOURCE_CHANGED', 'Stored provider recovery evidence is malformed'); } object(result); return result; }
+function parse(value: unknown): JsonObject { const result = parseJsonOr(String(value), () => fail('SOURCE_CHANGED', 'Stored provider recovery evidence is malformed')); object(result); return result; }
 function number(value: unknown, minimum = 0): number { const result = Number(value); if (!Number.isSafeInteger(result) || result < minimum) fail('SOURCE_CHANGED', 'Stored provider recovery sequence is outside its exact integer range'); return result; }
 function charge(budget: ProviderRecoveryBudget, bytes: unknown): void {
   if (!budget || types.isProxy(budget) || ![Object.prototype,null].includes(Object.getPrototypeOf(budget))) fail('INVALID_REQUEST', 'Recovery needs a plain selected-evidence budget');
@@ -51,9 +52,8 @@ function expectedOwner(row: Row, expected: { sessionId?: string; runId?: string;
   }
 }
 function selected(db: DatabaseSync, table: Table, row: Row, budget: ProviderRecoveryBudget): Selected {
-  if (!id(row.id) || !Number.isSafeInteger(row.bytes) || Number(row.bytes) < 2 || Number(row.bytes) > limits.maxOwnerBytes) fail('LIMIT', 'Selected recovery row exceeds its identity or payload bound');
   charge(budget, row.bytes);
-  const raw = readEvidenceBody(db, { table, key: row.id }, { expectedBytes: Number(row.bytes), maxBytes: limits.maxOwnerBytes });
+  const raw = readEvidenceBody(db, { table, key: String(row.id) }, { expectedBytes: Number(row.bytes), maxBytes: limits.maxOwnerBytes });
   if (raw === undefined) fail('SOURCE_CHANGED', 'Selected provider recovery evidence disappeared');
   const data = parse(raw), payloadId = table === 'inputs' ? row.id : table === 'events' ? data.eventId : table === 'attempt_cleanup' || table === 'attempt_usage' ? data.attemptId : data.id;
   if (payloadId !== row.id) fail('OWNER_MISMATCH', 'Selected payload identity disagrees with SQL');
@@ -72,8 +72,11 @@ function rows(db: DatabaseSync, table: Table, where: string, parameters: readonl
   expected: { sessionId?: string; runId?: string; workspaceId?: string } = {}, order = 'rowid'): Selected[] {
   const headers = db.prepare(`SELECT ${columns[table]},length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE ${where} ORDER BY ${table}.${order} LIMIT ?`).all(...parameters, maximum + 1);
   if (headers.length > maximum) fail('LIMIT', 'Provider recovery exceeds its bounded record count');
-  // Validate every selected owner and byte size before returning any body to JS.
-  for (const header of headers) { expectedOwner(header, expected); if (!Number.isSafeInteger(header.bytes) || Number(header.bytes) < 2 || Number(header.bytes) > limits.maxOwnerBytes) fail('LIMIT', 'Selected recovery payload exceeds its bound'); }
+  // Validate every selected owner, identity and byte size before returning any body to JS.
+  for (const header of headers) {
+    expectedOwner(header, expected);
+    if (!isBoundedId(header.id) || !Number.isSafeInteger(header.bytes) || Number(header.bytes) < 2 || Number(header.bytes) > limits.maxOwnerBytes) fail('LIMIT', 'Selected recovery row exceeds its identity or payload bound');
+  }
   return headers.map(header => selected(db, table, header, budget));
 }
 function one(db: DatabaseSync, table: Table, identity: string, budget: ProviderRecoveryBudget, expected: { sessionId?: string; runId?: string; workspaceId?: string } = {}): Selected {
@@ -96,7 +99,7 @@ function toolEvidence(db: DatabaseSync, run: Run, parts: MessagePart[], messages
   const checkpoints = rows(db, 'checkpoints', 'run_id=?', [run.id], limits.maxTools * 4, budget, { runId: run.id });
   const events = rows(db, 'events', "run_id=? AND (type GLOB 'tool.*' OR type='workspace.changed' OR type='checkpoint.artifacts')", [run.id], limits.maxTools * 8, budget, { sessionId: run.sessionId, runId: run.id }, 'seq');
   const byId = new Map(toolRows.map(value => [String(value.row.id), value]));
-  for (const event of events) { object(event.data.payload); if (!id(event.data.payload.toolCallId) || !byId.has(event.data.payload.toolCallId)) fail('TOOLS_UNCERTAIN', 'Tool journal cannot be correlated with an owned tool'); if (unsafeToolObservation(event.data.payload)) fail('TOOLS_UNCERTAIN', 'Tool journal contains uncertain effects or cleanup'); }
+  for (const event of events) { object(event.data.payload); if (!isBoundedId(event.data.payload.toolCallId) || !byId.has(event.data.payload.toolCallId)) fail('TOOLS_UNCERTAIN', 'Tool journal cannot be correlated with an owned tool'); if (unsafeToolObservation(event.data.payload)) fail('TOOLS_UNCERTAIN', 'Tool journal contains uncertain effects or cleanup'); }
   for (const checkpoint of checkpoints) {
     const recorded = events.filter(value => value.data.type === 'workspace.changed' && (value.data.payload as JsonObject).checkpointId === checkpoint.row.id);
     if (!byId.has(String(checkpoint.row.tool_call_id)) || checkpoint.data.incomplete === true || recorded.length !== 1) fail('TOOLS_UNCERTAIN', 'Workspace effects lack a complete owned checkpoint');
@@ -107,7 +110,7 @@ function toolEvidence(db: DatabaseSync, run: Run, parts: MessagePart[], messages
   if (events.some(value => value.data.type === 'workspace.changed' && !checkpoints.some(checkpoint => checkpoint.row.id === (value.data.payload as JsonObject).checkpointId))) fail('TOOLS_UNCERTAIN', 'Workspace effect journal lacks its checkpoint');
   for (const entry of toolRows) {
     const tool = entry.data, toolId = String(entry.row.id), proposal = parts.find(part => part.type === 'tool' && part.toolCallId === toolId);
-    if (!id(tool.name) || tool.input === undefined || !proposal || proposal.type !== 'tool' || proposal.name !== tool.name || hash(proposal.input) !== hash(tool.input)) fail('TOOLS_UNCERTAIN', 'Tool records require their exact durable proposal');
+    if (!isBoundedId(tool.name) || tool.input === undefined || !proposal || proposal.type !== 'tool' || proposal.name !== tool.name || hash(proposal.input) !== hash(tool.input)) fail('TOOLS_UNCERTAIN', 'Tool records require their exact durable proposal');
     const history = events.filter(value => (value.data.payload as JsonObject).toolCallId === toolId);
     const requested = history.filter(value => value.data.type === 'tool.requested');
     if (requested.length !== 1) fail('TOOLS_UNCERTAIN', 'Tool admission journal is missing or ambiguous');
@@ -137,18 +140,6 @@ function toolEvidence(db: DatabaseSync, run: Run, parts: MessagePart[], messages
   source.push(...toolRows, ...checkpoints, ...digestOrder(events, 'seq'));
 }
 
-function annotation(reference: string): { nativeId?: string } | null {
-  if (/^(?:active-prefix-(?:policy|facts|manifest|checkpoint)|(?:image|document)-(?:policy|source)):[a-f0-9]{64}$/u.test(reference)) return {};
-  if (reference.startsWith('instruction:')) {
-    const tail = reference.lastIndexOf(':'), path = reference.slice('instruction:'.length, tail);
-    if (sha(reference.slice(tail + 1)) && path.split('/').every(component => component !== '' && !['.','..'].includes(component)) && path.split('/').at(-1) === 'AGENTS.md') return {};
-  }
-  if (reference.startsWith('image-message:') || reference.startsWith('document-message:')) {
-    const tail = reference.lastIndexOf(':'), nativeId = reference.slice(reference.indexOf(':') + 1, tail);
-    if (id(nativeId) && sha(reference.slice(tail + 1))) return { nativeId };
-  }
-  return null;
-}
 function contextContract(context: Selected): void {
   if (Array.isArray(context.data.sourceIds) && context.data.sourceIds.length > limits.maxMessages * 2) fail('LIMIT', 'Immutable context source references exceed their bound');
   decoded(() => validateContextRevision(context.data));
@@ -164,24 +155,21 @@ function messageOwner(db: DatabaseSync, messageId: string, sessionId: string): v
   if (!owner) fail('SOURCE_CHANGED', 'Immutable message source is missing');
   if (owner.session_id !== sessionId || owner.run_session_id !== sessionId || owner.workspace_id === null || owner.run_workspace_id !== owner.workspace_id) fail('OWNER_MISMATCH', 'Immutable message and its Run have different native owners');
 }
-function immutableSources(db: DatabaseSync, roots: Selected[], sessionId: string, budget: ProviderRecoveryBudget): Selected[] {
+function immutableSources(db: DatabaseSync, roots: Selected[], sessionId: string, budget: ProviderRecoveryBudget, recorded = false): Selected[] {
   const selectedSources: Selected[] = [], contexts = [...roots], visited = new Set(roots.map(context => `context_revisions:${context.row.id}`));
   let references = 0;
   for (let offset = 0; offset < contexts.length; offset++) {
     const context = contexts[offset]!;
     if (!Array.isArray(context.data.sourceIds) || context.data.sourceIds.length > limits.maxMessages * 2) fail('LIMIT', 'Immutable context source references exceed their bound');
     for (const reference of context.data.sourceIds) {
-      if (!id(reference)) fail('SOURCE_CHANGED', 'Immutable context source identity is invalid');
+      if (!isBoundedId(reference)) fail('SOURCE_CHANGED', 'Immutable context source identity is invalid');
       if (++references > limits.maxMessages * 2) fail('LIMIT', 'Immutable source closure exceeds its reference bound');
-      const label = annotation(reference), nativeId = label?.nativeId ?? reference;
+      const label = parseContextSourceReference(reference, recorded), nativeId = label?.nativeId ?? reference;
       if (label && !label.nativeId) continue;
-      // Check original native ownership before returning the referenced body.
-      const message = db.prepare('SELECT m.session_id,m.run_id,r.session_id AS run_session_id,r.workspace_id AS run_workspace_id,s.workspace_id FROM messages m LEFT JOIN sessions s ON s.id=m.session_id LEFT JOIN runs r ON r.id=m.run_id WHERE m.id=?').get(nativeId);
-      const revision = db.prepare('SELECT c.session_id,c.run_id,c.turn_id,CAST(c.revision AS TEXT) AS revision,r.session_id AS run_session_id,t.session_id AS turn_session_id,t.run_id AS turn_run_id FROM context_revisions c LEFT JOIN runs r ON r.id=c.run_id LEFT JOIN session_turns t ON t.id=c.turn_id WHERE c.id=?').get(nativeId);
+      const message = db.prepare('SELECT 1 FROM messages WHERE id=?').get(nativeId);
+      const revision = db.prepare('SELECT CAST(revision AS TEXT) AS revision FROM context_revisions WHERE id=?').get(nativeId);
       if (!message && !revision || message && revision || label?.nativeId && !message) fail('SOURCE_CHANGED', 'An immutable context source is missing or ambiguous');
-      const owner = message ?? revision!;
-      if (owner.session_id !== sessionId || owner.run_id !== null && owner.run_session_id !== sessionId
-        || revision?.turn_id !== undefined && revision.turn_id !== null && (revision.turn_session_id !== sessionId || revision.turn_run_id !== revision.run_id)) fail('OWNER_MISMATCH', 'Immutable context source belongs to another native owner');
+      // Check original native ownership before returning the referenced body.
       if (message) messageOwner(db, nativeId, sessionId);
       if (revision) contextOwner(db, nativeId, sessionId);
       if (revision && number(revision.revision, 1) >= Number(context.data.revision)) fail('SOURCE_CHANGED', 'Immutable context sources must precede their derived revision');
@@ -193,7 +181,7 @@ function immutableSources(db: DatabaseSync, roots: Selected[], sessionId: string
         if (!['user','assistant','tool'].includes(String(pinned.data.role)) || typeof pinned.data.content !== 'string') fail('SOURCE_CHANGED', 'Immutable message source is malformed');
       } else {
         contextContract(pinned);
-        if (pinned.data.sha256 !== textHash(String(pinned.data.text)) || Number(pinned.data.revision) >= Number(context.data.revision)) fail('SOURCE_CHANGED', 'Immutable context sources must precede their derived revision');
+        if (pinned.data.sha256 !== sha256Hex(String(pinned.data.text)) || Number(pinned.data.revision) >= Number(context.data.revision)) fail('SOURCE_CHANGED', 'Immutable context sources must precede their derived revision');
         contexts.push(pinned);
       }
     }
@@ -201,10 +189,10 @@ function immutableSources(db: DatabaseSync, roots: Selected[], sessionId: string
   return selectedSources;
 }
 
-/** Selected evidence is bounded separately from the cleanup getter's own owner reads. */
+/** Selected evidence is bounded separately from the cleanup getter's own owner reads. A recorded decision re-walks its sources with the grammar it was digested under. */
 export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<SqliteStore,'getAttemptCleanup'|'getTurn'|'getAttempt'>,
-  sessionId: string, attemptId: string, budget: ProviderRecoveryBudget): ProviderRecoveryEvidence {
-  if (!id(sessionId) || !id(attemptId)) fail('INVALID_REQUEST', 'Provider recovery requires bounded exact owner identities');
+  sessionId: string, attemptId: string, budget: ProviderRecoveryBudget, recorded = false): ProviderRecoveryEvidence {
+  if (!isBoundedId(sessionId) || !isBoundedId(attemptId)) fail('INVALID_REQUEST', 'Provider recovery requires bounded exact owner identities');
   return readonly(db, () => {
     const attemptSource = one(db, 'provider_attempts', attemptId, budget, { sessionId });
     const attempt: ProviderAttempt = decoded(() => validateProviderAttempt(attemptSource.data));
@@ -226,7 +214,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
     if (hash(cleanup) !== hash(cleanupSource.data) || cleanup.state !== 'confirmed' || cleanup.cleanupConfirmed !== true
       || !['iterator-next-done','iterator-return-done'].includes(String(cleanup.method)) || cleanup.attemptId !== attempt.id || cleanup.turnId !== turn.id
       || cleanup.providerId !== attempt.providerId || cleanup.modelId !== attempt.modelId || cleanup.contextRevisionId !== attempt.contextRevisionId
-      || cleanup.requestProjection !== 'engine-turn-request-v1' || !sha(cleanup.requestSha256) || !Number.isSafeInteger(cleanup.requestBytes) || cleanup.requestBytes < 1
+      || cleanup.requestProjection !== 'engine-turn-request-v1' || !isSha256(cleanup.requestSha256) || !Number.isSafeInteger(cleanup.requestBytes) || cleanup.requestBytes < 1
       || cleanup.providerRequestId !== attempt.providerRequestId) fail('CLEANUP_UNCONFIRMED', 'Provider recovery requires its actual exact request and confirmed iterator cleanup');
     const source: Selected[] = [runSource, turnSource, attemptSource, cleanupSource];
     let originalContext: Selected | undefined;
@@ -234,7 +222,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
       contextOwner(db, attempt.contextRevisionId, sessionId);
       const context = one(db, 'context_revisions', attempt.contextRevisionId, budget, { sessionId }); contextContract(context);
       if (context.data.runId !== undefined && context.data.runId !== run.id || context.data.turnId !== undefined && context.data.turnId !== turn.id
-        || context.data.sha256 !== textHash(String(context.data.text))) fail('OWNER_MISMATCH', 'Original dispatch context revision is not owned by this request'); source.push(context); originalContext = context;
+        || context.data.sha256 !== sha256Hex(String(context.data.text))) fail('OWNER_MISMATCH', 'Original dispatch context revision is not owned by this request'); source.push(context); originalContext = context;
     }
     const input = one(db, 'inputs', run.inputId, budget, { sessionId });
     if (input.data.requestId !== run.requestId || input.row.request_id !== run.requestId || hash(input.data) !== hash(normalized) || input.row.fingerprint !== canonical(input.data)) fail('SOURCE_CHANGED', 'Original Run admission does not match its request'); source.push(input);
@@ -251,14 +239,14 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
     for (const message of messages) if (!['user','assistant','tool'].includes(String(message.data.role)) || typeof message.data.content !== 'string' || number(message.row.ordinal, 1) < 1) fail('SOURCE_CHANGED', 'Run transcript message is malformed');
     const inputEvents = rows(db, 'events', "run_id=? AND type IN ('input.admitted','input.steered')", [run.id], limits.maxMessages, budget, { sessionId, runId: run.id }, 'seq');
     const admissions = inputEvents.filter(value => value.data.type === 'input.admitted'), initial = messages[0];
-    if (admissions.length !== 1 || !initial || initial.data.role !== 'user' || initial.data.content !== run.prompt || hash(initial.data.attachments ?? null) !== hash(run.attachments ?? null) || hash(initial.data.documents ?? null) !== hash(run.documents ?? null) || hash(initial.data.media ?? null) !== hash(run.media ?? null)
+    if (admissions.length !== 1 || !initial || initial.data.role !== 'user' || initial.data.content !== run.prompt || !sameMedia(initial.data, run)
       || initial.data.createdAt !== run.createdAt || number(admissions[0]!.row.seq, 1) !== number(input.row.admitted_seq, 1)) fail('SOURCE_CHANGED', 'Original user message does not match the admitted goal');
     object(admissions[0]!.data.payload); const admission = admissions[0]!.data.payload;
     if (admission.runId !== run.id || admission.inputId !== run.inputId || admission.requestId !== run.requestId) fail('SOURCE_CHANGED', 'Original admission event does not match the Run');
     const expectedUsers = new Set([initial.row.id]);
     for (const item of inputs) {
       if (item.row.id === run.inputId) {
-        if (item.data.prompt !== run.prompt || item.data.requestId !== run.requestId || hash(item.data.config) !== hash(run.config) || hash(item.data.attachments ?? null) !== hash(run.attachments ?? null) || hash(item.data.documents ?? null) !== hash(run.documents ?? null) || hash(item.data.media ?? null) !== hash(run.media ?? null)
+        if (item.data.prompt !== run.prompt || item.data.requestId !== run.requestId || hash(item.data.config) !== hash(run.config) || !sameMedia(item.data, run)
           || number(item.row.legacy_seq, 1) !== number(input.row.admitted_seq, 1)) fail('SOURCE_CHANGED', 'Original promoted goal differs from the Run admission');
         continue;
       }
@@ -266,7 +254,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
       if (item.data.delivery !== 'steer' || steering.length !== 1) fail('SOURCE_CHANGED', 'Additional promoted input lacks its exact steering journal');
       object(steering[0]!.data.payload); const event = steering[0]!.data.payload, user = messages.find(value => value.row.id === event.messageId);
       if (event.requestId !== item.data.requestId || event.messageId !== item.row.id || number(steering[0]!.row.seq, 1) !== number(item.row.legacy_seq, 1)
-        || !user || user.data.role !== 'user' || user.data.content !== item.data.prompt || hash(user.data.attachments ?? null) !== hash(item.data.attachments ?? null) || hash(user.data.documents ?? null) !== hash(item.data.documents ?? null) || hash(user.data.media ?? null) !== hash(item.data.media ?? null)) fail('SOURCE_CHANGED', 'Steered user message differs from its promoted input');
+        || !user || user.data.role !== 'user' || user.data.content !== item.data.prompt || !sameMedia(user.data, item.data)) fail('SOURCE_CHANGED', 'Steered user message differs from its promoted input');
       expectedUsers.add(user.row.id);
     }
     if (messages.some(value => value.data.role === 'user' && !expectedUsers.has(value.row.id)) || inputEvents.length !== inputs.length) fail('SOURCE_CHANGED', 'Run user history contains unmatched input provenance');
@@ -280,7 +268,7 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
       if (header?.session_id !== sessionId || header.run_id !== run.id) fail('OWNER_MISMATCH', 'A provider Part belongs to another Turn owner');
     }
     source.push(...digestOrder(messages, 'ordinal'), ...partSources);
-    if (originalContext) source.push(...immutableSources(db, [originalContext], sessionId, budget));
+    if (originalContext) source.push(...immutableSources(db, [originalContext], sessionId, budget, recorded));
     toolEvidence(db, run, parts, messages, source, budget);
     const usage = rows(db, 'attempt_usage', 'attempt_id=?', [attempt.id], 1, budget, { sessionId, runId: run.id });
     if (usage[0]) {
@@ -298,10 +286,10 @@ export function readProviderRecoveryEvidence(db: DatabaseSync, store: Pick<Sqlit
 
 /** Mutable documents are pinned for the decision; referenced immutable rows survive future head changes. */
 export function readProviderRecoveryBaseline(db: DatabaseSync, sessionId: string, budget: ProviderRecoveryBudget): { hash: string; pins: ProviderRecoveryPin[] } {
-  if (!id(sessionId)) fail('INVALID_REQUEST', 'Context baseline requires a bounded session identity');
+  if (!isBoundedId(sessionId)) fail('INVALID_REQUEST', 'Context baseline requires a bounded session identity');
   return readonly(db, () => {
     const session = one(db, 'sessions', sessionId, budget), documents: unknown[] = [], pins = new Map<string, ProviderRecoveryPin>();
-    for (const kind of ['context.memory','context.active_memory','context.head']) {
+    for (const kind of CONTEXT_BASELINE_KINDS) {
       const row = db.prepare('SELECT CAST(revision AS TEXT) AS revision,length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind);
       if (!row) { documents.push({ kind, absent: true }); continue; }
       const revision = number(row.revision, 1); if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) > limits.maxContextDocumentBytes) fail('LIMIT', 'Context decision baseline exceeds its document bound'); charge(budget, row.bytes);
@@ -309,10 +297,10 @@ export function readProviderRecoveryBaseline(db: DatabaseSync, sessionId: string
       if (raw === undefined) fail('SOURCE_CHANGED', 'Context decision baseline disappeared');
       const data = parse(raw); documents.push({ kind, revision, data });
       const pointer = kind === 'context.head' ? data.revisionId : data.active && typeof data.active === 'object' && !Array.isArray(data.active) ? data.active.revisionId : undefined;
-      if (pointer === undefined) continue; if (!id(pointer)) fail('SOURCE_CHANGED', 'Context baseline contains an invalid immutable reference');
+      if (pointer === undefined) continue; if (!isBoundedId(pointer)) fail('SOURCE_CHANGED', 'Context baseline contains an invalid immutable reference');
       contextOwner(db, pointer, sessionId);
       const context = one(db, 'context_revisions', pointer, budget, { sessionId }); contextContract(context);
-      if (context.data.sha256 !== textHash(String(context.data.text))) fail('SOURCE_CHANGED', 'Immutable context text digest does not match');
+      if (context.data.sha256 !== sha256Hex(String(context.data.text))) fail('SOURCE_CHANGED', 'Immutable context text digest does not match');
       pins.set(`context_revisions:${pointer}`, { table: 'context_revisions', id: pointer, sha256: context.sha256 });
       for (const reference of immutableSources(db, [context], sessionId, budget)) pins.set(`${reference.table}:${reference.row.id}`, { table: reference.table as ProviderRecoveryPin['table'], id: String(reference.row.id), sha256: reference.sha256 });
       if (pins.size > limits.maxMessages * 2) fail('LIMIT', 'Context baseline exceeds its combined immutable pin bound');
@@ -325,9 +313,9 @@ export function providerRecoveryPinsValid(db: DatabaseSync, pins: ProviderRecove
     try {
       if (!Array.isArray(pins) || pins.length > limits.maxMessages * 2 || new Set(pins.map(pin => `${pin?.table}:${pin?.id}`)).size !== pins.length) return false;
       for (const pin of pins) {
-        if (!pin || !['messages','context_revisions'].includes(pin.table) || !id(pin.id) || !sha(pin.sha256)) return false;
+        if (!pin || !['messages','context_revisions'].includes(pin.table) || !isBoundedId(pin.id) || !isSha256(pin.sha256)) return false;
         const owner = db.prepare(`SELECT session_id FROM ${pin.table} WHERE id=?`).get(pin.id);
-        if (!owner || !id(owner.session_id)) return false;
+        if (!owner || !isBoundedId(owner.session_id)) return false;
         if (pin.table === 'messages') messageOwner(db, pin.id, owner.session_id); else contextOwner(db, pin.id, owner.session_id);
         if (one(db, pin.table, pin.id, budget, { sessionId: owner.session_id }).sha256 !== pin.sha256) return false;
       }

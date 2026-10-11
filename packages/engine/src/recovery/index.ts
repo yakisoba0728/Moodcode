@@ -1,4 +1,4 @@
-import {validateMediaDatabase} from '../media/native-validation.js';
+import { validateMediaDatabase } from '../media/native-validation.js';
 import { randomUUID } from 'node:crypto';
 import { closeSync, constants, fsyncSync, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -211,12 +211,12 @@ function assertIdentities(locks: RecoveryLease[], artifacts: RecoveryPaths, snap
   for (const lock of locks) if (!sameIdentity(lock.identity, regular(lock.file))) fail('RECOVERY_SOURCE_CHANGED');
   if (!sameIdentity(snapshot.artifactIdentity, lstatSync(artifacts.artifacts))) fail('RECOVERY_SOURCE_CHANGED');
 }
-function backupDirectory(paths: RecoveryPaths, id: string): string {
+function backupDirectory(paths: RecoveryPaths, id: string): { root: string; destination: string } {
   const root = join(paths.artifacts, 'recovery');
   const existing = lstatSync(root, { throwIfNoEntry: false });
   if (existing && (!existing.isDirectory() || existing.isSymbolicLink())) fail('RECOVERY_PATH_UNSUPPORTED');
   if (!existing) preparePrivateDirectory(paths.artifacts, 'recovery');
-  return preparePrivateDirectory(root, id);
+  return { root, destination: preparePrivateDirectory(root, id) };
 }
 function durableDirectory(file: string): void {
   const fd = openSync(file, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
@@ -236,8 +236,7 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
     inspection = inspect(options, false);
     requireRecoverable(inspection, options.fingerprint);
     const id = randomUUID();
-    const destination = backupDirectory(paths, id);
-    const recoveryDirectory = join(paths.artifacts, 'recovery');
+    const { root: recoveryDirectory, destination } = backupDirectory(paths, id);
     const recoveryIdentity = lstatSync(recoveryDirectory), backupIdentity = lstatSync(destination);
     const backupFiles: { file: string; dev: number; ino: number; bytes: number; sha256: string }[] = [];
     const verify = (): void => {
@@ -266,7 +265,7 @@ export async function recoverEngine(options: RecoverEngineOptions): Promise<Reco
       } finally { db.close(); }
     }
     durableDirectory(destination);
-    durableDirectory(join(paths.artifacts, 'recovery'));
+    durableDirectory(recoveryDirectory);
     verify();
     // The held source write leases prevent changes between this second inspection and commit.
     const current = inspect(options, false);

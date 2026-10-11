@@ -7,6 +7,7 @@ import type { SummaryAttemptRecord, SummaryAttemptStorage } from '../storage/sum
 import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
 import { sha256Hex } from '../shared/canonical.js';
 import { isBoundedId, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
+import { captureHighWater, CONTEXT_BASELINE_KINDS, digest, isHighWater, isIsoTimestamp, parseContextSourceReference, readRecoveryTransaction } from './acknowledgment.js';
 import { canonical } from './snapshot.js';
 
 export const SUMMARY_RECOVERY_TABLES = ['summary_recovery_acknowledgments'] as const;
@@ -47,8 +48,6 @@ interface Budget { bytes: number; max: number }
 interface Evidence { recordSha256: string; usageSha256: string | null; sourceOwnerSha256: string }
 type ImmutableItem = ReturnType<typeof record> & { table: Pin['table'] };
 type Row = Record<string, unknown>;
-const digest = (value: unknown) => sha256Hex(canonical(value));
-const highWater = (value: unknown): value is string => typeof value === 'string' && /^(0|[1-9][0-9]{0,18})$/u.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n;
 function proofScope(storageBinding: string): string { return digest({ kind: 'summary-recovery', proofVersion: 2, storageBinding }); }
 function proofFingerprint(attempt: SummaryAttemptRecord, evidence: Evidence, bindingScope: string, contextBaselineSha256: string, pinsSha256: string, startupHighWater: string): string {
   return digest({ kind: 'summary-recovery', proofVersion: 2, sessionId: attempt.sessionId, workspaceId: attempt.workspaceId, runId: attempt.runId,
@@ -56,19 +55,6 @@ function proofFingerprint(attempt: SummaryAttemptRecord, evidence: Evidence, bin
     recordSha256: evidence.recordSha256, usageSha256: evidence.usageSha256, sourceOwnerSha256: evidence.sourceOwnerSha256,
     requestSha256: attempt.requestSha256, requestBytes: attempt.requestBytes, sourceSha256: attempt.sourceSha256,
     bindingScope, contextBaselineSha256, pinsSha256, startupHighWater });
-}
-function sourceAnnotation(value: string): { nativeId?: string } | undefined {
-  if (/^(active-prefix-(policy|facts|manifest|checkpoint)|(image|document)-(policy|source)):[a-f0-9]{64}$/u.test(value)) return {};
-  const separator = value.lastIndexOf(':');
-  if (separator < 0 || !isSha256(value.slice(separator + 1))) return undefined;
-  if (value.startsWith('instruction:')) {
-    const path = value.slice('instruction:'.length, separator), components = path.split('/');
-    if (!path.includes('\\') && components.at(-1) === 'AGENTS.md' && components.every(part => part !== '' && part !== '.' && part !== '..')) return {};
-  }
-  if (value.startsWith('image-message:') || value.startsWith('document-message:')) {
-    const nativeId = value.slice(value.indexOf(':') + 1, separator); if (isBoundedId(nativeId)) return { nativeId };
-  }
-  return undefined;
 }
 function fail(suffix: string, message: string): never { throw new EngineError(`SUMMARY_RECOVERY_${suffix}`, message); }
 export function validateSummaryRecoveryRequest(input: unknown): SummaryRecoveryRequest {
@@ -78,9 +64,7 @@ export function validateSummaryRecoveryRequest(input: unknown): SummaryRecoveryR
   if (!isBoundedId(value.sessionId) || !isBoundedId(value.summaryAttemptId) || !isBoundedId(value.requestId) || !isSha256(value.fingerprint)) fail('INVALID_REQUEST', 'Summary recovery requires bounded owner and request identities');
   return { sessionId: value.sessionId, summaryAttemptId: value.summaryAttemptId, requestId: value.requestId, fingerprint: value.fingerprint, acknowledged: true };
 }
-export function captureSummaryRecoveryHighWater(db: DatabaseSync): string {
-  return String(db.prepare('SELECT CAST(coalesce(max(rowid),0) AS TEXT) AS ordinal FROM summary_attempts').get()!.ordinal);
-}
+export function captureSummaryRecoveryHighWater(db: DatabaseSync): string { return captureHighWater(db, 'summary_attempts'); }
 function charge(budget: Budget, bytes: number): void { if (!Number.isSafeInteger(bytes) || bytes < 0 || bytes > budget.max - budget.bytes) fail('LIMIT', 'Summary recovery exceeds its bounded evidence budget'); budget.bytes += bytes; }
 function parse(text: string): JsonObject { return parseJsonOr(text, () => fail('SOURCE_CHANGED', 'Pinned recovery evidence is not valid JSON')) as JsonObject; }
 const columns = {
@@ -126,15 +110,12 @@ export class SummaryRecoveryStorage {
     hasOtherExecutionUncertainty(workspaceId: string, excludedSummaryAttemptId: string): boolean;
     getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string): NonNullable<import('@moodcode/contracts').ExecutionUncertainty['summaryDependency']>;
   }) {
-    if (!highWater(options.startupHighWater)) fail('INVALID_REQUEST', 'Recovery requires the original boot frontier');
+    if (!isHighWater(options.startupHighWater)) fail('INVALID_REQUEST', 'Recovery requires the original boot frontier');
     this.options = Object.freeze({ bindingScope: options.bindingScope, startupHighWater: options.startupHighWater, appendLegacy: options.appendLegacy,
       hasOtherExecutionUncertainty: options.hasOtherExecutionUncertainty, getSummaryOverflowDependency: options.getSummaryOverflowDependency });
   }
   private get db() { return this.native.database; }
-  private read<T>(operation: () => T): T {
-    this.native.hooks.assertOpen(); if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
-    this.db.exec('BEGIN'); try { const result = withEvidenceRead(this.db, operation); this.db.exec('COMMIT'); return result; } catch (error) { this.db.exec('ROLLBACK'); throw error; }
-  }
+  private read<T>(operation: () => T): T { return readRecoveryTransaction(this.native, operation); }
   private storageBinding(workspaceId: string): string { const scope = this.options.bindingScope(workspaceId); if (!isSha256(scope)) fail('BINDING_CHANGED', 'Recovery requires an unchanged physical host binding'); return scope; }
   private scope(workspaceId: string): string { return proofScope(this.storageBinding(workspaceId)); }
   private attempt(sessionId: string, id: string): SummaryAttemptRecord {
@@ -249,7 +230,7 @@ export class SummaryRecoveryStorage {
       for (const reference of sourceIds) {
         if (!isBoundedId(reference)) fail('SOURCE_CHANGED', 'Immutable context source has an invalid identity');
         if (++references > SUMMARY_RECOVERY_LIMITS.maxSourceReferences) fail('LIMIT', 'Immutable source closure exceeds its combined reference bound');
-        const annotation = sourceAnnotation(reference);
+        const annotation = parseContextSourceReference(reference);
         if (annotation && !annotation.nativeId) continue;
         const id = annotation?.nativeId ?? reference;
         const message = this.db.prepare('SELECT 1 FROM messages WHERE id=?').get(id), context = this.db.prepare('SELECT CAST(revision AS TEXT) AS revision FROM context_revisions WHERE id=?').get(id);
@@ -265,7 +246,7 @@ export class SummaryRecoveryStorage {
   }
   private baseline(sessionId: string, budget: Budget): { hash: string; pins: Pin[] } {
     const documents: unknown[] = [], items = new Map<string, ImmutableItem>();
-    for (const kind of ['context.memory','context.active_memory','context.head']) {
+    for (const kind of CONTEXT_BASELINE_KINDS) {
       const row = this.db.prepare('SELECT CAST(revision AS TEXT) AS revision,length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?').get(sessionId, kind);
       if (!row) { documents.push({ kind, absent: true }); continue; }
       if (!Number.isSafeInteger(Number(row.revision)) || Number(row.revision) < 1 || Number(row.bytes) > 262144) fail('LIMIT', 'Context baseline metadata exceeds its bound');
@@ -293,7 +274,7 @@ export class SummaryRecoveryStorage {
       || !Number.isSafeInteger(data.attemptRevision) || data.attemptRevision < 1 || data.attemptRevision !== Number(row.attempt_revision)
       || receipt.state !== 'uncertain' || receipt.cleanupConfirmed !== false || receipt.publication !== 'discarded' || receipt.providerRetried !== false || receipt.checkpointActivated !== false || receipt.executionResumed !== false || receipt.duplicate !== false
       || !isSha256(receipt.fingerprint) || !isSha256(receipt.bindingScope) || ![receipt.id,receipt.requestId,receipt.sessionId,receipt.workspaceId,receipt.runId,receipt.summaryAttemptId].every(isBoundedId)
-      || typeof receipt.acknowledgedAt !== 'string' || Buffer.byteLength(receipt.acknowledgedAt)>64 || !Number.isFinite(Date.parse(receipt.acknowledgedAt)) || new Date(receipt.acknowledgedAt).toISOString() !== receipt.acknowledgedAt
+      || !isIsoTimestamp(receipt.acknowledgedAt)
       || !isSha256(data.recordSha256) || data.usageSha256 !== null && !isSha256(data.usageSha256) || !isSha256(data.sourceOwnerSha256) || !isSha256(data.contextBaselineSha256)
       || ![1,2].includes(Number(row.proof_version))
       || Object.keys(data).some(key => !['receipt','attemptRevision','recordSha256','usageSha256','sourceOwnerSha256','pins','contextBaselineSha256', ...(row.proof_version === 2 ? ['proofVersion','pinsSha256','startupHighWater'] : [])].includes(key))
@@ -302,7 +283,7 @@ export class SummaryRecoveryStorage {
         || Object.keys(pin).some(key => !['table','id','sha256'].includes(key)))
       || row.proof_version === 1 && (row.pins_sha256 !== null || row.startup_high_water !== null || data.proofVersion !== undefined || data.pinsSha256 !== undefined || data.startupHighWater !== undefined)
       || row.proof_version === 2 && (data.proofVersion !== 2 || !isSha256(data.pinsSha256) || data.pinsSha256 !== row.pins_sha256
-        || !highWater(data.startupHighWater) || data.startupHighWater !== row.startup_high_water || digest(data.pins) !== data.pinsSha256
+        || !isHighWater(data.startupHighWater) || data.startupHighWater !== row.startup_high_water || digest(data.pins) !== data.pinsSha256
         || new Set(data.pins.map(pin => `${pin.table}:${pin.id}`)).size !== data.pins.length)) fail('SOURCE_CHANGED', 'Summary acknowledgment payload and pinned SQL identity disagree');
     return data;
   }
@@ -313,7 +294,7 @@ export class SummaryRecoveryStorage {
     if (row.summary_attempt_id !== attempt.id || row.session_id !== attempt.sessionId || row.workspace_id !== attempt.workspaceId || row.run_id !== attempt.runId) fail('SOURCE_CHANGED', 'Summary acknowledgment SQL owner changed');
   }
   private valid(audit: Audit, attempt: SummaryAttemptRecord, evidence: Evidence, scope: string, budget: Budget): boolean {
-    if (!(audit.proofVersion === 2 && isSha256(audit.pinsSha256) && highWater(audit.startupHighWater)
+    if (!(audit.proofVersion === 2 && isSha256(audit.pinsSha256) && isHighWater(audit.startupHighWater)
       && audit.receipt.bindingScope === scope && audit.receipt.summaryAttemptId === attempt.id && audit.receipt.runId === attempt.runId && audit.receipt.sessionId === attempt.sessionId && audit.receipt.workspaceId === attempt.workspaceId
       && audit.attemptRevision === attempt.revision
       && audit.recordSha256 === evidence.recordSha256 && audit.usageSha256 === evidence.usageSha256 && audit.sourceOwnerSha256 === evidence.sourceOwnerSha256

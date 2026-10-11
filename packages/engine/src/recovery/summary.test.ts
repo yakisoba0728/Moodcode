@@ -411,10 +411,11 @@ test('known provenance labels remain hash-bound while image-message labels pin t
   assert.equal(f.store.hasUncertainSummaries('workspace'),true);
 });
 
-for (const invalid of ['unknown-label','malformed-instruction','self','forward','ambiguous','foreign'] as const) test(`immutable semantic closure rejects ${invalid} sources before acknowledgment`, t => {
+for (const invalid of ['unknown-label','malformed-instruction','backslash-instruction','self','forward','ambiguous','foreign'] as const) test(`immutable semantic closure rejects ${invalid} sources before acknowledgment`, t => {
   const f = fixture(t); semanticChain(f);
   if (invalid === 'unknown-label') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S2'").run(JSON.stringify([`unrecognized-provenance:${hash('label')}`]));
   if (invalid === 'malformed-instruction') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S2'").run(JSON.stringify([`instruction:../AGENTS.md:${hash('label')}`]));
+  if (invalid === 'backslash-instruction') f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='semantic-S2'").run(JSON.stringify([`instruction:scope\\nested/AGENTS.md:${hash('label')}`]));
   if (invalid === 'self') f.db.exec("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json('[\"semantic-S2\"]')) WHERE id='semantic-S2'");
   if (invalid === 'forward') f.db.exec("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json('[\"semantic-S2\"]')) WHERE id='semantic-S1'");
   if (invalid === 'ambiguous') f.db.exec("INSERT INTO messages(id,session_id,run_id,data) SELECT 'semantic-S1',session_id,run_id,json_set(data,'$.id','semantic-S1') FROM messages WHERE id='baseline-native-message'");

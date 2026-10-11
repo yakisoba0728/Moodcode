@@ -152,11 +152,21 @@ for (const field of ['cleanupConfirmed','cleanupUncertain','effectsUncertain','e
 
 test('missing bare message/revision source and unknown typed labels cannot enter a fresh decision', t => {
   const f = fixture(t);
-  for (const reference of ['missing-message', 'missing-summary-revision', 'unrecognized-label:' + 'a'.repeat(64), 'instruction:not-AGENTS.md:' + 'b'.repeat(64)]) {
+  for (const reference of ['missing-message', 'missing-summary-revision', 'unrecognized-label:' + 'a'.repeat(64), 'instruction:not-AGENTS.md:' + 'b'.repeat(64),
+    'instruction:scope\\nested/AGENTS.md:' + 'c'.repeat(64)]) {
     f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='original-context'").run(JSON.stringify([reference]));
     assert.throws(() => readProviderRecoveryBaseline(f.db, 'session', budget()), code('PROVIDER_RECOVERY_SOURCE_CHANGED'));
     assert.throws(f.read, code('PROVIDER_RECOVERY_SOURCE_CHANGED'));
   }
+});
+
+test('a recorded decision re-reads a backslash instruction path as the hash-bound label it was digested as', t => {
+  const f = fixture(t), recorded = () => readProviderRecoveryEvidence(f.db, f.store, 'session', f.prepared.id, budget(), true);
+  const sourceIds = (references: string[]) => f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id='original-context'").run(JSON.stringify(references));
+  assert.equal(recorded().sourceSha256, f.read().sourceSha256);
+  sourceIds([f.goalId, 'instruction:scope\\nested/AGENTS.md:' + 'c'.repeat(64)]);
+  assert.throws(f.read, code('PROVIDER_RECOVERY_SOURCE_CHANGED')); assert.equal(recorded().attempt.id, f.prepared.id);
+  for (const reference of ['instruction:scope\\nested/not-AGENTS.md:' + 'c'.repeat(64), 'missing-message']) { sourceIds([f.goalId, reference]); assert.throws(recorded, code('PROVIDER_RECOVERY_SOURCE_CHANGED')); }
 });
 
 test('a baseline revision bound to another Run owner is rejected before its content is selected', t => {

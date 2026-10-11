@@ -8,7 +8,8 @@ import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
 import { SqliteStore } from '../storage/index.js';
 import type { NativeSessionStorage } from '../storage/native.js';
-import { captureProviderRecoveryHighWater, PROVIDER_RECOVERY_SCHEMA, ProviderRecoveryStorage, validateProviderRecoveryRequest, type ProviderRecoveryRequest } from './provider.js';
+import { captureProviderRecoveryHighWater, PROVIDER_RECOVERY_LIMITS, PROVIDER_RECOVERY_SCHEMA, ProviderRecoveryStorage, validateProviderRecoveryRequest, type ProviderRecoveryRequest } from './provider.js';
+import { readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-evidence.js';
 import { canonical } from './snapshot.js';
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
@@ -149,6 +150,31 @@ test('immutable baseline pin coverage is bound into the decision fingerprint and
   f.db.prepare('UPDATE provider_recovery_acknowledgments SET pins_sha256=?,data=?').run(emptyPinsSha, JSON.stringify(audit));
   assert.equal(f.recovery.hasValidAcknowledgment(f.first.sessionId, f.first.attemptId), false, 'Updating redundant pin hash still cannot match the original fingerprint');
   assert.equal(f.recovery.hasUnacknowledged('workspace'), true);
+});
+
+test('a decision recorded while backslash instruction paths were labels stays valid although a fresh one is blocked', t => {
+  const f = fixture(t), { sessionId, runId, turnId, attemptId, contextId, messageId } = f.first, text = JSON.stringify([]), stamp = new Date().toISOString();
+  f.store.putContextRevision({ schemaVersion: 2, id: 'later-context', sessionId, revision: 2, kind: 'baseline', text, sha256: hash(text), sourceIds: [], createdAt: stamp });
+  f.store.putSessionDocument(sessionId, 'context.head', 1, { revisionId: 'later-context' });
+  f.db.prepare("UPDATE context_revisions SET data=json_set(data,'$.sourceIds',json(?)) WHERE id=?").run(JSON.stringify([messageId, 'instruction:scope\\nested/AGENTS.md:' + 'c'.repeat(64)]), contextId);
+  assert.deepEqual(f.recovery.preview(sessionId, attemptId).blockers, ['PROVIDER_RECOVERY_SOURCE_CHANGED']);
+  // The ledger row that acknowledge() wrote when the original context closure skipped this label.
+  const allowance = { bytes: 0, max: PROVIDER_RECOVERY_LIMITS.maxEvidenceBytes }, evidence = readProviderRecoveryEvidence(f.db, f.store, sessionId, attemptId, allowance, true);
+  const baseline = readProviderRecoveryBaseline(f.db, sessionId, allowance), pinsSha256 = hash(canonical(baseline.pins)), startupHighWater = captureProviderRecoveryHighWater(f.db);
+  const bindingScope = hash('original physical storage identity'), fingerprint = hash(canonical({ version: 1, sessionId, workspaceId: 'workspace', runId, turnId, attemptId, bindingScope,
+    requestSha256: evidence.cleanup.requestSha256, requestBytes: evidence.cleanup.requestBytes, recordSha256: evidence.recordSha256, cleanupRecordSha256: evidence.cleanupRecordSha256,
+    usageSha256: evidence.usageSha256, sourceSha256: evidence.sourceSha256, contextBaselineSha256: baseline.hash, pinsSha256, startupHighWater }));
+  const receipt = { version: 1, id: 'recorded-decision', requestId: 'recorded-request', sessionId, workspaceId: 'workspace', runId, turnId, attemptId, fingerprint, bindingScope, acknowledgedAt: stamp,
+    state: 'uncertain', cleanupConfirmed: true, providerOutcomeConfirmed: false, providerRetried: false, executionResumed: false, checkpointActivated: false, duplicate: false } as const;
+  const audit = { receipt, recordSha256: evidence.recordSha256, cleanupRecordSha256: evidence.cleanupRecordSha256, usageSha256: evidence.usageSha256, sourceSha256: evidence.sourceSha256,
+    contextBaselineSha256: baseline.hash, pinsSha256, startupHighWater, pins: baseline.pins };
+  f.db.prepare(`INSERT INTO provider_recovery_acknowledgments(id,attempt_id,session_id,workspace_id,run_id,turn_id,request_id,binding_scope,fingerprint,
+    record_sha256,cleanup_record_sha256,usage_sha256,source_sha256,context_baseline_sha256,pins_sha256,startup_high_water,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(receipt.id, attemptId, sessionId, 'workspace', runId, turnId, receipt.requestId, bindingScope, fingerprint, audit.recordSha256, audit.cleanupRecordSha256, audit.usageSha256,
+      audit.sourceSha256, audit.contextBaselineSha256, pinsSha256, startupHighWater, JSON.stringify(audit));
+  assert.equal(f.recovery.hasValidAcknowledgment(sessionId, attemptId), true); assert.equal(f.recovery.hasUnacknowledged('workspace'), false);
+  assert.equal(f.recovery.preview(sessionId, attemptId).status, 'acknowledged');
+  assert.deepEqual(f.recovery.acknowledge({ sessionId, attemptId, requestId: receipt.requestId, fingerprint, acknowledged: true }), { ...receipt, duplicate: true });
 });
 
 test('each ordinary uncertain candidate requires its own receipt without clearing the other candidate', t => {
