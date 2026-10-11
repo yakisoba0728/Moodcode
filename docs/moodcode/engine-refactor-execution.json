@@ -1,0 +1,210 @@
+{
+ "kind": "moodcode-engine-refactor-execution",
+ "date": "2026-10-12",
+ "timezone": "Asia/Seoul",
+ "plan": "docs/moodcode/engine-refactor-audit-plan.json (approved 2026-10-10, every decision with its recommended option)",
+ "base": {
+  "main": "2e64f32",
+  "planCommit": "96fca4f"
+ },
+ "branch": "codex/engine-refactor-audit",
+ "verifiedTip": "a4e60a6",
+ "packages": {
+  "total": 268,
+  "applied": 250,
+  "partial": 17,
+  "not-needed": 1
+ },
+ "partialOrNotNeeded": {
+  "WP-C1-1-06": {
+   "via": "U023",
+   "outcome": "partial",
+   "note": "P02-B04, P02-B05 and P02-B07 are fully applied; P02-B03 is partial. P02-B04: approved() and the denied path in done build the proof locally, commit backend.client_permission, then assign permission. done is chained with .finally(ready), so admission always settles; the remaining done.catch only suppresses an unhandled rejection. P02-B05: prepareProviderClientEffect checks remainingChildBudget(owner).toolCalls before reserveToolCalls, like the read path. P02-B07: the outer 'Provider stream' abortable uses PROVIDER_CLEANUP_GRACE_MS. P02-B03 (approved decision a): the dispatch gate no longer uses abortable. It rejects with effectSignal.reason through a once listener that is removed when the gate opens, then checkAbort and the original-request check run as before. Resolved scenario: the agent ends its turn without the wire write, so native-effects close() cancels the effect. The effect now settles as tool 'failed' (CANCELLED), completion errorCode BACKEND_CLIENT_EFFECT_FAILED, cleanupConfirmed true, in about 0.3 s instead of 1 s. Before, the run ended CLEANUP_UNCERTAIN and the effect stayed uncertain. Remaining scenario: a user/Run cancel while the approved effect waits at the gate. The gate stall is gone (0.34 s vs 1.36 s at BASE), and the tool is interrupted with the cancel reason instead of the gate cleanup message. But settleClientRead still fails with BACKEND_EFFECT_PART_INVALID: an interrupted tool's Part stays 'open' until TurnExecutor.finishParts runs at Turn end, after backend close(). So the effect is still marked uncertain and the Run still fails CLEANUP_UNCERTAIN, as at BASE. Fixing that means closing the interrupted client-effect Part early, which changes TurnExecutor Part lifecycle (turn-executor.ts). That is outside this package's files and risk budget, so it was left for a follow-up and no test pins the current outcome."
+  },
+  "WP-C1-4-02": {
+   "via": "U115",
+   "outcome": "partial",
+   "note": "Applied P01-S04 (shared observeRun plus a synchronous evaluateVerification helper, so both ports keep the same awaits and read order; shared profileIdentity), P01-S05 (one assertContextOwnerCurrent with per-port codes and the original four messages each; one shared getProfile), P01-S10 (assertOptionalBoolean for prFeedback, prFeedbackLoopback and the new gitCommits check at the old loop position; the raw-flag field sweep was outside the package change and was not done), P01-S14 (one storageUnchanged fence with per-site error mapping, storagePaths.artifactDir for the constructor-time realpath(artifactDir) uses except the lazy managed path, sidecars expanded once) and P01-S21 (collect() helper in withInputMedia, same order). P01-S06 is not needed: U067 (982027a) removed CodeModeHost.tools() and kept the engine.ts execute_code definition as the only one, so there is nothing left to deduplicate. code-mode/host.ts is untouched."
+  },
+  "WP-C1-4-15": {
+   "via": "U126",
+   "outcome": "partial",
+   "note": "P04-S02: CodingBatchStorage.find(workspace, groupId) runs a LIMIT 2 kind query joined to the workspace, fails with the default CODING_BATCH_INVALID when two rows match, and returns readBatchGroup, so signature verification still runs on every read. current() is find() ?? CODING_BATCH_MISSING. list() is kept for preview, the start EXISTS check, member() and merged(). P04-S07: CodingBatchStorage.advance(prior, change) signs and puts the next revision. CodingBatchHost.write is a one-line delegate, and recover() and pauseImport() call advance(). Key order and stored bytes are unchanged. P04-S14: uniqueEventRecord is shared by anchor() and effectAncestor(). Each caller keeps its own code, cap (524288 or NATIVE_RECORD_BYTES) and its own signed() or knowledgeHash check outside the helper. assertCapacity() is a private method; put() calls it only when expected === 0, and putCase() always calls it. CODING_GROUP_STATES and CODING_CASE_STATES are as-const arrays in types.ts, the unions derive from them with identical shapes, and readBatchGroup uses them. P04-S15: body() returns { revision, value }, readBatchGroup compares revisions without the third query, and readBatch* still treat a falsy document as missing. list() and recover() select json_extract(data,'$.groupId'). Skipped sub-item: validateCodingBatchDatabase keeps JSON.parse. json_extract would turn a literal-null document, which throws today, into a silent pass, because the validator ignores ids that do not resolve."
+  },
+  "WP-C2-1-11": {
+   "via": "U034",
+   "outcome": "partial",
+   "note": "Already integrated in f240ac0. Fixes P21-B03 on Linux and FreeBSD. When the shell exits on its own, the supervisor lists the processes left in the PTY session by session id, cleans each group the way stop() does, and confirms cleanup only when a second listing finds none. If a live process holds the shell pid, the pid was reused and nothing is signalled. Partial because macOS ps reports no session id and no ancestry snapshot exists before a normal exit. macOS keeps the original-group probe, and engine-process-terminals.md documents this limit."
+  },
+  "WP-C2-4-05": {
+   "via": "U133",
+   "outcome": "partial",
+   "note": "P05-S04 applied: newSandboxRecord/nextSandboxRecord in records.ts used at approve, beforeSpawn, MCP beforeStart, MCP binder, host.update, MCP started/closed, recover and pauseImportedSandboxes; withoutSha deleted; key order and hashes verified identical (MCP record createdAt is now taken at beforeStart instead of connectMcp setup). P05-S07 applied: restriction() and seatbeltLaunch() in platform-backends.ts for preview and inherit (inherit now pins before building the profile, as preview did); sameRestriction in records.ts used by the MCP binder and the mcp-binding nativeOwner check, each keeping its own target checks. P05-S08 applied: current() reads the binding once and runs one describe/compare over the captured config. P05-S09 partial: the explicit caps() in SandboxStorage.write is dropped (get() runs caps() first); the count(*) replacement no longer applies because U029 replaced the list().length limit check with reclaim(this.db, this.list()), which needs the full validated record list, so get(), that list and the post-write validation stay."
+  },
+  "WP-C2-4-08": {
+   "via": "U135",
+   "outcome": "partial",
+   "note": "P06-S08: once() (replaces duplicate()), mustAttached(), mustDelivery(), currentTarget() with original order and codes. P06-S07: deliveryHeadsForJob() JOIN query used by findDeliveryForInput, deliverJobResultAtomic (existence only, as before) and prepareDelivery (matched row still loaded via getDelivery). P06-S06: only the quadratic output lookup remained after U110; validateGraph now uses an outputs map keyed by JSON [workspaceId, outputId] (first match kept); the double prepare and head re-reads were already gone via the journal scan/assertHeads. P06-S27: LIMIT 129/257 and > 256 in store.ts bound from JOB_STORAGE_LIMITS, promptBytes: 32768 added (store-proofs.ts) and used in delivery.ts and validateRecord, readOutputs afterRevision renamed offset (host.ts has no such parameter at BASE). Not applied: the LIMIT 8193 / > 8192 / > 65536 literals now in store-proofs.ts anchor(), which bound a session_events scan rather than the job journal. P06-S31: one follows() predicate in validateJobOutputPage."
+  },
+  "WP-C3-1-09": {
+   "via": "U039",
+   "outcome": "partial",
+   "note": "Recorded in integrated commit e8e9895 (Unit: U039). P11-B03 (only live admissions count toward the cap), P11-B04 and P11-B09 are fixed. Admissions, executions and the batch maps are deliberately not pruned, so the package is partial."
+  },
+  "WP-C3-1-15": {
+   "via": "U045",
+   "outcome": "partial",
+   "note": "Recorded in integrated commit f6480b9 (Packages: WP-C3-1-15, WP-C3-1-16). P14-B04 applied: admitStage commits at the revision read inside its write transaction (never below the caller's) and records it in the receipt; a failed admission aborts its child's signal. P14-B08 partial: failed/cancelled/uncertain instances release owner, child handles and stage-request entries once idle with no pending merge; completed instances keep their owner because delivery and batch export still use it."
+  },
+  "WP-C3-2-03": {
+   "via": "U069",
+   "outcome": "partial",
+   "note": "Applied P10-S05 (scope() deleted), P10-S09 (listDeliveries deleted, getDeliveryHistory kept, store.js re-export narrowed to TEAM_TABLES), P10-S10 (one-arg cancelDelivery port, dispatched flag and Delivery.page/prompt removed; engine adapter already passed only the capture), P10-S12 (read_team_board branch removed, nativeApprovalFingerprint required; operation not narrowed), P10-S26 (board, confirmDelivery, beforeCompleteTask required; TEAM_WORKFLOW_UNAVAILABLE guard and ! assertions removed; top-level import type), P10-S31 and P10-S32 (exports dropped, values unchanged). P10-S11 only partly: the now? ports of TeamHostServicePorts and EngineTeamModelToolHostPorts are removed and their wrappers inlined to Date.now(), but TeamStoragePorts.now? is kept because store.test.ts injects a clock through it with Reflect.set(storage.ports, 'now', ...) (two tests fail without it), contrary to the finding's evidence."
+  },
+  "WP-C3-2-05": {
+   "via": "U071",
+   "outcome": "partial",
+   "note": "Applied P14-S04: assertEffectsSupported, readExecution, batch and effects are now required. The batch and effects ports are named as module-private WorkflowBatchPort and WorkflowEffectsPort, and the ?., ! and ternary are gone. The WORKFLOW_ROLE_UNSUPPORTED and WORKFLOW_CHILD_EVIDENCE_UNAVAILABLE fallbacks are deleted. In batch-host observed(), readExecution?., the dead if (actual) wrapper and the !readExecution operand are removed. Applied P14-S11: workflowTopologicalOrder and readWorkflowResult are deleted. spec.test.ts now asserts the stage order from validateWorkflowSpec(...).stages directly, and the assertions that only covered readWorkflowResult are removed. Applied P14-S12: WorkflowService.inspect is deleted. Applied P14-S13: WorkflowScalar and WorkflowRegistrationInput are removed under global decision D-PUBLIC (a); the grep gate over apps/, scripts/ and .github is clean, and RegisterWorkflowInput is the one shape. Applied P14-S14: workflowSignal is unexported and returns the aborted state. Applied P14-S15: EFFECT_PREFIX, DELIVERY_PREFIX, deliveryKind and workflowEffectsJson are unexported; the LIKE patterns are left for X2-07. Applied P14-S17: the 131072 write guard in effects.ts is deleted, and the default cap of store json() is dropped. The cap is now optional and checked only when passed, because a required cap would force uncapped callers to pass a dead explicit cap. The DB read guards stay. Applied P14-S30: the || false operand and its stale comment are removed. Not applied: P14-S16 no longer holds, because workflows/store.test.ts (added by U044) imports WORKFLOW_STORAGE_LIMITS, so the export stays."
+  },
+  "WP-C3-3-05": {
+   "via": "U086",
+   "outcome": "not-needed",
+   "note": "P09-S03 no longer holds at BASE. U083 (WP-C2-3-01, commit 3f88e71) already deleted uniqueJsonKeys and generalized code-mode/source-json.ts into a single rejectDuplicateJsonKeys(text, {maxDepth, maxNodes, fail}). protocol.ts uses it with depth 12, 4096 nodes and the ACP_*/AGENT_BACKEND_LIMIT codes; code-mode/types.ts uses it with depth 32 and the CODE_MODE_* codes. Moving the one remaining scanner into artifacts/validation.ts would only relocate it."
+  },
+  "WP-C4-4-21": {
+   "via": "K07",
+   "outcome": "partial",
+   "note": "P16-S05: validateKnowledgeFilePublicationDatabase moved to knowledge/file-publication-archive-relations.ts. The store now exports rawRow, decode and maxBytes. The only non-test importer is now storage/migrations.ts (archive.ts and recovery/index.ts reach the validator through PRIMARY_FEATURES), so that import was updated, plus the imports in file-publication-archive.test.ts and file-publication-store.test.ts. P16-S03 and P16-S08: file-publication-validation.ts adds the boolean predicates isCompletedFileEvidence, candidateMatchesFileTarget and revokesCompletedPublish. They are used by getCommitted, store candidate(), service issue() and the archive walk, and each site keeps its own error code and message. Taking the union adds the postimage byte check to getCommitted and the path term to the archive revoke check. The archive pin check is now equal(knowledgePublicationProvenance(history), owner.provenance), which adds candidateId and planId. complete() and prepare already enforce all of these. P16-S04 is only partly applied: row() delegates to rawRow, which takes optional messages so row() keeps its own. Not done: historical() is not routed through rawRow, because that would change its oversize/undersize code from KNOWLEDGE_FILE_EVIDENCE_INVALID to KNOWLEDGE_FILE_READ_LIMIT. decodedFrontierRows is no longer needed: since 85773d3 the acknowledgment loop has no cap, and the 128-row / 1 MiB cap is a single check on UNRESOLVED_FILE_OWNERS_SQL. DB contract compare: equal. Rebased once onto unrelated team/storage commits; tests re-run."
+  },
+  "WP-X-3-01": {
+   "via": "U087",
+   "outcome": "partial",
+   "note": "Created packages/engine/src/shared/canonical.ts (imports only node:crypto) with canonicalJson (byte-identical to canonicalKnowledge), sha256Hex, canonicalSha256 (= knowledgeHash), jsonTextSha256, sameCanonical, and sealRecord/verifySealed (always strips sha256). knowledge/validation.ts re-exports canonicalKnowledge/knowledgeHash/sha256 as aliases of the shared functions and its assertHash uses verifySealed. workspace/trust.ts uses sealRecord for the preview and sameCanonical/sha256Hex. KnowledgeHostBinding moved to workspace/trust.ts and knowledge/types.ts re-exports it. Not done: validateBinding stays in knowledge/validation.ts. It depends on immutableKnowledgeJson and the private field/digest helpers, and validateTrustInput/validateGenerationPlan/validateCandidate call it. trust.ts imports knowledge/validation at runtime, so the move would add a runtime import cycle (the only existing engine cycle is code-mode/source-json<->types). It would also make validateBinding public through index.ts `export * from './workspace/trust.js'`. Revisit once WP-X-3-02 moves the walker into shared/data.ts. X2-09's local sha copies are left for WP-X-3-06..15, as the package states."
+  },
+  "WP-X-3-21": {
+   "via": "U110",
+   "outcome": "partial",
+   "note": "jobs/store.ts fully adopts the WP-X-3-20 journal with a job profile (7 index columns, kind:eid:op / receipt: scopes, receiptPrevious = before.id, per-kind caps 128/4096/128, JOB_* codes). read, head, inspectJobs/inspectDeliveries, replay, append (admit+write with head CAS) and validateGraph (scan, receiptOf, previousOf, assertRevisionLink, assertHeads) go through the journal; build() keeps the exact signing and key order. WP-C2-1-03 headroom is kept: ordinary ops reserve per admission, RESERVED_OPERATIONS omit it, and rewriteLocal appends without it. The journal now checks index columns in decode, so every read keeps the per-read column check jobs had. P06-S11 and P14-S25: the session_events/session_inputs bodies in jobs, and the runs, workflow_revisions and both session_documents reads in workflows, use readBoundedHeader/readBoundedBody with their current caps and codes. workflows/store.ts is not moved onto the journal because its persisted record and receipt shapes do not fit it. Fix round 1: the RevisionJournalProfile.columns doc comment has its base text again (\"Index columns stored between previous_id and request_scope.\"), so it no longer claims record and receipt rows share index values. The JournalAdmission.reserve doc now describes the headroom that writes without `reserve` may later spend, instead of naming recovery writes. The planner still needs to schedule or drop the workflows part of X2-01."
+  },
+  "WP-X-3-22": {
+   "via": "U111",
+   "outcome": "partial",
+   "note": "P15-S02 split done: new schedules/journal.ts has class ScheduleJournal(db, clock = Date.now). It holds the record, proof and receipt types, the helpers (fail, json, signed, fields, payload, digest, id, integer), the administrative headroom constants, row/read/head/receipt/duplicate/sizes/administrativeReserve/insert/commit/revise, target/scheduleFor, getSchedule/getLease/getOccurrence/inspectSchedules/inspectOccurrences, inputRecord/inputProof/observation/recoveryRecord and semantic/validate/pauseImported. It also exports validateScheduleDatabase and markImportedSchedulesDisabled, which now build new ScheduleJournal(db) instead of the historical() table of denied ports. store.ts keeps ScheduleTriggerProof, ScheduleStoragePorts, the inputs and results, Cap, data and sync. In store.ts, ScheduleStorage extends ScheduleJournal with the port-using operations, occurrenceBudget/candidateRecord, recoverInterrupted and lookupScheduleInput. Its constructor passes super(db, () => ports.now?.() ?? Date.now()), so tests that change ports.now still work. Code moved verbatim; only private became protected and some declarations became exports, which a line-multiset diff confirmed. WP-C3-1-17's triggerKey dedupe, claim-time clock checks and recovery headroom are untouched, and the writer and auditor rules both stay. Not done: moving the journal primitives onto storage/revision-journal.ts. Schedule, lease and occurrence bodies have no kind or entityId, which the journal's decode, write, head, receiptOf and assertHeads all use. Receipt rows store entity_id as kind:entity while the receipt body's entityId is the bare entity. Trigger receipts carry expectedScheduleRevision and due-occurrence receipts no expectedRevision, which receiptOf requires. Per-read request_scope and receipt createdAt checks would be lost. Fitting all of this would need several journal hooks for one adopter, the same reason U110 kept workflows off the journal."
+  },
+  "WP-X-4-05": {
+   "via": "K22",
+   "outcome": "partial",
+   "note": "P12-S13: assertCommandLifetimeCapacity(db, record) now lives in jobs/command-lifetime-records.ts. It shares one lifetimeEventBounds query and one LIFETIME_JOURNAL limits object with validateCommandLifetimeDatabase. SqliteStore.putCommandLifetime still calls it before the write and still validates after it, with the same reserve rules, COMMAND_LIFETIME_LIMIT code and message. P12-S18: relocateArchivedWorktreeJournal is in the leaf worktrees/journal.ts, not index.ts, so archive gets no runtime edge to the git and workspace code. It takes a fail callback, so archive still raises ARCHIVE_WORKTREE_BINDING_INVALID with both messages. An ad-hoc comparison showed the relocated JSON is byte-identical. X1-12 is partial. (c) is done: coding-runs/validation.ts uses shared plainRecord with the same INVALID_WORKFLOW_INPUT error instead of workflows/host. (b) was already fixed in 327e0d4: jobs/delivery.ts imports from validation.js, and the dist import walk from storage/index.js no longer reaches jobs/host.js. (d) is kept as planned: the store validates stored frames with the pure protocol.ts validators, and the process.ts import is type-only. (a) was skipped: KnowledgeHostAdapter and KnowledgeContextSource run SQL on SqliteStore's private db, so the store can stop importing them only by dropping its public createKnowledgeHostAdapter/createKnowledgeContextSource methods or exposing the db. Both are contract changes with no approved decision. (e) is not in the package scope. No session_events(type) index (needs v24). The DB contract comparison is equal. Findings trailer: P12-S13, P12-S18."
+  },
+  "WP-X-4-07": {
+   "via": "K22",
+   "outcome": "partial",
+   "note": "Pure moves with no logic changes: tools/file-actions/text.ts -> workspace/text.ts (scripts/benchmark-repository-context.mjs src and dist paths updated); effect-batches/claims.ts plus PreparedResourceClaim -> tools/runtime/claims.ts; diagnostics/tool-registration-manifest.ts and its test -> tools/runtime/registration-manifest(.test).ts; sandbox/mcp-supervisor.ts -> mcp/mcp-supervisor.ts, with the fork URLs in mcp/stdio.ts updated. Stale dist outputs were deleted and the genuine sandboxed stdio MCP test passes on the new path. X1-14 is done: ProviderTransportRequest now sits beside TurnRequest in ports.ts and provider/generation.ts re-exports it; media and documents import it from ports. Because of export type * from ports.js, it is now also visible as an additive public type. SandboxLaunch moved to tools/command/process-control.ts and sandbox/types.ts re-exports it. index.ts exports the same names with the same types, and a type-check against dist/index.js confirmed this. X1-13 is partial. ToolEffectClass is left as is because it is already single-sourced: TOOL_EFFECT_CLASSES in permission/policy.ts with a re-export from ports.ts. Moving only the type to ports.ts would bring back a hand-written duplicate. The jobs<->terminals item was skipped: validateTerminal*Proof uses jobs validation helpers and codes, so moving it would not remove the edge without a behavioural rewrite. At this tip, jobs->terminals is type-only. Out of scope and not done: the permission/decision-receipts->diagnostics/trajectory edge, formatters/edits, and the fixture relocations. Findings trailer: X1-14."
+  },
+  "WP-X-4-09": {
+   "via": "K23",
+   "outcome": "partial",
+   "note": "Partial facade split of packages/engine/src/engine.ts (2811 -> 1468 lines; constructor about 935 -> about 430 lines). Moved out behind unchanged MoodcodeEngine methods: option validation and EngineOptions (engine-options.ts, re-exported), input media stores/provider wrapping/admission (media/engine-input.ts), lifetime and storage identity (engine-kernel.ts: EngineLifetime, EngineStorage), knowledge (engine-knowledge.ts), proposals (engine-proposals.ts), verification controller/tool/coordinator hooks (engine-verification.ts), language server routing and workspace change sync (engine-language-sync.ts), restore journal (engine-restore.ts) and the dispatch/dispatchSession routers (engine-commands.ts). Still inline in the constructor, for a later chunk: teams and workflows/coding-batch wiring, the tool catalogue with registration and the plugin/MCP scope methods, the coordinator options and run participants, and all feature-producer wiring (schedules, agent backends, jobs, owned/host command delivery, command lifetimes, sandbox, code mode, git commits, PR feedback). They stay because many tests reach backendRecords, jobRecords, jobDelivery, teamHost, teamRecords, workflowService, workflowRecords, scheduleRecords, ownedCommand*, hostCommands, codeModeHost, runtimeProviders and executionLockPath reflectively on the engine instance, and the producer Pick<MoodcodeEngine> round-trips were left as is. X5-01 (schedules option doc) was already fixed by 82d8e5f; P01-S17 close() comment fixed here. Tests reaching moved private fields (engine.test, knowledge, proposals/apply-store, lifecycle/continuation) now go through the owning collaborator; no assertion changed."
+  }
+ },
+ "runs": [
+  {
+   "run": "wf_b75318d6-5b1",
+   "scope": "wave 0 (security), 19 units",
+   "runner": "per-unit implement, review, integrate"
+  },
+  {
+   "run": "wf_b4a25617-a16",
+   "scope": "F01 Seatbelt Git control paths, F02 HFS+ aliases"
+  },
+  {
+   "run": "wf_6b5b7b34-d32",
+   "scope": "wave 1 (bugs), 41 units; paused and resumed; U060 integrated by hand before the resume"
+  },
+  {
+   "run": "wf_82f53ea9-8eb",
+   "scope": "F03: carry U054 and fail the project-source scan closed"
+  },
+  {
+   "run": "wf_607a20c0-050",
+   "scope": "wave 2 (dead code), 21 units"
+  },
+  {
+   "run": "wf_d0d26621-f7c",
+   "scope": "wave 3 (shared components), 31 of 32 units"
+  },
+  {
+   "run": "wf_638fd097-d2f",
+   "scope": "U105 re-implemented after F-06"
+  },
+  {
+   "run": "wf_b0ebedf2-0b7",
+   "scope": "wave 4, stopped by the user after 34 of 82 units to redesign the runner"
+  },
+  {
+   "run": "wf_2e46d6db-21f",
+   "scope": "remaining 75 packages (wave 4 and 5) in 25 module chunks: one implementer per chunk integrating each package by compare-and-swap, one review and fix per chunk; 54 agents, about 4 h 40 min"
+  }
+ ],
+ "followUps": {
+  "F-01": "Seatbelt deny list also covers .git/worktrees, .git/rebase-merge, core.hooksPath and config include targets (f5fa092); found by a background security review of U005",
+  "F-02": "HFS+ ignorable-code-point aliases of .git/node_modules rejected and file-action parents realpath-checked (000f33f); background review of U016",
+  "F-03": "Project-source scan fails closed for non-ignored names that are not exact paths (e07b49a); background review of U054",
+  "F-04": "Media 503 test expected the P02-B01 bug; hosted CI on 84dcc28 (0cc7cbd)",
+  "F-05": "Two wave-1 tests had budgets too tight for hosted runners and one counted page rows; hosted CI on 0cc7cbd and da7c7ab (da7c7ab, 10ea28e; the Findings trailer of 10ea28e says P20-S11, the right id is P22-B04)",
+  "F-06": "U102 child cleanup deadline through settleWithin added microtask turns; direct race restored (8d9c391); wave 3 gate",
+  "F-07": "U101 child mirror copy went from 256 KiB to 1 MiB chunks; chunkBytes option restores 256 KiB (5e57e19); hosted CI on 8d9c391"
+ },
+ "decisionsResolvedInPractice": {
+  "observePluginTool": "kept and documented as a host-facing utility (C1 decision b); the global D-PUBLIC removal did not remove it",
+  "P21-S12": "code-mode startup timeout uses a plain timer, not settleWithin, after F-06 (U105)"
+ },
+ "incidents": {
+  "2026-10-11 08:02 KST": "git bisect run exported GIT_DIR to engine tests and a fixture git init set core.bare=true on the shared repository; restored within minutes with no ref, hook or index change; bisects since then are manual",
+  "5e57e19 native Windows Node 26": "windows-native.integration accounting assertion failed once (1 !== 0) and passed on rerun; recorded as a timing flake"
+ },
+ "hostedCi": {
+  "1296048": "success",
+  "941bf91": "success",
+  "f5fa092": "success",
+  "84dcc28": "Engine headless failed (F-04)",
+  "0cc7cbd": "Engine headless failed (F-05)",
+  "da7c7ab": "macOS Node 24 failed (F-05 part 2)",
+  "10ea28e": "success",
+  "8d9c391": "Engine headless failed (F-07)",
+  "5e57e19": "headless cancelled by the next push; native Windows flake, rerun success",
+  "5dd9d60": "success",
+  "a4e60a6": "success: Engine headless 6/6, Desktop packages 3/3, native Windows 2/2 (runs 38164456926, 38164456996, 38164456956)"
+ },
+ "finalLocalGate": "a4e60a6: tsc -b pass, DB23 catalogue compare equal, git diff --check 10f1801..HEAD clean, 437 touched compiled test files plus the media and hardening script groups: 5,145 pass, 0 code failures, 3 Windows-only skips (one listed .ts source path failed to load under plain node --test; its compiled test passed)",
+ "metrics": {
+  "note": "packages/engine/src, main vs a4e60a6, wc -l; comment lines are lines starting with //, /* or *",
+  "productSourceLines": {
+   "before": 136178,
+   "after": 137095
+  },
+  "productSourceFiles": {
+   "before": 461,
+   "after": 505
+  },
+  "testAndFixtureLines": {
+   "before": 138416,
+   "after": 147376
+  },
+  "commentLines": {
+   "before": 1530,
+   "after": 2103
+  },
+  "engineTsLines": {
+   "before": 2830,
+   "after": 1496
+  },
+  "reading": "Bugs, security, duplication and dead code were addressed, but total product lines and comment lines did not go down: shared modules, extracted collaborators and their doc comments offset the removals. A line- and comment-reduction pass remains open."
+ },
+ "openItems": [
+  "Decide whether and how to merge the branch into main",
+  "The 17 partial packages and 1 not-needed package above",
+  "A line- and comment-reduction pass",
+  "R-CI-HOSTED-02 fixture-retention, PERF-GIT-02 and the other TODO items are unchanged"
+ ]
+}
