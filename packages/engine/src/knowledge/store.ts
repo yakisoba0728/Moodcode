@@ -16,6 +16,7 @@ import type {
   KnowledgeRequestReceipt,
   KnowledgeStoragePorts,
   KnowledgeStorageTable,
+  KnowledgeTrustHead,
   PrepareKnowledgeGeneration,
   SetWorkspaceTrust,
   TrustRevision,
@@ -87,9 +88,6 @@ type HandleState = {
   plan: KnowledgeGenerationPlan;
   evidence: KnowledgeGenerationEvidence;
 };
-function encoded(value: unknown): string {
-  return JSON.stringify(value);
-}
 function synchronous(value: unknown): void {
   if (value !== undefined)
     knowledgeError(
@@ -112,7 +110,7 @@ export function writeKnowledgeImportPause(
   }).data as KnowledgeImportPause;
   db.prepare(
     "INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data",
-  ).run(workspaceId, workspaceId, encoded(record));
+  ).run(workspaceId, workspaceId, JSON.stringify(record));
   return record;
 }
 const WRITE: GuardedWriteOptions = {
@@ -212,7 +210,7 @@ export class KnowledgeStorage {
       values: SQLInputValue[] = [
         id,
         value.workspaceId,
-        encoded(value),
+        JSON.stringify(value),
         ...Object.values(columns),
       ];
     this.#db
@@ -268,10 +266,10 @@ export class KnowledgeStorage {
     identifier(workspaceId);
     const row = this.row("workspace_trust_heads", workspaceId, workspaceId);
     if (!row) return undefined;
-    const head = this.decode(row, "workspace_trust_heads") as {
-      revision: number;
-      revisionId: string;
-    };
+    const head = this.decode(
+      row,
+      "workspace_trust_heads",
+    ) as KnowledgeTrustHead;
     const revision = this.getTrustRevision(workspaceId, head.revisionId);
     if (!revision || revision.revision !== head.revision)
       knowledgeError(
@@ -433,7 +431,7 @@ export class KnowledgeStorage {
       this.insert("workspace_trust_revisions", record, {
         revision: record.revision,
       });
-      const head = immutableKnowledgeJson({
+      const head: KnowledgeTrustHead = immutableKnowledgeJson({
         workspaceId: request.workspaceId,
         revision: record.revision,
         revisionId: record.id,
@@ -446,7 +444,7 @@ export class KnowledgeStorage {
           .run(
             record.revision,
             record.id,
-            encoded(head),
+            JSON.stringify(head),
             record.workspaceId,
             revision,
           );

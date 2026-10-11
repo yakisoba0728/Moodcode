@@ -367,7 +367,8 @@ export function validateTrustRevision(value: unknown): TrustRevision {
   trustInput({ ...result, expectedRevision: revision - 1 });
   if (
     result.expiresAt !== null &&
-    Date.parse(stamp(result.expiresAt)) <= Date.parse(stamp(result.createdAt))
+    Date.parse(result.expiresAt as string) <=
+      Date.parse(result.createdAt as string)
   )
     knowledgeError("INVALID_KNOWLEDGE", "Trust expiry must follow creation");
   assertHash(result);
@@ -518,7 +519,8 @@ export function validateGenerationPlan(
   if (
     result.state !== "pending" ||
     result.toolCount !== 0 ||
-    Date.parse(stamp(result.expiresAt)) <= Date.parse(stamp(result.createdAt))
+    Date.parse(result.expiresAt as string) <=
+      Date.parse(result.createdAt as string)
   )
     knowledgeError(
       "INVALID_KNOWLEDGE",
@@ -655,7 +657,8 @@ export function validateCandidate(value: unknown): KnowledgeCandidate {
     !result.body.trim() ||
     Buffer.byteLength(result.body) > KNOWLEDGE_LIMITS.bodyBytes ||
     sha256Hex(result.body) !== result.bodySha256 ||
-    Date.parse(stamp(result.expiresAt)) <= Date.parse(stamp(result.createdAt))
+    Date.parse(result.expiresAt as string) <=
+      Date.parse(result.createdAt as string)
   )
     knowledgeError(
       "KNOWLEDGE_HASH_MISMATCH",
@@ -681,8 +684,6 @@ export function validateKnowledgeArchiveRow(
   fields(row, ["table", "key", "workspaceId", "data"]);
   identifier(row.key);
   identifier(row.workspaceId);
-  if (!KNOWLEDGE_STORAGE_TABLES.includes(row.table as KnowledgeStorageTable))
-    knowledgeError("INVALID_KNOWLEDGE", "Unknown knowledge archive table");
   let data = object(row.data),
     key: string;
   switch (row.table) {

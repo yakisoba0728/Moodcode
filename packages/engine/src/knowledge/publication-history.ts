@@ -55,6 +55,7 @@ export function readKnowledgePublicationHistory(
   ports: KnowledgePublicationHistoryPorts,
   workspaceId: string,
   candidateId: string,
+  code = "KNOWLEDGE_PUBLICATION_EVIDENCE_INVALID",
 ): KnowledgePublicationHistory {
   const candidate = validateCandidate(
     ports.getCandidate(workspaceId, candidateId),
@@ -72,10 +73,7 @@ export function readKnowledgePublicationHistory(
     data: original,
   }).data as KnowledgeGenerationRecord;
   if (generation.attemptId === null)
-    fail(
-      "KNOWLEDGE_PUBLICATION_EVIDENCE_INVALID",
-      "Publication requires the actual completed native attempt",
-    );
+    fail(code, "Publication requires the actual completed native attempt");
   const attempt = validateKnowledgeGenerationArchiveRow({
     table: "knowledge_generation_attempts",
     key: generation.attemptId,
@@ -132,7 +130,7 @@ export function readKnowledgePublicationHistory(
     generation.candidate.candidateId !== candidate.id
   )
     fail(
-      "KNOWLEDGE_PUBLICATION_EVIDENCE_INVALID",
+      code,
       "Candidate does not describe the exact historical completed producer and cleanup",
     );
   return Object.freeze({ candidate, plan, generation, attempt, trust });

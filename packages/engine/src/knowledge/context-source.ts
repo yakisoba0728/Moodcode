@@ -16,14 +16,13 @@ import type {
   KnowledgeContextSourcePorts,
   PreparedKnowledgeContribution,
 } from "./context-types.js";
-import type {
-  KnowledgeGenerationAttempt,
-  KnowledgeGenerationRecord,
-} from "./generation-types.js";
-import {
-  validateKnowledgeGenerationArchiveRow,
-} from "./generation-validation.js";
 import { readActiveKnowledgeImportActivation } from "./import-recovery-store.js";
+import type { ImportedKnowledgeDocumentActivation } from "./import-recovery-types.js";
+import {
+  knowledgePublicationProvenance,
+  readKnowledgePublicationHistory,
+  type KnowledgePublicationHistory,
+} from "./publication-history.js";
 import {
   completedPublicationMismatch,
   validateKnowledgePublicationArchiveRow,
@@ -36,6 +35,11 @@ import type {
   WorkspaceDocumentHead,
   WorkspaceDocumentRevision,
 } from "./publication-types.js";
+import type {
+  KnowledgeHostBinding,
+  KnowledgeTrustHead,
+  TrustRevision,
+} from "./types.js";
 import {
   assertKnowledgeSignal,
   identifier,
@@ -47,8 +51,6 @@ import {
   knowledgeHostRecord,
   sameKnowledge as same,
   validateBinding,
-  validateCandidate,
-  validateGenerationPlan,
   validateTrustRevision,
   validateKnowledgeArchiveRow,
 } from "./validation.js";
@@ -77,6 +79,16 @@ type State = {
   signal: AbortSignal;
   bindingSha256: string;
   documents: readonly KnowledgeContextDocumentManifest[];
+};
+type Preflight = (table: string, id: string) => boolean;
+type ActiveDocument = {
+  document: WorkspaceDocumentRevision;
+  imported: ImportedKnowledgeDocumentActivation | undefined;
+};
+type PublishedEvidence = {
+  publication: KnowledgePublicationRecord;
+  receipt: KnowledgePublicationReceipt;
+  history: KnowledgePublicationHistory;
 };
 const SOURCE_STALE_CODES = new Set([
   "KNOWLEDGE_SOURCE_CHANGED",
@@ -303,6 +315,104 @@ function contributionBytes(
     : 0;
 }
 
+function availableBytes(
+  budget: KnowledgeContextBudget,
+  policy: KnowledgeContextPolicy,
+): number {
+  const remaining = Math.min(
+    budget.maxContextBytes -
+      budget.reservedBytes -
+      budget.requiredMessagesBytes,
+    budget.contextWindow === null
+      ? Infinity
+      : budget.contextWindow -
+          budget.outputTokens -
+          budget.reservedBytes -
+          budget.requiredMessagesBytes,
+  );
+  if (remaining < 0)
+    fail(
+      "KNOWLEDGE_CONTEXT_BUDGET",
+      "Required context and output/envelope reservation already exceed the shared context cap",
+    );
+  return Math.min(policy.slotBytes, budget.slotBytes, remaining);
+}
+/** True when the source port rejects with a stale-source code; any other failure propagates. */
+function staleBy(assert: () => unknown, cancel: AbortSignal): boolean {
+  try {
+    sync(assert());
+    check(cancel);
+    return false;
+  } catch (error) {
+    if (error instanceof EngineError && SOURCE_STALE_CODES.has(error.code))
+      return true;
+    throw error;
+  }
+}
+function manifestFor(
+  key: string,
+  { document, imported }: ActiveDocument,
+  { publication, receipt, history }: PublishedEvidence,
+  trust: TrustRevision,
+  binding: KnowledgeHostBinding,
+): KnowledgeContextDocumentManifest {
+  const { candidate, generation, attempt, plan } = history;
+  return {
+    documentKey: key,
+    documentRevisionId: document.id,
+    documentRevision: document.revision,
+    documentSha256: document.sha256,
+    bodySha256: document.bodySha256,
+    publicationId: publication.id,
+    publicationSha256: publication.sha256,
+    receiptId: receipt.id,
+    receiptSha256: receipt.sha256,
+    candidateId: candidate.id,
+    candidateSha256: candidate.sha256,
+    generationId: generation.id,
+    generationSha256: generation.sha256,
+    attemptId: attempt.id,
+    attemptSha256: attempt.sha256,
+    planId: plan.id,
+    planSha256: plan.sha256,
+    trustRevisionId: trust.id,
+    trustRevisionSha256: trust.sha256,
+    sourceManifestSha256: knowledgeHash(candidate.source),
+    sourceTextSha256: candidate.source.sha256,
+    sourcePinCount: candidate.source.pins.length,
+    candidateExpiresAt: candidate.expiresAt,
+    planExpiresAt: plan.expiresAt,
+    trustExpiresAt: trust.expiresAt,
+    ...(imported
+      ? {
+          importActivation: {
+            activationId: imported.id,
+            activationSha256: imported.sha256,
+            frontierId: imported.frontierId,
+            frontierSha256: imported.frontierSha256,
+            resumeDecisionSha256: imported.resumeDecisionSha256,
+            originalBindingSha256: knowledgeHash(document.binding),
+            currentBindingSha256: knowledgeHash(binding),
+            expiresAt: imported.proof.expiresAt!,
+          },
+        }
+      : {}),
+  };
+}
+function manifestExpired(
+  manifest: KnowledgeContextDocumentManifest,
+  now: number,
+): boolean {
+  return (
+    Date.parse(manifest.candidateExpiresAt) <= now ||
+    Date.parse(manifest.planExpiresAt) <= now ||
+    (manifest.trustExpiresAt !== null &&
+      Date.parse(manifest.trustExpiresAt) <= now) ||
+    (manifest.importActivation !== undefined &&
+      Date.parse(manifest.importActivation.expiresAt) <= now)
+  );
+}
+
 /** Read-only, whole-document context capture over actual primary-store DTOs and host source pins. */
 export class KnowledgeContextSource implements KnowledgeContextSourcePort {
   readonly #db: DatabaseSync;
@@ -356,6 +466,272 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
     integer(value, 8_640_000_000_000_000);
     return value;
   }
+  private preflightReader(workspaceId: string): Preflight {
+    let readBytes = 0;
+    return (table, id) => {
+      const row = this.#db
+        .prepare(
+          `SELECT length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE id=? ${table === "workspaces" ? "" : "AND workspace_id=?"}`,
+        )
+        .get(...(table === "workspaces" ? [id] : [id, workspaceId])) as
+        { bytes: number } | undefined;
+      if (!row) return false;
+      if (
+        !Number.isSafeInteger(row.bytes) ||
+        row.bytes < 1 ||
+        row.bytes > KNOWLEDGE_CONTEXT_LIMITS.rowBytes ||
+        readBytes + row.bytes > KNOWLEDGE_CONTEXT_LIMITS.readBytes
+      )
+        fail(
+          "KNOWLEDGE_CONTEXT_PORT_INVALID",
+          "Selected native knowledge rows exceed metadata-checked read bounds",
+        );
+      readBytes += row.bytes;
+      return true;
+    };
+  }
+  private readActiveDocument(
+    workspaceId: string,
+    key: string,
+    binding: KnowledgeHostBinding,
+    preflight: Preflight,
+  ): ActiveDocument | "missing" | "revoked" | "stale" {
+    const headExists = preflight(
+      "workspace_document_heads",
+      workspaceDocumentHeadId(workspaceId, key),
+    );
+    const rawHead = this.#ports.getDocumentHead(workspaceId, key);
+    if (!rawHead) {
+      if (headExists)
+        fail(
+          "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+          "Actual document head getter omitted a persisted row",
+        );
+      return "missing";
+    }
+    if (!headExists)
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Document head getter is not an actual persisted DTO",
+      );
+    const head = validateKnowledgePublicationArchiveRow({
+      table: "workspace_document_heads",
+      key: rawHead.id,
+      workspaceId,
+      data: rawHead,
+    }).data as WorkspaceDocumentHead;
+    if (head.documentKey !== key)
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Current head belongs to another selected key",
+      );
+    if (!preflight("workspace_document_revisions", head.revisionId))
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Actual current document revision is missing",
+      );
+    const document = validateKnowledgePublicationArchiveRow({
+      table: "workspace_document_revisions",
+      key: head.revisionId,
+      workspaceId,
+      data: this.#ports.getDocumentRevision(workspaceId, head.revisionId),
+    }).data as WorkspaceDocumentRevision;
+    if (!same(head, workspaceDocumentHeadFor(document)))
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Actual current postimage document and head disagree",
+      );
+    if (head.status === "revoked") return "revoked";
+    if (same(document.binding, binding))
+      return { document, imported: undefined };
+    const imported = readActiveKnowledgeImportActivation(
+      this.#db,
+      workspaceId,
+      key,
+      (table, id) => {
+        preflight(table, id);
+      },
+    );
+    if (
+      !imported ||
+      !same(imported.binding, binding) ||
+      imported.proof.documentRevisionId !== document.id ||
+      imported.proof.documentSha256 !== document.sha256 ||
+      imported.proof.headRevision !== head.revision ||
+      imported.proof.headSha256 !== head.sha256 ||
+      imported.proof.documentKey !== key ||
+      !same(imported.proof.originalBinding, document.binding)
+    )
+      return "stale";
+    return { document, imported };
+  }
+  private readPublishedEvidence(
+    workspaceId: string,
+    key: string,
+    document: WorkspaceDocumentRevision,
+    preflight: Preflight,
+  ): PublishedEvidence {
+    if (!preflight("knowledge_publications", document.publicationId))
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Active document has no actual publication owner",
+      );
+    const publication = validateKnowledgePublicationArchiveRow({
+      table: "knowledge_publications",
+      key: document.publicationId,
+      workspaceId,
+      data: this.#ports.getPublication(workspaceId, document.publicationId),
+    }).data as KnowledgePublicationRecord;
+    const receiptHeader = this.#db
+      .prepare(
+        "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM knowledge_publication_receipts WHERE workspace_id=? AND request_id=?",
+      )
+      .get(workspaceId, publication.requestId) as
+      { id: string; bytes: number } | undefined;
+    if (
+      !receiptHeader ||
+      !preflight("knowledge_publication_receipts", receiptHeader.id)
+    )
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Active publication has no actual exact receipt",
+      );
+    const receipt = validateKnowledgePublicationArchiveRow({
+      table: "knowledge_publication_receipts",
+      key: receiptHeader.id,
+      workspaceId,
+      data: this.#ports.getReceipt(workspaceId, publication.requestId),
+    }).data as KnowledgePublicationReceipt;
+    const p = publication.provenance;
+    const missing = (): never =>
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Published knowledge has missing original native provenance",
+      );
+    if (
+      !preflight("knowledge_candidates", p.candidateId) ||
+      !preflight("knowledge_generation_plans", p.planId) ||
+      !preflight("knowledge_generations", p.generationId) ||
+      !preflight("knowledge_generation_attempts", p.attemptId) ||
+      !preflight("workspace_trust_revisions", p.trustRevisionId)
+    )
+      missing();
+    // Each port runs only for the provenance id preflighted above.
+    const pinned =
+      <T>(id: string, get: (workspaceId: string, id: string) => T) =>
+      (workspaceId: string, requested: string): T =>
+        requested === id ? get(workspaceId, requested) : missing();
+    const history = readKnowledgePublicationHistory(
+      {
+        getCandidate: pinned(p.candidateId, (w, i) =>
+          this.#ports.getCandidate(w, i),
+        ),
+        getPlan: pinned(p.planId, (w, i) => this.#ports.getPlan(w, i)),
+        getGeneration: pinned(p.generationId, (w, i) =>
+          this.#ports.getGeneration(w, i),
+        ),
+        getAttempt: pinned(p.attemptId, (w, i) => this.#ports.getAttempt(w, i)),
+        getTrustRevision: pinned(p.trustRevisionId, (w, i) =>
+          this.#ports.getTrustRevision(w, i),
+        ),
+      },
+      workspaceId,
+      p.candidateId,
+      "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+    );
+    const { candidate, plan } = history;
+    if (
+      publication.state !== "completed" ||
+      publication.operation !== "publish" ||
+      completedPublicationMismatch(publication, document, receipt) ||
+      !same(p, knowledgePublicationProvenance(history)) ||
+      candidate.body !== document.body ||
+      candidate.bodySha256 !== document.bodySha256 ||
+      candidate.target.kind !== "workspace-document" ||
+      candidate.target.key !== key ||
+      candidate.target.revision !== publication.expectedHeadRevision ||
+      candidate.target.sha256 !== publication.expectedHeadSha256 ||
+      candidate.expiresAt !== plan.expiresAt ||
+      !same(candidate.binding, document.binding)
+    )
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Selected data does not describe its exact approved postimage and historical completed producer",
+      );
+    return { publication, receipt, history };
+  }
+  private readCurrentTrust(
+    workspaceId: string,
+    preflight: Preflight,
+  ): TrustRevision | undefined {
+    const header = this.#db
+      .prepare(
+        "SELECT id,revision,revision_id,length(CAST(data AS BLOB)) AS bytes FROM workspace_trust_heads WHERE workspace_id=?",
+      )
+      .get(workspaceId) as
+      | { id: string; revision: number; revision_id: string; bytes: number }
+      | undefined;
+    if (header) {
+      preflight("workspace_trust_heads", header.id);
+      // getTrust follows the head's revisionId pointer, so validate the head JSON before
+      // preflighting that revision and letting the port read its body.
+      const row = this.#db
+        .prepare(
+          "SELECT data FROM workspace_trust_heads WHERE id=? AND workspace_id=?",
+        )
+        .get(header.id, workspaceId)!;
+      let data: unknown;
+      try {
+        data = JSON.parse(String(row.data));
+      } catch {
+        fail(
+          "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+          "Current trust head contains malformed bounded JSON",
+        );
+      }
+      const head = validateKnowledgeArchiveRow({
+        table: "workspace_trust_heads",
+        key: header.id,
+        workspaceId,
+        data,
+      }).data as KnowledgeTrustHead;
+      if (
+        head.revisionId !== header.revision_id ||
+        head.revision !== header.revision ||
+        head.workspaceId !== workspaceId
+      )
+        fail(
+          "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+          "Current trust head JSON and indexed revision disagree",
+        );
+      if (!preflight("workspace_trust_revisions", head.revisionId))
+        fail(
+          "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+          "Current trust revision is missing",
+        );
+    }
+    const raw = this.#ports.getTrust(workspaceId);
+    if (!raw) {
+      if (header)
+        fail(
+          "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+          "Actual current trust getter omitted its persisted head",
+        );
+      return undefined;
+    }
+    if (!header)
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Trust getter does not describe a persisted current head",
+      );
+    const trust = validateTrustRevision(raw);
+    if (trust.workspaceId !== workspaceId)
+      fail(
+        "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
+        "Current trust belongs to another workspace",
+      );
+    return trust;
+  }
   private observe(
     request: SnapshotRequest,
     cancel: AbortSignal,
@@ -367,29 +743,8 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
     availableBytes: number;
   } {
     return this.read(() => {
-      let readBytes = 0;
-      const workspaceId = request.workspace.id;
-      const preflight = (table: string, id: string): boolean => {
-        const row = this.#db
-          .prepare(
-            `SELECT length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE id=? ${table === "workspaces" ? "" : "AND workspace_id=?"}`,
-          )
-          .get(...(table === "workspaces" ? [id] : [id, workspaceId])) as
-          { bytes: number } | undefined;
-        if (!row) return false;
-        if (
-          !Number.isSafeInteger(row.bytes) ||
-          row.bytes < 1 ||
-          row.bytes > KNOWLEDGE_CONTEXT_LIMITS.rowBytes ||
-          readBytes + row.bytes > KNOWLEDGE_CONTEXT_LIMITS.readBytes
-        )
-          fail(
-            "KNOWLEDGE_CONTEXT_PORT_INVALID",
-            "Selected native knowledge rows exceed metadata-checked read bounds",
-          );
-        readBytes += row.bytes;
-        return true;
-      };
+      const workspaceId = request.workspace.id,
+        preflight = this.preflightReader(workspaceId);
       check(cancel);
       if (!preflight("workspaces", workspaceId))
         fail(
@@ -419,26 +774,8 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           "KNOWLEDGE_CONTEXT_PORT_INVALID",
           "Knowledge pause getter must return an actual boolean",
         );
-      const b = request.budget,
-        remaining = Math.min(
-          b.maxContextBytes - b.reservedBytes - b.requiredMessagesBytes,
-          b.contextWindow === null
-            ? Infinity
-            : b.contextWindow -
-                b.outputTokens -
-                b.reservedBytes -
-                b.requiredMessagesBytes,
-        );
-      if (remaining < 0)
-        fail(
-          "KNOWLEDGE_CONTEXT_BUDGET",
-          "Required context and output/envelope reservation already exceed the shared context cap",
-        );
-      const availableBytes = Math.min(
-        request.policy.slotBytes,
-        b.slotBytes,
-        remaining,
-      );
+      const available = availableBytes(request.budget, request.policy),
+        policySha256 = knowledgeHash(request.policy);
       const selected: Selected[] = [],
         omissions: KnowledgeContextOmission[] = [];
       const allowed =
@@ -462,240 +799,29 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           omission(key, "paused");
           continue;
         }
-        const headExists = preflight(
-          "workspace_document_heads",
-          workspaceDocumentHeadId(workspaceId, key),
+        const active = this.readActiveDocument(
+          workspaceId,
+          key,
+          binding,
+          preflight,
         );
-        const rawHead = this.#ports.getDocumentHead(workspaceId, key);
-        if (!rawHead) {
-          if (headExists)
-            fail(
-              "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-              "Actual document head getter omitted a persisted row",
-            );
-          omission(key, "missing");
+        if (typeof active === "string") {
+          omission(key, active);
           continue;
         }
-        if (!headExists)
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Document head getter is not an actual persisted DTO",
-          );
-        const head = validateKnowledgePublicationArchiveRow({
-          table: "workspace_document_heads",
-          key: rawHead.id,
+        const { document, imported } = active;
+        const evidence = this.readPublishedEvidence(
           workspaceId,
-          data: rawHead,
-        }).data as WorkspaceDocumentHead;
-        if (head.documentKey !== key)
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Current head belongs to another selected key",
-          );
-        if (!preflight("workspace_document_revisions", head.revisionId))
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Actual current document revision is missing",
-          );
-        const rawDocument = this.#ports.getDocumentRevision(
-          workspaceId,
-          head.revisionId,
+          key,
+          document,
+          preflight,
         );
-        const document = validateKnowledgePublicationArchiveRow({
-          table: "workspace_document_revisions",
-          key: head.revisionId,
-          workspaceId,
-          data: rawDocument,
-        }).data as WorkspaceDocumentRevision;
-        if (!same(head, workspaceDocumentHeadFor(document)))
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Actual current postimage document and head disagree",
-          );
-        if (head.status === "revoked") {
-          omission(key, "revoked");
-          continue;
-        }
-        const imported = same(document.binding, binding)
-          ? undefined
-          : readActiveKnowledgeImportActivation(
-              this.#db,
-              workspaceId,
-              key,
-              (table, id) => {
-                preflight(table, id);
-              },
-            );
-        if (
-          !same(document.binding, binding) &&
-          (!imported || !same(imported.binding, binding))
-        ) {
-          omission(key, "stale");
-          continue;
-        }
-        if (
-          imported &&
-          (imported.proof.documentRevisionId !== document.id ||
-            imported.proof.documentSha256 !== document.sha256 ||
-            imported.proof.headRevision !== head.revision ||
-            imported.proof.headSha256 !== head.sha256 ||
-            imported.proof.documentKey !== key ||
-            !same(imported.proof.originalBinding, document.binding))
-        ) {
-          omission(key, "stale");
-          continue;
-        }
-        if (!preflight("knowledge_publications", document.publicationId))
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Active document has no actual publication owner",
-          );
-        const rawPublication = this.#ports.getPublication(
-          workspaceId,
-          document.publicationId,
-        );
-        const publication = validateKnowledgePublicationArchiveRow({
-          table: "knowledge_publications",
-          key: document.publicationId,
-          workspaceId,
-          data: rawPublication,
-        }).data as KnowledgePublicationRecord;
-        const rawReceiptHeader = this.#db
-          .prepare(
-            "SELECT id,length(CAST(data AS BLOB)) AS bytes FROM knowledge_publication_receipts WHERE workspace_id=? AND request_id=?",
-          )
-          .get(workspaceId, publication.requestId) as
-          { id: string; bytes: number } | undefined;
-        if (
-          !rawReceiptHeader ||
-          !preflight("knowledge_publication_receipts", rawReceiptHeader.id)
-        )
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Active publication has no actual exact receipt",
-          );
-        const receipt = validateKnowledgePublicationArchiveRow({
-          table: "knowledge_publication_receipts",
-          key: rawReceiptHeader.id,
-          workspaceId,
-          data: this.#ports.getReceipt(workspaceId, publication.requestId),
-        }).data as KnowledgePublicationReceipt;
-        const p = publication.provenance;
-        if (
-          !preflight("knowledge_candidates", p.candidateId) ||
-          !preflight("knowledge_generation_plans", p.planId) ||
-          !preflight("knowledge_generations", p.generationId) ||
-          !preflight("knowledge_generation_attempts", p.attemptId) ||
-          !preflight("workspace_trust_revisions", p.trustRevisionId)
-        )
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Published knowledge has missing original native provenance",
-          );
-        const candidate = validateCandidate(
-            this.#ports.getCandidate(workspaceId, p.candidateId),
-          ),
-          plan = validateGenerationPlan(
-            this.#ports.getPlan(workspaceId, p.planId),
-          );
-        const generation = validateKnowledgeGenerationArchiveRow({
-          table: "knowledge_generations",
-          key: p.generationId,
-          workspaceId,
-          data: this.#ports.getGeneration(workspaceId, p.generationId),
-        }).data as KnowledgeGenerationRecord;
-        const attempt = validateKnowledgeGenerationArchiveRow({
-          table: "knowledge_generation_attempts",
-          key: p.attemptId,
-          workspaceId,
-          data: this.#ports.getAttempt(workspaceId, p.attemptId),
-        }).data as KnowledgeGenerationAttempt;
-        const originalTrust = validateTrustRevision(
-          this.#ports.getTrustRevision(workspaceId, p.trustRevisionId),
-        );
-        if (
-          publication.state !== "completed" ||
-          publication.operation !== "publish" ||
-          completedPublicationMismatch(publication, document, receipt) ||
-          candidate.workspaceId !== workspaceId ||
-          candidate.id !== p.candidateId ||
-          candidate.sha256 !== p.candidateSha256 ||
-          candidate.generationOwnerId !== p.generationId ||
-          candidate.planId !== p.planId ||
-          candidate.trustRevisionId !== p.trustRevisionId ||
-          candidate.body !== document.body ||
-          candidate.bodySha256 !== document.bodySha256 ||
-          candidate.target.kind !== "workspace-document" ||
-          candidate.target.key !== key ||
-          candidate.target.revision !== publication.expectedHeadRevision ||
-          candidate.target.sha256 !== publication.expectedHeadSha256 ||
-          plan.workspaceId !== workspaceId ||
-          plan.id !== p.planId ||
-          plan.sha256 !== p.planSha256 ||
-          generation.sha256 !== p.generationSha256 ||
-          attempt.sha256 !== p.attemptSha256 ||
-          originalTrust.sha256 !== p.trustRevisionSha256 ||
-          generation.state !== "completed" ||
-          attempt.state !== "completed" ||
-          generation.attemptId !== attempt.id ||
-          attempt.generationId !== generation.id ||
-          generation.planId !== plan.id ||
-          attempt.planId !== plan.id ||
-          generation.planSha256 !== plan.sha256 ||
-          attempt.runtimeEpoch !== generation.runtimeEpoch ||
-          generation.errorCode !== null ||
-          attempt.errorCode !== null ||
-          !attempt.streamDone ||
-          attempt.finishReason !== "stop" ||
-          attempt.cleanup?.confirmed !== true ||
-          attempt.cleanup.method !== "iterator-complete" ||
-          attempt.outputTruncated ||
-          attempt.output !== candidate.body ||
-          attempt.outputSha256 !== candidate.bodySha256 ||
-          !same(attempt.usage, candidate.usage) ||
-          attempt.outputBytes > generation.budget.maxOutputBytes ||
-          attempt.observedTextBytes > generation.budget.maxOutputBytes ||
-          attempt.observationBytes > generation.budget.maxObservationBytes ||
-          attempt.events > generation.budget.maxEvents ||
-          Date.parse(attempt.updatedAt) >= generation.deadline ||
-          generation.candidate.state !== "recorded" ||
-          generation.candidate.candidateId !== candidate.id ||
-          candidate.requestSha256 !== plan.requestSha256 ||
-          generation.logicalRequestSha256 !== plan.requestSha256 ||
-          generation.logicalRequestBytes !== plan.requestBytes ||
-          candidate.providerId !== plan.providerId ||
-          candidate.modelId !== plan.modelId ||
-          generation.providerId !== plan.providerId ||
-          generation.modelId !== plan.modelId ||
-          !same(candidate.source, plan.source) ||
-          !same(candidate.target, plan.target) ||
-          candidate.expiresAt !== plan.expiresAt ||
-          originalTrust.workspaceId !== workspaceId ||
-          originalTrust.decision !== "allow" ||
-          originalTrust.id !== plan.trustRevisionId ||
-          originalTrust.revision !== plan.expectedTrustRevision ||
-          candidate.trustRevision !== originalTrust.revision ||
-          ![
-            candidate.binding,
-            plan.binding,
-            generation.binding,
-            originalTrust.binding,
-          ].every((v) => same(v, document.binding))
-        )
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Selected data does not describe its exact approved postimage and historical completed producer",
-          );
+        const { candidate, plan, trust: originalTrust } = evidence.history;
         const now = this.now();
         if (
-          imported &&
-          (imported.proof.expiresAt === null ||
-            Date.parse(imported.proof.expiresAt) <= now)
-        ) {
-          omission(key, "expired");
-          continue;
-        }
-        if (
+          (imported &&
+            (imported.proof.expiresAt === null ||
+              Date.parse(imported.proof.expiresAt) <= now)) ||
           Date.parse(candidate.expiresAt) <= now ||
           Date.parse(plan.expiresAt) <= now ||
           (originalTrust.expiresAt !== null &&
@@ -704,78 +830,9 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           omission(key, "expired");
           continue;
         }
-        const currentHeader = this.#db
-          .prepare(
-            "SELECT id,revision,revision_id,length(CAST(data AS BLOB)) AS bytes FROM workspace_trust_heads WHERE workspace_id=?",
-          )
-          .get(workspaceId) as
-          | { id: string; revision: number; revision_id: string; bytes: number }
-          | undefined;
-        if (currentHeader) {
-          preflight("workspace_trust_heads", currentHeader.id);
-          // The legacy getter follows the JSON pointer, so validate it before
-          // preflighting that revision and allowing the getter to read its body.
-          const headRow = this.#db
-            .prepare(
-              "SELECT data FROM workspace_trust_heads WHERE id=? AND workspace_id=?",
-            )
-            .get(currentHeader.id, workspaceId)!;
-          let headData: unknown;
-          try {
-            headData = JSON.parse(String(headRow.data));
-          } catch {
-            fail(
-              "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-              "Current trust head contains malformed bounded JSON",
-            );
-          }
-          const trustHead = validateKnowledgeArchiveRow({
-            table: "workspace_trust_heads",
-            key: currentHeader.id,
-            workspaceId,
-            data: headData,
-          }).data as {
-            workspaceId: string;
-            revision: number;
-            revisionId: string;
-          };
-          if (
-            trustHead.revisionId !== currentHeader.revision_id ||
-            trustHead.revision !== currentHeader.revision ||
-            trustHead.workspaceId !== workspaceId
-          )
-            fail(
-              "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-              "Current trust head JSON and indexed revision disagree",
-            );
-          if (!preflight("workspace_trust_revisions", trustHead.revisionId))
-            fail(
-              "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-              "Current trust revision is missing",
-            );
-        }
-        const currentRaw = this.#ports.getTrust(workspaceId);
-        if (!currentRaw) {
-          if (currentHeader)
-            fail(
-              "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-              "Actual current trust getter omitted its persisted head",
-            );
-          omission(key, "untrusted");
-          continue;
-        }
-        if (!currentHeader)
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Trust getter does not describe a persisted current head",
-          );
-        const currentTrust = validateTrustRevision(currentRaw);
-        if (currentTrust.workspaceId !== workspaceId)
-          fail(
-            "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
-            "Current trust belongs to another workspace",
-          );
+        const currentTrust = this.readCurrentTrust(workspaceId, preflight);
         if (
+          !currentTrust ||
           currentTrust.decision !== "allow" ||
           !same(currentTrust.binding, binding) ||
           (imported
@@ -787,36 +844,27 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           omission(key, "untrusted");
           continue;
         }
-        try {
-          sync(
-            this.#ports.assertTrustSourcesCurrent(
-              binding,
-              currentTrust.sources,
-            ),
-          );
-          check(cancel);
-        } catch (error) {
-          if (
-            error instanceof EngineError &&
-            SOURCE_STALE_CODES.has(error.code)
-          ) {
-            omission(key, "untrusted");
-            continue;
-          }
-          throw error;
+        if (
+          staleBy(
+            () =>
+              this.#ports.assertTrustSourcesCurrent(
+                binding,
+                currentTrust.sources,
+              ),
+            cancel,
+          )
+        ) {
+          omission(key, "untrusted");
+          continue;
         }
-        try {
-          sync(this.#ports.assertSourcesCurrent(binding, candidate.source));
-          check(cancel);
-        } catch (error) {
-          if (
-            error instanceof EngineError &&
-            SOURCE_STALE_CODES.has(error.code)
-          ) {
-            omission(key, "stale");
-            continue;
-          }
-          throw error;
+        if (
+          staleBy(
+            () => this.#ports.assertSourcesCurrent(binding, candidate.source),
+            cancel,
+          )
+        ) {
+          omission(key, "stale");
+          continue;
         }
         const after = validateBinding(this.#ports.checkBinding(workspaceId));
         sync(this.#ports.assertOwnerCurrent(workspaceId, request.owner));
@@ -833,47 +881,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
             "KNOWLEDGE_CONTEXT_STALE",
             "Trust changed inside the primary knowledge observation",
           );
-        const manifest: KnowledgeContextDocumentManifest = {
-          documentKey: key,
-          documentRevisionId: document.id,
-          documentRevision: document.revision,
-          documentSha256: document.sha256,
-          bodySha256: document.bodySha256,
-          publicationId: publication.id,
-          publicationSha256: publication.sha256,
-          receiptId: receipt.id,
-          receiptSha256: receipt.sha256,
-          candidateId: candidate.id,
-          candidateSha256: candidate.sha256,
-          generationId: generation.id,
-          generationSha256: generation.sha256,
-          attemptId: attempt.id,
-          attemptSha256: attempt.sha256,
-          planId: plan.id,
-          planSha256: plan.sha256,
-          trustRevisionId: currentTrust.id,
-          trustRevisionSha256: currentTrust.sha256,
-          sourceManifestSha256: knowledgeHash(candidate.source),
-          sourceTextSha256: candidate.source.sha256,
-          sourcePinCount: candidate.source.pins.length,
-          candidateExpiresAt: candidate.expiresAt,
-          planExpiresAt: plan.expiresAt,
-          trustExpiresAt: currentTrust.expiresAt,
-          ...(imported
-            ? {
-                importActivation: {
-                  activationId: imported.id,
-                  activationSha256: imported.sha256,
-                  frontierId: imported.frontierId,
-                  frontierSha256: imported.frontierSha256,
-                  resumeDecisionSha256: imported.resumeDecisionSha256,
-                  originalBindingSha256: knowledgeHash(document.binding),
-                  currentBindingSha256: knowledgeHash(binding),
-                  expiresAt: imported.proof.expiresAt!,
-                },
-              }
-            : {}),
-        };
+        const { publication, receipt } = evidence;
         if (
           imported &&
           (imported.proof.publicationId !== publication.id ||
@@ -888,14 +896,14 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           omission(key, "stale");
           continue;
         }
-        const next = { manifest, body: document.body };
+        const next = {
+          manifest: manifestFor(key, active, evidence, currentTrust, binding),
+          body: document.body,
+        };
         if (
           !only &&
-          contributionBytes(
-            [...selected, next],
-            workspaceId,
-            knowledgeHash(request.policy),
-          ) > availableBytes
+          contributionBytes([...selected, next], workspaceId, policySha256) >
+            available
         ) {
           omission(key, "context-budget");
           continue;
@@ -916,14 +924,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
       const finalNow = this.now();
       for (let index = selected.length - 1; index >= 0; index--) {
         const manifest = selected[index]!.manifest;
-        if (
-          Date.parse(manifest.candidateExpiresAt) <= finalNow ||
-          Date.parse(manifest.planExpiresAt) <= finalNow ||
-          (manifest.trustExpiresAt !== null &&
-            Date.parse(manifest.trustExpiresAt) <= finalNow) ||
-          (manifest.importActivation !== undefined &&
-            Date.parse(manifest.importActivation.expiresAt) <= finalNow)
-        ) {
+        if (manifestExpired(manifest, finalNow)) {
           omission(manifest.documentKey, "expired");
           selected.splice(index, 1);
         }
@@ -937,7 +938,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
         bindingSha256: knowledgeHash(binding),
         selected,
         omissions,
-        availableBytes,
+        availableBytes: available,
       };
     });
   }
@@ -952,12 +953,19 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
       );
     const observed = this.observe(captured.request, captured.signal);
     check(captured.signal);
-    const docs = observed.selected.map((s) => s.manifest),
-      bytes = contributionBytes(
-        observed.selected,
-        captured.request.workspace.id,
-        knowledgeHash(captured.request.policy),
-      ),
+    const policySha256 = knowledgeHash(captured.request.policy),
+      messages = observed.selected.length
+        ? [
+            message(
+              observed.selected,
+              captured.request.workspace.id,
+              policySha256,
+            ),
+          ]
+        : [],
+      bytes = messages.length
+        ? Buffer.byteLength(JSON.stringify(messages[0])) + 1
+        : 0,
       body = {
         schemaVersion: 1 as const,
         authority: "read-only" as const,
@@ -965,20 +973,12 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
         coverage: "host-selected-document-keys" as const,
         workspaceId: captured.request.workspace.id,
         owner: captured.request.owner,
-        policySha256: knowledgeHash(captured.request.policy),
+        policySha256,
         bindingSha256: observed.bindingSha256,
-        documents: docs,
+        documents: observed.selected.map((s) => s.manifest),
         omissions: observed.omissions,
         complete: observed.omissions.length === 0,
-        messages: observed.selected.length
-          ? [
-              message(
-                observed.selected,
-                captured.request.workspace.id,
-                knowledgeHash(captured.request.policy),
-              ),
-            ]
-          : [],
+        messages,
         reservations: {
           envelopeBytes: captured.request.budget.reservedBytes,
           outputTokens: captured.request.budget.outputTokens,

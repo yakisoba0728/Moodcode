@@ -131,7 +131,7 @@ const SOURCE_READ: GuardedWriteOptions = {
     ),
 };
 
-/** Read-only adapter over the actual legacy/native transcript owner and current physical files. */
+/** Read-only adapter over the primary messages/runs/sessions transcript and current physical files. */
 export class KnowledgeHostAdapter {
   readonly #db: DatabaseSync;
   readonly #ports: KnowledgeHostAdapterPorts;
@@ -636,7 +636,6 @@ export class KnowledgeHostAdapter {
     equal(observed.manifest, manifest, "KNOWLEDGE_SOURCE_CHANGED");
   }
   private absent(binding: KnowledgeHostBinding, relative: string): boolean {
-    exactKnowledgePath(relative);
     this.currentBinding(binding);
     const components = relative.split("/");
     let selected = binding.root,
@@ -736,7 +735,6 @@ export class KnowledgeHostAdapter {
     binding: KnowledgeHostBinding,
     key: string,
   ): Extract<KnowledgeTarget, { kind: "workspace-document" }> {
-    identifier(key);
     this.currentBinding(binding);
     if (!this.#ports.readWorkspaceDocumentTarget)
       knowledgeError(
