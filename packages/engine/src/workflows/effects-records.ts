@@ -34,7 +34,6 @@ export function effectFail(code = "WORKFLOW_EFFECT_INVALID"): never {
 export function signEffect<T extends object>(body: T): T & { sha256: string } {
   return sealRecord(body, workflowJson);
 }
-/** The next revision of an effect record, chained to the digest of the one it replaces. */
 export function advanceEffect(
   record: WorkflowEffectRecord,
   patch: Partial<Pick<WorkflowEffectRecord, "state" | "merge">>,
@@ -127,7 +126,9 @@ function verifiedEffect(value: unknown): Record<string, unknown> {
   if (!data || typeof data !== "object" || Array.isArray(data)) effectFail();
   return verifySealed(data, () => effectFail());
 }
-/** Effect and delivery documents, all sessions or one workspace, within the 512-document bound. */
+function storedEffect(db: DatabaseSync, row: Record<string, unknown>) {
+  return verifiedEffect(body(db, String(row.session_id), String(row.kind)));
+}
 function effectDocuments(
   db: DatabaseSync,
   scope: { readonly workspaceId?: string; readonly effectsOnly?: boolean } = {},
@@ -203,7 +204,6 @@ function nativeRevision(
   if (data.sha256 !== head.sha256) effectFail();
   return data;
 }
-/** The effect's settled stage revision, its child's closed storage and journal entry, and the current instance and spec bind it. */
 function effectStageBinding(
   db: DatabaseSync,
   r: WorkflowEffectRecord,
@@ -282,7 +282,6 @@ function effectStageBinding(
     effectFail();
   return { owner, selected };
 }
-/** The child's run, turns, tools, checkpoints and verification receipts prove the recorded role's effect. */
 function assertEffectEvidence(
   r: WorkflowEffectRecord,
   selected: WorkflowStageSpec,
@@ -382,7 +381,6 @@ function assertEffectEvidence(
       effectFail("WORKFLOW_VERIFICATION_FAILED");
   }
 }
-/** A merged effect's tool call, approval, message part and checkpoints match its merge record. */
 function assertMergeEvidence(
   db: DatabaseSync,
   r: WorkflowEffectRecord,
@@ -561,9 +559,7 @@ export function readWorkflowDelivery(
 export function validateWorkflowEffectsDatabase(db: DatabaseSync): void {
   for (const row of effectDocuments(db)) {
     if (Number(row.bytes) > 131072) effectFail("WORKFLOW_EFFECT_LIMIT");
-    const r = verifiedEffect(
-      body(db, String(row.session_id), String(row.kind)),
-    );
+    const r = storedEffect(db, row);
     if (String(row.kind).startsWith(EFFECT_PREFIX))
       readWorkflowEffect(
         db,
@@ -774,8 +770,7 @@ export class WorkflowEffectStorage {
       .all(inputId);
     if (rows.length > 1) effectFail();
     if (rows.length) {
-      const event = JSON.parse(String(rows[0]!.data)),
-        r = event.payload.record;
+      const r = JSON.parse(String(rows[0]!.data)).payload.record;
       return this.delivery(String(rows[0]!.session_id), String(r.instanceId));
     }
     if (requestId.startsWith("workflow-result:"))
@@ -788,8 +783,9 @@ export class WorkflowEffectStorage {
   recover(): void {
     this.ports.transaction(() => {
       for (const row of effectDocuments(this.db, { effectsOnly: true })) {
-        const value = verifiedEffect(
-          body(this.db, String(row.session_id), String(row.kind)),
+        const value = storedEffect(
+          this.db,
+          row,
         ) as unknown as WorkflowEffectRecord;
         if (value.state !== "merge-dispatching") continue;
         const next = advanceEffect(value, { state: "uncertain" });
@@ -812,9 +808,7 @@ export function pauseImportedWorkflowEffects(
   ports: Pick<WorkflowEffectNativePorts, "putDocument" | "appendEvent">,
 ): void {
   for (const row of effectDocuments(db, { workspaceId })) {
-    const data = verifiedEffect(
-      body(db, String(row.session_id), String(row.kind)),
-    );
+    const data = storedEffect(db, row);
     if (data.state === "paused-import") continue;
     const effect = String(row.kind).startsWith(EFFECT_PREFIX),
       next = effect

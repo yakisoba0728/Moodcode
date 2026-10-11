@@ -66,7 +66,6 @@ interface MergeCapture {
   used: boolean;
   batchSelection: JsonObject | null;
 }
-/** The Root run's workflow model tools: one binding per run, exact-approval stage requests, merges and result delivery. */
 export class WorkflowModelTools {
   private readonly bindings = new Map<object, Binding>();
   private readonly byRun = new Map<string, object>();
@@ -295,11 +294,7 @@ export class WorkflowModelTools {
           const prepared: PreparedTool = {
             name,
             input: data,
-            fingerprint: knowledgeHash({
-              preview,
-              input: data,
-              tuple,
-            }),
+            fingerprint: knowledgeHash({ preview, input: data, tuple }),
             requiresApproval: name !== "observe_workflow_stage",
             preview,
           };
@@ -475,17 +470,13 @@ export class WorkflowModelTools {
   toolSettled(tool: ToolCallRecord): void {
     const p = this.pendingMerge.get(tool.id);
     if (!p) return;
-    if (tool.state !== "completed" || p.result.isError) {
-      this.finishMergeUnknown(tool.id);
-      return;
-    }
+    if (tool.state !== "completed" || p.result.isError)
+      return this.finishMergeUnknown(tool.id);
     const checkpoints = this.engine.store
       .listCheckpoints(tool.runId)
       .filter((c) => c.toolCallId === tool.id);
-    if (!checkpoints.length || checkpoints.some((c) => c.incomplete)) {
-      this.finishMergeUnknown(tool.id);
-      return;
-    }
+    if (!checkpoints.length || checkpoints.some((c) => c.incomplete))
+      return this.finishMergeUnknown(tool.id);
     const record = advanceEffect(p.record, {
         state: "merged",
         merge: {

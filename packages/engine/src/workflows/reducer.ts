@@ -103,7 +103,6 @@ export function initialWorkflowStages(spec: WorkflowSpec): Omit<WorkflowStageSta
 export function forcedWorkflowState(before: WorkflowInstanceRevision, operation: "pause-import" | "uncertain"): { state: WorkflowState; stages: WorkflowStageState[]; result: JsonObject | null } {
   return { state: operation === "pause-import" ? "paused-import" : "uncertain", result: before.result, stages: before.stages.map(stage => operation === "uncertain" && ["dispatching", "running"].includes(stage.state) ? { ...stage, state: "uncertain" } : stage) };
 }
-/** Only explicit host events transition state. No transition restarts or dispatches a child. */
 export function reduceWorkflow(spec: WorkflowSpec, before: WorkflowInstanceRevision, event: WorkflowTransitionEvent): { state: WorkflowState; stages: WorkflowStageState[]; result: JsonObject | null } {
   if (WORKFLOW_TERMINAL_STATES.includes(before.state)) workflowError("WORKFLOW_TERMINAL");
   const stages = structuredClone(before.stages) as WorkflowStageState[];

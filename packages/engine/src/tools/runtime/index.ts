@@ -17,7 +17,6 @@ import { canonicalJson, canonicalSha256, jsonTextSha256, sha256Hex } from '../..
 import { deepFreeze, isBoundedText, plainRecord } from '../../shared/data.js';
 export interface RuntimeToolRegistration { effect?: ToolEffectClass; exactApproval?: boolean; revalidate?: (prepared: PreparedTool, context: ToolContext) => Promise<void> }
 const declaredRegistrations = new WeakMap<ToolDefinition, Readonly<{ exactApproval: boolean }>>();
-/** The producing module declares its approval mode beside the unchanged definition. */
 export function declareToolRegistration<T extends ToolDefinition>(definition: T, registration: { exactApproval: boolean }): T {
   declaredRegistrations.set(definition, Object.freeze({ exactApproval: registration.exactApproval })); return definition;
 }
@@ -158,7 +157,6 @@ export class ScopedToolRuntime {
     if (!request || JSON.stringify(prepared) !== request.outerSnapshot || JSON.stringify(request.inner) !== request.innerSnapshot) fail('INVALID_PREPARED_TOOL', message);
     return request;
   }
-  /** Execution identity and both prepared snapshots are unchanged. */
   private intact(request: Request, prepared: PreparedTool, context: ToolContext): boolean {
     return binding(context) === request.binding && JSON.stringify(prepared) === request.outerSnapshot && JSON.stringify(request.inner) === request.innerSnapshot;
   }

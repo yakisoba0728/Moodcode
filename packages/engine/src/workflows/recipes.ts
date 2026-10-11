@@ -18,9 +18,7 @@ import type {
   WorkflowSpec,
 } from "./types.js";
 
-/** Recipes bind bounded user DATA to parameters of one exact registered definition.
- * They cannot replace stage prompts, profile/model/tool pins, allocations or approval.
- */
+/** Recipes bind bounded user DATA to one registered definition's parameters; they cannot replace prompts, pins, allocations or approval. */
 export function validateWorkflowRecipe(
   input: unknown,
   workflowInput: WorkflowSpec,

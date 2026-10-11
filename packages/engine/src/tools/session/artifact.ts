@@ -10,6 +10,9 @@ import type { SqliteStore } from "../../storage/index.js";
 import { boundedJson } from "../../artifacts/validation.js";
 import { preparedRequests, workspaceCallBinding } from "../prepared-requests.js";
 
+function invalid(message: string): never {
+  throw new EngineError("INVALID_ARTIFACT_INPUT", message);
+}
 export function createArtifactReadTool(
   store: SqliteStore,
   artifacts: () => Promise<ArtifactStore>,
@@ -58,10 +61,7 @@ export function createArtifactReadTool(
             ].includes(key),
         )
       )
-        throw new EngineError(
-          "INVALID_ARTIFACT_INPUT",
-          "Artifact read requires bounded exact identity fields",
-        );
+        invalid("Artifact read requires bounded exact identity fields");
       for (const key of [
         "artifactId",
         "runId",
@@ -75,16 +75,10 @@ export function createArtifactReadTool(
           Buffer.byteLength(input[key]) > 256 ||
           /[\u0000-\u001f\u007f]/u.test(input[key])
         )
-          throw new EngineError(
-            "INVALID_ARTIFACT_INPUT",
-            "Artifact identity is invalid",
-          );
+          invalid("Artifact identity is invalid");
       }
       if (input.attemptId !== undefined && input.turnId === undefined)
-        throw new EngineError(
-          "INVALID_ARTIFACT_INPUT",
-          "Attempt identity requires its Turn",
-        );
+        invalid("Attempt identity requires its Turn");
       const offset = input.offset ?? 0,
         limit = input.limit ?? 8192;
       if (
@@ -96,10 +90,7 @@ export function createArtifactReadTool(
         limit < 1 ||
         limit > 16384
       )
-        throw new EngineError(
-          "INVALID_ARTIFACT_INPUT",
-          "Artifact paging exceeds its bound",
-        );
+        invalid("Artifact paging exceeds its bound");
       const run = store.getRun(input.runId as string);
       if (run.sessionId !== context.sessionId)
         throw new EngineError(

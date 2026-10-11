@@ -34,6 +34,8 @@ import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { sha256Hex } from "../shared/canonical.js";
+import { parseJsonOr } from "../shared/data.js";
+import { stableStat } from "../shared/fs.js";
 import { raceAbort } from "../shared/runtime.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -60,7 +62,6 @@ import {
 } from "./spec.js";
 import type { WorkflowStageSpec } from "./types.js";
 
-/** Every tool some stage role may be granted. */
 const STAGE_TOOLS = [...new Set(Object.values(WORKFLOW_ROLE_TOOLS).flat())];
 
 interface PhysicalFile {
@@ -128,18 +129,9 @@ function physicalFile(path: string): PhysicalFile {
       !Buffer.from(text).equals(body) ||
       text.includes("\0") ||
       current.isSymbolicLink() ||
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.dev !== first.dev ||
-      before.ino !== first.ino ||
-      before.size !== after.size ||
-      before.ctimeNs !== after.ctimeNs ||
-      before.mtimeNs !== after.mtimeNs ||
-      current.dev !== after.dev ||
-      current.ino !== after.ino ||
-      current.size !== after.size ||
-      current.ctimeNs !== after.ctimeNs ||
-      current.mtimeNs !== after.mtimeNs ||
+      !stableStat(first, before) ||
+      !stableStat(before, after, ["size", "ctime", "mtime"]) ||
+      !stableStat(after, current, ["size", "ctime", "mtime"]) ||
       realpathSync(path) !== path
     )
       workflowError("WORKFLOW_WORKTREE_STALE");
@@ -466,7 +458,6 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
   }
 }
 
-/** Registers the stage's root verification checks in the child, rebased onto its workspace. */
 function stageVerification(
   root: MoodcodeEngine,
   verification: NonNullable<WorkflowStageSpec["verification"]>,
@@ -534,7 +525,6 @@ function stageEvidence(
   return workflowJson({ ...body, sha256: knowledgeHash(body) });
 }
 
-/** Original admission and completion handles from the private child engines, including fast completion. */
 export function workflowChildObservationPort(
   children: ChildExecutionView,
   owners: ActualWorkflowOwnerPort,
@@ -787,16 +777,14 @@ export function workflowChildObservationPort(
               "WORKFLOW_RESULT_INCOMPLETE",
               "Workflow results require complete child output",
             );
-          let parsed: unknown;
-          try {
-            parsed = JSON.parse(actual.content);
-          } catch {
-            throw new EngineError(
-              "WORKFLOW_RESULT_INVALID",
-              "Workflow child output must be a JSON object",
-            );
-          }
-          const data = workflowJson(parsed);
+          const data = workflowJson(
+            parseJsonOr(actual.content, () => {
+              throw new EngineError(
+                "WORKFLOW_RESULT_INVALID",
+                "Workflow child output must be a JSON object",
+              );
+            }),
+          );
           if (!data || typeof data !== "object" || Array.isArray(data))
             throw new EngineError(
               "WORKFLOW_RESULT_INVALID",

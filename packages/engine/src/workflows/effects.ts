@@ -47,7 +47,6 @@ import {
   type WorkflowDeliveryTargetProof,
   type WorkflowEffectStorage,
 } from "./effects-records.js";
-/** A missing, replaced or changing file is WORKFLOW_SOURCE_STALE; growth past 1 MiB while reading is WORKFLOW_EFFECT_LIMIT. */
 export function filePin(path: string): WorkflowFilePin {
   const stale = (): never => effectFail("WORKFLOW_SOURCE_STALE");
   try {
@@ -165,7 +164,6 @@ export class WorkflowEffects {
         ),
     );
   }
-  /** @internal */
   open() {
     if (this.closed) effectFail("WORKFLOW_CLOSED");
   }
@@ -176,7 +174,6 @@ export class WorkflowEffects {
       record.specRevisionId,
     )!.spec;
   }
-  /** @internal */
   issue<T>(map: Map<object, T>, value: T): object {
     this.open();
     if (map.size >= 64) effectFail("WORKFLOW_EFFECT_LIMIT");
@@ -188,7 +185,6 @@ export class WorkflowEffects {
   issueEffect(record: WorkflowEffectRecord | null, check: () => void): object {
     return this.issue(this.effects, { record, check });
   }
-  /** @internal */
   publish(original: object, expectedRevision: number): WorkflowEffectRecord {
     return this.native.publish(original, expectedRevision);
   }
@@ -410,7 +406,6 @@ export class WorkflowEffects {
         return r;
       });
   }
-  /** @internal */
   async mergeSelection(
     record: WorkflowInstanceRevision,
     stageId: string,
@@ -497,7 +492,6 @@ export class WorkflowEffects {
   }): object {
     return this.issue(this.targets, this.target(input));
   }
-  /** @internal */
   target(input: {
     workspaceId: string;
     instanceId: string;

@@ -33,7 +33,6 @@ import {
   WORKFLOW_STAGE_KEYS,
 } from "./spec.js";
 
-/** Root-owned private actual child executions issue every original admission/completion handle. */
 export interface ActualWorkflowChildObservationPort {
   start(
     originalOwner: object,
@@ -165,7 +164,6 @@ export class WorkflowService {
   private open(): void {
     if (this.closed) workflowError("WORKFLOW_CLOSED");
   }
-  /** The shape, identifiers and signal of a stage request, and approval for a start. */
   private stageInput(
     input: ObserveWorkflowStageInput & { readonly approved?: boolean },
     approval: boolean,
@@ -292,10 +290,7 @@ export class WorkflowService {
       if (prior) {
         if (prior.sha256 !== sha256) workflowError("WORKFLOW_REQUEST_CONFLICT");
         return prior.operation.then((result) =>
-          structuredClone({
-            ...result,
-            duplicate: true,
-          }),
+          structuredClone({ ...result, duplicate: true }),
         );
       }
       if (this.stageRequests.size >= 256) workflowError("WORKFLOW_LIMIT");
@@ -446,11 +441,10 @@ export class WorkflowService {
     try {
       this.stageInput(input, false);
       const { signal, ...data } = input;
-      const operation = this.doObserveStage({
-        ...data,
-        signal: this.linked(signal),
-      });
-      return this.track(input.instanceId, operation);
+      return this.track(
+        input.instanceId,
+        this.doObserveStage({ ...data, signal: this.linked(signal) }),
+      );
     } catch (error) {
       return Promise.reject(error);
     }
@@ -498,7 +492,7 @@ export class WorkflowService {
         throw error;
       }
       try {
-        const settle = () => {
+        return this.ports.effects.transaction(() => {
           const result = this.ports.native.settleStage(
             owner.original,
             completion,
@@ -515,8 +509,7 @@ export class WorkflowService {
             this.ports.batch.observed(result.record, input.stageId, completion);
           }
           return result;
-        };
-        return this.ports.effects.transaction(settle);
+        });
       } finally {
         this.ports.effects.release(originalEffect);
       }
@@ -530,7 +523,6 @@ export class WorkflowService {
   ): { record: WorkflowInstanceRevision; owner: InstanceOwner } {
     return this.owned(workspaceId, instanceId);
   }
-  /** Tracks a stage operation until it settles; callers get a copy of its result. */
   private track<T>(instanceId: string, operation: Promise<T>): Promise<T> {
     this.pending.set(operation, instanceId);
     operation
