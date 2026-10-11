@@ -3,6 +3,7 @@ import type { JsonObject } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { workflowJson } from "../workflows/spec.js";
 import { readWorkflowEffect } from "../workflows/effects-records.js";
+import { CODING_CASE_STATES, CODING_GROUP_STATES } from "./types.js";
 import type { CodingAttemptGroup, BatchCaseReceipt } from "./types.js";
 import { NATIVE_RECORD_BYTES, batchFail, signBatch } from "./validation.js";
 export const groupKind = (id: string) =>
@@ -14,7 +15,11 @@ interface NativePorts {
   put(session: string, kind: string, rev: number, data: JsonObject): void;
   event(session: string, type: string, data: JsonObject): void;
 }
-function body(db: DatabaseSync, session: string, kind: string): unknown {
+function body(
+  db: DatabaseSync,
+  session: string,
+  kind: string,
+): { revision: number; value: unknown } | null {
   const row = db
     .prepare(
       "SELECT revision,length(CAST(data AS BLOB)) bytes FROM session_documents WHERE session_id=? AND kind=?",
@@ -23,15 +28,18 @@ function body(db: DatabaseSync, session: string, kind: string): unknown {
   if (!row) return null;
   if (Number(row.bytes) > NATIVE_RECORD_BYTES)
     batchFail("CODING_EVIDENCE_LIMIT");
-  return JSON.parse(
-    String(
-      db
-        .prepare(
-          "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
-        )
-        .get(session, kind)!.data,
+  return {
+    revision: Number(row.revision),
+    value: JSON.parse(
+      String(
+        db
+          .prepare(
+            "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
+          )
+          .get(session, kind)!.data,
+      ),
     ),
-  );
+  };
 }
 function signed<T>(value: unknown): T {
   const v = workflowJson(value) as Record<string, unknown>;
@@ -46,24 +54,35 @@ function signed<T>(value: unknown): T {
   if (sha256 !== knowledgeHash(rest)) batchFail();
   return v as T;
 }
+function uniqueEventRecord(
+  db: DatabaseSync,
+  session: string,
+  type: string,
+  sha256: string,
+  maxBytes: number,
+  code: string,
+): unknown {
+  const rows = db
+    .prepare(
+      "SELECT data,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.record.sha256')=? LIMIT 3",
+    )
+    .all(session, type, sha256);
+  if (rows.length !== 1 || Number(rows[0]!.bytes) > maxBytes) batchFail(code);
+  return JSON.parse(String(rows[0]!.data)).payload.record;
+}
 function anchor(
   db: DatabaseSync,
   session: string,
   kind: string,
   record: { sha256: string },
 ): void {
-  const rows = db
-    .prepare(
-      "SELECT data,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.record.sha256')=? LIMIT 3",
-    )
-    .all(session, kind, record.sha256);
+  const code = "CODING_NATIVE_ANCHOR_INVALID";
   if (
-    rows.length !== 1 ||
-    Number(rows[0]!.bytes) > 524288 ||
-    knowledgeHash(JSON.parse(String(rows[0]!.data)).payload.record) !==
-      knowledgeHash(record)
+    knowledgeHash(
+      uniqueEventRecord(db, session, kind, record.sha256, 524288, code),
+    ) !== knowledgeHash(record)
   )
-    batchFail("CODING_NATIVE_ANCHOR_INVALID");
+    batchFail(code);
 }
 function effectAncestor(
   db: DatabaseSync,
@@ -92,15 +111,15 @@ function effectAncestor(
       return;
     }
     if (!current.previousSha256) batchFail("CODING_EFFECT_LINEAGE_INVALID");
-    const rows = db
-      .prepare(
-        "SELECT data,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type='workflow.effect.recorded' AND json_extract(data,'$.payload.record.sha256')=? LIMIT 3",
-      )
-      .all(session, current.previousSha256);
-    if (rows.length !== 1 || Number(rows[0]!.bytes) > NATIVE_RECORD_BYTES)
-      batchFail("CODING_EFFECT_LINEAGE_INVALID");
     const prior = signed<typeof current>(
-      JSON.parse(String(rows[0]!.data)).payload.record,
+      uniqueEventRecord(
+        db,
+        session,
+        "workflow.effect.recorded",
+        current.previousSha256,
+        NATIVE_RECORD_BYTES,
+        "CODING_EFFECT_LINEAGE_INVALID",
+      ),
     );
     if (
       prior.revision + 1 !== current.revision ||
@@ -117,9 +136,9 @@ function readBatchCase(
   groupId: string,
   caseId: string,
 ): BatchCaseReceipt | null {
-  const v = body(db, session, caseKind(groupId, caseId));
-  if (!v) return null;
-  const r = signed<BatchCaseReceipt>(v);
+  const doc = body(db, session, caseKind(groupId, caseId));
+  if (!doc?.value) return null;
+  const r = signed<BatchCaseReceipt>(doc.value);
   if (
     r.version !== 1 ||
     r.sessionId !== session ||
@@ -173,9 +192,9 @@ function readBatchGroup(
   session: string,
   id: string,
 ): CodingAttemptGroup | null {
-  const v = body(db, session, groupKind(id));
-  if (!v) return null;
-  const r = signed<CodingAttemptGroup>(v);
+  const doc = body(db, session, groupKind(id));
+  if (!doc?.value) return null;
+  const r = signed<CodingAttemptGroup>(doc.value);
   if (
     r.version !== 1 ||
     r.groupId !== id ||
@@ -187,23 +206,11 @@ function readBatchGroup(
     r.revision < 1 ||
     r.cases.length !== r.preview.input.cases.length ||
     r.cases.length > 4 ||
-    ![
-      "running",
-      "ready",
-      "completed",
-      "cancelled",
-      "uncertain",
-      "paused-import",
-    ].includes(r.state)
+    !CODING_GROUP_STATES.includes(r.state)
   )
     batchFail();
   signed(r.preview);
-  const row = db
-    .prepare(
-      "SELECT revision FROM session_documents WHERE session_id=? AND kind=?",
-    )
-    .get(session, groupKind(id));
-  if (Number(row?.revision) !== r.revision) batchFail();
+  if (doc.revision !== r.revision) batchFail();
   const parent = db
     .prepare("SELECT data FROM runs WHERE id=?")
     .get(r.parentRunId);
@@ -211,15 +218,7 @@ function readBatchGroup(
     batchFail();
   for (const c of r.cases) {
     if (
-      ![
-        "pending",
-        "running",
-        "verified",
-        "failed",
-        "skipped",
-        "cancelled",
-        "uncertain",
-      ].includes(c.state) ||
+      !CODING_CASE_STATES.includes(c.state) ||
       !r.preview.input.cases.some((i) => i.id === c.id)
     )
       batchFail();
@@ -320,19 +319,30 @@ export class CodingBatchStorage {
   case(session: string, group: string, id: string) {
     return readBatchCase(this.db, session, group, id);
   }
+  find(workspace: string, id: string): CodingAttemptGroup | null {
+    const rows = this.db
+      .prepare(
+        "SELECT d.session_id FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE s.workspace_id=? AND d.kind=? LIMIT 2",
+      )
+      .all(workspace, groupKind(id));
+    if (rows.length > 1) batchFail();
+    return rows.length ? this.read(String(rows[0]!.session_id), id) : null;
+  }
+  private assertCapacity(): void {
+    if (
+      Number(
+        this.db
+          .prepare(
+            "SELECT count(*) n FROM session_documents WHERE kind LIKE 'coding.group.%' OR kind LIKE 'coding.case.%'",
+          )
+          .get()!.n,
+      ) >= 256
+    )
+      batchFail("CODING_BATCH_LIMIT");
+  }
   put(record: CodingAttemptGroup, expected: number): void {
     this.ports.transaction(() => {
-      if (
-        expected === 0 &&
-        Number(
-          this.db
-            .prepare(
-              "SELECT count(*) n FROM session_documents WHERE kind LIKE 'coding.group.%' OR kind LIKE 'coding.case.%'",
-            )
-            .get()!.n,
-        ) >= 256
-      )
-        batchFail("CODING_BATCH_LIMIT");
+      if (expected === 0) this.assertCapacity();
       this.ports.put(
         record.sessionId,
         groupKind(record.groupId),
@@ -345,18 +355,22 @@ export class CodingBatchStorage {
       readBatchGroup(this.db, record.sessionId, record.groupId);
     });
   }
+  advance(
+    prior: CodingAttemptGroup,
+    change: Partial<CodingAttemptGroup>,
+  ): CodingAttemptGroup {
+    const next = signBatch({
+      ...prior,
+      ...change,
+      revision: prior.revision + 1,
+      previousSha256: prior.sha256,
+    });
+    this.put(next, prior.revision);
+    return next;
+  }
   putCase(record: BatchCaseReceipt): void {
     this.ports.transaction(() => {
-      if (
-        Number(
-          this.db
-            .prepare(
-              "SELECT count(*) n FROM session_documents WHERE kind LIKE 'coding.group.%' OR kind LIKE 'coding.case.%'",
-            )
-            .get()!.n,
-        ) >= 256
-      )
-        batchFail("CODING_BATCH_LIMIT");
+      this.assertCapacity();
       this.ports.put(
         record.sessionId,
         caseKind(record.groupId, record.caseId),
@@ -372,13 +386,10 @@ export class CodingBatchStorage {
   list(workspace: string): CodingAttemptGroup[] {
     return this.db
       .prepare(
-        "SELECT d.session_id,d.data FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE s.workspace_id=? AND d.kind LIKE 'coding.group.%' LIMIT 33",
+        "SELECT d.session_id,json_extract(d.data,'$.groupId') group_id FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE s.workspace_id=? AND d.kind LIKE 'coding.group.%' LIMIT 33",
       )
       .all(workspace)
-      .map((row) => {
-        const data = JSON.parse(String(row.data));
-        return this.read(String(row.session_id), data.groupId)!;
-      });
+      .map((row) => this.read(String(row.session_id), row.group_id as string)!);
   }
   sessions(): string[] {
     const rows = this.db
@@ -392,43 +403,24 @@ export class CodingBatchStorage {
   recover(): void {
     for (const row of this.db
       .prepare(
-        "SELECT session_id,data FROM session_documents WHERE kind LIKE 'coding.group.%' LIMIT 257",
+        "SELECT session_id,json_extract(data,'$.groupId') group_id FROM session_documents WHERE kind LIKE 'coding.group.%' LIMIT 257",
       )
       .all()) {
-      const prior = this.read(
-        String(row.session_id),
-        JSON.parse(String(row.data)).groupId,
-      )!;
-      if (prior.state === "running" || prior.selection?.state === "selected") {
-        this.put(
-          signBatch({
-            ...prior,
-            revision: prior.revision + 1,
-            previousSha256: prior.sha256,
-            state: "uncertain" as const,
-            cases: prior.cases.map((c) =>
-              c.state === "running" ? { ...c, state: "uncertain" as const } : c,
-            ),
-            selection: prior.selection
-              ? signBatch({ ...prior.selection, state: "uncertain" as const })
-              : null,
-          }),
-          prior.revision,
-        );
-      }
+      const prior = this.read(String(row.session_id), row.group_id as string)!;
+      if (prior.state === "running" || prior.selection?.state === "selected")
+        this.advance(prior, {
+          state: "uncertain",
+          cases: prior.cases.map((c) =>
+            c.state === "running" ? { ...c, state: "uncertain" as const } : c,
+          ),
+          selection: prior.selection
+            ? signBatch({ ...prior.selection, state: "uncertain" as const })
+            : null,
+        });
     }
   }
   pauseImport(workspace: string): void {
-    for (const prior of this.list(workspace)) {
-      this.put(
-        signBatch({
-          ...prior,
-          revision: prior.revision + 1,
-          previousSha256: prior.sha256,
-          state: "paused-import" as const,
-        }),
-        prior.revision,
-      );
-    }
+    for (const prior of this.list(workspace))
+      this.advance(prior, { state: "paused-import" });
   }
 }

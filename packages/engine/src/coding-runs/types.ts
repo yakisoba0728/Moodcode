@@ -48,14 +48,24 @@ export interface CodingBatchPreview {
   readonly reservedCostMicros: number;
   readonly sha256: string;
 }
-export type CodingCaseState =
-  | "pending"
-  | "running"
-  | "verified"
-  | "failed"
-  | "skipped"
-  | "cancelled"
-  | "uncertain";
+export const CODING_CASE_STATES = [
+  "pending",
+  "running",
+  "verified",
+  "failed",
+  "skipped",
+  "cancelled",
+  "uncertain",
+] as const;
+export const CODING_GROUP_STATES = [
+  "running",
+  "ready",
+  "completed",
+  "cancelled",
+  "uncertain",
+  "paused-import",
+] as const;
+export type CodingCaseState = (typeof CODING_CASE_STATES)[number];
 export interface BatchCaseReceipt {
   readonly version: 1;
   readonly workspaceId: string;
@@ -80,13 +90,7 @@ export interface CodingAttemptGroup {
   readonly previousSha256: string | null;
   readonly requestId: string;
   readonly preview: CodingBatchPreview;
-  readonly state:
-    | "running"
-    | "ready"
-    | "completed"
-    | "cancelled"
-    | "uncertain"
-    | "paused-import";
+  readonly state: (typeof CODING_GROUP_STATES)[number];
   readonly cases: readonly {
     id: string;
     instanceId: string;

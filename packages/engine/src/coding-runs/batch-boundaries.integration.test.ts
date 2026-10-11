@@ -420,3 +420,26 @@ test("stored unselected groups never block an ordinary workflow merge after a de
     null,
   );
 });
+
+test("a group id stored under two sessions of one workspace resolves to neither copy", async (t) => {
+  const f = await batchFixture(t),
+    g = f.engine.startCodingAttemptGroup({
+      workspaceId: f.workspace.id,
+      requestId: "start",
+      approved: true,
+      preview: await f.engine.previewCodingAttemptGroup(f.input),
+    }),
+    other = await batchCommand<{ id: string }>(f.engine, "session.create", {
+      workspaceId: f.workspace.id,
+      title: "Second session",
+    });
+  const db = new DatabaseSync(f.dbPath);
+  db.prepare(
+    "INSERT INTO session_documents(session_id,kind,revision,data) SELECT ?,kind,revision,data FROM session_documents WHERE session_id=? AND kind=?",
+  ).run(other.id, f.session.id, groupKind(g.groupId));
+  db.close();
+  assert.throws(
+    () => f.engine.inspectBatchEvidence(f.workspace.id, g.groupId),
+    { code: "CODING_BATCH_INVALID" },
+  );
+});

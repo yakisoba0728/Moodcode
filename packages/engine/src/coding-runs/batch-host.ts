@@ -1,14 +1,18 @@
+import type { JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { WorkflowEffects } from "../workflows/effects.js";
 import type { ActualWorkflowChildObservationPort } from "../workflows/service.js";
 import type { WorkflowInstanceRevision } from "../workflows/reducer.js";
 import type { WorkflowStageSpec } from "../workflows/types.js";
+import type { WorkflowChildEvidence } from "../workflows/effect-evidence.js";
+import type { WorkflowStartPreview } from "../workflows/host.js";
 import { workflowAbort, workflowHostRecord } from "../workflows/host.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { CodingBatchStorage } from "./groups.js";
 import {
+  CODING_STAGES,
   assertCodingSources,
   batchFail,
   caseSources,
@@ -26,6 +30,10 @@ import type {
   CodingDeliveryInput,
   CodingConfig,
 } from "./types.js";
+interface BatchMember {
+  g: CodingAttemptGroup;
+  c: CodingAttemptGroup["cases"][number];
+}
 interface LiveGroup {
   preview: CodingBatchPreview;
   catalogue: ToolCatalogue;
@@ -51,6 +59,15 @@ type CodingBatchRuntime = Pick<
     | "bindWorkflowModelTools"
     | "releaseWorkflowModelTools"
   >;
+const MUTATION_KEYS = [
+  "workspaceId",
+  "groupId",
+  "requestId",
+  "expectedRevision",
+  "approved",
+] as const;
+const scopeKey = (g: { workspaceId: string; groupId: string }) =>
+  knowledgeHash([g.workspaceId, g.groupId]);
 export class CodingBatchHost {
   private readonly consumedPreviews = new WeakSet<object>();
   private readonly previews = new Map<
@@ -58,7 +75,7 @@ export class CodingBatchHost {
     {
       proof: CodingBatchPreview;
       catalogue: ToolCatalogue;
-      originals: import("../workflows/host.js").WorkflowStartPreview[];
+      originals: WorkflowStartPreview[];
     }
   >();
   private readonly selections = new Map<object, CodingSelectionPreview>();
@@ -98,28 +115,17 @@ export class CodingBatchHost {
     workflowAbort(this.lifetime.signal);
   }
   private current(ws: string, id: string): CodingAttemptGroup {
-    const r = this.native.list(ws).find((g) => g.groupId === id);
-    if (!r) batchFail("CODING_BATCH_MISSING");
-    return r;
+    return this.native.find(ws, id) ?? batchFail("CODING_BATCH_MISSING");
   }
   private write(
     prior: CodingAttemptGroup,
     change: Partial<CodingAttemptGroup>,
   ): CodingAttemptGroup {
-    const next = signBatch({
-      ...prior,
-      ...change,
-      revision: prior.revision + 1,
-      previousSha256: prior.sha256,
-    });
-    this.native.put(next, prior.revision);
-    return next;
+    return this.native.advance(prior, change);
   }
   private assertLive(record: CodingAttemptGroup): LiveGroup {
     this.open();
-    const live = this.live.get(
-      knowledgeHash([record.workspaceId, record.groupId]),
-    );
+    const live = this.live.get(scopeKey(record));
     if (
       !live ||
       record.state === "paused-import" ||
@@ -327,7 +333,7 @@ export class CodingBatchHost {
       this.native.put(record, 0);
       return record;
     });
-    this.live.set(knowledgeHash([group.workspaceId, group.groupId]), {
+    this.live.set(scopeKey(group), {
       preview: p.proof,
       catalogue: p.catalogue,
       slots,
@@ -337,29 +343,44 @@ export class CodingBatchHost {
     this.starts.set(key, { sha: digest, result: structuredClone(group) });
     return structuredClone(group);
   }
-  private member(record: WorkflowInstanceRevision) {
+  private member(record: WorkflowInstanceRevision): BatchMember | null {
     for (const g of this.native.list(record.workspaceId)) {
       const c = g.cases.find((c) => c.instanceId === record.instanceId);
       if (c) return { g, c };
     }
     return null;
   }
+  private admitted(record: WorkflowInstanceRevision, stage: WorkflowStageSpec) {
+    const member = this.member(record);
+    if (!member) return null;
+    const slot = this.assertLive(member.g).slots.get(
+      `${member.c.id}:${stage.id}`,
+    );
+    if (
+      member.c.state !== "running" ||
+      CODING_STAGES[member.c.stage] !== stage.id
+    )
+      batchFail("CODING_MEMBER_NOT_ADMITTED");
+    if (!slot) batchFail("CODING_RESERVATION_STALE");
+    return { ...member, slot };
+  }
+  private childTaskIds(
+    g: CodingAttemptGroup,
+    instanceId: string,
+  ): string[] | undefined {
+    return this.engine
+      .inspectWorkflow(g.workspaceId, instanceId)
+      ?.stages.filter((s) => s.child)
+      .map((s) => s.child!.taskId);
+  }
   reserved(
     record: WorkflowInstanceRevision,
     stage: WorkflowStageSpec,
   ): boolean {
-    const member = this.member(record);
+    const member = this.admitted(record, stage);
     if (!member) return false;
-    const live = this.assertLive(member.g),
-      slot = live.slots.get(`${member.c.id}:${stage.id}`);
-    if (
-      member.c.state !== "running" ||
-      ["edit", "validate", "review"][member.c.stage] !== stage.id
-    )
-      batchFail("CODING_MEMBER_NOT_ADMITTED");
-    if (!slot) batchFail("CODING_RESERVATION_STALE");
     this.engine.coordinator.assertChildRunGroupSlot(
-      slot,
+      member.slot,
       member.g.parentRunId,
       stage.allocation,
     );
@@ -370,20 +391,12 @@ export class CodingBatchHost {
     stage: WorkflowStageSpec,
     requestId: string,
   ): void {
-    const member = this.member(record);
+    const member = this.admitted(record, stage);
     if (!member) return;
-    const live = this.assertLive(member.g),
-      slot = live.slots.get(`${member.c.id}:${stage.id}`);
-    if (
-      member.c.state !== "running" ||
-      ["edit", "validate", "review"][member.c.stage] !== stage.id
-    )
-      batchFail("CODING_MEMBER_NOT_ADMITTED");
-    if (!slot) batchFail("CODING_RESERVATION_STALE");
     this.engine.children.installCodingMember(
       member.g.sessionId,
       requestId,
-      slot,
+      member.slot,
       () =>
         this.assertLive(this.current(member.g.workspaceId, member.g.groupId)),
       () => this.charge(member.g.workspaceId, member.g.groupId),
@@ -409,67 +422,82 @@ export class CodingBatchHost {
     stageId: string,
     original: object,
   ): void {
-    let member = this.member(record);
+    const member = this.member(record);
     if (!member) return;
     const actual = this.children.readExecution(original);
-    if (stageId === "edit") {
-      const effect = this.engine.inspectWorkflowEffect(
-          record.workspaceId,
-          record.instanceId,
-          "edit",
-        ),
-        definition = member.g.preview.input.cases.find(
-          (c) => c.id === member!.c.id,
-        )!;
-      if (
-        !effect ||
-        effect.files.some(
-          (p) =>
-            !definition.sourcePaths.some(
-              (path) => p.path === record.worktrees.edit!.root + "/" + path,
-            ),
-        )
+    if (stageId === "edit") this.assertEditManifest(record, member);
+    const next = { ...member, g: this.recordMeasuredUsage(member.g, actual) };
+    if (stageId === "review") this.recordReviewReceipt(record, next, original);
+    else this.advanceStage(next, stageId);
+  }
+  private assertEditManifest(
+    record: WorkflowInstanceRevision,
+    member: BatchMember,
+  ): void {
+    const effect = this.engine.inspectWorkflowEffect(
+        record.workspaceId,
+        record.instanceId,
+        "edit",
+      ),
+      definition = member.g.preview.input.cases.find(
+        (c) => c.id === member.c.id,
+      )!;
+    if (
+      !effect ||
+      effect.files.some(
+        (p) =>
+          !definition.sourcePaths.some(
+            (path) => p.path === record.worktrees.edit!.root + "/" + path,
+          ),
       )
-        batchFail("CODING_EFFECT_OUTSIDE_MANIFEST");
-    }
-    const usages = actual.attemptUsages ?? [],
-      known = usages.filter(
-        (u) =>
-          typeof u.usage.inputTokens === "number" &&
-          Number.isSafeInteger(u.usage.inputTokens) &&
-          u.usage.inputTokens >= 0 &&
-          typeof u.usage.outputTokens === "number" &&
-          Number.isSafeInteger(u.usage.outputTokens) &&
-          u.usage.outputTokens >= 0,
-      );
-    const g = this.write(member.g, {
+    )
+      batchFail("CODING_EFFECT_OUTSIDE_MANIFEST");
+  }
+  private recordMeasuredUsage(
+    g: CodingAttemptGroup,
+    evidence: WorkflowChildEvidence,
+  ): CodingAttemptGroup {
+    let known = 0,
+      input = 0,
+      output = 0;
+    for (const { usage } of evidence.attemptUsages ?? [])
+      if (
+        typeof usage.inputTokens === "number" &&
+        Number.isSafeInteger(usage.inputTokens) &&
+        usage.inputTokens >= 0 &&
+        typeof usage.outputTokens === "number" &&
+        Number.isSafeInteger(usage.outputTokens) &&
+        usage.outputTokens >= 0
+      ) {
+        known++;
+        input += usage.inputTokens;
+        output += usage.outputTokens;
+      }
+    return this.write(g, {
       usage: {
-        ...member.g.usage,
-        measuredInputTokens: known.length
-          ? (member.g.usage.measuredInputTokens ?? 0) +
-            known.reduce((n, u) => n + u.usage.inputTokens!, 0)
-          : member.g.usage.measuredInputTokens,
-        measuredOutputTokens: known.length
-          ? (member.g.usage.measuredOutputTokens ?? 0) +
-            known.reduce((n, u) => n + u.usage.outputTokens!, 0)
-          : member.g.usage.measuredOutputTokens,
-        unknownUsageRequests: Math.max(
-          0,
-          member.g.usage.unknownUsageRequests - known.length,
-        ),
+        ...g.usage,
+        measuredInputTokens: known
+          ? (g.usage.measuredInputTokens ?? 0) + input
+          : g.usage.measuredInputTokens,
+        measuredOutputTokens: known
+          ? (g.usage.measuredOutputTokens ?? 0) + output
+          : g.usage.measuredOutputTokens,
+        unknownUsageRequests: Math.max(0, g.usage.unknownUsageRequests - known),
       },
     });
-    member = { ...member, g };
-    if (stageId !== "review") {
-      this.write(member.g, {
-        cases: member.g.cases.map((c) =>
-          c.id === member!.c.id
-            ? { ...c, stage: stageId === "edit" ? 1 : 2 }
-            : c,
-        ),
-      });
-      return;
-    }
+  }
+  private advanceStage(member: BatchMember, stageId: string): void {
+    this.write(member.g, {
+      cases: member.g.cases.map((c) =>
+        c.id === member.c.id ? { ...c, stage: stageId === "edit" ? 1 : 2 } : c,
+      ),
+    });
+  }
+  private recordReviewReceipt(
+    record: WorkflowInstanceRevision,
+    member: BatchMember,
+    original: object,
+  ): void {
     const completion = this.children.readCompletion(original);
     if (
       record.state !== "completed" ||
@@ -521,17 +549,13 @@ export class CodingBatchHost {
     });
   }
   run(input: CodingGroupMutation): Promise<CodingAttemptGroup> {
-    workflowHostRecord(
-      input,
-      ["workspaceId", "groupId", "requestId", "expectedRevision", "approved"],
-      ["signal"],
-    );
+    workflowHostRecord(input, MUTATION_KEYS, ["signal"]);
     workflowAbort(input.signal);
     this.open();
     if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
     const prior = this.current(input.workspaceId, input.groupId),
       key = knowledgeHash([input.workspaceId, input.groupId, input.requestId]),
-      scope = knowledgeHash([input.workspaceId, input.groupId]);
+      scope = scopeKey(input);
     const digest = knowledgeHash({
         workspaceId: input.workspaceId,
         groupId: input.groupId,
@@ -585,7 +609,7 @@ export class CodingBatchHost {
         });
         const c = group.cases.find((c) => c.id === id)!;
         try {
-          for (const stage of ["edit", "validate", "review"]) {
+          for (const stage of CODING_STAGES) {
             workflowAbort(signal);
             let w = this.engine.inspectWorkflow(
               group.workspaceId,
@@ -617,16 +641,10 @@ export class CodingBatchHost {
           }
         } catch (e) {
           group = this.current(input.workspaceId, input.groupId);
-          const tasks =
-              this.engine
-                .inspectWorkflow(group.workspaceId, c.instanceId)
-                ?.stages.filter((s) => s.child)
-                .map((s) =>
-                  this.engine.children.tasks.get(
-                    group.sessionId,
-                    s.child!.taskId,
-                  ),
-                ) ?? [],
+          const tasks = (this.childTaskIds(group, c.instanceId) ?? []).map(
+              (taskId) =>
+                this.engine.children.tasks.get(group.sessionId, taskId),
+            ),
             unknown = tasks.some(
               (t) => !["completed", "failed", "cancelled"].includes(t.state),
             );
@@ -771,7 +789,7 @@ export class CodingBatchHost {
   private mergeGuard(
     instance: WorkflowInstanceRevision,
     stageId: string,
-  ): import("@moodcode/contracts").JsonObject | null {
+  ): JsonObject | null {
     const member = this.member(instance);
     if (!member) return null;
     this.assertLive(member.g);
@@ -813,18 +831,7 @@ export class CodingBatchHost {
       }
   }
   skip(input: CodingGroupMutation & { caseId: string }): CodingAttemptGroup {
-    workflowHostRecord(
-      input,
-      [
-        "workspaceId",
-        "groupId",
-        "requestId",
-        "expectedRevision",
-        "approved",
-        "caseId",
-      ],
-      ["signal"],
-    );
+    workflowHostRecord(input, [...MUTATION_KEYS, "caseId"], ["signal"]);
     const g = this.current(input.workspaceId, input.groupId);
     this.assertLive(g);
     if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
@@ -838,26 +845,16 @@ export class CodingBatchHost {
     });
   }
   async resume(input: CodingGroupMutation): Promise<CodingAttemptGroup> {
-    workflowHostRecord(
-      input,
-      ["workspaceId", "groupId", "requestId", "expectedRevision", "approved"],
-      ["signal"],
-    );
+    workflowHostRecord(input, MUTATION_KEYS, ["signal"]);
     workflowAbort(input.signal);
     if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
     const g = this.current(input.workspaceId, input.groupId);
     if (input.expectedRevision !== g.revision) batchFail("CODING_BATCH_STALE");
     if (g.state === "completed" && g.selection?.state === "merged") {
-      const target = this.captureDelivery({
-        workspaceId: g.workspaceId,
-        groupId: g.groupId,
-        config: this.engine.store.getRun(g.parentRunId).config,
-      });
-      this.release(target);
+      this.assertDeliverable(g);
       return structuredClone(g);
     }
-    this.assertLive(g);
-    const live = this.live.get(knowledgeHash([g.workspaceId, g.groupId]))!;
+    const live = this.assertLive(g);
     for (const c of g.cases.filter((c) => c.state === "verified"))
       await this.effects.assertMergeCandidate(
         g.workspaceId,
@@ -882,11 +879,7 @@ export class CodingBatchHost {
     return this.run({ ...input, expectedRevision: next.revision });
   }
   async cancel(input: CodingGroupMutation): Promise<CodingAttemptGroup> {
-    workflowHostRecord(
-      input,
-      ["workspaceId", "groupId", "requestId", "expectedRevision", "approved"],
-      ["signal"],
-    );
+    workflowHostRecord(input, MUTATION_KEYS, ["signal"]);
     const g = this.current(input.workspaceId, input.groupId),
       live = this.assertLive(g);
     if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");
@@ -894,14 +887,12 @@ export class CodingBatchHost {
     live.controller.abort();
     const results = await Promise.allSettled(
       g.cases.flatMap((c) =>
-        (this.engine.inspectWorkflow(g.workspaceId, c.instanceId)?.stages ?? [])
-          .filter((s) => s.child)
-          .map((s) =>
-            this.engine.children.tasks.cancel(g.sessionId, s.child!.taskId),
-          ),
+        (this.childTaskIds(g, c.instanceId) ?? []).map((taskId) =>
+          this.engine.children.tasks.cancel(g.sessionId, taskId),
+        ),
       ),
     );
-    const scope = knowledgeHash([g.workspaceId, g.groupId]);
+    const scope = scopeKey(g);
     await Promise.allSettled(
       [...this.pending]
         .filter(([key]) => this.pendingGroups.get(key) === scope)
@@ -917,12 +908,9 @@ export class CodingBatchHost {
       cases: latest.cases.map((c) => {
         if (c.state === "pending") return { ...c, state: "cancelled" as const };
         if (c.state === "uncertain" || c.state === "running") {
-          const tasks = this.engine
-            .inspectWorkflow(g.workspaceId, c.instanceId)!
-            .stages.filter((s) => s.child)
-            .map((s) =>
-              this.engine.children.tasks.get(g.sessionId, s.child!.taskId),
-            );
+          const tasks = this.childTaskIds(g, c.instanceId)!.map((taskId) =>
+            this.engine.children.tasks.get(g.sessionId, taskId),
+          );
           if (tasks.length && tasks.every((t) => t.state === "cancelled"))
             return { ...c, state: "cancelled" as const };
         }
@@ -946,18 +934,13 @@ export class CodingBatchHost {
   }
   captureExport(ws: string, id: string): object {
     if (this.exports.size >= 32) batchFail("CODING_HANDLE_LIMIT");
-    const g = this.current(ws, id);
-    let live: LiveGroup;
-    if (g.state === "completed") {
-      live = this.live.get(knowledgeHash([g.workspaceId, g.groupId]))!;
-      if (!live) batchFail("CODING_BATCH_RUNTIME_UNAVAILABLE");
-      const target = this.captureDelivery({
-        workspaceId: ws,
-        groupId: id,
-        config: this.engine.store.getRun(g.parentRunId).config,
-      });
-      this.release(target);
-    } else live = this.assertLive(g);
+    const g = this.current(ws, id),
+      live =
+        g.state === "completed"
+          ? this.live.get(scopeKey(g))
+          : this.assertLive(g);
+    if (!live) batchFail("CODING_BATCH_RUNTIME_UNAVAILABLE");
+    if (g.state === "completed") this.assertDeliverable(g);
     for (const c of g.cases.filter((c) => c.state === "verified"))
       this.effects.assertCandidateFiles(g.workspaceId, c.instanceId);
     const data = this.export(ws, id),
@@ -965,6 +948,15 @@ export class CodingBatchHost {
     live.exportSha = data.sha256;
     this.exports.set(original, data);
     return original;
+  }
+  private assertDeliverable(g: CodingAttemptGroup): void {
+    this.release(
+      this.captureDelivery({
+        workspaceId: g.workspaceId,
+        groupId: g.groupId,
+        config: this.engine.store.getRun(g.parentRunId).config,
+      }),
+    );
   }
   readExport(original: object): CodingEvidenceExport {
     const data = this.exports.get(original);
@@ -993,7 +985,7 @@ export class CodingBatchHost {
     if (
       g.selection?.state !== "merged" ||
       g.state !== "completed" ||
-      !this.live.has(knowledgeHash([g.workspaceId, g.groupId]))
+      !this.live.has(scopeKey(g))
     )
       batchFail("CODING_RESULT_UNAVAILABLE");
     const c = g.cases.find((c) => c.id === g.selection!.caseId)!;
@@ -1015,18 +1007,7 @@ export class CodingBatchHost {
     return this.effects.readTarget(original);
   }
   deliver(input: CodingDeliveryInput) {
-    workflowHostRecord(
-      input,
-      [
-        "workspaceId",
-        "groupId",
-        "requestId",
-        "expectedRevision",
-        "approved",
-        "target",
-      ],
-      ["signal"],
-    );
+    workflowHostRecord(input, [...MUTATION_KEYS, "target"], ["signal"]);
     this.open();
     workflowAbort(input.signal);
     if (input.approved !== true) batchFail("CODING_BATCH_APPROVAL_REQUIRED");

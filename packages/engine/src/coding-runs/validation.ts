@@ -10,6 +10,17 @@ import {
 } from "../workflows/spec.js";
 import type { CodingBatchInput, CodingSourcePin } from "./types.js";
 export const NATIVE_RECORD_BYTES = 262144;
+export const CODING_STAGES = ["edit", "validate", "review"] as const;
+const LIMIT_CAPS = {
+  concurrency: 4,
+  maxDurationMs: 300000,
+  maxSourceBytes: 1048576,
+  maxEvidenceBytes: NATIVE_RECORD_BYTES,
+  maxExportBytes: 2097152,
+  maxTokens: 100000000,
+  maxCostMicros: 1000000000,
+  costPerRequestMicros: Number.MAX_SAFE_INTEGER,
+} as const;
 export function batchFail(code = "CODING_BATCH_INVALID"): never {
   throw new EngineError(
     code,
@@ -46,28 +57,12 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
     new Set(v.cases.map((c) => c.id)).size !== v.cases.length
   )
     batchFail("CODING_BATCH_LIMIT");
-  workflowHostRecord(v.limits, [
-    "concurrency",
-    "maxDurationMs",
-    "maxSourceBytes",
-    "maxEvidenceBytes",
-    "maxExportBytes",
-    "maxTokens",
-    "maxCostMicros",
-    "costPerRequestMicros",
-  ]);
-  for (const [key, n] of Object.entries(v.limits))
-    if (!Number.isSafeInteger(n) || n < 1) batchFail("CODING_BATCH_LIMIT");
-  if (
-    v.limits.concurrency > 4 ||
-    v.limits.maxDurationMs > 300000 ||
-    v.limits.maxSourceBytes > 1048576 ||
-    v.limits.maxEvidenceBytes > NATIVE_RECORD_BYTES ||
-    v.limits.maxExportBytes > 2097152 ||
-    v.limits.maxTokens > 100000000 ||
-    v.limits.maxCostMicros > 1000000000
-  )
-    batchFail("CODING_BATCH_LIMIT");
+  workflowHostRecord(v.limits, Object.keys(LIMIT_CAPS));
+  for (const [key, max] of Object.entries(LIMIT_CAPS)) {
+    const n = v.limits[key as keyof typeof LIMIT_CAPS];
+    if (!Number.isSafeInteger(n) || n < 1 || n > max)
+      batchFail("CODING_BATCH_LIMIT");
+  }
   const roots = new Set<string>();
   for (const c of v.cases) {
     workflowHostRecord(c, ["id", "spec", "stageWorktrees", "sourcePaths"]);
@@ -75,11 +70,9 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
     const spec = validateWorkflowSpec(c.spec);
     if (
       spec.stages.length !== 3 ||
-      spec.stages[0]!.id !== "edit" ||
+      spec.stages.some((s, i) => s.id !== CODING_STAGES[i]) ||
       spec.stages[0]!.role !== "editor" ||
-      spec.stages[1]!.id !== "validate" ||
       spec.stages[1]!.role !== "validator" ||
-      spec.stages[2]!.id !== "review" ||
       spec.stages[2]!.role !== "advisory-reviewer" ||
       spec.resultStageId !== "review" ||
       knowledgeHash(spec.stages[1]!.dependsOn) !== knowledgeHash(["edit"]) ||
