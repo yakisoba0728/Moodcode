@@ -8,6 +8,7 @@ import {
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { ChildTaskRecord } from "./index.js";
+import type { ResidentChild } from "./resident.js";
 import {
   childStoragePhysicalIdentity,
   validateChildStorageRecord,
@@ -47,7 +48,7 @@ export interface LiveChildTeamExecution {
   rootRun: Run;
   storageRecord: ChildStorageRecord;
   mirrorRecord: ChildStorageRecord;
-  resident?: import("./resident.js").ResidentChild;
+  resident?: ResidentChild;
 }
 function stale(): never {
   throw new EngineError(
@@ -76,7 +77,12 @@ function originalJson(value: object): string {
   return JSON.stringify(value);
 }
 
-/** Admits a steer to an already owned Run. This port never calls a scheduler wake. */
+/**
+ * Admits team input to an owned live child: a steer into its current Run or,
+ * for a resident child, a queued follow-up Run. accept() never wakes a
+ * scheduler; a resident Run starts only when confirm() releases it after the
+ * caller saved its receipt.
+ */
 export class ActualChildTeamBridge {
   private readonly targets = new WeakMap<ChildTeamTarget, string>();
   private readonly pending = new Map<ChildTeamTarget, ChildTeamInputEvidence>();
@@ -182,14 +188,18 @@ export class ActualChildTeamBridge {
     return JSON.parse(captured) as ChildTeamTarget;
   }
 
-  assertCurrent(target: ChildTeamTarget): void {
+  private currentFor(target: ChildTeamTarget): {
+    execution: LiveChildTeamExecution;
+    target: ChildTeamTarget;
+  } {
     const captured = JSON.stringify(this.readTarget(target));
-    if (
-      JSON.stringify(
-        this.current(target.rootSessionId, target.childTaskId).target,
-      ) !== captured
-    )
-      stale();
+    const current = this.current(target.rootSessionId, target.childTaskId);
+    if (JSON.stringify(current.target) !== captured) stale();
+    return current;
+  }
+
+  assertCurrent(target: ChildTeamTarget): void {
+    this.currentFor(target);
   }
 
   /** Checked before a delivery is dispatched, so a rejection here leaves no uncertain input. */
@@ -215,10 +225,7 @@ export class ActualChildTeamBridge {
       typeof exactInput.prompt !== "string"
     )
       stale();
-    const original = this.targets.get(target);
-    if (original === undefined || original !== originalJson(target)) stale();
-    const current = this.current(target.rootSessionId, target.childTaskId);
-    if (JSON.stringify(current.target) !== original) stale();
+    const current = this.currentFor(target);
     if (current.execution.resident) {
       const admitted = current.execution.resident.accept(exactInput);
       const evidence: ChildTeamInputEvidence = {

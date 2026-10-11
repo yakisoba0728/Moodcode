@@ -8,6 +8,7 @@ import {
 import { randomUUID } from "node:crypto";
 import {
   EngineError,
+  type InputRecord,
   type JsonObject,
   type Run,
   type RunConfig,
@@ -60,6 +61,7 @@ export interface ResidentChildRecord {
   runs: ResidentRunEvidence[];
   sha256: string;
 }
+/** Field shape errors throw INVALID_TEAM or TEAM_LIMIT from the team validators; resident invariants throw RESIDENT_* codes. */
 export function validateResidentRecord(value: unknown): ResidentChildRecord {
   const r = immutableKnowledgeJson(value) as unknown as ResidentChildRecord;
   teamObject(r, [
@@ -162,7 +164,6 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
     );
 
   if (
-    !r ||
     r.version !== 1 ||
     !/^child_[a-f0-9]{32}$/.test(r.taskId) ||
     !["running", "idle", "closed", "uncertain", "paused-import"].includes(
@@ -177,8 +178,7 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
     r.runs[0]?.runId !== r.initialRunId ||
     !Number.isSafeInteger(r.idleTimeoutMs) ||
     r.idleTimeoutMs < 25 ||
-    r.idleTimeoutMs > 300000 ||
-    !Number.isFinite(Date.parse(r.expiresAt))
+    r.idleTimeoutMs > 300000
   )
     throw new EngineError(
       "RESIDENT_RECORD_INVALID",
@@ -194,12 +194,7 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
     if (
       !["running", "completed", "failed", "cancelled", "uncertain"].includes(
         x.state,
-      ) ||
-      !/^[a-f0-9]{64}$/.test(x.configSha256) ||
-      (x.usage &&
-        CHILD_USAGE_KEYS.some(
-          (k) => !Number.isSafeInteger(x.usage![k]) || x.usage![k] < 0,
-        ))
+      )
     )
       throw new EngineError(
         "RESIDENT_RECORD_INVALID",
@@ -618,7 +613,7 @@ export class ResidentChild {
   }
   accept(input: { requestId: string; prompt: string }): {
     run: Run;
-    input: import("@moodcode/contracts").InputRecord;
+    input: InputRecord;
     admittedSeq: number;
     inputSha256: string;
     release(): void;

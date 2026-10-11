@@ -170,6 +170,9 @@ function childEngineOptions(
   };
 }
 
+const requestKey = (sessionId: string, requestId: string) =>
+  JSON.stringify([sessionId, requestId]);
+
 /** Actual child engines inherit configuration and consume a reservation in their live parent. */
 export class EngineChildren {
   readonly worktrees: WorktreeManager;
@@ -177,8 +180,7 @@ export class EngineChildren {
   readonly teamBridge: ActualChildTeamBridge;
   private readonly directory: string;
   private readonly residentRequests = new Map<string, number>();
-  private readonly retainedResidentPreviews = new Set<object>();
-  private readonly residentPreviews = new WeakMap<
+  private readonly residentPreviews = new Map<
     object,
     { request: EngineChildRequest; idleTimeoutMs: number; sourceSha256: string }
   >();
@@ -186,30 +188,13 @@ export class EngineChildren {
   private readonly liveAdmissions = new Set<string>();
   private readonly executions = new Map<string, ChildExecution>();
   private readonly stages = new Map<string, ChildRequestStage>();
-  private readonly view: ChildExecutionView;
-
-private readonly batchSlots = new Map<string, object>();
-  private readonly batchGuards = new Map<string, () => void>();
-  private readonly batchProviderGuards = new Map<string, () => void>();
-  installCodingMember(
-    sessionId: string,
-    requestId: string,
-    slot: object,
-    guard: () => void,
-    providerGuard: () => void,
-  ): void {
-    const key = JSON.stringify([sessionId, requestId]);
-    if (this.batchSlots.has(key))
-      throw new EngineError(
-        "CHILD_RESERVATION_STALE",
-        "Member already installed",
-      );
-    this.batchSlots.set(key, slot);
-    this.batchGuards.set(key, guard);
-    this.batchProviderGuards.set(key, providerGuard);
-  }
-private readonly recoveredSessions = new Set<string>();
+  private readonly batchMembers = new Map<
+    string,
+    { slot: object; guard: () => void; providerGuard: () => void }
+  >();
+  private readonly recoveredSessions = new Set<string>();
   private readonly storageIdentity?: ChildStorageHostIdentity;
+  private readonly view: ChildExecutionView;
   constructor(
     private readonly root: MoodcodeEngine,
     private readonly options: EngineOptions,
@@ -239,17 +224,14 @@ private readonly recoveredSessions = new Set<string>();
       worktrees: this.worktrees,
       cleanupTimeoutMs: 7000,
       beforeDispatch: (task) => {
-        this.stages
-          .get(JSON.stringify([task.sessionId, task.requestId]))
-          ?.guard();
+        const key = requestKey(task.sessionId, task.requestId);
+        this.stages.get(key)?.guard();
         const parent = this.parent(
           task.sessionId,
           task.parentRunId,
           task.parentTaskId,
         );
-        const admission = this.admissions.get(
-          JSON.stringify([task.sessionId, task.requestId]),
-        );
+        const admission = this.admissions.get(key);
         if (!admission)
           throw new EngineError(
             "CHILD_ADMISSION_MISSING",
@@ -261,12 +243,11 @@ private readonly recoveredSessions = new Set<string>();
           0,
           { fingerprint: admission.fingerprint },
         );
-        const key = JSON.stringify([task.sessionId, task.requestId]),
-          slot = this.batchSlots.get(key);
-        if (slot) {
-          this.batchGuards.get(key)!();
+        const batch = this.batchMembers.get(key);
+        if (batch) {
+          batch.guard();
           parent.engine.coordinator.consumeChildRunGroupSlot(
-            slot,
+            batch.slot,
             parent.run.id,
             task.budget,
           );
@@ -328,25 +309,22 @@ private readonly recoveredSessions = new Set<string>();
         this.root.coordinator.assertWorkspaceCleanupConfirmed(
           rootRun.workspaceId,
         );
-        const document = this.root.store.getSessionDocument(
-          rootSessionId,
-          childStorageKind(childTaskId),
-        );
         const mirror = execution.engine.store.getSessionDocument(
           execution.sessionId,
           CHILD_STORAGE_MIRROR_KIND,
         );
-        if (!document || !mirror)
+        const storageRecord = mirror
+          ? this.rootStorageRecord(rootSessionId, childTaskId)
+          : undefined;
+        if (!storageRecord || !mirror)
           throw new EngineError(
             "TEAM_CHILD_STALE",
             "Actual child storage proof is unavailable",
           );
-        const storageRecord = validateChildStorageRecord(document.data);
         const mirrorRecord = validateChildStorageRecord(mirror.data);
         if (
           storageRecord.sha256 !== execution.storageRecord.sha256 ||
-          JSON.stringify(storageRecord.binding.hostIdentity) !==
-            JSON.stringify(this.storageIdentity)
+          !this.sameStorageHost(storageRecord)
         )
           throw new EngineError(
             "TEAM_CHILD_STALE",
@@ -359,7 +337,6 @@ private readonly recoveredSessions = new Set<string>();
           rootRun,
           storageRecord,
           mirrorRecord,
-          ...(execution.resident ? { resident: execution.resident } : {}),
         };
       },
     );
@@ -369,23 +346,48 @@ private readonly recoveredSessions = new Set<string>();
       teamBridge: this.teamBridge,
       start: (request, signal) => this.start(request, signal),
       admission: (sessionId, requestId) =>
-        this.admissions.get(JSON.stringify([sessionId, requestId])),
+        this.admissions.get(requestKey(sessionId, requestId)),
       execution: (taskId) => this.executions.get(taskId),
-      rootStorageRecord: (sessionId, taskId) => {
-        const document = this.root.store.getSessionDocument(
-          sessionId,
-          childStorageKind(taskId),
-        );
-        return document ? validateChildStorageRecord(document.data) : undefined;
-      },
-      sameStorageHost: (record) =>
-        knowledgeHash(record.binding.hostIdentity) ===
-        knowledgeHash(this.storageIdentity),
+      rootStorageRecord: (sessionId, taskId) =>
+        this.rootStorageRecord(sessionId, taskId),
+      sameStorageHost: (record) => this.sameStorageHost(record),
       stage: (sessionId, requestId, stage) =>
-        this.stages.set(JSON.stringify([sessionId, requestId]), stage),
+        this.stages.set(requestKey(sessionId, requestId), stage),
       unstage: (sessionId, requestId) =>
-        this.stages.delete(JSON.stringify([sessionId, requestId])),
+        this.stages.delete(requestKey(sessionId, requestId)),
     };
+  }
+  installCodingMember(
+    sessionId: string,
+    requestId: string,
+    slot: object,
+    guard: () => void,
+    providerGuard: () => void,
+  ): void {
+    const key = requestKey(sessionId, requestId);
+    if (this.batchMembers.has(key))
+      throw new EngineError(
+        "CHILD_RESERVATION_STALE",
+        "Member already installed",
+      );
+    this.batchMembers.set(key, { slot, guard, providerGuard });
+  }
+  /** The root's validated storage record for one child, if it has one. */
+  private rootStorageRecord(
+    sessionId: string,
+    taskId: string,
+  ): ChildStorageRecord | undefined {
+    const document = this.root.store.getSessionDocument(
+      sessionId,
+      childStorageKind(taskId),
+    );
+    return document ? validateChildStorageRecord(document.data) : undefined;
+  }
+  private sameStorageHost(record: ChildStorageRecord): boolean {
+    return (
+      knowledgeHash(record.binding.hostIdentity) ===
+      knowledgeHash(this.storageIdentity)
+    );
   }
   private residentSource(request: EngineChildRequest): string {
     const parent = this.parent(
@@ -464,14 +466,13 @@ private readonly recoveredSessions = new Set<string>();
         "At most eight resident admissions belong to this Root",
       );
     this.root.store.assertResidentAdmissionCapacity();
-    if (this.retainedResidentPreviews.size >= 32)
+    if (this.residentPreviews.size >= 32)
       throw new EngineError(
         "RESIDENT_PREVIEW_LIMIT",
         "Original resident previews require explicit release after bounded capture",
       );
     const sourceSha256 = this.residentSource(data);
     const original = Object.freeze({});
-    this.retainedResidentPreviews.add(original);
     this.residentPreviews.set(original, {
       request: data,
       idleTimeoutMs,
@@ -481,7 +482,6 @@ private readonly recoveredSessions = new Set<string>();
   }
   releaseResidentPreview(original: object): void {
     this.residentPreviews.delete(original);
-    this.retainedResidentPreviews.delete(original);
   }
   readResidentPreview(original: object) {
     const p = this.residentPreviews.get(original);
@@ -504,7 +504,7 @@ private readonly recoveredSessions = new Set<string>();
         "RESIDENT_PREVIEW_STALE",
         "Expected original resident approval",
       );
-    const key = JSON.stringify([p.request.sessionId, p.request.requestId]);
+    const key = requestKey(p.request.sessionId, p.request.requestId);
     const previous = this.residentRequests.get(key);
     if (previous !== undefined) {
       if (previous !== p.idleTimeoutMs)
@@ -606,7 +606,7 @@ private readonly recoveredSessions = new Set<string>();
         "INVALID_CHILD_INPUT",
         "Child host request is invalid",
       );
-    const key = JSON.stringify([request.sessionId, request.requestId]),
+    const key = requestKey(request.sessionId, request.requestId),
       fingerprint = childRequestFingerprint(request);
     const prior = this.admissions.get(key);
     if (prior) {
@@ -684,9 +684,7 @@ private readonly recoveredSessions = new Set<string>();
         "Child engines currently require positive tool and output caps",
       );
 
-const slot = this.batchSlots.get(
-      JSON.stringify([request.sessionId, request.requestId]),
-    );
+    const slot = this.batchMembers.get(key)?.slot;
     const remainingBudget = slot
         ? parent.engine.coordinator.childRunGroupCapacity(
             slot,
@@ -744,6 +742,7 @@ const slot = this.batchSlots.get(
   private async execute(
     request: Parameters<ChildTaskHost["start"]>[0],
   ): Promise<ChildRunHandle> {
+    const key = requestKey(request.task.sessionId, request.task.requestId);
     const parent = this.parent(
       request.task.sessionId,
       request.task.parentRunId,
@@ -767,16 +766,9 @@ const slot = this.batchSlots.get(
         },
       ),
     );
-    const batchGuard = this.batchProviderGuards.get(
-      JSON.stringify([request.task.sessionId, request.task.requestId]),
-    );
-    if (batchGuard)
-      engine.installCodingBatchDispatchGuard(
-        this.batchGuards.get(
-          JSON.stringify([request.task.sessionId, request.task.requestId]),
-        )!,
-        batchGuard,
-      );
+    const batch = this.batchMembers.get(key);
+    if (batch)
+      engine.installCodingBatchDispatchGuard(batch.guard, batch.providerGuard);
 
     const admitProvider = holdChildProviderAdmission(engine);
     let unlink: (() => void) | undefined;
@@ -818,18 +810,14 @@ const slot = this.batchSlots.get(
           "CANCELLED",
           "Child was cancelled before admission",
         );
-      const stage = this.stages.get(
-        JSON.stringify([request.task.sessionId, request.task.requestId]),
-      );
+      const stage = this.stages.get(key);
       if (stage?.prepare)
         await stage.prepare(engine, session.id, request.workspace);
       const config = engine.profiles.apply(
         session.id,
         engine.getCapabilities().defaults,
       );
-      const admission = this.admissions.get(
-        JSON.stringify([request.task.sessionId, request.task.requestId]),
-      );
+      const admission = this.admissions.get(key);
       if (!admission)
         throw new EngineError(
           "CHILD_ADMISSION_MISSING",
@@ -891,9 +879,7 @@ const slot = this.batchSlots.get(
           profile?.tools,
         ),
       );
-      const idleTimeoutMs = this.residentRequests.get(
-        JSON.stringify([request.task.sessionId, request.task.requestId]),
-      );
+      const idleTimeoutMs = this.residentRequests.get(key);
       let resident: ResidentChild | undefined;
       if (idleTimeoutMs !== undefined) {
         if (!admittedStorage)
@@ -930,42 +916,40 @@ const slot = this.batchSlots.get(
           resident!.assertProvider(run),
         );
       }
-      const finished = resident ? resident.finished : engine
-        .waitForRun(receipt.runId)
-        .then((run) => {
-          if (
-            run.state === "interrupted" ||
-            run.error?.code === "CLEANUP_UNCERTAIN"
-          )
-            throw new EngineError(
-              "CHILD_EXECUTION_UNCERTAIN",
-              "Child execution cleanup is unconfirmed",
-            );
-          if (stage?.settle)
-            execution.evidence = stage.settle(engine, session.id, run);
-          const usage = engine.coordinator.getRunUsage(run.id);
-          const content = engine.store.getLastRunAssistantContent(run.id);
-          return { state: childOutcomeState(run.state), content, usage };
-        })
-        .finally(async () => {
-          unlink?.();
-          await engine.close();
-          execution.closed = true;
-          // The admitted child mirror remains immutable. Only the root records host-observed close.
-          if (admittedStorage)
-            confirmChildStorageClosed(this.root.store, admittedStorage);
-        });
+      const finished = resident
+        ? resident.finished
+        : engine
+            .waitForRun(receipt.runId)
+            .then((run) => {
+              if (
+                run.state === "interrupted" ||
+                run.error?.code === "CLEANUP_UNCERTAIN"
+              )
+                throw new EngineError(
+                  "CHILD_EXECUTION_UNCERTAIN",
+                  "Child execution cleanup is unconfirmed",
+                );
+              if (stage?.settle)
+                execution.evidence = stage.settle(engine, session.id, run);
+              const usage = engine.coordinator.getRunUsage(run.id);
+              const content = engine.store.getLastRunAssistantContent(run.id);
+              return { state: childOutcomeState(run.state), content, usage };
+            })
+            .finally(async () => {
+              unlink?.();
+              await engine.close();
+              execution.closed = true;
+              // The admitted child mirror remains immutable. Only the root records host-observed close.
+              if (admittedStorage)
+                confirmChildStorageClosed(this.root.store, admittedStorage);
+            });
       void finished.catch(() => {});
       execution.wait = () => finished;
       this.executions.set(request.task.id, execution);
       return {
         runId: receipt.runId,
         admitted: () => {
-          this.stages
-            .get(
-              JSON.stringify([request.task.sessionId, request.task.requestId]),
-            )
-            ?.guard();
+          this.stages.get(key)?.guard();
           admission.confirm();
           admitProvider();
         },
@@ -1059,16 +1043,12 @@ const slot = this.batchSlots.get(
         "TEAM_OWNER_UNAVAILABLE",
         "Team ownership requires an actual admitted child in this host",
       );
-    const document = this.root.store.getSessionDocument(
-      rootSessionId,
-      childStorageKind(childTaskId),
-    );
-    if (!document)
+    const record = this.rootStorageRecord(rootSessionId, childTaskId);
+    if (!record)
       throw new EngineError(
         "TEAM_OWNER_UNAVAILABLE",
         "Original child storage proof is missing",
       );
-    const record = validateChildStorageRecord(document.data);
     if (
       record.sha256 !== execution.storageRecord.sha256 ||
       task.fingerprint !== record.binding.lineage.taskFingerprint ||

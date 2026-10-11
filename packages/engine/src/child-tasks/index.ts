@@ -653,7 +653,10 @@ export class ChildTaskManager {
         const result: unknown = handle.admitted();
         if (result !== undefined) {
           void Promise.resolve(result).catch(() => {});
-          throw new EngineError('INVALID_CHILD_ADMISSION_HOOK', 'Child provider admission must synchronously return void');
+          throw new EngineError(
+            "INVALID_CHILD_ADMISSION_HOOK",
+            "Child provider admission must synchronously return void",
+          );
         }
       }
       if (live.controller.signal.aborted)
