@@ -10,7 +10,7 @@ import { EngineError, type Workspace } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
 import { validateKnowledgeGenerationDatabase } from './generation-archive-relations.js';
-import { validateKnowledgeGenerationArchiveRow } from './generation-store.js';
+import { validateKnowledgeGenerationArchiveRow } from './generation-validation.js';
 import { knowledgeHash, sha256 } from './validation.js';
 
 const relationError = (error: unknown) => error instanceof EngineError && error.code === 'KNOWLEDGE_GENERATION_RELATION_INVALID';

@@ -3,7 +3,9 @@ import {
   KNOWLEDGE_PUBLICATION_TABLES,
   validateKnowledgePublicationArchiveRow,
 } from "./publication-store.js";
-import { validateKnowledgeGenerationArchiveRow } from "./generation-store.js";
+import {
+  validateKnowledgeGenerationArchiveRow,
+} from "./generation-validation.js";
 import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,

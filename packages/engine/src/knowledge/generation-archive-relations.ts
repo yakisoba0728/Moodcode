@@ -1,8 +1,11 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import {
+  attemptBelongsTo,
+  candidateMatchesOutput,
+  KNOWLEDGE_GENERATION_COLUMNS,
   KNOWLEDGE_GENERATION_TABLES,
   validateKnowledgeGenerationArchiveRow,
-} from "./generation-store.js";
+} from "./generation-validation.js";
 import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,
@@ -37,26 +40,7 @@ type Body = { [key: string]: unknown };
 const ROW_BYTES = 65_536;
 const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> =
   Object.freeze({
-    knowledge_generations: {
-      plan_id: "planId",
-      request_id: "requestId",
-      state: "state",
-      revision: "revision",
-    },
-    knowledge_generation_attempts: {
-      generation_id: "generationId",
-      plan_id: "planId",
-      state: "state",
-      revision: "revision",
-    },
-    knowledge_generation_recovery_acknowledgments: {
-      request_id: "requestId",
-      operation: "operation",
-    },
-    knowledge_generation_workspace_barriers: {
-      state: "state",
-      revision: "revision",
-    },
+    ...KNOWLEDGE_GENERATION_COLUMNS,
     knowledge_generation_plans: { trust_revision_id: "trustRevisionId" },
     knowledge_candidates: {
       plan_id: "planId",
@@ -223,10 +207,7 @@ export function validateKnowledgeGenerationDatabase(
     if (
       a.id !== g.attemptId ||
       a.workspaceId !== g.workspaceId ||
-      a.generationId !== g.id ||
-      a.planId !== g.planId ||
-      a.runtimeEpoch !== g.runtimeEpoch ||
-      a.state !== g.state ||
+      !attemptBelongsTo(g, a) ||
       a.errorCode !== g.errorCode ||
       Date.parse(a.createdAt) < Date.parse(g.createdAt) ||
       Date.parse(a.updatedAt) > Date.parse(g.updatedAt) ||
@@ -292,7 +273,7 @@ export function validateKnowledgeGenerationDatabase(
     if (
       g.state !== "completed" ||
       !a ||
-      candidate.planId !== plan.id ||
+      !candidateMatchesOutput(candidate, g, a) ||
       candidate.generationOwnerId !== g.id ||
       !equal(candidate.binding, plan.binding) ||
       candidate.trustRevisionId !== plan.trustRevisionId ||
@@ -301,9 +282,7 @@ export function validateKnowledgeGenerationDatabase(
       !equal(candidate.target, plan.target) ||
       candidate.providerId !== g.providerId ||
       candidate.modelId !== g.modelId ||
-      candidate.requestSha256 !== g.logicalRequestSha256 ||
       candidate.body !== a.output ||
-      candidate.bodySha256 !== a.outputSha256 ||
       !equal(candidate.usage, a.usage) ||
       candidate.expiresAt !== plan.expiresAt ||
       Date.parse(candidate.createdAt) < Date.parse(a.updatedAt)

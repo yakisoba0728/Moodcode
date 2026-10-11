@@ -11,7 +11,8 @@ import { PROVIDER_RECOVERY_SCHEMA, PROVIDER_RECOVERY_TABLES } from '../recovery/
 import { MCP_EXECUTION_SCHEMA, MCP_EXECUTION_TABLES } from './mcp-executions.js';
 import { KNOWLEDGE_SCHEMA_SQL } from '../knowledge/store.js';
 import { KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
-import { KNOWLEDGE_GENERATION_SCHEMA_SQL, KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-store.js';
+import { KNOWLEDGE_GENERATION_SCHEMA_SQL } from '../knowledge/generation-store.js';
+import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-validation.js';
 import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
 import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
 import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';

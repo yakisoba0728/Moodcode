@@ -20,7 +20,9 @@ import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,
 } from "./generation-types.js";
-import { validateKnowledgeGenerationArchiveRow } from "./generation-store.js";
+import {
+  validateKnowledgeGenerationArchiveRow,
+} from "./generation-validation.js";
 import { readActiveKnowledgeImportActivation } from "./import-recovery-store.js";
 import {
   validateKnowledgePublicationArchiveRow,

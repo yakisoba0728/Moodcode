@@ -29,7 +29,7 @@ import { ATTEMPT_CLEANUP_TABLES } from '../storage/attempt-cleanup.js';
 import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
 import { MCP_EXECUTION_TABLES } from '../storage/mcp-executions.js';
 import { KNOWLEDGE_STORAGE_TABLES } from '../knowledge/validation.js';
-import { KNOWLEDGE_GENERATION_TABLES } from '../knowledge/generation-store.js';
+import { KNOWLEDGE_GENERATION_TABLES } from '../knowledge/generation-validation.js';
 import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
 import { KNOWLEDGE_FILE_PUBLICATION_TABLES } from '../knowledge/file-publication-store.js';
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE } from '../knowledge/file-execution-guards.js';

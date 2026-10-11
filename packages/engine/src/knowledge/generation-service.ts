@@ -18,6 +18,10 @@ import {
   sha256,
 } from './validation.js';
 import { normalizeKnowledgeGenerationBudget } from './generation-budget.js';
+import {
+  attemptBelongsTo,
+  candidateMatchesOutput,
+} from './generation-validation.js';
 import { buildKnowledgeGenerationRequest } from './generation-request.js';
 import { streamKnowledgeGeneration } from './generation-stream.js';
 import type {
@@ -151,13 +155,7 @@ export class KnowledgeGenerationService {
     const attempt = generation.attemptId
       ? this.#ports.native.getAttempt(workspaceId, generation.attemptId)
       : null;
-    if (
-      attempt &&
-      (attempt.generationId !== generation.id ||
-        attempt.planId !== generation.planId ||
-        attempt.runtimeEpoch !== generation.runtimeEpoch ||
-        attempt.state !== generation.state)
-    )
+    if (attempt && !attemptBelongsTo(generation, attempt))
       throw new EngineError(
         'KNOWLEDGE_RECORD_CONFLICT',
         'Attempt does not belong to the exact native generation state',
@@ -178,9 +176,7 @@ export class KnowledgeGenerationService {
       candidate &&
       (!attempt ||
         candidate.generationOwnerId !== generation.id ||
-        candidate.planId !== generation.planId ||
-        candidate.bodySha256 !== attempt.outputSha256 ||
-        candidate.requestSha256 !== generation.logicalRequestSha256 ||
+        !candidateMatchesOutput(candidate, generation, attempt) ||
         !sameKnowledge(candidate.binding, generation.binding))
     )
       throw new EngineError(
@@ -408,12 +404,7 @@ export class KnowledgeGenerationService {
         generationId,
       );
       if (existing) {
-        if (
-          !attempt ||
-          existing.planId !== record.planId ||
-          existing.bodySha256 !== attempt.outputSha256 ||
-          existing.requestSha256 !== record.logicalRequestSha256
-        )
+        if (!attempt || !candidateMatchesOutput(existing, record, attempt))
           throw new EngineError(
             'KNOWLEDGE_RECORD_CONFLICT',
             'Existing candidate does not describe this exact native output',

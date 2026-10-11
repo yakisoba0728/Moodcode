@@ -1,4 +1,6 @@
-import { validateKnowledgeGenerationArchiveRow } from "./generation-store.js";
+import {
+  validateKnowledgeGenerationArchiveRow,
+} from "./generation-validation.js";
 import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,

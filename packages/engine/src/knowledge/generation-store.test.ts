@@ -18,10 +18,12 @@ import { KnowledgeStorage, KNOWLEDGE_SCHEMA_SQL } from "./store.js";
 import {
   KnowledgeGenerationStorage,
   KNOWLEDGE_GENERATION_SCHEMA_SQL,
-  KNOWLEDGE_GENERATION_TABLES,
   hasKnowledgeGenerationBlocker,
-  validateKnowledgeGenerationArchiveRow,
 } from "./generation-store.js";
+import {
+  KNOWLEDGE_GENERATION_TABLES,
+  validateKnowledgeGenerationArchiveRow,
+} from "./generation-validation.js";
 import { normalizeKnowledgeGenerationBudget } from "./generation-budget.js";
 import { canonicalKnowledge, knowledgeHash, sha256 } from "./validation.js";
 import type {
