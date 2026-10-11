@@ -30,18 +30,22 @@ export interface GitCommitRecordPorts {
   ): SessionDocument;
   appendEvent(sessionId: string, type: string, payload: JsonObject): unknown;
 }
-function caps(db: DatabaseSync): void {
-  const event = db
-    .prepare(
-      "SELECT count(*) AS count,sum(length(CAST(data AS BLOB))) AS bytes,max(length(CAST(data AS BLOB))) AS largest FROM session_events WHERE type LIKE 'git.commit.%'",
-    )
-    .get()!;
+function assertEventBounds(row: Record<string, any>): void {
   if (
-    Number(event.count) > 8192 ||
-    Number(event.bytes) > 33554432 ||
-    Number(event.largest) > GIT_COMMIT_LIMITS.recordBytes + 8192
+    Number(row.count) > 8192 ||
+    Number(row.bytes) > 33554432 ||
+    Number(row.largest) > GIT_COMMIT_LIMITS.recordBytes + 8192
   )
     gitCommitError("GIT_COMMIT_LIMIT");
+}
+function caps(db: DatabaseSync): void {
+  assertEventBounds(
+    db
+      .prepare(
+        "SELECT count(*) AS count,sum(length(CAST(data AS BLOB))) AS bytes,max(length(CAST(data AS BLOB))) AS largest FROM session_events WHERE type LIKE 'git.commit.%'",
+      )
+      .get()!,
+  );
   const row = db
     .prepare(
       "SELECT count(*) AS count, sum(length(CAST(data AS BLOB))) AS bytes,max(length(CAST(data AS BLOB))) AS largest FROM session_documents WHERE kind LIKE 'git.commit.%'",
@@ -60,17 +64,29 @@ function eventMetadata(
   type: string,
   kind: string,
 ): void {
-  const h = db
+  assertEventBounds(
+    db
+      .prepare(
+        "SELECT count(*) AS count,sum(length(CAST(data AS BLOB))) AS bytes,max(length(CAST(data AS BLOB))) AS largest FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.kind')=?",
+      )
+      .get(sessionId, type, kind)!,
+  );
+}
+/** Parsed payloads of a receipt's events of one type; `latest` keeps only the newest. */
+function payloads(
+  db: DatabaseSync,
+  sessionId: string,
+  type: string,
+  id: string,
+  maxBytes: number,
+  latest = false,
+): Record<string, any>[] {
+  return db
     .prepare(
-      "SELECT count(*) AS count,sum(length(CAST(data AS BLOB))) AS bytes,max(length(CAST(data AS BLOB))) AS largest FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.kind')=?",
+      `SELECT data FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=? ${latest ? "ORDER BY seq DESC LIMIT 1" : "LIMIT 2"}`,
     )
-    .get(sessionId, type, kind)!;
-  if (
-    Number(h.count) > 8192 ||
-    Number(h.bytes) > 33554432 ||
-    Number(h.largest) > GIT_COMMIT_LIMITS.recordBytes + 8192
-  )
-    gitCommitError("GIT_COMMIT_LIMIT");
+    .all(sessionId, type, id, maxBytes)
+    .map((row) => JSON.parse(String(row.data)).payload);
 }
 function body(
   db: DatabaseSync,
@@ -320,6 +336,31 @@ function exactFields(value: object, names: readonly string[]): void {
   )
     gitCommitError("GIT_COMMIT_RECEIPT_INVALID");
 }
+type GitCommitState = GitCommitReceipt["state"];
+const TRANSITIONS: Readonly<Record<GitCommitState, readonly GitCommitState[]>> =
+  {
+    prepared: ["approved", "denied", "uncertain", "paused-import"],
+    approved: [
+      "dispatched",
+      "cancelled",
+      "failed",
+      "uncertain",
+      "paused-import",
+    ],
+    dispatched: [
+      "committed",
+      "failed",
+      "cancelled",
+      "uncertain",
+      "paused-import",
+    ],
+    uncertain: ["committed", "failed", "uncertain", "paused-import"],
+    committed: ["paused-import"],
+    failed: ["paused-import"],
+    denied: ["paused-import"],
+    cancelled: ["paused-import"],
+    "paused-import": ["paused-import"],
+  };
 export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
   const r = commitJson(value) as GitCommitReceipt;
   exactFields(r, [
@@ -343,17 +384,8 @@ export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
     r.version !== 1 ||
     !Number.isSafeInteger(r.revision) ||
     r.revision < 1 ||
-    ![
-      "prepared",
-      "approved",
-      "dispatched",
-      "committed",
-      "failed",
-      "denied",
-      "cancelled",
-      "uncertain",
-      "paused-import",
-    ].includes(r.state)
+    typeof r.state !== "string" ||
+    !Object.hasOwn(TRANSITIONS, r.state)
   )
     gitCommitError("GIT_COMMIT_RECEIPT_INVALID");
   commitId(r.id);
@@ -562,33 +594,10 @@ function readHeader(
         })
     )
       gitCommitError("REQUEST_ID_CONFLICT");
-    const allowed: Record<string, string[]> = {
-      prepared: ["approved", "denied", "uncertain", "paused-import"],
-      approved: [
-        "dispatched",
-        "cancelled",
-        "failed",
-        "uncertain",
-        "paused-import",
-      ],
-      dispatched: [
-        "committed",
-        "failed",
-        "cancelled",
-        "uncertain",
-        "paused-import",
-      ],
-      uncertain: ["committed", "failed", "uncertain", "paused-import"],
-      committed: ["paused-import"],
-      failed: ["paused-import"],
-      denied: ["paused-import"],
-      cancelled: ["paused-import"],
-      "paused-import": ["paused-import"],
-    };
     if (
       !before
         ? current.state !== "prepared"
-        : !allowed[before.state]?.includes(current.state)
+        : !TRANSITIONS[before.state].includes(current.state)
     )
       gitCommitError("GIT_COMMIT_TRANSITION_INVALID");
     if (payload.previousSha256 !== (before?.sha256 ?? null))
@@ -598,61 +607,61 @@ function readHeader(
   if (before!.sha256 !== r.sha256)
     gitCommitError("GIT_COMMIT_NATIVE_EVIDENCE_INVALID");
   if (r.outcome) {
-    const type = r.reconciled ? "git.commit.reconciled" : "git.commit.closed",
-      observed = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=? ORDER BY seq DESC LIMIT 1",
-        )
-        .get(h.session_id, type, r.id, GIT_COMMIT_LIMITS.recordBytes);
+    const [observed] = payloads(
+      db,
+      h.session_id,
+      r.reconciled ? "git.commit.reconciled" : "git.commit.closed",
+      r.id,
+      GIT_COMMIT_LIMITS.recordBytes,
+      true,
+    );
     if (
       !observed ||
-      JSON.parse(String(observed.data)).payload.previewSha256 !==
-        r.preview.sha256 ||
-      knowledgeHash(JSON.parse(String(observed.data)).payload.outcome) !==
-        knowledgeHash(r.outcome)
+      observed.previewSha256 !== r.preview.sha256 ||
+      knowledgeHash(observed.outcome) !== knowledgeHash(r.outcome)
     )
       gitCommitError("GIT_COMMIT_OUTCOME_INVALID");
     if (!r.reconciled) {
-      const sup = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND type='git.commit.supervisor_admitted' AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=4096 LIMIT 2",
-        )
-        .all(h.session_id, r.id);
+      const sup = payloads(
+        db,
+        h.session_id,
+        "git.commit.supervisor_admitted",
+        r.id,
+        4096,
+      );
       if (
         sup.length !== 1 ||
-        JSON.parse(String(sup[0]!.data)).payload.supervisorPid !==
-          r.outcome.supervisorPid ||
-        JSON.parse(String(sup[0]!.data)).payload.previewSha256 !==
-          r.preview.sha256
+        sup[0]!.supervisorPid !== r.outcome.supervisorPid ||
+        sup[0]!.previewSha256 !== r.preview.sha256
       )
         gitCommitError("GIT_COMMIT_OUTCOME_INVALID");
-      const groups = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND type='git.commit.process_admitted' AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=4096 LIMIT 2",
-        )
-        .all(h.session_id, r.id);
+      const groups = payloads(
+        db,
+        h.session_id,
+        "git.commit.process_admitted",
+        r.id,
+        4096,
+      );
       if (
         r.outcome.started
           ? groups.length !== 1 ||
-            JSON.parse(String(groups[0]!.data)).payload.groupPid !==
-              r.outcome.groupPid ||
-            JSON.parse(String(groups[0]!.data)).payload.previewSha256 !==
-              r.preview.sha256
+            groups[0]!.groupPid !== r.outcome.groupPid ||
+            groups[0]!.previewSha256 !== r.preview.sha256
           : groups.length !== 0 || r.outcome.groupPid !== null
       )
         gitCommitError("GIT_COMMIT_OUTCOME_INVALID");
     }
   }
-
-  const source = db
-    .prepare(
-      "SELECT data FROM session_events WHERE session_id=? AND type='git.commit.source_admitted' AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=? LIMIT 2",
-    )
-    .all(h.session_id, r.id, GIT_COMMIT_LIMITS.recordBytes);
+  const source = payloads(
+    db,
+    h.session_id,
+    "git.commit.source_admitted",
+    r.id,
+    GIT_COMMIT_LIMITS.recordBytes,
+  );
   if (
     source.length !== 1 ||
-    knowledgeHash(JSON.parse(String(source[0]!.data)).payload.preview) !==
-      knowledgeHash(r.preview)
+    knowledgeHash(source[0]!.preview) !== knowledgeHash(r.preview)
   )
     gitCommitError("GIT_COMMIT_SOURCE_INVALID");
   const docEvent = db
@@ -714,14 +723,23 @@ export class GitCommitStorage {
   list(workspaceId: string) {
     return readGitCommitReceipts(this.db, workspaceId);
   }
+  /** The write transaction validates every receipt afterwards, so it reads only its own. */
+  private readOne(r: GitCommitReceipt): GitCommitReceipt | undefined {
+    const h = this.db
+      .prepare(
+        "SELECT d.session_id,d.kind,d.revision,length(CAST(d.data AS BLOB)) AS bytes FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE d.session_id=? AND d.kind=? AND s.workspace_id=?",
+      )
+      .get(
+        r.preview.sessionId,
+        gitCommitDocumentKind(r.preview.requestId),
+        r.preview.workspaceId,
+      );
+    return h && readHeader(this.db, h);
+  }
   write(record: GitCommitReceipt, expectedRevision: number): GitCommitReceipt {
     return this.ports.writeTx(() => {
       const r = validateGitCommitReceipt(record),
-        old = this.get(
-          r.preview.workspaceId,
-          r.preview.sessionId,
-          r.preview.requestId,
-        );
+        old = this.readOne(r);
       if (
         (old?.revision ?? 0) !== expectedRevision ||
         r.revision !== expectedRevision + 1
@@ -816,14 +834,10 @@ export function readGitCommitProcessEvidence(
   commitId(sessionId);
   commitId(id);
   const read = (type: string, field: string) => {
-    const rows = db
-      .prepare(
-        "SELECT data FROM session_events WHERE session_id=? AND type=? AND json_extract(data,'$.payload.id')=? AND length(CAST(data AS BLOB))<=4096 LIMIT 2",
-      )
-      .all(sessionId, type, id);
+    const rows = payloads(db, sessionId, type, id, 4096);
     if (rows.length > 1) gitCommitError("GIT_COMMIT_OUTCOME_INVALID");
     if (!rows.length) return null;
-    const pid = JSON.parse(String(rows[0]!.data)).payload[field];
+    const pid = rows[0]![field];
     if (!Number.isSafeInteger(pid) || pid < 1)
       gitCommitError("GIT_COMMIT_OUTCOME_INVALID");
     return pid as number;
