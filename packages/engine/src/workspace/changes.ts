@@ -198,8 +198,7 @@ export class WorkspaceChangeHub {
         if (entry.documents.size >= this.limits.maxDocuments) { this.incomplete(entry, 'WORKSPACE_DOCUMENT_LIMIT'); break; }
         entry.documents.set(path, { path, documentVersion: 1, ...observed }); continue;
       }
-      // The delayed sample may describe an older state. Current disk hash is
-      // authoritative, so a matching internal transition emits no duplicate.
+      // A delayed sample may be older; the current disk hash wins, so a matching internal transition is not duplicated.
       if (prior?.hash === observed.hash) continue;
       this.change(entry, path, prior?.hash ?? null, observed, 'external');
     }
@@ -253,8 +252,7 @@ export class WorkspaceChangeHub {
           } else if (observed.hash === file.afterHash && file.beforeHash !== file.afterHash) {
             const prior = entry.documents.get(file.path);
             if (prior?.changeId && prior.hash !== file.beforeHash) {
-              // An already observed transition with another before-hash cannot
-              // be rewritten or reported twice on the strength of an old patch.
+              // An observed transition with another before-hash is never rewritten or reported twice from an old patch.
               this.incomplete(entry, 'CHECKPOINT_CHANGE_TRANSITION_MISMATCH');
               if (prior.hash !== observed.hash) this.change(entry, file.path, prior.hash, observed, 'external');
             } else {

@@ -572,10 +572,7 @@ export class WorkflowStorage {
               : `instance:${body.instanceId}`)) ||
         (row.kind === "stage" &&
           row.request_scope !==
-            `stage:${body.instanceId}:${(value as StageRevision).stage.stageId}`)
-      )
-        workflowError("WORKFLOW_DATABASE_INVALID");
-      if (
+            `stage:${body.instanceId}:${(value as StageRevision).stage.stageId}`) ||
         (row.kind === "instance" &&
           row.entity_id !== (value as WorkflowInstanceRevision).instanceId) ||
         (row.kind === "stage" &&
@@ -708,6 +705,29 @@ export class WorkflowStorage {
     const record = this.revision(String(row.id), workspaceId) as T;
     return { record, receipt: this.receipt(record), duplicate: true };
   }
+  private request<T extends WorkflowSpecRevision | WorkflowInstanceRevision>(
+    workspaceId: string,
+    scope: string,
+    requestId: string,
+    digest: string,
+    write: () => WorkflowRequestResult<T>,
+  ): WorkflowRequestResult<T> {
+    return (
+      this.duplicate<T>(workspaceId, scope, requestId, digest) ??
+      this.ports.writeTx(
+        () =>
+          this.duplicate<T>(workspaceId, scope, requestId, digest) ?? write(),
+      )
+    );
+  }
+  private journalSize(): { count: number; bytes: number } {
+    const sizes = this.db
+      .prepare(
+        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
+      )
+      .get()!;
+    return { count: Number(sizes.count), bytes: Number(sizes.bytes) };
+  }
   private insert(
     kind: Kind,
     entity: string,
@@ -721,14 +741,10 @@ export class WorkflowStorage {
   ): void {
     const body = json(value),
       { workspaceId, id, sha256 } = body;
-    const sizes = this.db
-      .prepare(
-        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
-      )
-      .get()!;
+    const sizes = this.journalSize();
     if (
-      Number(sizes.count) >= WORKFLOW_STORAGE_LIMITS.rows ||
-      Number(sizes.bytes) + Buffer.byteLength(JSON.stringify(body)) >
+      sizes.count >= WORKFLOW_STORAGE_LIMITS.rows ||
+      sizes.bytes + Buffer.byteLength(JSON.stringify(body)) >
         WORKFLOW_STORAGE_LIMITS.bytes
     )
       workflowError("WORKFLOW_LIMIT");
@@ -755,13 +771,7 @@ export class WorkflowStorage {
   }
   /** Normal writes keep room for recoverInterrupted and a later pauseImported to force-pause every instance. */
   private assertHeadroom(): void {
-    const total = this.db
-      .prepare(
-        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
-      )
-      .get()!;
-    let rows = Number(total.count),
-      bytes = Number(total.bytes);
+    let { count: rows, bytes } = this.journalSize();
     for (const head of this.db
       .prepare(
         "SELECT json_extract(r.data,'$.state') AS state,length(CAST(r.data AS BLOB)) AS bytes,count(j.key) AS live,coalesce(sum(length(CAST(s.data AS BLOB))),0) AS liveBytes FROM workflow_heads h JOIN workflow_revisions r ON r.id=h.revision_id LEFT JOIN json_each(r.data,'$.stages') j ON json_extract(j.value,'$.state') IN ('dispatching','running') LEFT JOIN workflow_revisions s ON s.id=json_extract(j.value,'$.id') WHERE h.kind='instance' GROUP BY h.workspace_id,h.entity_id",
@@ -873,21 +883,7 @@ export class WorkflowStorage {
       revision = workflowInteger(r.expectedRevision),
       digest = knowledgeHash({ ...r, spec }),
       scope = `register:${spec.id}`;
-    const duplicate = this.duplicate<WorkflowSpecRevision>(
-      workspaceId,
-      scope,
-      requestId,
-      digest,
-    );
-    if (duplicate) return duplicate;
-    return this.ports.writeTx(() => {
-      const again = this.duplicate<WorkflowSpecRevision>(
-        workspaceId,
-        scope,
-        requestId,
-        digest,
-      );
-      if (again) return again;
+    return this.request(workspaceId, scope, requestId, digest, () => {
       if (this.ports.getWorkspace(workspaceId).id !== workspaceId)
         workflowError("WORKFLOW_OWNER_INVALID");
       const prior = this.getWorkflow(workspaceId, spec.id);
@@ -986,21 +982,7 @@ export class WorkflowStorage {
       scope = `create:${workflowId}`;
     workflowSha(r.ownerSha256);
     workflowInteger(r.expectedSpecRevision);
-    const duplicate = this.duplicate<WorkflowInstanceRevision>(
-      workspaceId,
-      scope,
-      requestId,
-      digest,
-    );
-    if (duplicate) return duplicate;
-    return this.ports.writeTx(() => {
-      const again = this.duplicate<WorkflowInstanceRevision>(
-        workspaceId,
-        scope,
-        requestId,
-        digest,
-      );
-      if (again) return again;
+    return this.request(workspaceId, scope, requestId, digest, () => {
       const spec = this.getWorkflow(workspaceId, workflowId);
       if (!spec || spec.revision !== r.expectedSpecRevision)
         workflowError("WORKFLOW_SPEC_STALE");
@@ -1309,7 +1291,6 @@ export class WorkflowStorage {
       ),
     );
   }
-  /** The root session's engine.child_tasks journal entries. */
   private childTasks(sessionId: string): Record<string, unknown>[] {
     const journal = this.childDocument(
       sessionId,
@@ -1408,21 +1389,7 @@ export class WorkflowStorage {
     let requestInput = { ...data, operation } as JsonObject,
       digest = knowledgeHash(requestInput);
     const expectedRevision = workflowInteger(data.expectedRevision);
-    const duplicate = this.duplicate<WorkflowInstanceRevision>(
-      workspaceId,
-      scope,
-      requestId,
-      digest,
-    );
-    if (duplicate) return duplicate;
-    return this.ports.writeTx(() => {
-      const again = this.duplicate<WorkflowInstanceRevision>(
-        workspaceId,
-        scope,
-        requestId,
-        digest,
-      );
-      if (again) return again;
+    return this.request(workspaceId, scope, requestId, digest, () => {
       if (
         this.db
           .prepare(
@@ -1709,14 +1676,10 @@ export class WorkflowStorage {
   }
   /** @internal */
   assertJournalSize(): void {
-    const sizes = this.db
-      .prepare(
-        "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
-      )
-      .get()!;
+    const sizes = this.journalSize();
     if (
-      Number(sizes.count) > WORKFLOW_STORAGE_LIMITS.rows ||
-      Number(sizes.bytes) > WORKFLOW_STORAGE_LIMITS.bytes
+      sizes.count > WORKFLOW_STORAGE_LIMITS.rows ||
+      sizes.bytes > WORKFLOW_STORAGE_LIMITS.bytes
     )
       workflowError("WORKFLOW_LIMIT");
   }

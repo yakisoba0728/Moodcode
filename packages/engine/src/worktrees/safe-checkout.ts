@@ -21,9 +21,8 @@ const BASE = Object.freeze([
 const SAFE_CHECKOUT_LIMITS = Object.freeze({ configBytes: 32_768, configKeys: 256, drivers: 32, hooks: 64 });
 
 /**
- * Resolve only bounded, ordinary config names. Values (which may contain shell
- * commands) are never read or interpolated. Older Git without no-lazy-fetch
- * rejects this probe before worktree creation and fails closed.
+ * Resolves only bounded, ordinary config names; values (which may hold shell commands) are never read or interpolated.
+ * Older Git without no-lazy-fetch rejects this probe before worktree creation and fails closed.
  */
 export async function safeCheckoutArguments(root: string, signal: AbortSignal): Promise<string[]> {
   const result = await runGit(root, [...BASE, 'config', '--null', '--name-only', '--get-regexp', '^(filter|hook)\\.'], { signal });

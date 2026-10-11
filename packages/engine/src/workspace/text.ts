@@ -7,7 +7,6 @@ import { assertWorkspaceWriteParent, workspaceWritePath } from './index.js';
 import { plainRecord } from '../shared/data.js';
 export const TEXT_FILE_LIMIT = 1024 * 1024;
 export const textHash = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
-/** A plain input object with exactly `keys`; fails with `code` and the shape or the key-set message. */
 export function exactInput(value: unknown, keys: readonly string[], code: string, [shape, fields]: readonly [string, string]): Record<string, unknown> {
   return plainRecord(value, keys, [], fault => { throw new EngineError(code, fault === 'shape' ? shape : fields); });
 }

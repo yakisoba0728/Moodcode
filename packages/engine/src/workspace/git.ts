@@ -17,10 +17,7 @@ const MAX_OUTPUT_BYTES = 2 * 1024 * 1024;
 export const GIT_DETACHED = process.platform !== 'win32';
 export const GIT_SAFE_ARGS = Object.freeze(['--no-optional-locks', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false']);
 
-/**
- * Provider credentials and inherited Git selectors/config injections (which can
- * override -C) are not forwarded. Ordinary on-disk Git config remains available.
- */
+/** Drops provider credentials and inherited Git selectors/config injections (which can override -C); on-disk config stays. */
 export function gitEnvironment(): NodeJS.ProcessEnv {
   const env = createCommandEnvironment();
   for (const key of Object.keys(env)) if (key.toUpperCase().startsWith('GIT_')) delete env[key];

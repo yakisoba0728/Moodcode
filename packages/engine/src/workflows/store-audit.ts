@@ -23,7 +23,6 @@ import type {
   WorkflowTransitionReceipt,
 } from "./store.js";
 
-/** Exact own keys, or WORKFLOW_DATABASE_INVALID. */
 export function fields(value: object, required: readonly string[]): void {
   if (
     required.some((key) => !Object.hasOwn(value, key)) ||
@@ -36,7 +35,6 @@ export function taskOutcomeSha(task: Record<string, unknown>): string {
     task.outcome ?? { state: task.state, errorCode: task.errorCode ?? null },
   );
 }
-/** The worktree id each stage selected. */
 export function worktreeIds(
   pins: Readonly<Record<string, WorkflowWorktreePin>>,
 ): Record<string, string> {

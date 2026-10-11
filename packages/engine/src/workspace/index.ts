@@ -3,12 +3,8 @@ import { lstat, open, opendir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { sha256Hex } from '../shared/canonical.js';
-import { within } from '../shared/fs.js';
+import { errnoCode, within } from '../shared/fs.js';
 import { gitFailure, readBranch, runGit, type GitOperationOptions } from './git.js';
-
-function codeOf(error: unknown): string | undefined {
-  return error instanceof Error && 'code' in error ? String(error.code) : undefined;
-}
 
 const PROTECTED_DIRECTORIES = ['.git', 'node_modules'];
 const SHORT_NAME = /^(?=[^.]{1,8}(?:\.|$))[^.\s]{1,6}~\d+(?:\.[^.\s]{1,3})?$/u;
@@ -75,11 +71,8 @@ export async function openWorkspace(inputPath: string, options: GitOperationOpti
 }
 
 /**
- * Rechecks existing components on every call. Within-root symlinks are resolved;
- * escaping/dangling links and lexical traversal are rejected. For missing paths,
- * the nearest existing parent is checked. This is not an atomic write primitive:
- * callers must invoke it again immediately before an effect, and parent paths
- * may still race with a separate filesystem process.
+ * Rechecks existing components per call: resolves within-root symlinks, rejects escaping/dangling links and traversal,
+ * and checks a missing path's nearest existing parent. Not atomic: re-run it right before an effect; parents may race.
  */
 export async function resolveWorkspacePath(workspace: Workspace, relative: string, allowMissing = false): Promise<string> {
   if (typeof relative !== 'string' || relative.includes('\0') || relative.includes('\\') ||
@@ -102,11 +95,11 @@ export async function resolveWorkspacePath(workspace: Workspace, relative: strin
     try {
       metadata = await lstat(current);
     } catch (error) {
-      if (codeOf(error) === 'ENOENT') {
+      if (errnoCode(error) === 'ENOENT') {
         if (allowMissing) return path.join(current, ...components.slice(index + 1));
         throw new EngineError('PATH_NOT_FOUND', `Workspace path does not exist: ${relative}`);
       }
-      if (codeOf(error) === 'ENOTDIR') throw new EngineError('PATH_NOT_DIRECTORY', 'An existing path component is not a directory.');
+      if (errnoCode(error) === 'ENOTDIR') throw new EngineError('PATH_NOT_DIRECTORY', 'An existing path component is not a directory.');
       throw new EngineError('PATH_UNAVAILABLE', `Could not inspect workspace path: ${relative}`);
     }
     try {
@@ -115,20 +108,16 @@ export async function resolveWorkspacePath(workspace: Workspace, relative: strin
       throw new EngineError('PATH_UNAVAILABLE', `Workspace path has an unavailable or dangling component: ${relative}`);
     }
     if (!within(root, current)) throw new EngineError('PATH_OUTSIDE_WORKSPACE', `Workspace path escapes its root: ${relative}`);
-    if (index < components.length - 1 && !metadata.isDirectory()) {
-      if (!metadata.isSymbolicLink() || !(await stat(current)).isDirectory()) {
-        throw new EngineError('PATH_NOT_DIRECTORY', 'An existing path component is not a directory.');
-      }
+    if (index < components.length - 1 && !metadata.isDirectory() && (!metadata.isSymbolicLink() || !(await stat(current)).isDirectory())) {
+      throw new EngineError('PATH_NOT_DIRECTORY', 'An existing path component is not a directory.');
     }
   }
   return current;
 }
 
 /**
- * Workspace-relative write path, checked with Windows component rules on every platform: no
- * segment ending in a dot or space (including . and ..), no 8.3 short name and no Git metadata
- * or dependency directory, compared case-insensitively without the code points HFS+ ignores.
- * Returns the segments.
+ * Windows component rules on every platform: no segment ending in a dot or space (including . and ..), no 8.3 short
+ * name and no Git metadata or dependency directory, compared case-insensitively without HFS+-ignored code points.
  */
 export function workspaceWritePath(value: unknown, code: string, message: string, rejectControl = true): string[] {
   if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 512 || Buffer.from(value).toString() !== value ||
@@ -283,7 +272,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
       totalBytes += bytes;
     } catch (error) {
       if (error instanceof EngineError && error.code === 'ABORTED') throw error;
-      warn(`Could not capture file ${relative}: ${error instanceof EngineError ? error.code : codeOf(error) ?? 'IO_ERROR'}`);
+      warn(`Could not capture file ${relative}: ${error instanceof EngineError ? error.code : errnoCode(error) ?? 'IO_ERROR'}`);
     } finally {
       await handle?.close();
     }
@@ -310,7 +299,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
       }
     } catch (error) {
       if (error instanceof EngineError && error.code === 'ABORTED') throw error;
-      warn(`Could not inspect directory ${relative || '.'}: ${error instanceof EngineError ? error.code : codeOf(error) ?? 'IO_ERROR'}`);
+      warn(`Could not inspect directory ${relative || '.'}: ${error instanceof EngineError ? error.code : errnoCode(error) ?? 'IO_ERROR'}`);
       return;
     }
     names.sort(compareText);
@@ -320,8 +309,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
       if (name.toLowerCase() === '.git' || name.toLowerCase() === 'node_modules') continue;
       const childRelative = relative ? `${relative}/${name}` : name;
       try {
-        // Inspect the lexical entry before resolution so capture never follows
-        // a symlink intentionally, including links to another in-root directory.
+        // Inspect the lexical entry first so capture never follows a symlink, even to an in-root directory.
         const parent = await resolveWorkspacePath(workspace, relative);
         const child = path.join(parent, name);
         const metadata = await lstat(child);
@@ -332,7 +320,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
         else warn(`Skipped nonregular file: ${childRelative}`);
       } catch (error) {
         if (error instanceof EngineError && error.code === 'ABORTED') throw error;
-        warn(`Could not inspect path ${childRelative}: ${error instanceof EngineError ? error.code : codeOf(error) ?? 'IO_ERROR'}`);
+        warn(`Could not inspect path ${childRelative}: ${error instanceof EngineError ? error.code : errnoCode(error) ?? 'IO_ERROR'}`);
       }
     }
   };

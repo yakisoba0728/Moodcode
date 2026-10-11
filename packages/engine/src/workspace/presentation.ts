@@ -4,6 +4,7 @@ import { lstat, open, opendir } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { compareText, getGitStatus, resolveWorkspacePath, workspaceRootIdentity, type GitStatusEntry } from './index.js';
+import { errnoCode } from '../shared/fs.js';
 import { continuationOffset, continuationToken, excludedDirectory, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from './ignore.js';
 
 export const WORKSPACE_PRESENTATION_LIMITS = Object.freeze({
@@ -46,10 +47,6 @@ interface RootAnchor { absolute: string; dev: bigint; ino: bigint }
 
 function abort(signal?: AbortSignal): void {
   if (signal?.aborted) throw new EngineError('ABORTED', 'Workspace presentation request was aborted.');
-}
-
-function code(error: unknown): string {
-  return error instanceof Error && 'code' in error ? String(error.code) : 'IO_ERROR';
 }
 
 function normalizedPath(value: string, allowRoot: boolean): string {
@@ -102,8 +99,8 @@ async function checkedPath(workspace: Workspace, relative: string, anchor: RootA
       if (index < parts.length - 1 && !metadata.isDirectory()) throw new EngineError('PATH_NOT_DIRECTORY', 'A path component is not a directory.');
     } catch (error) {
       if (error instanceof EngineError) throw error;
-      if (code(error) === 'ENOENT') throw new EngineError('PATH_NOT_FOUND', 'Workspace path does not exist.');
-      if (code(error) === 'ENOTDIR') throw new EngineError('PATH_NOT_DIRECTORY', 'A path component is not a directory.');
+      if (errnoCode(error) === 'ENOENT') throw new EngineError('PATH_NOT_FOUND', 'Workspace path does not exist.');
+      if (errnoCode(error) === 'ENOTDIR') throw new EngineError('PATH_NOT_DIRECTORY', 'A path component is not a directory.');
       throw new EngineError('PATH_UNAVAILABLE', 'Workspace path could not be inspected.');
     }
   }
@@ -210,7 +207,7 @@ async function listFiles(workspace: Workspace, relativePath = '', options: Works
       result.truncated = true;
       safe = false;
       // Do not expose absolute host paths or arbitrary OS diagnostics to the GUI.
-      warning(result.warnings, `${entry.name}: ${error instanceof EngineError ? error.code : code(error)}`);
+      warning(result.warnings, `${entry.name}: ${error instanceof EngineError ? error.code : errnoCode(error) ?? 'IO_ERROR'}`);
     }
   }
   const current = await checkedPath(workspace, relative, anchor, signal);
@@ -298,8 +295,9 @@ async function readFile(workspace: Workspace, relativePath: string, options: Wor
 
 function filesystemError(error: unknown, directory: boolean): EngineError {
   if (error instanceof EngineError) return error;
-  if (code(error) === 'ELOOP') return new EngineError('SYMLINK_NOT_ALLOWED', 'A path changed into a symbolic link.');
-  if (code(error) === 'ENOENT' || code(error) === 'ENOTDIR') {
+  const code = errnoCode(error);
+  if (code === 'ELOOP') return new EngineError('SYMLINK_NOT_ALLOWED', 'A path changed into a symbolic link.');
+  if (code === 'ENOENT' || code === 'ENOTDIR') {
     return new EngineError(directory ? 'DIRECTORY_CHANGED' : 'FILE_CHANGED', 'Path disappeared or changed during presentation; request a fresh result.');
   }
   return new EngineError(directory ? 'DIRECTORY_UNREADABLE' : 'FILE_UNREADABLE', 'Workspace path could not be read.');

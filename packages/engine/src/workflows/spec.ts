@@ -36,7 +36,6 @@ export const WORKFLOW_LIMITS = Object.freeze({
   tools: 64,
 });
 export const WORKFLOW_READ_TOOLS = DELEGATION_READ_TOOLS;
-/** The tools each stage role may be granted. */
 export const WORKFLOW_ROLE_TOOLS: Readonly<
   Record<WorkflowRole, readonly string[]>
 > = Object.freeze({
@@ -52,7 +51,6 @@ export const WORKFLOW_ROLE_TOOLS: Readonly<
 export function readonlyWorkflowRole(role: WorkflowRole): boolean {
   return role === "planner" || role === "advisory-reviewer";
 }
-/** The fields that address one stage request. */
 export const WORKFLOW_STAGE_KEYS = [
   "workspaceId",
   "instanceId",
@@ -151,23 +149,20 @@ export function workflowText(input: unknown, maximum: number): string {
     workflowError("WORKFLOW_LIMIT");
   return input;
 }
-function stringArray(input: unknown, maximum: number): string[] {
+function uniqueArray(input: unknown, maximum: number): unknown[] {
   if (
     !Array.isArray(input) ||
     input.length > maximum ||
     new Set(input).size !== input.length
   )
     workflowError("WORKFLOW_LIMIT");
-  return input.map(workflowIdentifier).sort();
+  return input;
+}
+function stringArray(input: unknown, maximum: number): string[] {
+  return uniqueArray(input, maximum).map(workflowIdentifier).sort();
 }
 function sourcePathArray(input: unknown): string[] {
-  if (
-    !Array.isArray(input) ||
-    input.length > 32 ||
-    new Set(input).size !== input.length
-  )
-    workflowError("WORKFLOW_LIMIT");
-  return input.map((path) => {
+  return uniqueArray(input, 32).map((path) => {
     try {
       return exactPath(path);
     } catch (error) {
@@ -176,6 +171,21 @@ function sourcePathArray(input: unknown): string[] {
       throw error;
     }
   }).sort();
+}
+function enumeration(
+  input: unknown,
+  maximum: number,
+  invalid: (item: unknown) => boolean,
+): void {
+  if (
+    input !== undefined &&
+    (!Array.isArray(input) ||
+      input.length < 1 ||
+      input.length > maximum ||
+      new Set(input).size !== input.length ||
+      input.some(invalid))
+  )
+    workflowError();
 }
 export function validateWorkflowSchema(input: unknown): WorkflowSchema {
   input = workflowJson(input);
@@ -260,29 +270,21 @@ export function validateWorkflowSchema(input: unknown): WorkflowSchema {
             schema.minLength === undefined
               ? 0
               : workflowInteger(schema.minLength, maxLength);
-        const enumeration = schema.enum;
-        if (enumeration !== undefined) {
-          if (
-            !Array.isArray(enumeration) ||
-            enumeration.length < 1 ||
-            enumeration.length > WORKFLOW_LIMITS.enumItems ||
-            new Set(enumeration).size !== enumeration.length ||
-            enumeration.some(
-              (item) =>
-                typeof item !== "string" ||
-                Array.from(item).length < minLength ||
-                Array.from(item).length > maxLength,
-            )
-          )
-            workflowError();
-        }
+        enumeration(
+          schema.enum,
+          WORKFLOW_LIMITS.enumItems,
+          (item) =>
+            typeof item !== "string" ||
+            Array.from(item).length < minLength ||
+            Array.from(item).length > maxLength,
+        );
         return {
           type: "string",
           maxLength,
           ...(schema.minLength === undefined ? {} : { minLength }),
-          ...(enumeration === undefined
+          ...(schema.enum === undefined
             ? {}
-            : { enum: enumeration as string[] }),
+            : { enum: schema.enum as string[] }),
         };
       }
       case "integer":
@@ -306,24 +308,16 @@ export function validateWorkflowSchema(input: unknown): WorkflowSchema {
           Number(schema.minimum) > Number(schema.maximum)
         )
           workflowError();
-        const enumeration = schema.enum;
-        if (
-          enumeration !== undefined &&
-          (!Array.isArray(enumeration) ||
-            enumeration.length < 1 ||
-            enumeration.length > WORKFLOW_LIMITS.enumItems ||
-            new Set(enumeration).size !== enumeration.length ||
-            enumeration.some(
-              (item) =>
-                typeof item !== "number" ||
-                !Number.isFinite(item) ||
-                (kind === "integer" && !Number.isSafeInteger(item)) ||
-                (schema.minimum !== undefined &&
-                  item < Number(schema.minimum)) ||
-                (schema.maximum !== undefined && item > Number(schema.maximum)),
-            ))
-        )
-          workflowError();
+        enumeration(
+          schema.enum,
+          WORKFLOW_LIMITS.enumItems,
+          (item) =>
+            typeof item !== "number" ||
+            !Number.isFinite(item) ||
+            (kind === "integer" && !Number.isSafeInteger(item)) ||
+            (schema.minimum !== undefined && item < Number(schema.minimum)) ||
+            (schema.maximum !== undefined && item > Number(schema.maximum)),
+        );
         return {
           type: kind,
           ...(schema.minimum === undefined
@@ -332,28 +326,19 @@ export function validateWorkflowSchema(input: unknown): WorkflowSchema {
           ...(schema.maximum === undefined
             ? {}
             : { maximum: Number(schema.maximum) }),
-          ...(enumeration === undefined
+          ...(schema.enum === undefined
             ? {}
-            : { enum: enumeration as number[] }),
+            : { enum: schema.enum as number[] }),
         };
       }
       case "boolean": {
-        const schema = workflowObject(value, ["type"], ["enum"]),
-          enumeration = schema.enum;
-        if (
-          enumeration !== undefined &&
-          (!Array.isArray(enumeration) ||
-            enumeration.length < 1 ||
-            enumeration.length > 2 ||
-            new Set(enumeration).size !== enumeration.length ||
-            enumeration.some((item) => typeof item !== "boolean"))
-        )
-          workflowError();
+        const schema = workflowObject(value, ["type"], ["enum"]);
+        enumeration(schema.enum, 2, (item) => typeof item !== "boolean");
         return {
           type: "boolean",
-          ...(enumeration === undefined
+          ...(schema.enum === undefined
             ? {}
-            : { enum: enumeration as boolean[] }),
+            : { enum: schema.enum as boolean[] }),
         };
       }
       case "null":
@@ -512,7 +497,7 @@ function stage(input: unknown): WorkflowStageSpec {
     workflowError("WORKFLOW_ROLE_TOOL_MISMATCH");
   const tools = stringArray(value.tools, WORKFLOW_LIMITS.tools);
   if (
-    ["planner", "advisory-reviewer"].includes(value.role as string) &&
+    readonlyWorkflowRole(value.role as WorkflowRole) &&
     tools.some((name) => !WORKFLOW_READ_TOOLS.includes(name))
   )
     workflowError("WORKFLOW_ROLE_TOOL_MISMATCH");

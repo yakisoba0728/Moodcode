@@ -8,6 +8,7 @@ import {
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
+import { errnoCode } from "../shared/fs.js";
 import { raceAbort, settleWithin } from "../shared/runtime.js";
 import { runGit } from "../workspace/git.js";
 import { workspaceIdForRoot } from "../workspace/index.js";
@@ -59,12 +60,7 @@ async function safeDirectory(directory: string): Promise<void> {
     try {
       await mkdir(current, { mode: 0o700 });
     } catch (error) {
-      if (!(
-        error instanceof Error &&
-        "code" in error &&
-        error.code === "EEXIST"
-      ))
-        throw error;
+      if (errnoCode(error) !== "EEXIST") throw error;
     }
     const info = await lstat(current);
     if (!info.isDirectory() || info.isSymbolicLink())
@@ -83,9 +79,6 @@ function errorCode(error: unknown): string {
   return error instanceof EngineError
     ? error.code
     : "WORKTREE_OPERATION_FAILED";
-}
-function clone<T>(value: T): T {
-  return structuredClone(value);
 }
 async function boundedBoot(
   promise: Promise<void>,
@@ -168,7 +161,7 @@ export class WorktreeManager {
         "INVALID_WORKTREE_JOURNAL",
         "Stored worktree ownership, path or state is invalid",
       );
-    return { revision: stored.revision, records: clone(records) };
+    return { revision: stored.revision, records: structuredClone(records) };
   }
   private commit(
     sessionId: string,
@@ -208,7 +201,7 @@ export class WorktreeManager {
     for (const [key, value] of Object.entries(update))
       if (value === undefined) Reflect.deleteProperty(record, key);
     this.commit(sessionId, journal.records, journal.revision);
-    return clone(record);
+    return structuredClone(record);
   }
   list(sessionId: string): ManagedWorktree[] {
     return this.records(sessionId).records;
@@ -283,7 +276,7 @@ export class WorktreeManager {
     input: WorktreeCreate,
     signal: AbortSignal,
   ): Promise<ManagedWorktree> {
-    input = clone(input);
+    input = structuredClone(input);
     if (
       typeof input.sessionId !== "string" ||
       !input.sessionId ||
@@ -376,7 +369,7 @@ export class WorktreeManager {
           "WORKTREE_REQUEST_CONFLICT",
           "Concurrent worktree request changed input",
         );
-      return clone(concurrent);
+      return structuredClone(concurrent);
     }
     if (signal.aborted)
       throw new EngineError("CANCELLED", "Worktree preparation cancelled");
@@ -426,7 +419,7 @@ export class WorktreeManager {
         const boot = Promise.resolve().then(() => {
           if (bootController.signal.aborted)
             throw new EngineError("CANCELLED", "Worktree boot cancelled");
-          return this.options.boot!(clone(record), bootController.signal);
+          return this.options.boot!(structuredClone(record), bootController.signal);
         });
         this.bootPending.add(boot);
         boot.finally(() => this.bootPending.delete(boot)).catch(() => {});
@@ -510,16 +503,14 @@ export class WorktreeManager {
         "UNSAFE_WORKTREE_PATH",
         "Managed worktree path identity changed",
       );
-    const parentCommon = await runGit(
-      record.baseRoot,
-      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-      { signal },
-    );
-    const childCommon = await runGit(
-      record.root,
-      ["rev-parse", "--path-format=absolute", "--git-common-dir"],
-      { signal },
-    );
+    const commonDir = (root: string) =>
+      runGit(
+        root,
+        ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+        { signal },
+      );
+    const parentCommon = await commonDir(record.baseRoot);
+    const childCommon = await commonDir(record.root);
     const head = await runGit(record.root, ["rev-parse", "--verify", "HEAD"], {
       signal,
     });
@@ -626,7 +617,7 @@ export class WorktreeManager {
         record.errorCode = "WORKTREE_INTERRUPTED";
         record.revision++;
         record.updatedAt = new Date(this.now()).toISOString();
-        recovered.push(clone(record));
+        recovered.push(structuredClone(record));
       }
     if (recovered.length)
       this.commit(sessionId, journal.records, journal.revision);

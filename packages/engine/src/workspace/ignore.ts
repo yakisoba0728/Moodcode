@@ -33,12 +33,9 @@ async function ignoreBatch(root: string, paths: string[], signal?: AbortSignal):
     const cleanup = () => { clearTimeout(timeout); signal?.removeEventListener('abort', abort); };
     signal?.addEventListener('abort', abort, { once: true });
     if (signal?.aborted) abort();
-    child.stdout.on('data', (chunk: Buffer) => {
-      bytes += chunk.length;
-      if (bytes > 65_536) stop(new EngineError('IGNORE_LOOKUP_FAILED', 'Git ignore lookup exceeded its output limit'));
-      else chunks.push(chunk);
-    });
-    child.stderr.on('data', (chunk: Buffer) => { bytes += chunk.length; if (bytes > 65_536) stop(new EngineError('IGNORE_LOOKUP_FAILED', 'Git ignore lookup exceeded its output limit')); });
+    const collect = (destination?: Buffer[]) => (chunk: Buffer) => { bytes += chunk.length; if (bytes > 65_536) stop(new EngineError('IGNORE_LOOKUP_FAILED', 'Git ignore lookup exceeded its output limit')); else destination?.push(chunk); };
+    child.stdout.on('data', collect(chunks));
+    child.stderr.on('data', collect());
     child.stdin.on('error', () => { /* Early Git failure is reported by its exit. */ });
     child.once('error', () => { cleanup(); reject(failure ?? new EngineError('IGNORE_LOOKUP_FAILED', 'Git ignore lookup could not be started')); });
     child.once('close', code => {

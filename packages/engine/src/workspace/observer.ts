@@ -59,9 +59,8 @@ function compareEntries(left: GitStatusEntry, right: GitStatusEntry): number {
 }
 
 /**
- * One-shot, single-consumer polling observer. It performs no writes/journaling
- * and cannot attribute an observed change to a Run or an external editor.
- * Only the latest pending sample is retained; errors are delivered once.
+ * One-shot, single-consumer polling observer: no writes/journaling and no attribution of a change to a Run or an
+ * external editor. Only the latest pending sample is retained; errors are delivered once.
  */
 export class WorkspaceObserver implements AsyncIterableIterator<WorkspaceObservation> {
   private readonly workspace: Workspace;
