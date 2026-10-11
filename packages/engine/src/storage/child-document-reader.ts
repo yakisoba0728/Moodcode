@@ -175,7 +175,8 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     check(); frame.chargeChild(); frame.chargeMirror(Number(initial.size));
     temporary = realpathSync(mkdtempSync(join(tmpdir(),'moodcode-child-document-reader-'))); mkdirSync(join(temporary,'data'),{mode:0o700});
     const mirror = join(temporary,'data','engine.sqlite'), changed = () => fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
-    const copied = streamStableFile(databasePath, initial, { maxBytes: Number(initial.size), stable: ['size','mtime','ctime','nlink'], check, requireSingleLink: true, copyTo: mirror, onChanged: changed, onLimit: changed });
+    // 256 KiB chunks keep the operation budget checked during large mirror copies.
+    const copied = streamStableFile(databasePath, initial, { maxBytes: Number(initial.size), stable: ['size','mtime','ctime','nlink'], check, chunkBytes: 262_144, requireSingleLink: true, copyTo: mirror, onChanged: changed, onLimit: changed });
     if (archive && (archive.database.bytes !== copied.bytes || archive.database.sha256 !== copied.sha256)) fail('CHILD_DOCUMENT_STORAGE_ARCHIVE_HASH_MISMATCH');
     check(); db = new DatabaseSync(':memory:',{timeout:0}); db.exec('PRAGMA trusted_schema=OFF; PRAGMA query_only=ON'); const uri = pathToFileURL(mirror); uri.search='?mode=ro&immutable=1'; db.prepare('ATTACH DATABASE ? AS child').run(uri.href); db.exec('BEGIN');
     frame.chargeRows(1);

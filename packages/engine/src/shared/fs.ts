@@ -86,7 +86,9 @@ export interface StableFileOptions {
   readonly maxBytes: number;
   /** Fields that must still match the expected stats after the read, on the descriptor and on the path. */
   readonly stable: readonly StableField[];
+  /** Called before each read; `chunkBytes` (default 1 MiB) sets how often. */
   readonly check?: () => void;
+  readonly chunkBytes?: number;
   readonly requireSingleLink?: boolean;
   /** Created exclusively with mode 0600; the caller removes it on failure. */
   readonly copyTo?: string;
@@ -108,7 +110,7 @@ export function streamStableFile<T extends FileStats>(path: string, expected: T,
     const opened = fstatSync(fd, { bigint }) as T;
     if (!stableStat(expected, opened) || !regular(opened)) onChanged();
     if (copyTo !== undefined) output = openSync(copyTo, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
-    const digest = createHash('sha256'), buffer = Buffer.allocUnsafe(Math.min(CHUNK_BYTES, maxBytes + 1));
+    const digest = createHash('sha256'), buffer = Buffer.allocUnsafe(Math.min(options.chunkBytes ?? CHUNK_BYTES, maxBytes + 1));
     let bytes = 0;
     for (;;) {
       check?.();
