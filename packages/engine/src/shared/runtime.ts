@@ -42,8 +42,7 @@ export function groupExists(pid: number): boolean {
   catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === 'ESRCH') return false;
-    // Permission denial cannot establish absence. Keep observing within the
-    // cleanup deadline rather than treating a transient denial as completion.
+    // A permission denial never proves absence; keep observing until the cleanup deadline.
     if (code === 'EPERM') return true;
     throw error;
   }
@@ -53,8 +52,7 @@ function signalGroup(pid: number, signal: NodeJS.Signals): void {
   try { process.kill(-pid, signal); }
   catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
-    // A denied signal is never proof of cleanup; settleGroup must still observe
-    // both pipe closure and group absence, or return false at the deadline.
+    // A denied signal never proves cleanup; settleGroup still requires pipe closure and group absence.
     if (code !== 'ESRCH' && code !== 'EPERM') throw error;
   }
 }
@@ -75,10 +73,7 @@ export async function cleanupGroup(pid: number, closed: () => boolean = () => tr
   return settleGroup(pid, closed, TERMINATION_LIMITS.killWaitMs);
 }
 
-/**
- * Settles like `promise` unless `signal` aborts first, then rejects with the module's coded `onAbort()` error.
- * `propagateReason` rejects with the signal's own reason instead, which may carry private caller context; a nullish reason still gets `onAbort()`.
- */
+/** Settles like `promise` unless `signal` aborts first, then rejects with `onAbort()`; `propagateReason` uses the signal's own (possibly private) reason, falling back to `onAbort()` when nullish. */
 export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal, onAbort: () => EngineError, { propagateReason = false }: { propagateReason?: boolean } = {}): Promise<T> {
   const reason = (): unknown => propagateReason ? signal.reason ?? onAbort() : onAbort();
   if (signal.aborted) {

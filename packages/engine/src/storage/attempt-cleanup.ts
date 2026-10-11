@@ -170,8 +170,7 @@ export class AttemptCleanupStorage {
   }
   private update(id:string,operation:(value:AttemptCleanupRecord,run:Run,attempt:ProviderAttempt,turn:TurnRecord)=>AttemptCleanupRecord):AttemptCleanupRecord {
     this.native.hooks.assertOpen();
-    // Owner metadata is enough to select the transaction notification; the full
-    // validated read happens once inside the transaction.
+    // The session id selects the notification; the full validated read happens once inside the transaction.
     if(!isBoundedId(id))fail('INVALID_ATTEMPT_CLEANUP','Cleanup lookup requires a bounded attempt identity');
     const header=this.db.prepare('SELECT session_id FROM attempt_cleanup WHERE attempt_id=?').get(id);
     if(!header)fail('ATTEMPT_CLEANUP_NOT_FOUND','Cleanup evidence was not recorded for this attempt');

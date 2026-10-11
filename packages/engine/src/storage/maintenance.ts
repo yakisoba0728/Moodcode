@@ -46,12 +46,9 @@ function validateInputParents(destination: string): void {
   symlinkFreeDirectorySync(dirname(input), { allowMissing: true, onUnsafe: unsupportedParent });
 }
 function prepareParents(destination: string): PathIdentity[] {
-  const parent = dirname(destination);
-  const root = parse(parent).root;
-  const identities: PathIdentity[] = [];
+  const parent = dirname(destination), root = parse(parent).root, rootInfo = validateDirectory(root);
+  const identities: PathIdentity[] = [{ path: root, dev: rootInfo.dev, ino: rootInfo.ino }];
   let current = root;
-  const rootInfo = validateDirectory(root);
-  identities.push({ path: root, dev: rootInfo.dev, ino: rootInfo.ino });
   for (const part of parent.slice(root.length).split(sep).filter(Boolean)) {
     current = join(current, part);
     if (!lstatSync(current, { throwIfNoEntry: false })) {
@@ -122,11 +119,9 @@ export async function backupDatabase(
     const fd = openSync(stagedPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | (constants.O_NOFOLLOW ?? 0), 0o600);
     try { fchmodSync(fd, 0o600); fileIdentity = fstatSync(fd); } finally { closeSync(fd); }
     checkCancelled();
-    // Native backup reads the logical WAL database. It never copies the live main file.
-    // Progress exceptions finalize the native job before the promise rejects (Node 24+).
+    // Native backup reads the logical WAL database, never the live main file; progress exceptions finalize the job before rejecting.
     if (synchronousMemorySource) {
-      // An in-memory DB cannot be reopened through a separate snapshot connection.
-      // VACUUM INTO reads it synchronously without racing native worker-thread writes.
+      // An in-memory DB has no separate snapshot connection; VACUUM INTO reads it without racing worker-thread writes.
       db.prepare('VACUUM main INTO ?').run(stagedPath);
     } else {
       await sqliteBackup(db, stagedPath, { rate: 32, progress: () => checkCancelled() });

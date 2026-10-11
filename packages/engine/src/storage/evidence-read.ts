@@ -26,7 +26,6 @@ function plain(value: unknown, fields: readonly string[], required: readonly str
   }
   if (required.some(key => !Object.hasOwn(value, key))) fail('INVALID_REQUEST', 'Evidence read descriptors require their own data fields');
 }
-function identifier(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
 function address(value: EvidenceAddress): { table: EvidenceTable; parameters: string[]; where: string; expression: string; cacheKey: string } {
   plain(value, ['table','key','projection'], ['table','key']);
   if (typeof value.table !== 'string' || !Object.hasOwn(primaryKeys, value.table)) fail('INVALID_REQUEST', 'Evidence reads require a known primary table');
@@ -36,12 +35,12 @@ function address(value: EvidenceAddress): { table: EvidenceTable; parameters: st
   let parameters: string[], where: string;
   if (table === 'session_documents') {
     if (!Array.isArray(value.key) || types.isProxy(value.key) || value.key.length !== 2) fail('INVALID_REQUEST', 'Session document evidence requires its exact composite key');
-    for (const index of ['0','1']) { const property = Object.getOwnPropertyDescriptor(value.key, index); if (!property || !('value' in property) || !identifier(property.value)) fail('INVALID_REQUEST', 'Evidence composite keys require bounded data identities'); }
+    for (const index of ['0','1']) { const property = Object.getOwnPropertyDescriptor(value.key, index); if (!property || !('value' in property) || !isBoundedId(property.value)) fail('INVALID_REQUEST', 'Evidence composite keys require bounded data identities'); }
     parameters = [value.key[0]!, value.key[1]!];
     if (!/^[a-z][a-z0-9_.-]{0,63}$/u.test(parameters[1]!)) fail('INVALID_REQUEST', 'Evidence document kind is invalid');
     where = 'session_id=? AND kind=?';
   } else {
-    if (!identifier(value.key)) fail('INVALID_REQUEST', 'Evidence reads require a bounded primary identity');
+    if (!isBoundedId(value.key)) fail('INVALID_REQUEST', 'Evidence reads require a bounded primary identity');
     parameters = [value.key]; where = `${primaryKeys[table]}=?`;
   }
   const expression = projection === 'summary-metadata-v1' ? "json_remove(data,'$.partialText')" : projection === 'mcp-proposal-v1' ? "json_remove(data,'$.result')" : 'data';
@@ -80,7 +79,6 @@ export function withEvidenceRead<T>(db: DatabaseSync, operation: () => T): T {
 
 /** Explicit writes invalidate all cached bodies; already observed bytes are never refunded. */
 export function invalidateEvidenceRead(db: DatabaseSync): void { const frame = active.get(db); if (frame) { frame.cache.clear(); frame.epoch = undefined; } }
-/** General store getters keep their existing behavior outside proof selection. */
 export function hasEvidenceRead(db: DatabaseSync): boolean { return active.has(db); }
 
 /** Call after native ownership/header validation; cache hits never replace those checks. */
@@ -124,11 +122,7 @@ export function readBoundedHeader(db: DatabaseSync, sql: string, params: readonl
   return row as Record<string, SQLOutputValue> & { bytes: number };
 }
 
-/**
- * A writer may change the row after its header was selected. The body SQL repeats
- * the byte proof, so a stale size cannot copy a larger value into JavaScript; a
- * row that vanished or changed size reads as undefined.
- */
+/** The body SQL repeats the byte proof, so a row changed after its header was selected never copies a larger value; a vanished or resized row reads as undefined. */
 export function readBoundedBody(db: DatabaseSync, source: BoundedBodySource, bytes: number, changed: () => never): string | undefined {
   const expression = source.expression ?? 'data', field = expression === 'data' ? 'data' : `${expression} AS data`;
   const row = db.prepare(`SELECT ${field} FROM ${source.table} WHERE ${source.where} AND length(CAST(${expression} AS BLOB))=?`).get(...source.params, bytes);

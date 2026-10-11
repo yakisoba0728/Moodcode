@@ -91,9 +91,7 @@ function eventWindow(database: DatabaseSync, filter: string, sessionId?: string)
   const where = scope(sessionId);
   const condition = `${where.clause} AND (${filter})`;
   const total = number(one(database, `SELECT count(*) AS count FROM events WHERE ${condition}`, where.values), 'count');
-  // Ordering by rowid also works across sessions whose seq values are independent.
-  // Materialize identities only. Large tool output/prompt fields are never copied
-  // into a temporary 2,000-event payload table or materialized in JavaScript.
+  // rowid orders across sessions with independent seq; only identities are materialized, never large output/prompt payloads.
   const cte = `WITH window AS MATERIALIZED (SELECT rowid AS position,session_id,seq,type FROM events WHERE ${condition} ORDER BY rowid DESC LIMIT ${WINDOW}), selected AS NOT MATERIALIZED (SELECT w.*,json_extract(e.data,'$.payload') AS payload FROM window w JOIN events e ON e.rowid=w.position)`;
   const cursors = database.prepare(`${cte} SELECT session_id,seq FROM selected WHERE position IN ((SELECT min(position) FROM selected),(SELECT max(position) FROM selected)) ORDER BY position`).all(...where.values);
   const cursor = (row: Row | undefined): MetricEventCursor | null => row ? { sessionId: String(row.session_id), seq: Number(row.seq) } : null;

@@ -29,9 +29,7 @@ export interface SessionBlobKind<A extends BlobRef, L> {
   readonly cancelled: (signal?: AbortSignal) => void;
   readonly limits: (input?: Partial<L>) => Readonly<L>;
   readonly bounds: (limits: Readonly<L>) => BlobBounds;
-  /** Parses one stored index entry. */
   readonly item: (value: unknown, limits: Readonly<L>) => A;
-  /** Parses caller refs under the per-input bounds. */
   readonly refs: (value: unknown, limits: Readonly<L>) => A[];
   readonly same: (left: A, right: A) => boolean;
   readonly validate: (bytes: Buffer, ref: A, limits: Readonly<L>) => void;
@@ -126,8 +124,7 @@ export class SessionBlobStore<A extends BlobRef, L> {
       await unlink(staging); staging = undefined;
       const final=await lstat(destination); if(!final.isFile() || final.isSymbolicLink() || final.nlink!==1 || !stableStat(final,known) || final.size!==bytes.length) this.#fail('PATH_UNSAFE');
       await syncDirectoryAsync(this.#directory); await this.#managed(signal);
-      // Reads and CAS are synchronous: competing hosts either retry with a fresh index
-      // or leave no visible ref. Cancellation after commit reports the durable success.
+      // Synchronous read+CAS: a competing host retries on a fresh index or leaves no visible ref; cancellation after commit reports success.
       for (let attempt = 0; attempt < 8; attempt++) {
         cancelled(signal); if (!sameOwner(owner, this.#owner(sessionId))) this.#mismatch();
         const index = this.#index(owner);

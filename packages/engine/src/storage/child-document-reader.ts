@@ -21,19 +21,15 @@ export const MAX_ARCHIVE_DOCUMENT_BUDGET_MS = 30_000;
 const archiveFrameScope = Symbol('archive-document-budget');
 export function validateArchiveDocumentBudgetMs(value: unknown): number {
   if (value === undefined) return CHILD_DOCUMENT_READ_LIMITS.maxDurationMs;
-  if (
-    typeof value !== 'number' ||
-    !Number.isSafeInteger(value) ||
-    value < 1 ||
-    value > MAX_ARCHIVE_DOCUMENT_BUDGET_MS
-  )
-    throw new EngineError(
-      'INVALID_ARCHIVE_DOCUMENT_BUDGET',
-      'Archive document budget must be an integer from 1 to 30000 milliseconds.',
-    );
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1 || value > MAX_ARCHIVE_DOCUMENT_BUDGET_MS)
+    throw new EngineError('INVALID_ARCHIVE_DOCUMENT_BUDGET', 'Archive document budget must be an integer from 1 to 30000 milliseconds.');
   return value;
 }
 function fail(code: string): never { throw new EngineError(code, 'Child document inspection could not verify its bounded read-only scope.'); }
+function nativeFailure(error: unknown, fallback: string): never {
+  const code = errnoCode(error);
+  return fail(code === 'ENOENT' ? 'CHILD_DOCUMENT_STORAGE_MISSING' : code === 'EACCES' || code === 'EPERM' ? 'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED' : fallback);
+}
 function plain(value: unknown, allowed: readonly string[]): Record<string, unknown> {
   return plainRecord(value, [], allowed, () => fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS'));
 }
@@ -73,21 +69,9 @@ export class ChildDocumentReadFrame {
 }
 export function createChildDocumentReadFrame(value?: ConstructorParameters<typeof ChildDocumentReadFrame>[0]): ChildDocumentReadFrame { return new ChildDocumentReadFrame(value); }
 /** Archive callers may select a longer document proof deadline; inspector ceilings remain unchanged. */
-export function createArchiveDocumentReadFrame(
-  value: { signal?: AbortSignal; archiveDocumentBudgetMs?: number } = {},
-): ChildDocumentReadFrame {
+export function createArchiveDocumentReadFrame(value: { signal?: AbortSignal; archiveDocumentBudgetMs?: number } = {}): ChildDocumentReadFrame {
   const options = plain(value, ['signal', 'archiveDocumentBudgetMs']);
-  return new ChildDocumentReadFrame(
-    {
-      signal: options.signal as AbortSignal | undefined,
-      limits: {
-        maxDurationMs: validateArchiveDocumentBudgetMs(
-          options.archiveDocumentBudgetMs,
-        ),
-      },
-    },
-    archiveFrameScope,
-  );
+  return new ChildDocumentReadFrame({ signal: options.signal as AbortSignal | undefined, limits: { maxDurationMs: validateArchiveDocumentBudgetMs(options.archiveDocumentBudgetMs) } }, archiveFrameScope);
 }
 export interface ChildArchiveMember { file: string; bytes: number; sha256: string }
 export interface ChildDocumentHistoricalFiles { database: { path: string; bytes: number; sha256: string }; artifacts: { path: string }; allowedMembers: readonly ChildArchiveMember[]; artifactPrefix: string }
@@ -237,9 +221,7 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     if (!mirrorBody || typeof mirrorBody.data !== 'string' || JSON.stringify(validateChildStorageRecord(JSON.parse(mirrorBody.data))) !== JSON.stringify(expectedMirror)) fail('CHILD_DOCUMENT_STORAGE_MIRROR_MISMATCH');
     check();
     if (process.platform === 'darwin' || process.platform === 'linux') {
-      // SQLite holds the immutable private file open. Removing its owned pathname
-      // avoids leaving this complete copy after a later hard kill; copy-time
-      // interruption and platforms that retain open filenames remain separate.
+      // SQLite keeps the private file open; unlinking it now leaves no complete copy behind after a later hard kill.
       rmSync(temporary,{recursive:true,force:true}); temporary = undefined;
     }
     let index: InputDocumentIndexReport | undefined;
@@ -255,12 +237,12 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
   } catch (error) {
     close(); if (error instanceof EngineError) throw error;
     if (isSqliteBusy(error)) fail('CHILD_DOCUMENT_STORAGE_OWNER_BUSY');
-    const code = errnoCode(error); fail(code === 'ENOENT' ? 'CHILD_DOCUMENT_STORAGE_MISSING' : code === 'EACCES' || code === 'EPERM' ? 'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED' : 'CHILD_DOCUMENT_STORAGE_INVALID_DATABASE');
+    nativeFailure(error, 'CHILD_DOCUMENT_STORAGE_INVALID_DATABASE');
   }
 }
 export function openChildDocumentReader(value: ChildDocumentReaderInput,frame:ChildDocumentReadFrame):ChildDocumentReader {
   try { return openReader(value,frame); }
-  catch(error) { if(error instanceof EngineError)throw error;const code=errnoCode(error);fail(code==='ENOENT'?'CHILD_DOCUMENT_STORAGE_MISSING':code==='EACCES'||code==='EPERM'?'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED':'CHILD_DOCUMENT_STORAGE_INSPECTION_FAILED'); }
+  catch(error) { if(error instanceof EngineError)throw error; nativeFailure(error,'CHILD_DOCUMENT_STORAGE_INSPECTION_FAILED'); }
 }
 export function readChildDocumentIndex(input: ChildDocumentReaderInput,frame:ChildDocumentReadFrame):ChildDocumentIndexObservation {
   let reader: ChildDocumentReader | undefined;

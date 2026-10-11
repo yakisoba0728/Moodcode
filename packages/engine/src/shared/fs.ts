@@ -49,7 +49,6 @@ export function syncDirectory(path: string): void {
   const fd = openSync(path, DIRECTORY_FLAGS);
   try { fsyncSync(fd); } finally { closeSync(fd); }
 }
-/** syncDirectory without blocking the event loop. */
 export async function syncDirectoryAsync(path: string): Promise<void> {
   const handle = await open(path, DIRECTORY_FLAGS);
   try { await handle.sync(); } finally { await handle.close(); }

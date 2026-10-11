@@ -83,13 +83,11 @@ function one(db: DatabaseSync, table: Table, identity: string, budget: ProviderR
 }
 function decoded<T>(operation: () => T): T { try { return operation(); } catch (error) { if (error instanceof EngineError && error.code.startsWith('PROVIDER_RECOVERY_')) throw error; return fail('SOURCE_CHANGED', 'Stored provider recovery records do not satisfy their native contracts'); } }
 function digestOrder(values: Selected[], column: 'ordinal' | 'seq' | 'admitted_seq'): Selected[] {
-  // V1 serialized these CAST text aliases in binary order. Keep the receipt
-  // digest encoding while chronology validators use the numeric SQL columns.
+  // Receipt digests keep v1's binary order of these CAST text aliases; chronology checks use the numeric columns.
   return [...values].sort((left, right) => String(left.row[column]) < String(right.row[column]) ? -1 : String(left.row[column]) > String(right.row[column]) ? 1 : 0);
 }
 function unsafeToolObservation(data: JsonObject): boolean {
-  // The coordinator lifts real execution proofs onto the audit payload. Generic
-  // envelope metadata/structuredData remain domain observations, not proofs.
+  // Real execution proofs are lifted onto the audit payload; envelope metadata/structuredData are observations, not proofs.
   return data.cleanupConfirmed === false || data.cleanupUncertain === true || data.effectsUncertain === true || data.executionBlocked === true || data.timedOut === true
     || Boolean(data.structuredResult && typeof data.structuredResult === 'object' && !Array.isArray(data.structuredResult) && data.structuredResult.outcome === 'interrupted');
 }

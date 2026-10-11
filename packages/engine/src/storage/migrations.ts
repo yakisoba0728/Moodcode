@@ -75,50 +75,35 @@ const INITIAL_SCHEMA = `
   CREATE INDEX checkpoints_run ON checkpoints(run_id, ordinal);
 `;
 
+const exec = (...sql: string[]) => (database: DatabaseSync): void => { for (const text of sql) database.exec(text); };
 export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
-  Object.freeze({ version: 1, name: 'initial-engine-records', apply: (database: DatabaseSync) => { database.exec(INITIAL_SCHEMA); } }),
+  Object.freeze({ version: 1, name: 'initial-engine-records', apply: exec(INITIAL_SCHEMA) }),
   Object.freeze({ version: 2, name: 'session-inbox-and-execution-records', apply: migrateNativeSessions }),
-  Object.freeze({ version: 3, name: 'durable-provider-attempt-usage', apply: (database: DatabaseSync) => {
-    database.exec(ATTEMPT_USAGE_SCHEMA);
-    database.exec("CREATE INDEX model_messages_role ON messages(run_id,json_extract(data,'$.role'),ordinal)");
-  } }),
-  Object.freeze({ version: 4, name: 'durable-summary-attempts-and-image-anchor', apply: (database: DatabaseSync) => {
-    database.exec(SUMMARY_ATTEMPT_SCHEMA);
-    database.exec("CREATE INDEX model_session_latest_image ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array' AND json_array_length(data,'$.attachments')>0");
-  } }),
-  Object.freeze({ version: 5, name: 'explicit-summary-recovery-acknowledgments', apply: (database: DatabaseSync) => {
-    database.exec("CREATE INDEX summary_workspace_uncertain ON summary_attempts(workspace_id) WHERE state='uncertain'");
-    database.exec(SUMMARY_RECOVERY_SCHEMA);
-  } }),
-  Object.freeze({ version: 6, name: 'durable-provider-cleanup-observations', apply: (database: DatabaseSync) => {
-    database.exec(ATTEMPT_CLEANUP_SCHEMA);
-    database.exec("CREATE INDEX ordinary_workspace_uncertain ON runs(workspace_id,id); CREATE INDEX ordinary_uncertain_turns ON session_turns(run_id) WHERE state='uncertain'; CREATE INDEX ordinary_uncertain_attempts ON provider_attempts(run_id) WHERE state='uncertain'");
-  } }),
-  Object.freeze({ version: 7, name: 'explicit-provider-outcome-recovery', apply: (database: DatabaseSync) => {
-    database.exec(PROVIDER_RECOVERY_SCHEMA);
-    database.exec(SUMMARY_RECOVERY_PROOF_SCHEMA);
-  } }),
-  Object.freeze({ version: 8, name: 'bounded-session-document-anchor', apply: (database: DatabaseSync) => {
-    database.exec("CREATE INDEX model_session_latest_document ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0");
-  } }),
-  Object.freeze({ version: 9, name: 'durable-mcp-tools-call-execution', apply: (database: DatabaseSync) => { database.exec(MCP_EXECUTION_SCHEMA); } }),
-  Object.freeze({ version: 10, name: 'workspace-trust-and-pending-knowledge', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_SCHEMA_SQL); } }),
-  Object.freeze({ version: 11, name: 'native-host-knowledge-generation', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_GENERATION_SCHEMA_SQL); } }),
-  Object.freeze({ version: 12, name: 'workspace-knowledge-publication-cas', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_PUBLICATION_SCHEMA_SQL); } }),
-  Object.freeze({ version: 13, name: 'native-physical-knowledge-publication', apply: (database: DatabaseSync) => {
-    database.exec('CREATE UNIQUE INDEX knowledge_candidate_workspace_identity ON knowledge_candidates(workspace_id,id)');
-    database.exec(KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL); database.exec(KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL);
-  } }),
-  Object.freeze({ version: 14, name: 'native-execution-source-observations', apply: (database: DatabaseSync) => { database.exec(DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL); } }),
-  Object.freeze({ version: 15, name: 'explicit-imported-knowledge-recovery', apply: (database: DatabaseSync) => { database.exec(KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL); } }),
-  Object.freeze({ version: 16, name: 'native-pending-proposal-artifacts', apply: (database: DatabaseSync) => { database.exec(PROPOSAL_SCHEMA_SQL); } }),
-  Object.freeze({ version: 17, name: 'native-approved-proposal-effects', apply: (database: DatabaseSync) => { database.exec(PROPOSAL_APPLY_SCHEMA_SQL); database.exec(PROPOSAL_APPLY_GUARD_SCHEMA_SQL); } }),
-  Object.freeze({ version: 18, name: 'native-team-mailbox-and-task-board', apply: (database: DatabaseSync) => { database.exec(TEAM_SCHEMA_SQL); } }),
-  Object.freeze({ version: 19, name: 'native-workflow-revisions-and-heads', apply: (database: DatabaseSync) => { database.exec(WORKFLOW_SCHEMA_SQL); } }),
-  Object.freeze({ version: 20, name: 'native-schedules-and-occurrence-admission', apply: (database: DatabaseSync) => { database.exec(SCHEDULE_SCHEMA_SQL); } }),
-  Object.freeze({ version: 21, name: 'native-agent-backends-and-client-effect-receipts', apply: (database: DatabaseSync) => { database.exec(BACKEND_SCHEMA_SQL); } }),
-  Object.freeze({ version: 22, name: 'native-terminal-watch-jobs-and-completion-delivery', apply: (database: DatabaseSync) => { database.exec(JOB_SCHEMA_SQL); } }),
-  Object.freeze({ version: 23, name: 'independent-approved-host-commands', apply: (database: DatabaseSync) => { database.exec(HOST_COMMAND_SCHEMA_SQL); } }),
+  Object.freeze({ version: 3, name: 'durable-provider-attempt-usage', apply: exec(ATTEMPT_USAGE_SCHEMA, "CREATE INDEX model_messages_role ON messages(run_id,json_extract(data,'$.role'),ordinal)") }),
+  Object.freeze({ version: 4, name: 'durable-summary-attempts-and-image-anchor', apply: exec(SUMMARY_ATTEMPT_SCHEMA,
+    "CREATE INDEX model_session_latest_image ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array' AND json_array_length(data,'$.attachments')>0") }),
+  Object.freeze({ version: 5, name: 'explicit-summary-recovery-acknowledgments', apply: exec("CREATE INDEX summary_workspace_uncertain ON summary_attempts(workspace_id) WHERE state='uncertain'", SUMMARY_RECOVERY_SCHEMA) }),
+  Object.freeze({ version: 6, name: 'durable-provider-cleanup-observations', apply: exec(ATTEMPT_CLEANUP_SCHEMA,
+    "CREATE INDEX ordinary_workspace_uncertain ON runs(workspace_id,id); CREATE INDEX ordinary_uncertain_turns ON session_turns(run_id) WHERE state='uncertain'; CREATE INDEX ordinary_uncertain_attempts ON provider_attempts(run_id) WHERE state='uncertain'") }),
+  Object.freeze({ version: 7, name: 'explicit-provider-outcome-recovery', apply: exec(PROVIDER_RECOVERY_SCHEMA, SUMMARY_RECOVERY_PROOF_SCHEMA) }),
+  Object.freeze({ version: 8, name: 'bounded-session-document-anchor', apply: exec(
+    "CREATE INDEX model_session_latest_document ON messages(session_id,ordinal DESC) WHERE json_extract(data,'$.role')='user' AND json_type(data,'$.documents')='array' AND json_array_length(data,'$.documents')>0") }),
+  Object.freeze({ version: 9, name: 'durable-mcp-tools-call-execution', apply: exec(MCP_EXECUTION_SCHEMA) }),
+  Object.freeze({ version: 10, name: 'workspace-trust-and-pending-knowledge', apply: exec(KNOWLEDGE_SCHEMA_SQL) }),
+  Object.freeze({ version: 11, name: 'native-host-knowledge-generation', apply: exec(KNOWLEDGE_GENERATION_SCHEMA_SQL) }),
+  Object.freeze({ version: 12, name: 'workspace-knowledge-publication-cas', apply: exec(KNOWLEDGE_PUBLICATION_SCHEMA_SQL) }),
+  Object.freeze({ version: 13, name: 'native-physical-knowledge-publication', apply: exec('CREATE UNIQUE INDEX knowledge_candidate_workspace_identity ON knowledge_candidates(workspace_id,id)',
+    KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL) }),
+  Object.freeze({ version: 14, name: 'native-execution-source-observations', apply: exec(DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL) }),
+  Object.freeze({ version: 15, name: 'explicit-imported-knowledge-recovery', apply: exec(KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL) }),
+  Object.freeze({ version: 16, name: 'native-pending-proposal-artifacts', apply: exec(PROPOSAL_SCHEMA_SQL) }),
+  Object.freeze({ version: 17, name: 'native-approved-proposal-effects', apply: exec(PROPOSAL_APPLY_SCHEMA_SQL, PROPOSAL_APPLY_GUARD_SCHEMA_SQL) }),
+  Object.freeze({ version: 18, name: 'native-team-mailbox-and-task-board', apply: exec(TEAM_SCHEMA_SQL) }),
+  Object.freeze({ version: 19, name: 'native-workflow-revisions-and-heads', apply: exec(WORKFLOW_SCHEMA_SQL) }),
+  Object.freeze({ version: 20, name: 'native-schedules-and-occurrence-admission', apply: exec(SCHEDULE_SCHEMA_SQL) }),
+  Object.freeze({ version: 21, name: 'native-agent-backends-and-client-effect-receipts', apply: exec(BACKEND_SCHEMA_SQL) }),
+  Object.freeze({ version: 22, name: 'native-terminal-watch-jobs-and-completion-delivery', apply: exec(JOB_SCHEMA_SQL) }),
+  Object.freeze({ version: 23, name: 'independent-approved-host-commands', apply: exec(HOST_COMMAND_SCHEMA_SQL) }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
 
@@ -206,11 +191,7 @@ function validatePlan(migrations: readonly DatabaseMigration[]): void {
   }
 }
 
-/**
- * Apply the complete pending chain in one transaction. Any failed migration or
- * integrity check rolls back every pending change, including all version updates.
- * Existing records and secondary review/recovery databases are not rewritten.
- */
+/** Applies the whole pending chain in one transaction; any failed migration or integrity check rolls back every change and version update. */
 export function migrateDatabase(database: DatabaseSync, migrations: readonly DatabaseMigration[] = DATABASE_MIGRATIONS): void {
   validatePlan(migrations);
   const targetVersion = migrations.length;

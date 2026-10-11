@@ -114,7 +114,6 @@ export function plainJson<T>(input: T, options: PlainJsonOptions): T {
   return visit(input, 0) as T;
 }
 
-/** Freezes a data tree in place, children first. */
 export function deepFreeze<T>(value: T): T {
   if (value && typeof value === 'object') {
     for (const child of Object.values(value)) deepFreeze(child);
@@ -149,7 +148,6 @@ const SHA256 = /^[a-f0-9]{64}$/u;
 export function isBoundedText(value: unknown, maxBytes: number): value is string {
   return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= maxBytes && !/[\u0000-\u001f\u007f]/u.test(value);
 }
-/** isBoundedText at 256 bytes: the bound of stored record identifiers. */
 export function isBoundedId(value: unknown): value is string { return isBoundedText(value, 256); }
 export function isSha256(value: unknown): value is string { return typeof value === 'string' && SHA256.test(value); }
 export function isCanonicalStamp(value: unknown): value is string {

@@ -6,6 +6,7 @@ import {
 } from '@moodcode/contracts';
 import { validateContextRevision, validateMessagePart, validateProviderAttempt, validateSessionEvent, validateTurnRecord } from '@moodcode/contracts/validation';
 import { sha256Hex } from '../shared/canonical.js';
+import { parseJsonOr } from '../shared/data.js';
 import { boundedIds, NativeSessionStorage, sameRecord, storedJson } from './native.js';
 import { hasEvidenceRead, invalidateEvidenceRead, readBoundedBody, readBoundedHeader, readEvidenceBody } from './evidence-read.js';
 import type { ToolRecoveryFrontiers } from './tool-recovery-frontier.js';
@@ -313,7 +314,6 @@ export class NativeExecutionStorage {
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
     this.documentKind(kind);
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) throw new EngineError('REVISION_CONFLICT', 'Expected document revision must be a nonnegative safe integer');
-    // Use the bounded JSON validator shared by native events, before entering SQL.
     const event = requireDocumentJson(data);
     this.native.hooks.session(sessionId);
     const encoded = JSON.stringify(event);
@@ -410,7 +410,6 @@ export function readAnchoredDocument(db: DatabaseSync, query: { sessionId: strin
 
 function isObject(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
 function parseObject(raw: string, invalid: () => never): Record<string, unknown> {
-  let value: unknown;
-  try { value = JSON.parse(raw); } catch { return invalid(); }
+  const value = parseJsonOr(raw, invalid);
   return isObject(value) ? value : invalid();
 }

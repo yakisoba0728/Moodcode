@@ -132,8 +132,7 @@ function withSessionInputAnchor(database: DatabaseSync, page: AnchoredPage, maxM
     if (window) {
       const active = snapshot.runs.find(item => item.id === window!.runId);
       const priorIds = new Set([page.sessionImageAnchor?.messageId, page.sessionDocumentAnchor?.messageId, page.sessionSegmentAnchor?.messageId].filter((id): id is string => Boolean(id) && id !== message.id));
-      // Active anchors are already mandatory in readActiveHistoryWindow. Reserve
-      // only foreign Run inputs here, otherwise the same message is charged twice.
+      // readActiveHistoryWindow already charges active anchors; reserve only foreign Run inputs.
       const priorMessages = snapshot.messages.filter(item => priorIds.has(item.id) && item.runId !== active?.id);
       const priorRuns = snapshot.runs.filter(item => priorMessages.some(prior => prior.runId === item.id) && item.id !== active?.id && item.id !== origin.id);
       const reservedBytes = messageBytes + (active?.id === origin.id ? 0 : runBytes) + (priorMessages.length ? Buffer.byteLength(JSON.stringify({ messages: priorMessages, runs: priorRuns })) : 0) + 128;
@@ -150,8 +149,7 @@ function withSessionInputAnchor(database: DatabaseSync, page: AnchoredPage, maxM
     const attach = (base: SessionSnapshot): SessionSnapshot => ({ ...base,
       runs: base.runs.some(item => item.id === origin.id) ? base.runs : [origin, ...base.runs], messages: [message, ...base.messages] });
     snapshot = attach(snapshot);
-    // Completed history keeps complete Run groups. Only optional older groups may
-    // be dropped to make space for this required, independently bound input user.
+    // Completed history keeps whole Run groups; only optional older groups may drop for this required input user.
     while (!window && (snapshot.messages.length > maxMessages || Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes)) {
       const removable = snapshot.runs.find(item => item.id !== origin.id && item.id !== page.snapshot.runs.at(-1)?.id
         && item.id !== page.sessionImageAnchor?.runId && item.id !== page.sessionDocumentAnchor?.runId && item.id !== page.sessionSegmentAnchor?.runId);
@@ -177,8 +175,7 @@ function withSessionInputAnchor(database: DatabaseSync, page: AnchoredPage, maxM
     ...(window ? { activeWindow: window } : {}), ...(kind === 'image' ? { sessionImageAnchor: anchor as SessionImageAnchor } : kind==='document'?{ sessionDocumentAnchor: anchor as SessionDocumentAnchor }:{sessionSegmentAnchor:anchor as SessionSegmentAnchor}) };
 }
 
-// SQL never returns the original large content to JavaScript. All remaining fields,
-// including opaque provider replay and attachments, retain their original identity.
+// Large tool content never reaches JavaScript; every other field, including opaque replay and attachments, is kept as stored.
 const MESSAGE_PROJECTION = `CASE WHEN json_extract(data,'$.role')='tool' AND length(CAST(json_extract(data,'$.content') AS BLOB))>4096 THEN
   json_set(data,'$.content','[Moodcode bounded tool observation v1; original transcript retained] ' ||
     json_object('messageId',id,'originalUtf8Bytes',length(CAST(json_extract(data,'$.content') AS BLOB)),
@@ -191,31 +188,11 @@ const MESSAGE_PROJECTION = `CASE WHEN json_extract(data,'$.role')='tool' AND len
   ELSE data END`;
 
 /** Split only an active Run. Completed Run pagination continues to use whole groups. */
-function readActiveHistoryWindow(
-  database: DatabaseSync,
-  session: SessionSnapshot["session"],
-  run: Run,
-  lastSeq: number,
-  maxMessages: number,
-  maxBytes: number,
-): { snapshot: SessionSnapshot; window: ActiveHistoryWindow } {
-  const mapCandidate = (row: Record<string, unknown>): Candidate => ({
-    id: String(row.id),
-    ordinal: Number(row.ordinal),
-    role: String(row.role) as Message["role"],
-    bytes: Number(row.bytes),
-  });
-  const metadata = database
-    .prepare(
-      `SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(${MESSAGE_PROJECTION} AS BLOB)) AS bytes
-    FROM messages WHERE run_id=? ORDER BY ordinal DESC LIMIT ?`,
-    )
-    .all(run.id, maxMessages + 1)
-    .map(mapCandidate)
-    .reverse();
-  const anchorMetadata = database
-    .prepare(
-      `WITH latest_image AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
+function readActiveHistoryWindow(database: DatabaseSync, session: SessionSnapshot["session"], run: Run, lastSeq: number, maxMessages: number, maxBytes: number): { snapshot: SessionSnapshot; window: ActiveHistoryWindow } {
+  const mapCandidate = (row: Record<string, unknown>): Candidate => ({ id: String(row.id), ordinal: Number(row.ordinal), role: String(row.role) as Message["role"], bytes: Number(row.bytes) });
+  const metadata = database.prepare(`SELECT id,ordinal,json_extract(data,'$.role') AS role,length(CAST(${MESSAGE_PROJECTION} AS BLOB)) AS bytes
+    FROM messages WHERE run_id=? ORDER BY ordinal DESC LIMIT ?`).all(run.id, maxMessages + 1).map(mapCandidate).reverse();
+  const anchorMetadata = database.prepare(`WITH latest_image AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
        AND json_extract(data,'$.role')='user' AND json_type(data,'$.attachments')='array'
        AND json_array_length(data,'$.attachments')>0),
      latest_document AS (SELECT max(ordinal) AS ordinal FROM messages WHERE run_id=?
@@ -225,20 +202,13 @@ function readActiveHistoryWindow(
     FROM messages WHERE run_id=? AND ordinal IN
     ((SELECT min(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
      (SELECT max(ordinal) FROM messages WHERE run_id=? AND json_extract(data,'$.role')='user'),
-     (SELECT ordinal FROM latest_image),(SELECT ordinal FROM latest_document)) ORDER BY ordinal`,
-    )
-    .all(run.id, run.id, run.id, run.id, run.id);
+     (SELECT ordinal FROM latest_image),(SELECT ordinal FROM latest_document)) ORDER BY ordinal`).all(run.id, run.id, run.id, run.id, run.id);
   const anchors = anchorMetadata.map(mapCandidate);
   const requiredImageAnchorIds = anchorMetadata.filter(row => Number(row.required_image) === 1).map(row => String(row.id));
   const requiredDocumentAnchorIds = anchorMetadata.filter(row => Number(row.required_document) === 1).map(row => String(row.id));
-  if (!anchors.length)
-    throw new EngineError(
-      "MODEL_HISTORY_LIMIT",
-      "Active Run has no required user anchor",
-    );
+  if (!anchors.length) throw new EngineError("MODEL_HISTORY_LIMIT", "Active Run has no required user anchor");
   const anchorIds = new Set(anchors.map((row) => row.id));
-  // A block begins with a user/assistant and includes its contiguous tool results.
-  // Metadata LIMIT may begin in an old result batch; that incomplete prefix is omitted.
+  // A block is a user/assistant plus its contiguous tool results; a LIMIT that starts inside an old result batch drops that prefix.
   const groups: Candidate[][] = [];
   for (const row of metadata) {
     if (row.role === "tool") {
@@ -247,38 +217,12 @@ function readActiveHistoryWindow(
     }
     groups.push([row]);
   }
-  const latestAssistant = database
-    .prepare(
-      "SELECT ordinal FROM messages WHERE run_id=? AND json_extract(data,'$.role')='assistant' ORDER BY ordinal DESC LIMIT 1",
-    )
-    .get(run.id);
-  if (
-    latestAssistant &&
-    !metadata.some((row) => row.ordinal === Number(latestAssistant.ordinal))
-  )
-    throw new EngineError(
-      "MODEL_HISTORY_LIMIT",
-      "The newest required assistant/tool exchange exceeds the model message budget",
-    );
-  const initialBytes =
-    Buffer.byteLength(
-      JSON.stringify({
-        session,
-        runs: [run],
-        messages: [],
-        tools: [],
-        approvals: [],
-        lastSeq,
-      }),
-    ) + 128;
-  let bytes =
-    initialBytes + anchors.reduce((total, row) => total + row.bytes + 1, 0);
+  const latestAssistant = database.prepare("SELECT ordinal FROM messages WHERE run_id=? AND json_extract(data,'$.role')='assistant' ORDER BY ordinal DESC LIMIT 1").get(run.id);
+  if (latestAssistant && !metadata.some((row) => row.ordinal === Number(latestAssistant.ordinal))) throw new EngineError("MODEL_HISTORY_LIMIT", "The newest required assistant/tool exchange exceeds the model message budget");
+  const initialBytes = Buffer.byteLength(JSON.stringify({ session, runs: [run], messages: [], tools: [], approvals: [], lastSeq })) + 128;
+  let bytes = initialBytes + anchors.reduce((total, row) => total + row.bytes + 1, 0);
   let count = anchors.length;
-  if (count > maxMessages || bytes > maxBytes)
-    throw new EngineError(
-      "MODEL_HISTORY_LIMIT",
-      "Required active Run anchors exceed the model history budget",
-    );
+  if (count > maxMessages || bytes > maxBytes) throw new EngineError("MODEL_HISTORY_LIMIT", "Required active Run anchors exceed the model history budget");
   const selected = new Map(anchors.map((row) => [row.id, row]));
   let newestExchange = false;
   for (const group of groups.toReversed()) {
@@ -286,11 +230,7 @@ function readActiveHistoryWindow(
     const required = !newestExchange && group[0]?.role === "assistant";
     const groupBytes = added.reduce((sum, row) => sum + row.bytes + 1, 0);
     if (count + added.length > maxMessages || bytes + groupBytes > maxBytes) {
-      if (required)
-        throw new EngineError(
-          "MODEL_HISTORY_LIMIT",
-          "The newest required assistant/tool exchange exceeds the model history budget",
-        );
+      if (required) throw new EngineError("MODEL_HISTORY_LIMIT", "The newest required assistant/tool exchange exceeds the model history budget");
       break;
     }
     for (const row of added) selected.set(row.id, row);
@@ -298,27 +238,14 @@ function readActiveHistoryWindow(
     bytes += groupBytes;
     if (group[0]?.role === "assistant") newestExchange = true;
   }
-  const ids = [...selected.values()]
-    .sort((a, b) => a.ordinal - b.ordinal)
-    .map((row) => row.id);
+  const ids = [...selected.values()].sort((a, b) => a.ordinal - b.ordinal).map((row) => row.id);
   const placeholders = ids.map(() => "?").join(",");
-  const selectedRows = database
-    .prepare(
-      `SELECT id,${MESSAGE_PROJECTION} AS data,
+  const selectedRows = database.prepare(`SELECT id,${MESSAGE_PROJECTION} AS data,
     length(CAST(json_extract(data,'$.content') AS BLOB)) AS original_content_bytes
-    FROM messages WHERE run_id=? AND id IN (${placeholders}) ORDER BY ordinal`,
-    )
-    .all(run.id, ...ids);
-  const messages = selectedRows.map(
-    (row) => JSON.parse(String(row.data)) as Message,
-  );
-  // Tool outputs already have a message; avoid a second copy. Recent tool inputs
-  // are useful for path-specific instruction discovery, but are independently bounded.
-  const toolMetadata = database
-    .prepare(
-      "SELECT id,length(CAST(json_remove(data,'$.output','$.error') AS BLOB)) AS bytes FROM tools WHERE run_id=? ORDER BY ordinal DESC LIMIT 32",
-    )
-    .all(run.id);
+    FROM messages WHERE run_id=? AND id IN (${placeholders}) ORDER BY ordinal`).all(run.id, ...ids);
+  const messages = selectedRows.map((row) => JSON.parse(String(row.data)) as Message);
+  // Tool outputs already have a message; recent tool inputs help path-specific instruction discovery and are bounded separately.
+  const toolMetadata = database.prepare("SELECT id,length(CAST(json_remove(data,'$.output','$.error') AS BLOB)) AS bytes FROM tools WHERE run_id=? ORDER BY ordinal DESC LIMIT 32").all(run.id);
   const toolIds: string[] = [];
   let toolBytes = 0;
   for (const row of toolMetadata) {
@@ -327,37 +254,13 @@ function readActiveHistoryWindow(
     toolBytes += Number(row.bytes) + 1;
   }
   const tools = toolIds.length
-    ? database
-        .prepare(
-          `SELECT json_remove(data,'$.output','$.error') AS data FROM tools WHERE run_id=? AND id IN (${toolIds.map(() => "?").join(",")}) ORDER BY ordinal`,
-        )
-        .all(run.id, ...toolIds)
-        .map((row) => JSON.parse(String(row.data)) as ToolCallRecord)
+    ? database.prepare(`SELECT json_remove(data,'$.output','$.error') AS data FROM tools WHERE run_id=? AND id IN (${toolIds.map(() => "?").join(",")}) ORDER BY ordinal`).all(run.id, ...toolIds).map((row) => JSON.parse(String(row.data)) as ToolCallRecord)
     : [];
-  const snapshot: SessionSnapshot = {
-    session,
-    runs: [run],
-    messages,
-    tools,
-    approvals: [],
-    lastSeq,
-  };
+  const snapshot: SessionSnapshot = { session, runs: [run], messages, tools, approvals: [], lastSeq };
   const selectedJsonBytes = Buffer.byteLength(JSON.stringify(snapshot));
-  if (selectedJsonBytes > maxBytes)
-    throw new EngineError(
-      "MODEL_HISTORY_LIMIT",
-      "Required active Run projection exceeds the model history budget",
-    );
-  const total = Number(
-    database
-      .prepare("SELECT count(*) AS count FROM messages WHERE run_id=?")
-      .get(run.id)?.count,
-  );
-  const totalTools = Number(
-    database
-      .prepare("SELECT count(*) AS count FROM tools WHERE run_id=?")
-      .get(run.id)?.count,
-  );
+  if (selectedJsonBytes > maxBytes) throw new EngineError("MODEL_HISTORY_LIMIT", "Required active Run projection exceeds the model history budget");
+  const total = Number(database.prepare("SELECT count(*) AS count FROM messages WHERE run_id=?").get(run.id)?.count);
+  const totalTools = Number(database.prepare("SELECT count(*) AS count FROM tools WHERE run_id=?").get(run.id)?.count);
   return {
     snapshot,
     window: {
@@ -366,34 +269,15 @@ function readActiveHistoryWindow(
       requiredAnchorIds: [...anchorIds],
       ...(requiredImageAnchorIds.length ? { requiredImageAnchorIds } : {}),
       ...(requiredDocumentAnchorIds.length ? { requiredDocumentAnchorIds } : {}),
-      firstRecentMessageId:
-        messages.find((message) => !anchorIds.has(message.id))?.id ?? null,
+      firstRecentMessageId: messages.find((message) => !anchorIds.has(message.id))?.id ?? null,
       selectedMessages: messages.length,
       omittedMessages: total - messages.length,
       selectedJsonBytes,
-      metadataRows:
-        metadata.length +
-        anchors.length +
-        toolMetadata.length +
-        (latestAssistant ? 1 : 0),
-      toolContentProjections: selectedRows.flatMap((row, index) =>
-        Number(row.original_content_bytes) > 4096 &&
-        messages[index]?.role === "tool"
-          ? [
-              {
-                messageId: String(row.id),
-                originalUtf8Bytes: Number(row.original_content_bytes),
-                projectedUtf8Bytes: Buffer.byteLength(messages[index]!.content),
-              },
-            ]
-          : [],
-      ),
-      auxiliary: {
-        selectedToolRecords: tools.length,
-        omittedToolRecords: totalTools - tools.length,
-        toolOutputs: "omitted-duplicate-message-projection",
-        approvals: "not-read-for-model-context",
-      },
+      metadataRows: metadata.length + anchors.length + toolMetadata.length + (latestAssistant ? 1 : 0),
+      toolContentProjections: selectedRows.flatMap((row, index) => Number(row.original_content_bytes) > 4096 && messages[index]?.role === "tool"
+        ? [{ messageId: String(row.id), originalUtf8Bytes: Number(row.original_content_bytes), projectedUtf8Bytes: Buffer.byteLength(messages[index]!.content) }]
+        : []),
+      auxiliary: { selectedToolRecords: tools.length, omittedToolRecords: totalTools - tools.length, toolOutputs: "omitted-duplicate-message-projection", approvals: "not-read-for-model-context" },
       summarized: false,
       physicalReadBytes: null,
     },
@@ -408,8 +292,7 @@ export function readModelHistoryDatabase(database: DatabaseSync, session: Sessio
   };
   const newest = database.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(session.id);
   if (newest && !isTerminal(String(newest.state) as RunState)) {
-    // Cardinality first: a long active Run must not scan all message/tool JSON
-    // just to discover that its complete group cannot fit this bounded read.
+    // Count first so a long active Run never scans all message/tool JSON to learn its group cannot fit.
     const count = Number(database.prepare('SELECT count(*) AS count FROM messages WHERE run_id=?').get(String(newest.id))?.count);
     if (count > maxMessages) return activePage(getRun(String(newest.id)));
   }
@@ -465,17 +348,15 @@ export function readHistoryPageDatabase(database: DatabaseSync, session: Session
     snapshot.messages = rows<Message>(database, `SELECT json_remove(data,'$.providerReplay') AS data FROM messages WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, session.id, ...ids);
     snapshot.tools = rows<ToolCallRecord>(database, `SELECT data FROM tools WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, session.id, ...ids);
     snapshot.approvals = rows<ApprovalRecord>(database, `SELECT data FROM approvals WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, session.id, ...ids);
-    // Return whole Run groups whenever possible. Dropped groups remain reachable
-    // through beforeRunId; never cut an active approval's exact preview.
+    // Drop whole older Run groups first (still reachable via beforeRunId); never cut an active approval's exact preview.
     while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.runs.length > 1) dropOldestRun(snapshot);
-    // Unusually large single Runs expose their recent records with a notice.
-    // Historical native state is still available to the context builder.
+    // An unusually large single Run exposes its recent records with a notice; native state stays available to context.
     while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.messages.length > 2) {
       snapshot.messages.splice(1, 1); truncatedRecords = true;
     }
-    while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.tools.some(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied')) {
-      const index = snapshot.tools.findIndex(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied');
-      snapshot.tools.splice(index, 1); truncatedRecords = true;
+    const settled = (tool: ToolCallRecord): boolean => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied';
+    while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.tools.some(settled)) {
+      snapshot.tools.splice(snapshot.tools.findIndex(settled), 1); truncatedRecords = true;
     }
     if (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304) throw new EngineError('HISTORY_PAGE_TOO_LARGE', 'The current Run exceeds the display page budget; its original records remain stored');
   }

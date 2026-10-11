@@ -184,6 +184,7 @@ export class SqliteStore implements SessionEngineStore {
   private readonly putDocument = (sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument => this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
   private readonly appendNative: NativeSessionStorage['appendEvent'] = (sessionId, type, payload, refs) => this.native.appendEvent(sessionId, type, payload, refs);
   private readonly appendWithInput = (sessionId: string, type: string, payload: JsonObject, inputId?: string): void => { this.native.appendEvent(sessionId, type, payload, inputId ? { inputId } : {}); };
+  private readonly appendLegacy = (run: Run, type: string, payload: JsonObject): EngineEvent => this.append(run, type, payload);
 
   constructor(dbPath: string, hostBudgets?: EngineBudgets) {
     // Legacy synchronous close may fail before any closeAsync caller attaches a handler.
@@ -229,9 +230,9 @@ export class SqliteStore implements SessionEngineStore {
           throw new EngineError('SUMMARY_OVERFLOW_BINDING_MISMATCH', 'Turn dependency does not match its durable ordinary cleanup');
         }
       });
-      this.summaryRecords = new SummaryAttemptStorage(this.native, (run, type, payload) => this.append(run, type, payload));
-      this.attemptCleanupRecords = new AttemptCleanupStorage(this.native, (run, type, payload) => this.append(run, type, payload));
-      this.mcpExecutionRecords = new McpExecutionStorage(this.native, (run, type, payload) => this.append(run, type, payload));
+      this.summaryRecords = new SummaryAttemptStorage(this.native, this.appendLegacy);
+      this.attemptCleanupRecords = new AttemptCleanupStorage(this.native, this.appendLegacy);
+      this.mcpExecutionRecords = new McpExecutionStorage(this.native, this.appendLegacy);
       this.summaryRecoveryHighWater = captureSummaryRecoveryHighWater(db);
       this.providerRecoveryHighWater = captureProviderRecoveryHighWater(db);
     } catch (error) {
@@ -294,6 +295,9 @@ export class SqliteStore implements SessionEngineStore {
       if (error instanceof EngineError && error.code.startsWith('RECOVERY_EVIDENCE_')) return true;
       throw error;
     }
+  }
+  private workspaceBlocked(workspaceId: string, check: () => boolean): boolean {
+    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return check(); });
   }
   /** One coherent primary snapshot for native trajectory and execution provenance. */
   readExecutionObservationEvidence<T>(operation: () => T): T { return this.evidenceRead(operation); }
@@ -448,7 +452,7 @@ export class SqliteStore implements SessionEngineStore {
     this.summaryRecovery = this.once(this.summaryRecovery, 'SUMMARY_RECOVERY_ALREADY_CONFIGURED', 'Summary recovery has already been bound',
       () => new SummaryRecoveryStorage(this.native, this.summaryRecords, {
         bindingScope, startupHighWater: this.summaryRecoveryHighWater,
-        appendLegacy: (run, type, payload) => this.append(run, type, payload),
+        appendLegacy: this.appendLegacy,
         getSummaryOverflowDependency: (id, turnId, failedAttemptId) => this.getSummaryOverflowDependency(id, turnId, failedAttemptId),
         hasOtherExecutionUncertainty: (workspaceId, excludedSummaryAttemptId) => hasExecutionUncertainty(this.db, this, workspaceId, this.uncertaintyOptions(excludedSummaryAttemptId)),
       }));
@@ -469,11 +473,8 @@ export class SqliteStore implements SessionEngineStore {
   acknowledgeSummaryRecovery(request: SummaryRecoveryRequest) { return this.summaryRecoveryOwner().acknowledge(request); }
   findSummaryRecoveryReceipt(request: SummaryRecoveryRequest) { return this.summaryRecoveryOwner().findReceipt(request); }
   hasUncertainSummaries(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => {
-      this.getWorkspace(workspaceId);
-      return this.summaryRecovery?.hasUnacknowledged(workspaceId)
-        ?? !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId);
-    });
+    return this.workspaceBlocked(workspaceId, () => this.summaryRecovery?.hasUnacknowledged(workspaceId)
+      ?? !!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId));
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
     const checks = [
@@ -492,20 +493,11 @@ export class SqliteStore implements SessionEngineStore {
     ];
     return this.recoveryBlocked(() => checks.some(check => check()));
   }
-  hasUncertainAgentBackend(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
-  }
-  hasUncertainProposalApply(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasProposalApplyBlocker(this.db, workspaceId); });
-  }
-  hasUncertainKnowledgeFilePublication(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasKnowledgeFilePublicationBlocker(this.db, workspaceId); });
-  }
+  hasUncertainAgentBackend(workspaceId: string): boolean { return this.workspaceBlocked(workspaceId, () => hasAgentBackendBlocker(this.db, workspaceId)); }
+  hasUncertainProposalApply(workspaceId: string): boolean { return this.workspaceBlocked(workspaceId, () => hasProposalApplyBlocker(this.db, workspaceId)); }
+  hasUncertainKnowledgeFilePublication(workspaceId: string): boolean { return this.workspaceBlocked(workspaceId, () => hasKnowledgeFilePublicationBlocker(this.db, workspaceId)); }
   hasUncertainKnowledgeGeneration(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => {
-      this.getWorkspace(workspaceId);
-      return this.knowledgeGenerationRecords?.hasBlocker(workspaceId) ?? hasKnowledgeGenerationBlocker(this.db, workspaceId);
-    });
+    return this.workspaceBlocked(workspaceId, () => this.knowledgeGenerationRecords?.hasBlocker(workspaceId) ?? hasKnowledgeGenerationBlocker(this.db, workspaceId));
   }
   getAttempt(id: string): ProviderAttempt { return this.executionRecords.getAttempt(id); }
   getLatestAttemptForTurn(turnId: string): ProviderAttempt | null { return this.evidenceRead(() => this.executionRecords.getLatestAttemptForTurn(turnId)); }
@@ -525,15 +517,12 @@ export class SqliteStore implements SessionEngineStore {
   }
   validateHostCommands(): void { this.evidenceRead(() => validateHostCommandDatabase(this.db)); }
   hasUncertainExecution(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => {
-      this.getWorkspace(workspaceId);
-      return hasHostCommandUncertainty(this.db,workspaceId) || hasExecutionUncertainty(this.db, this, workspaceId, this.uncertaintyOptions());
-    });
+    return this.workspaceBlocked(workspaceId, () => hasHostCommandUncertainty(this.db,workspaceId) || hasExecutionUncertainty(this.db, this, workspaceId, this.uncertaintyOptions()));
   }
   configureProviderRecovery(bindingScope: (workspaceId: string) => string): void {
     this.providerRecovery = this.once(this.providerRecovery, 'PROVIDER_RECOVERY_ALREADY_CONFIGURED', 'Provider recovery has already been bound',
       () => new ProviderRecoveryStorage(this.native, this, { bindingScope, startupHighWater: this.providerRecoveryHighWater,
-        appendLegacy: (run, type, payload) => this.append(run, type, payload) }));
+        appendLegacy: this.appendLegacy }));
   }
   private providerRecoveryOwner(): ProviderRecoveryStorage {
     this.assertOpen();
@@ -913,8 +902,7 @@ export class SqliteStore implements SessionEngineStore {
       if (target !== undefined && isTerminal(target) && type !== `run.${target}`) throw new EngineError('INVALID_TERMINAL_EVENT', 'Terminal state must be recorded with its terminal event');
       if (['run.completed', 'run.cancelled', 'run.failed', 'run.interrupted'].includes(type) && target !== type.slice(4)) throw new EngineError('INVALID_TERMINAL_EVENT', 'Terminal event must change the run to its matching state');
       run = this.apply(run, change);
-      // Run termination and approval expiry are one durable state change. Publish
-      // the Run terminal event last, so its cursor includes all approval outcomes.
+      // Termination and approval expiry commit together; the terminal event goes last so its cursor covers every approval outcome.
       if (target !== undefined && isTerminal(target)) this.expirePendingApprovals(run, 'run_terminal');
       if (target === 'cancelled') this.native.setControlInTransaction(run.sessionId, true, 'run_cancelled');
       return this.append(run, type, payload);
@@ -932,9 +920,7 @@ export class SqliteStore implements SessionEngineStore {
       const native = this.native.appendEvent(run.sessionId, type, payload, { runId, ...refs });
       return this.append(run, type, native.payload);
     };
-    // Admission is read from an original process handle inside the backend's
-    // primary write transaction. Its observation and connection receipt must
-    // commit or roll back together.
+    // Connection admission runs inside the backend's primary write transaction; observation and receipt commit or roll back together.
     return this.db.isTransaction && type === 'backend.connection_admitted' ? append() : this.transaction(append);
   }
 
@@ -1179,12 +1165,11 @@ export class SqliteStore implements SessionEngineStore {
   recoverInterrupted(): Run[] {
     const sessions = new Set<string>();
     const recovered = this.transaction(() => {
-      // Exact MCP prepared intents can prove no dispatch. Settle them before
-      // capturing generic running intent, without leaving the recovery TX.
+      // Prepared MCP intents can prove no dispatch, so settle them before capturing generic running intent.
       this.mcpExecutionRecords.recoverInTransaction(sessions);
       const toolFrontiers = captureToolRecoveryFrontiers(this.native, {
         getMcpExecution: (id, sessionId) => this.mcpExecutionRecords.get(id, sessionId),
-        appendLegacy: (run, type, payload) => this.append(run, type, payload),
+        appendLegacy: this.appendLegacy,
       });
       const active = this.rows<Run>(`SELECT data FROM runs WHERE state IN (${ACTIVE_STATES}) ORDER BY ordinal`);
       const affected = this.rows<Run>(`SELECT DISTINCT runs.data, runs.ordinal FROM runs LEFT JOIN tools ON tools.run_id=runs.id LEFT JOIN approvals ON approvals.run_id=runs.id WHERE runs.state IN (${ACTIVE_STATES}) OR tools.state IN ('requested','awaiting_approval','running') OR approvals.status='pending' ORDER BY runs.ordinal`);
@@ -1229,8 +1214,7 @@ export class SqliteStore implements SessionEngineStore {
       if (this.databasePath !== ':memory:') {
         reader = new DatabaseSync(this.databasePath, { readOnly: true, timeout: 1_000 });
         reader.exec('BEGIN');
-        // Fix a WAL read snapshot before the native job starts. The live writer uses
-        // a different handle, so its transactions cannot produce SQLITE_LOCKED here.
+        // Pin a WAL read snapshot before the native job starts; the live writer's separate handle cannot cause SQLITE_LOCKED here.
         reader.prepare('SELECT last_seq FROM sessions LIMIT 1').get();
       }
       return await backupDatabase(reader ?? this.db, destination, DB_VERSION, checkCancelled, !reader);
