@@ -40,24 +40,22 @@ export class PosixPtyBackend implements PtyBackend {
       platform: process.platform,
       isolation: "host-user" as const,
     };
+    const unavailable = (
+      processTree: PtyCapability["processTree"],
+      code: string,
+    ): PtyCapability => ({
+      ...base,
+      available: false,
+      backend: "unavailable",
+      processTree,
+      code,
+    });
     if (!["darwin", "linux", "freebsd"].includes(process.platform))
-      return {
-        ...base,
-        available: false,
-        backend: "unavailable",
-        processTree: "unsupported",
-        code: "PTY_PLATFORM_UNSUPPORTED",
-      };
+      return unavailable("unsupported", "PTY_PLATFORM_UNSUPPORTED");
     try {
       createRequire(import.meta.url).resolve("node-pty");
     } catch {
-      return {
-        ...base,
-        available: false,
-        backend: "unavailable",
-        processTree: "posix-group",
-        code: "PTY_DEPENDENCY_UNAVAILABLE",
-      };
+      return unavailable("posix-group", "PTY_DEPENDENCY_UNAVAILABLE");
     }
     try {
       await import("node-pty");
@@ -83,13 +81,7 @@ export class PosixPtyBackend implements PtyBackend {
         }
       }
     } catch {
-      return {
-        ...base,
-        available: false,
-        backend: "unavailable",
-        processTree: "posix-group",
-        code: "PTY_NATIVE_UNAVAILABLE",
-      };
+      return unavailable("posix-group", "PTY_NATIVE_UNAVAILABLE");
     }
     return {
       ...base,
@@ -251,8 +243,7 @@ export class PosixPtyBackend implements PtyBackend {
         !stdoutEnded
       )
         return;
-      // Give already queued original IPC frames a turn to drain. This is an
-      // observed transport boundary, not a delay or a favorable cleanup probe.
+      // Let already queued IPC frames drain for one turn: an observed transport boundary, not a delay or cleanup probe.
       missingResultCheck = setImmediate(() => {
         missingResultCheck = undefined;
         if (

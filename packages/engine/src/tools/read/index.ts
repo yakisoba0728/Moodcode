@@ -272,10 +272,20 @@ function boundedResult(data: JsonObject, context: ToolContext, updatePage: () =>
   if (Buffer.byteLength(content) <= budget) return { content, data };
   markOutputTruncated(data);
   // Find the largest complete payload that fits after metadata and JSON escaping.
+  const fit = (high: number, apply: (size: number) => void): void => {
+    let low = 0;
+    while (low < high) {
+      const middle = Math.ceil((low + high) / 2);
+      apply(middle);
+      if (Buffer.byteLength(JSON.stringify(data)) <= budget) low = middle;
+      else high = middle - 1;
+    }
+    apply(low);
+  };
   if (typeof data.content === 'string') {
     const original = data.content;
     const firstLine = data.startLine as number | null;
-    const assign = (bytes: number): void => {
+    fit(Buffer.byteLength(original), bytes => {
       const selected = utf8Prefix(original, bytes);
       data.content = selected;
       data.returnedBytes = Buffer.byteLength(selected);
@@ -284,32 +294,15 @@ function boundedResult(data: JsonObject, context: ToolContext, updatePage: () =>
       data.endLine = selected.length === 0 || firstLine === null ? null : firstLine + (data.returnedLines as number) - 1;
       data.partialLastLine = selected.length > 0 && selected.length < original.length && !selected.endsWith('\n');
       updatePage();
-    };
-    let low = 0;
-    let high = Buffer.byteLength(original);
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2);
-      assign(middle);
-      if (Buffer.byteLength(JSON.stringify(data)) <= budget) low = middle;
-      else high = middle - 1;
-    }
-    assign(low);
+    });
   } else {
     const key = Array.isArray(data.files) ? 'files' : 'matches';
     const items = data[key] as JsonValue[];
-    let low = 0;
-    let high = items.length;
-    while (low < high) {
-      const middle = Math.ceil((low + high) / 2);
-      data[key] = items.slice(0, middle);
-      data.returnedCount = middle;
+    fit(items.length, count => {
+      data[key] = items.slice(0, count);
+      data.returnedCount = count;
       updatePage();
-      if (Buffer.byteLength(JSON.stringify(data)) <= budget) low = middle;
-      else high = middle - 1;
-    }
-    data[key] = items.slice(0, low);
-    data.returnedCount = low;
-    updatePage();
+    });
   }
   content = JSON.stringify(data);
   // Even tiny handoffs stay parseable JSON; full accurate metadata remains in data.
@@ -445,7 +438,7 @@ async function searchFiles(input: SearchInput, context: ToolContext): Promise<To
     observations.push([file.path, createHash('sha256').update(bytes).digest('hex')]);
     let text: string;
     try { text = decodeText(bytes); }
-    catch (error) { state.skippedBinaryFiles++; continue; }
+    catch { state.skippedBinaryFiles++; continue; }
     const lines = searchLineStarts(text, context.signal);
     if (lines.truncated) state.reasons.add('lines');
     let offset = 0;

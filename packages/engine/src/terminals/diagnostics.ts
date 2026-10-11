@@ -458,14 +458,13 @@ export class PtyDiagnosticRecorder {
     try {
       return validatePtyDiagnostics(this.data);
     } catch {
-      // Collection failure is metadata loss, not a different process outcome.
-      // Strict readers still reject untrusted payloads; this private collector
-      // emits a bounded fallback while the original outcome travels separately.
+      // Collection failure loses metadata, not the outcome: emit a bounded fallback while strict readers still reject untrusted payloads.
+      const { nativeExit, supervisorExit } = this.data;
       const safePid = (value: number | null) => (isPid(value) ? value : null);
       const safeCode = (value: number | null) => (isCode(value) ? value : null);
       const safeLabel = (value: string | null) =>
         isLabel(value) ? value : null;
-      const fallback: PtyDiagnostics = {
+      return {
         version: 1,
         authority: "observation-only",
         source: {
@@ -475,15 +474,19 @@ export class PtyDiagnosticRecorder {
           originalGroupPid: null,
         },
         nativeExit: {
-          observed: this.data.nativeExit.observed,
-          exitCode: safeCode(this.data.nativeExit.exitCode),
-          signal: safeCode(this.data.nativeExit.signal),
+          observed: nativeExit.observed,
+          exitCode: nativeExit.observed ? safeCode(nativeExit.exitCode) : null,
+          signal: nativeExit.observed ? safeCode(nativeExit.signal) : null,
         },
         supervisorExit: {
-          observed: this.data.supervisorExit.observed,
-          closeObserved: this.data.supervisorExit.closeObserved,
-          exitCode: safeCode(this.data.supervisorExit.exitCode),
-          signal: safeLabel(this.data.supervisorExit.signal),
+          observed: supervisorExit.observed,
+          closeObserved: supervisorExit.closeObserved,
+          exitCode: supervisorExit.observed
+            ? safeCode(supervisorExit.exitCode)
+            : null,
+          signal: supervisorExit.observed
+            ? safeLabel(supervisorExit.signal)
+            : null,
         },
         outcome: {
           exitCode: safeCode(outcome.exitCode),
@@ -511,15 +514,6 @@ export class PtyDiagnosticRecorder {
           this.data.events.length + this.data.eventsDropped,
         ),
       };
-      if (!fallback.nativeExit.observed) {
-        fallback.nativeExit.exitCode = null;
-        fallback.nativeExit.signal = null;
-      }
-      if (!fallback.supervisorExit.observed) {
-        fallback.supervisorExit.exitCode = null;
-        fallback.supervisorExit.signal = null;
-      }
-      return fallback;
     }
   }
 }

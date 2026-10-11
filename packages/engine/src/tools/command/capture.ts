@@ -60,7 +60,6 @@ export interface OutputData {
 }
 export interface CaptureOutput {
   consume(stream: CommandOutputStream, chunk: Buffer | string): void;
-  /** Reports a failed artifact write on an outcome that has no error yet. */
   recordArtifactFailure(outcome: ProcessOutcome): void;
 }
 
@@ -107,7 +106,6 @@ export async function createCaptures(artifactDir: string): Promise<Captures> {
   }
 }
 
-/** Counts every output byte and keeps bounded prefixes for the model and the artifacts. */
 export function captureOutput(
   captures: Captures,
   warnings: string[],
@@ -157,6 +155,21 @@ export function captureOutput(
   };
 }
 
+function sealStat(capture: Capture, fd: number, message: string): void {
+  const stat = fstatSync(fd, { bigint: true });
+  if (
+    !stat.isFile() ||
+    stat.dev.toString() !== capture.device ||
+    stat.ino.toString() !== capture.inode ||
+    stat.size !== BigInt(capture.artifactBytes)
+  )
+    throw new EngineError("COMMAND_ARTIFACT_CHANGED", message);
+  capture.closedStat = {
+    size: Number(stat.size),
+    mtimeNs: stat.mtimeNs.toString(),
+  };
+}
+
 export function closeCaptures(
   captures: Captures,
   warnings: string[],
@@ -165,23 +178,12 @@ export function closeCaptures(
   for (const capture of Object.values(captures)) {
     if (capture.fd < 0) continue;
     try {
-      if (seal) {
-        const stat = fstatSync(capture.fd, { bigint: true });
-        if (
-          !stat.isFile() ||
-          stat.dev.toString() !== capture.device ||
-          stat.ino.toString() !== capture.inode ||
-          stat.size !== BigInt(capture.artifactBytes)
-        )
-          throw new EngineError(
-            "COMMAND_ARTIFACT_CHANGED",
-            "The actual command output file changed before sealing",
-          );
-        capture.closedStat = {
-          size: Number(stat.size),
-          mtimeNs: stat.mtimeNs.toString(),
-        };
-      }
+      if (seal)
+        sealStat(
+          capture,
+          capture.fd,
+          "The actual command output file changed before sealing",
+        );
     } catch (error) {
       capture.sealFailed = true;
       warnings.push(`Could not seal output artifact: ${errorText(error)}`);
@@ -194,16 +196,11 @@ export function closeCaptures(
     }
     capture.fd = -1;
     if (seal && !capture.sealFailed && process.platform === "win32") {
-      // Windows commits last-write timestamps when the write handle closes.
-      // Pin that timestamp after close without replacing the original identity
-      // or producer hash; sealedArtifact still verifies every recorded byte.
+      // Windows commits the last-write time on handle close: pin it afterwards, keeping the original identity and producer hash.
       let readFd: number | undefined;
       try {
         readFd = openSync(capture.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-        const stat = fstatSync(readFd, { bigint: true });
-        if (!stat.isFile() || stat.dev.toString() !== capture.device || stat.ino.toString() !== capture.inode || stat.size !== BigInt(capture.artifactBytes))
-          throw new EngineError("COMMAND_ARTIFACT_CHANGED", "The output file changed while its write handle closed");
-        capture.closedStat = { size: Number(stat.size), mtimeNs: stat.mtimeNs.toString() };
+        sealStat(capture, readFd, "The output file changed while its write handle closed");
       } catch (error) {
         capture.sealFailed = true;
         warnings.push(`Could not seal closed output artifact: ${errorText(error)}`);
@@ -315,8 +312,7 @@ export function modelPrefix(
       (first === 0xf4 && second! > 0x8f)
     )
       valid = false;
-    // Invalid bytes render as replacement characters. Counting each separately
-    // is conservative when the decoder consumes a malformed multi-byte sequence.
+    // Invalid bytes render as U+FFFD; counting each is conservative when the decoder merges a malformed sequence.
     const renderedLength = valid ? length : 3;
     if (renderedBytes + renderedLength > budget) break;
     if (!valid) length = 1;

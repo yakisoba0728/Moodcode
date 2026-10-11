@@ -4,11 +4,8 @@ import type { PreparedTool, ToolContext } from '../ports.js';
 export type CallBinding = (context: ToolContext) => string;
 type Failure = readonly [code: string, message: string];
 
-/** Workspace, call, Turn, Attempt and execution-lock identity. */
 export const executionBinding: CallBinding = context => JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId, context.executionLockPath]);
-/** Workspace, call, Turn and Attempt identity. */
 export const workspaceCallBinding: CallBinding = context => JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]);
-/** Session, call, Turn and Attempt identity. */
 export const sessionCallBinding: CallBinding = context => JSON.stringify([context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]);
 
 /** Requests one tool prepared: each executes once, under its preparing call identity and unchanged since prepare. */

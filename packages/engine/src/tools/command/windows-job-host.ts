@@ -57,8 +57,7 @@ function adaptChild(native: NativeChild, output: ShellOutput): WindowsSuspendedP
   const poll = (): void => {
     if (stopped) return;
     try {
-      // Poll exit even with a blocked sink. Status-only reads retain pipe bytes
-      // in the kernel and keep JavaScript memory bounded to one read batch.
+      // Poll exit even with a blocked sink: status-only reads leave pipe bytes in the kernel, bounding memory to one batch.
       const state = native.readOutput(pending > 0 && !discarded ? 0 : READ_BYTES);
       if (state.exited) exited.resolve({ exitCode: state.exitCode });
       if (failure !== undefined) throw failure;
@@ -110,8 +109,7 @@ export function createWindowsJobHost(binding: WindowsJobNativeBinding): WindowsJ
       async terminate() { job.terminate(); },
       async activeProcessCount() { return job.activeProcessCount(); },
       async close() {
-        // Closing the job first enforces kill-on-close before releasing pipe and
-        // process handles. A failed child close cannot skip the other children.
+        // Close the job first to enforce kill-on-close before releasing handles; one failed child close cannot skip the rest.
         let failure: unknown;
         try { job.close(); } catch (error) { failure = error; }
         for (const child of children.keys()) try { await child.close?.(); } catch (error) { failure ??= error; }

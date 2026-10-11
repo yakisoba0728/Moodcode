@@ -50,11 +50,7 @@ export interface WindowsJobHostPort {
 }
 export const WINDOWS_JOB_LIMITS = Object.freeze({ operationMs: 10_000, cleanupMs: 3_000, pollMs: 20 });
 
-/**
- * Orchestrates an injected native Job Object host. There is no taskkill or
- * direct-child fallback: absent native ownership stays explicitly unsupported.
- * Native handles remain in the engine; POSIX retains its IPC supervisor.
- */
+/** Orchestrates an injected native Job Object host; with no taskkill or direct-child fallback, absent native ownership stays unsupported. */
 export class WindowsJobCommandBackend implements CommandProcessBackend {
   constructor(private readonly host: WindowsJobHostPort | null | undefined = loadWindowsJobHost()) {}
   capability(): CommandBackendCapability {
@@ -115,8 +111,7 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     return false;
   };
   const observeExitCount = async (): Promise<number> => {
-    // Windows accounting can retain exiting kernel references after the owned
-    // process handle closes. Join real counts briefly, without waiting on EOF.
+    // Windows can still count exiting kernel references after the process handle closes; poll briefly, without waiting on EOF.
     const deadline = Math.min(executionDeadline, performance.now() + Math.min(100, limits.cleanupMs));
     for (;;) {
       ensureLive();
@@ -146,15 +141,12 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     ensureLive();
     if (!Number.isSafeInteger(child.pid) || child.pid <= 0) throw new EngineError('WINDOWS_JOB_INVALID_PID', 'The native host returned an invalid process identity');
     await interrupted(job.assign(child)); assigned = true;
-    // Record ownership before resume: assignment/startup failure must never run
-    // the command outside its kill-on-close Job Object.
+    // Record ownership before resume: a failed assignment must never run the command outside its kill-on-close job.
     started(child.pid);
-    // A synchronous native startup or journal callback can block delivery of
-    // the timer. Check the approved deadline before executing user code.
+    // A blocking native startup or journal callback can delay the timer; check the deadline before user code runs.
     ensureLive();
     await interrupted(job.resume(child));
-    // The command timeout, rather than the ownership-operation deadline, bounds
-    // execution. Primary exit must precede inherited-output-pipe settlement.
+    // The command timeout, not the operation deadline, bounds execution; primary exit precedes inherited-pipe settlement.
     const completion = child.exited ?? child.closed;
     const completed = await interrupted(completion, input.timeoutMs); exitCode = completed.exitCode;
     const count = await observeExitCount();
@@ -167,8 +159,7 @@ export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: Sh
     await interrupted(child.closed, input.timeoutMs);
   } catch (failure) {
     abandoned = true; cleanupConfirmed = false; abort.abort();
-    // Cancellation and the approved deadline still require the same native
-    // cleanup below; the expected interruption itself is not an ownership fault.
+    // Cancellation and timeout still need the native cleanup below but are not ownership faults.
     if (!(failure instanceof EngineError && failure.code === 'ABORTED' && (cancelled || timedOut))) error ??= 'Windows command ownership, execution, or cleanup failed.';
   } finally {
     clearTimeout(timer); signal.removeEventListener('abort', onAbort);

@@ -1,8 +1,7 @@
 import { errorText, executeShell, notStartedOutcome, type ProcessOutcome, type ShellInput, type ShellStdinControl } from './process-control.js';
 import type { acquireExecutionLock } from './execution-lock.js';
 
-// This process deliberately outlives the engine. IPC disconnect is its parent
-// liveness signal, including SIGKILL and Electron utility-process loss.
+// This process deliberately outlives the engine; IPC disconnect (even after SIGKILL or utility-process loss) is its parent liveness signal.
 const abort = new AbortController();
 let lock: ReturnType<typeof acquireExecutionLock> | undefined;
 let input: ShellInput | undefined;
@@ -29,9 +28,8 @@ function finish(outcome: ProcessOutcome): void {
   catch (error) { outcome = { ...outcome, cleanupConfirmed: false, error: `Execution lock release failed: ${errorText(error)}` }; }
   const exitCode = outcome.cleanupConfirmed ? 0 : 1;
   if (disconnected || outcome.outputDiscarded || outcome.error) {
-    // Flush the small bounded queues when the parent is still reading. Abrupt
-    // stream destruction can race result IPC with ECONNRESET in the client.
-    // A vanished or paused reader still cannot keep this supervisor alive.
+    // Flush the bounded queues while the parent reads: abrupt destruction races result IPC with ECONNRESET.
+    // The deadline keeps a vanished or paused reader from holding this supervisor alive.
     const deadline = setTimeout(() => process.exit(exitCode), 250);
     const delivered = new Promise<void>(resolve => send({ type: 'result', outcome }, resolve));
     const stdoutEnded = new Promise<void>(resolve => process.stdout.end(() => resolve()));
@@ -41,11 +39,10 @@ function finish(outcome: ProcessOutcome): void {
       process.exit(exitCode);
     });
     return;
-  } else {
-    send({ type: 'result', outcome });
-    // Normal success preserves every forwarded byte through stream EOF.
-    process.stdout.end(); process.stderr.end();
   }
+  send({ type: 'result', outcome });
+  // Normal success preserves every forwarded byte through stream EOF.
+  process.stdout.end(); process.stderr.end();
   if (process.connected) process.disconnect?.();
   process.exitCode = exitCode;
 }
@@ -54,22 +51,19 @@ function idleCancelled(): void {
   finish(notStartedOutcome(true));
 }
 
-process.stdout.on('error', () => { if (!finished) abort.abort(); });
-process.stderr.on('error', () => { if (!finished) abort.abort(); });
+for (const sink of [process.stdout, process.stderr]) sink.on('error', () => { if (!finished) abort.abort(); });
 process.on('disconnect', () => {
   disconnected = true;
   abort.abort();
   if (!started) idleCancelled();
 });
-process.on('SIGTERM', () => { abort.abort(); if (!started) idleCancelled(); });
-process.on('SIGINT', () => { abort.abort(); if (!started) idleCancelled(); });
+for (const signal of ['SIGTERM', 'SIGINT'] as const) process.on(signal, () => { abort.abort(); if (!started) idleCancelled(); });
 
 function forwardOutput(stream: 'stdout' | 'stderr', bytes: Buffer): void | Promise<void> {
   if (disconnected || abort.signal.aborted || finished) return;
   const sink = stream === 'stdout' ? process.stdout : process.stderr;
   if (sink.write(bytes)) return;
-  // executeShell pauses this shell pipe until drain. Each stream can therefore
-  // retain only its current chunk, rather than queuing the complete command.
+  // executeShell pauses the shell pipe until drain, so each stream retains only its current chunk.
   return new Promise<void>((resolve, reject) => {
     const settle = (error?: Error): void => {
       sink.removeListener('drain', onDrain);

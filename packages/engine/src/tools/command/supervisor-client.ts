@@ -23,9 +23,7 @@ import {
 } from "./process-control.js";
 
 export function supervisorExecArgv(): string[] {
-  // Consumers may run the engine through node -e, --test, or Electron. Only
-  // module-loader options belong to this different program's script entry.
-  // Supervisors do not start in this process's cwd, so values are resolved.
+  // Hosts may run the engine via node -e, --test or Electron: forward only module-loader options, resolved since the supervisor cwd differs.
   const result: string[] = [];
   const loaderOptions = [
     "--import",
@@ -139,9 +137,7 @@ export async function runSupervised(
       send({type,seq,data:Buffer.from(data).toString("base64")});
     });
   };
-  const onAbort = (): void => {
-    send({ type: "stop" });
-  };
+  const onAbort = (): void => send({ type: "stop" });
   const pendingOutput: { stream: CommandOutputStream; bytes: Buffer }[] = [];
   let pendingOutputBytes = 0;
   const observedOutput = (stream: CommandOutputStream, chunk: Buffer): void => {

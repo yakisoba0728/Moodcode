@@ -89,6 +89,11 @@ const processScopeWarning = (): string => process.platform === "win32"
   : "Termination confirmation covers the original POSIX process group. Descendants that create separate process groups or sessions escape this scope.";
 const terminationScope = (): string => process.platform === "win32" ? "windows-job-object" : "posix-process-group";
 
+const commandFingerprint = (preview: unknown, data: unknown): string =>
+  createHash("sha256")
+    .update(JSON.stringify({ version: 1, name: "run_command", preview, data }))
+    .digest("hex");
+
 function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
@@ -218,13 +223,10 @@ async function prepareCommand(
     workspaceRoot: context.workspace.root,
     sessionId: context.sessionId,
   };
-  const fingerprint = createHash("sha256")
-    .update(JSON.stringify({ version: 1, name: "run_command", preview, data }))
-    .digest("hex");
   return {
     name: "run_command",
     input: { ...input },
-    fingerprint,
+    fingerprint: commandFingerprint(preview, data),
     requiresApproval: true,
     preview,
     data,
@@ -263,8 +265,7 @@ async function runWindowsJob(
     output.recordArtifactFailure(outcome);
     return outcome;
   } finally {
-    // A crashed engine loses its kill-on-close handle but leaves this marker
-    // active. Restart preserves unknown effects and never replays a command.
+    // A crashed engine loses its kill-on-close handle but leaves this marker active, so restart never replays a command.
     lock?.release(outcome?.cleanupConfirmed === true);
   }
 }
@@ -293,12 +294,7 @@ function originalObservation(
   return { observer, original };
 }
 
-/**
- * One command from artifact setup to its sealed outputs and workspace diff.
- * `admit` rechecks the preparation immediately before spawn, attaches the
- * observation as soon as it exists so later failures reach its observer, and
- * returns the scope the process runs in.
- */
+/** `admit` rechecks the preparation just before spawn, attaches the observation so later failures reach it, and returns the run scope. */
 async function runCapturedCommand(
   input: CommandInput,
   scope: PhysicalCommandScope,
@@ -370,8 +366,7 @@ function changedFiles(
     const oldFile = before.files.get(path);
     const newFile = after.files.get(path);
     if (oldFile?.hash === newFile?.hash) return [];
-    // Omission in a bounded/binary-filtered capture does not prove absence.
-    // Never encode an unobserved preimage/postimage as a creation/deletion.
+    // Omission from a bounded or filtered capture is not absence: never record it as a creation or deletion.
     if (
       (!oldFile && before.warnings.length > 0) ||
       (!newFile && after.warnings.length > 0)
@@ -409,14 +404,20 @@ export function createCommandTool(
 ): ToolDefinition {
   const observer = options.observer;
   const consumed = new Set<string>();
+  const assertUnconsumed = (fingerprint: string): void => {
+    if (consumed.has(fingerprint))
+      throw new EngineError(
+        "COMMAND_ALREADY_EXECUTED",
+        "This prepared command has already been consumed; use a new tool call instead of retrying effects.",
+      );
+  };
   const prepare = async (value:unknown,context:ToolContext):Promise<PreparedTool> => {
     const prepared = await prepareCommand(value,context);
     if (!options.sandbox) return prepared;
     const launch = options.sandbox(context);
     const preview = {...prepared.preview,sandbox:launch as unknown as JsonObject};
     const data = {...prepared.data as JsonObject,sandbox:launch as unknown as JsonObject};
-    const fingerprint=createHash("sha256").update(JSON.stringify({version:1,name:"run_command",preview,data})).digest("hex");
-    return {...prepared,preview,data,fingerprint};
+    return {...prepared,preview,data,fingerprint:commandFingerprint(preview,data)};
   };
   return {
     name: "run_command",
@@ -459,24 +460,15 @@ export function createCommandTool(
           "Command, cwd, timeout, or execution binding changed after preparation.",
         );
       }
-      if (consumed.has(prepared.fingerprint))
-        throw new EngineError(
-          "COMMAND_ALREADY_EXECUTED",
-          "This prepared command has already been consumed; use a new tool call instead of retrying effects.",
-        );
+      assertUnconsumed(prepared.fingerprint);
       if (context.signal.aborted) return cancelledResult(context);
       const input = checked.input as unknown as CommandInput;
       const before = await captureWorkspace(context.workspace, {
         signal: context.signal,
       });
       if (context.signal.aborted) return cancelledResult(context);
-      // Claim before the first filesystem/process effect. A partial failure must
-      // never cause a replay of the same command through this tool instance.
-      if (consumed.has(prepared.fingerprint))
-        throw new EngineError(
-          "COMMAND_ALREADY_EXECUTED",
-          "This prepared command has already been consumed; use a new tool call instead of retrying effects.",
-        );
+      // Claim before the first effect: a partial failure must never replay this command through this tool instance.
+      assertUnconsumed(prepared.fingerprint);
       consumed.add(prepared.fingerprint);
       const run = await runCapturedCommand(input, context, before, async (attach) => {
         // Recheck immediately before spawn, after snapshot and artifact setup.
@@ -571,16 +563,6 @@ export function createCommandTool(
       const content = (
         header + `stdout:\n${stdout.text}\nstderr:\n${stderr.text}`
       ).slice(0, modelBudget);
-      const stdoutData = outputData(
-        captures.stdout,
-        stdout.text,
-        stdout.sourceBytes,
-      );
-      const stderrData = outputData(
-        captures.stderr,
-        stderr.text,
-        stderr.sourceBytes,
-      );
       return {
         content,
         isError: status !== "completed",
@@ -600,8 +582,12 @@ export function createCommandTool(
           outputAccountingComplete: !outcome.outputDiscarded,
           ...(outcome.outputDiscarded ? { unobservedBytes: null } : {}),
           ...(outcome.error ? { error: outcome.error } : {}),
-          stdout: { ...stdoutData },
-          stderr: { ...stderrData },
+          stdout: {
+            ...outputData(captures.stdout, stdout.text, stdout.sourceBytes),
+          },
+          stderr: {
+            ...outputData(captures.stderr, stderr.text, stderr.sourceBytes),
+          },
           checkpointId: checkpoint.id,
           checkpointIncomplete: Boolean(checkpoint.incomplete),
           warnings: checkpoint.warnings,
@@ -624,7 +610,6 @@ export function createCommandTool(
 }
 
 export const preparePhysicalCommand = normalizeInput;
-/** Reuses native process ownership, exact observations and bounded artifacts. */
 export async function executePhysicalCommand(
   input: CommandInput,
   scope: PhysicalCommandScope,

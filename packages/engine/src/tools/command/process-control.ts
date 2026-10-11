@@ -67,8 +67,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
     discardOutput = true;
     pendingOutput.clear();
     warning('Output capture is incomplete: only forwarded/observed bytes are available; unread shell output and blocked parent-pipe bytes may have been discarded.');
-    // Releasing read backpressure is essential: a paused pipe can otherwise
-    // prevent the shell close event even after its process group was killed.
+    // Release read backpressure: a paused pipe can block the shell close event even after its group was killed.
     child.stdout?.resume();
     child.stderr?.resume();
   };
@@ -117,8 +116,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
   };
   attachOutput('stdout', child.stdout);
   attachOutput('stderr', child.stderr);
-  child.stdout?.on('error', error => { processError = error.message; terminate('descendants'); });
-  child.stderr?.on('error', error => { processError = error.message; terminate('descendants'); });
+  for (const stream of [child.stdout, child.stderr]) stream?.on('error', error => { processError = error.message; terminate('descendants'); });
   child.on('error', error => { processError = error.message; wake?.(); });
   child.on('exit', (code, exitSignalValue) => { exited = true; exitCode = code; exitSignal = exitSignalValue; wake?.(); });
   child.on('close', (code, exitSignalValue) => { closed = true; exitCode = code; exitSignal = exitSignalValue; wake?.(); });
@@ -139,8 +137,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
       wake = undefined;
       if (exited && !exitInspected && !cleanup) {
         exitInspected = true;
-        // A slow output consumer can delay pipe close after the shell exited.
-        // Group absence alone identifies whether descendants still need cleanup.
+        // A slow consumer can delay pipe close after shell exit; group absence alone decides whether descendants need cleanup.
         if (child.pid !== undefined && !await waitGroupAbsent(child.pid, TERMINATION_LIMITS.pollMs)) {
           warning('The shell exited while its process group remained active; remaining descendants were terminated.');
           terminate('descendants');

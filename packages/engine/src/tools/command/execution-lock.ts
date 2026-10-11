@@ -45,7 +45,6 @@ export function readExecutionLockReservation(reservation: ExecutionLockReservati
   return Object.freeze({ ...owned.marker });
 }
 
-/** Version 0 is the existing, unmigrated command_execution schema. */
 const EXECUTION_LOCK_SCHEMA_VERSION = 0;
 const EXECUTION_LOCK_INSPECTION_LIMITS = Object.freeze({ maxDatabaseBytes: 1_048_576, maxTimestampBytes: 128 });
 export interface ExecutionLockInspectionOptions { signal?: AbortSignal }
@@ -67,7 +66,6 @@ function checkLockVersion(version: unknown): void {
   }
 }
 
-/** The primary SQLite result code of a node:sqlite error. */
 function sqliteCode(error: unknown): number | undefined {
   const errcode = (error as { errcode?: unknown } | null)?.errcode;
   return typeof errcode === 'number' ? errcode & 0xff : undefined;
@@ -93,13 +91,7 @@ function inspectionCorrupt(): never {
   throw new EngineError('COMMAND_EFFECTS_INSPECT_CORRUPT', 'The command execution lock database, schema, or marker is invalid.');
 }
 
-/**
- * An observation, never an execution admission or PID-liveness authority.
- * Opens only existing regular DELETE-mode files, using SQLite readOnly and a
- * zero busy timeout. It does not create parents/schema or recover journals.
- * Abort is checked at synchronous-operation boundaries; it cannot interrupt a
- * synchronous filesystem/SQLite syscall while that call is executing.
- */
+/** An observation, never an execution admission or PID-liveness authority: opens an existing regular DELETE-mode file readOnly with zero busy timeout, creating nothing and recovering no journal; abort is checked only between synchronous calls. */
 export function inspectExecutionLock(path: string, options: ExecutionLockInspectionOptions = {}): ExecutionLockInspection {
   const signal = options.signal;
   checkInspectionAbort(signal);
@@ -121,8 +113,7 @@ export function inspectExecutionLock(path: string, options: ExecutionLockInspect
     if (!metadata.isFile() || metadata.isSymbolicLink()) {
       throw new EngineError('COMMAND_EFFECTS_INSPECT_INVALID_PATH', 'Inspection requires a regular database file and does not follow database file symlinks.');
     }
-    // Reject WAL before SQLite opens it: even a read-only WAL connection can
-    // create shared-memory sidecars. Our effect-lock writer always uses DELETE.
+    // Reject WAL before SQLite opens it: even a read-only WAL connection creates shared-memory sidecars; our writer always uses DELETE.
     const header = Buffer.alloc(100);
     const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
     let bytesRead = 0;
@@ -157,9 +148,7 @@ export function inspectExecutionLock(path: string, options: ExecutionLockInspect
       throw new EngineError('COMMAND_EFFECTS_INSPECT_FAILED', 'The database path changed during inspection.');
     }
     db = new DatabaseSync(path, { readOnly: true, timeout: 0 });
-    // This flag is connection-local and does not write the file. Integrity
-    // inspection must not execute arbitrary CHECK expressions from a damaged
-    // or substituted database; marker fields are validated directly below.
+    // Connection-local and writes nothing: never execute CHECK expressions of a damaged or substituted database; fields are validated below.
     db.exec('PRAGMA ignore_check_constraints=ON; BEGIN');
     transaction = true;
     const version = db.prepare('PRAGMA user_version').get()?.user_version;
@@ -181,8 +170,7 @@ export function inspectExecutionLock(path: string, options: ExecutionLockInspect
       })) inspectionCorrupt();
       const check = db.prepare('PRAGMA quick_check(1)').get();
       if (!check || Object.values(check)[0] !== 'ok') inspectionCorrupt();
-      // UTF-16 storage can require twice the returned UTF-8 bytes for ASCII.
-      // Bound the read first, then enforce the actual UTF-8 response ceiling.
+      // UTF-16 storage can need twice the UTF-8 bytes: bound the read first, then enforce the UTF-8 ceiling.
       const statement = db.prepare(`SELECT id AS id, owner_pid AS owner_pid, group_pid AS group_pid, active AS active,
         CASE WHEN typeof(updated_at)='text' AND length(CAST(updated_at AS BLOB)) BETWEEN 1 AND ${EXECUTION_LOCK_INSPECTION_LIMITS.maxTimestampBytes * 2}
         THEN updated_at ELSE NULL END AS updated_at FROM command_execution LIMIT 2`);
@@ -235,8 +223,7 @@ function openDatabase(path: string): DatabaseSync {
   const db = new DatabaseSync(path, { timeout: 0 });
   try {
     checkLockVersion(db.prepare('PRAGMA user_version').get()?.user_version);
-    // DELETE mode makes BEGIN EXCLUSIVE exclude both readers and writers.
-    // The committed active marker, rather than PID liveness, survives crashes.
+    // DELETE mode makes BEGIN EXCLUSIVE exclude readers and writers; the committed active marker, not PID liveness, survives crashes.
     db.exec('PRAGMA busy_timeout=0; PRAGMA journal_mode=DELETE; PRAGMA synchronous=FULL');
     return db;
   } catch (error) {
@@ -315,11 +302,7 @@ export function reconcileStoppedExecutionLock(path: string, input: Readonly<Exec
   } finally { if (transaction) db.exec('ROLLBACK'); db.close(); }
 }
 
-/**
- * Commits active=1 before effects can start, then holds an exclusive transaction.
- * recordGroup updates remain uncommitted while held; a crash may leave group_pid
- * null, but the durable active marker still prevents another command from starting.
- */
+/** Commits active=1 before effects start, then holds an exclusive transaction; a crash may lose uncommitted recordGroup updates, but the durable marker still blocks other commands. */
 export function acquireExecutionLock(path: string, reservation?: ExecutionLockReservation): ExecutionLock {
   const owned = reservation === undefined ? undefined : reservations.get(reservation);
   if (reservation !== undefined && (!owned || owned.used || owned.path !== path)) throw new EngineError('COMMAND_EXECUTION_RESERVATION_INVALID', 'Execution reservation is foreign, consumed or bound to another lock');
@@ -338,8 +321,7 @@ export function acquireExecutionLock(path: string, reservation?: ExecutionLockRe
       ON CONFLICT(id) DO UPDATE SET owner_pid=excluded.owner_pid, group_pid=NULL, active=1, updated_at=excluded.updated_at`).run(process.pid, owned?.marker.updatedAt ?? new Date().toISOString());
     database.exec('COMMIT');
     transaction = false;
-    // A contender may briefly observe active=1 in this gap and fail closed.
-    // If reacquisition itself fails, the already committed marker stays active.
+    // A contender may observe active=1 in this gap and fail closed; a failed reacquisition leaves the committed marker active.
     database.exec('BEGIN EXCLUSIVE');
     transaction = true;
     const claimed = readMarker(database);

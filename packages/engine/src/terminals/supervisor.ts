@@ -22,8 +22,7 @@ import {
   unobservedPtyOutcome,
 } from "./diagnostics.js";
 
-// A detached supervisor owns the PTY. Losing engine IPC closes the process
-// group even when the engine itself was killed and cannot run a finally block.
+// A detached supervisor owns the PTY: losing engine IPC closes the group even when a killed engine cannot run finally blocks.
 let terminal: IPty | undefined;
 let starting = false,
   exited = false,
@@ -50,6 +49,11 @@ const send = (packet: object, done?: () => void): void => {
     done?.();
   }
 };
+const sendDiagnostics = (): void =>
+  send({
+    type: "diagnostics",
+    diagnostics: diagnostics.snapshot(currentOutcome(false)),
+  });
 const finish = (outcome: PtyOutcome): void => {
   if (finished) return;
   finished = true;
@@ -79,9 +83,7 @@ const snapshotOptions = {
   maxBuffer: 2_097_152,
   env: createCommandEnvironment(),
 } as const;
-// A PTY shell creates job-control groups outside its original process group.
-// Observe their actual ancestry before the shell disappears; a HUP relay alone
-// cannot prove cleanup when the shell is stopped or cannot run its handler.
+// PTY job control creates groups outside the original one; observe their ancestry before the shell exits, since a HUP relay cannot prove cleanup.
 async function observedJobGroups(
   pid: number,
 ): Promise<readonly number[] | undefined> {
@@ -101,10 +103,7 @@ async function observedJobGroups(
       });
       diagnostics.note({ kind: "error", errorCode: analysis.errorCode });
     }
-    send({
-      type: "diagnostics",
-      diagnostics: diagnostics.snapshot(currentOutcome(false)),
-    });
+    sendDiagnostics();
     return groups;
   } catch (error) {
     diagnostics.groupSnapshot(undefined, "group-cleanup");
@@ -112,16 +111,11 @@ async function observedJobGroups(
       kind: "error",
       errorCode: ptyDiagnosticErrorCode(error),
     });
-    send({
-      type: "diagnostics",
-      diagnostics: diagnostics.snapshot(currentOutcome(false)),
-    });
+    sendDiagnostics();
     return undefined;
   }
 }
-// After native exit the shell's session id still names every remaining member
-// of the PTY session, including job-control groups outside the original group.
-// macOS ps reports no session id, so there only the original group is observed.
+// After native exit the session id still names every remaining PTY member, job-control groups included; macOS ps has no sid, so only the original group is observed there.
 const sessionIds = process.platform !== "darwin";
 async function sessionGroups(
   sid: number,
@@ -230,12 +224,10 @@ process.on("disconnect", () => {
   disconnected = true;
   void stop("parent_lost");
 });
-process.on("SIGTERM", () => {
-  void stop("cancel");
-});
-process.on("SIGINT", () => {
-  void stop("cancel");
-});
+for (const signal of ["SIGTERM", "SIGINT"] as const)
+  process.on(signal, () => {
+    void stop("cancel");
+  });
 process.stdout.on("error", () => {
   disconnected = true;
   void stop("parent_lost");
@@ -308,10 +300,7 @@ process.on("message", async (message: unknown) => {
           event.exitCode,
           Number.isSafeInteger(event.signal) ? event.signal! : null,
         );
-        send({
-          type: "diagnostics",
-          diagnostics: diagnostics.snapshot(currentOutcome(false)),
-        });
+        sendDiagnostics();
         if (!cleanup) settleExit(terminal!.pid);
       });
       timer = setTimeout(() => {
