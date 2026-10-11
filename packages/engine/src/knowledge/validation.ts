@@ -1,7 +1,7 @@
 import path from 'node:path';
-import { types as nodeTypes } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
-import { canonicalJson, canonicalSha256, sha256Hex, verifySealed } from '../shared/canonical.js';
+import { canonicalJson, canonicalSha256, sha256Hex } from '../shared/canonical.js';
+import { exactKeys, plainJson, recordGuards, type PlainJsonFault, type PlainJsonOptions, type RecordFault } from '../shared/data.js';
 import type {
   KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeGenerationEvidence, KnowledgeGenerationPlan,
   KnowledgeHostBinding, KnowledgeSourceManifest, KnowledgeStorageTable, KnowledgeTarget, KnowledgeUsage,
@@ -17,25 +17,15 @@ function object(value: unknown): ObjectValue {
   return value as ObjectValue;
 }
 function fields(value: ObjectValue, names: readonly string[]): void {
-  const actual = Object.keys(value);
-  if (actual.length !== names.length || actual.some(key => !names.includes(key))) knowledgeError('INVALID_KNOWLEDGE', 'Knowledge object fields do not match the contract');
+  if (!exactKeys(value, names)) knowledgeError('INVALID_KNOWLEDGE', 'Knowledge object fields do not match the contract');
 }
-export function identifier(value: unknown): string {
-  if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 256 || /[\u0000-\u001f\u007f]/u.test(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge identity must be bounded text');
-  return value;
-}
-export function integer(value: unknown, maximum = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0 || (value as number) > maximum) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge count must be a bounded nonnegative safe integer');
-  return value as number;
-}
-function digest(value: unknown): string {
-  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge hash must be a lowercase SHA-256 digest');
-  return value;
-}
-export function stamp(value: unknown): string {
-  if (typeof value !== 'string' || value.length !== 24 || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge timestamp must use canonical UTC ISO format');
-  return value;
-}
+const RECORD_FAULTS: Record<RecordFault, string> = {
+  id: 'Knowledge identity must be bounded text', integer: 'Knowledge count must be a bounded nonnegative safe integer', sha: 'Knowledge hash must be a lowercase SHA-256 digest',
+  stamp: 'Knowledge timestamp must use canonical UTC ISO format', exact: 'Knowledge object fields do not match the contract', hash: 'Knowledge record does not match its immutable digest',
+};
+const guards = recordGuards({ json: immutableKnowledgeJson, fail: fault => knowledgeError(fault === 'hash' ? 'KNOWLEDGE_HASH_MISMATCH' : 'INVALID_KNOWLEDGE', RECORD_FAULTS[fault]) });
+export const { id: identifier, integer, stamp } = guards;
+const { sha: digest, verify } = guards;
 function nullable<T>(value: unknown, check: (value: unknown) => T): T | null { return value === null ? null : check(value); }
 function physical(value: unknown): string {
   if (typeof value !== 'string' || !/^\d{1,32}$/u.test(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Physical source identity must be a decimal device or inode');
@@ -45,48 +35,27 @@ export function exactKnowledgePath(value: unknown): string {
   if (typeof value !== 'string' || !value || Buffer.byteLength(value) > 4_096 || value.includes('\\') || path.posix.isAbsolute(value) || path.win32.isAbsolute(value) || /[:\u0000-\u001f\u007f]/u.test(value) || value.split('/').some(part => !part || part === '.' || part === '..')) return knowledgeError('INVALID_KNOWLEDGE_PATH', 'Knowledge paths must be exact relative workspace paths');
   return value;
 }
+function jsonFault(fault: PlainJsonFault): never {
+  switch (fault) {
+    case 'structure': return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge JSON structure exceeds its bound');
+    case 'bytes': case 'text': return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge text must be bounded valid UTF-8');
+    case 'items': case 'holes': case 'element': return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge arrays must be dense and bounded');
+    case 'prototype': return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge records cannot contain custom prototypes');
+    case 'symbol': case 'accessor': return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge records cannot contain accessors or symbol keys');
+    case 'property': return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge object properties must be ordinary data');
+    default: return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge values must be ordinary immutable JSON');
+  }
+}
+const KNOWLEDGE_JSON: PlainJsonOptions = { maxBytes: KNOWLEDGE_LIMITS.rowBytes, maxNodes: 4_096, maxDepth: 12, maxItems: 256, accounting: 'text', wellFormed: true, rejectKeys: ['__proto__'], freeze: true, fail: jsonFault };
 /** Reject executable JSON, sparse arrays, proxies and oversized structures before serialization. */
 export function immutableKnowledgeJson<T>(input: T): T {
-  let nodes = 0, bytes = 0;
-  const visiting = new Set<object>();
-  function visit(value: unknown, depth: number): unknown {
-    if (++nodes > 4_096 || depth > 12) return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge JSON structure exceeds its bound');
-    if (value === null || typeof value === 'boolean') return value;
-    if (typeof value === 'string') {
-      bytes += Buffer.byteLength(value);
-      if (bytes > KNOWLEDGE_LIMITS.rowBytes || Buffer.from(value).toString('utf8') !== value) return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge text must be bounded valid UTF-8');
-      return value;
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) return value;
-    if (!value || typeof value !== 'object' || nodeTypes.isProxy(value) || visiting.has(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge values must be ordinary immutable JSON');
-    const prototype = Object.getPrototypeOf(value);
-    if (Array.isArray(value) ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge records cannot contain custom prototypes');
-    visiting.add(value);
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    if (Reflect.ownKeys(value).some(key => typeof key !== 'string') || Object.values(descriptors).some(descriptor => !('value' in descriptor))) return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge records cannot contain accessors or symbol keys');
-    let result: unknown;
-    if (Array.isArray(value)) {
-      if (value.length > 256 || Object.keys(descriptors).length !== value.length + 1 || !descriptors.length || Array.from({ length: value.length }, (_, index) => descriptors[String(index)]).some(descriptor => !descriptor?.enumerable)) return knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge arrays must be dense and bounded');
-      result = Array.from({ length: value.length }, (_, index) => visit(descriptors[String(index)]!.value, depth + 1));
-    } else {
-      const target: ObjectValue = {};
-      for (const [key, descriptor] of Object.entries(descriptors)) {
-        if (!descriptor.enumerable || key === '__proto__') return knowledgeError('INVALID_KNOWLEDGE', 'Knowledge object properties must be ordinary data');
-        bytes += Buffer.byteLength(key);
-        target[key] = visit(descriptor.value, depth + 1);
-      }
-      result = target;
-    }
-    visiting.delete(value); return Object.freeze(result);
-  }
-  const result = visit(input, 0) as T;
+  const result = plainJson(input, KNOWLEDGE_JSON);
   if (Buffer.byteLength(JSON.stringify(result)) > KNOWLEDGE_LIMITS.rowBytes) knowledgeError('KNOWLEDGE_LIMIT', 'Serialized knowledge row exceeds its byte bound');
   return result;
 }
 function assertHash(record: ObjectValue): void {
   if (Buffer.byteLength(JSON.stringify(record)) > KNOWLEDGE_LIMITS.rowBytes - 4_096) knowledgeError('KNOWLEDGE_LIMIT', 'Knowledge record must leave room for its archive envelope');
-  digest(record.sha256);
-  verifySealed(record, () => knowledgeError('KNOWLEDGE_HASH_MISMATCH', 'Knowledge record does not match its immutable digest'));
+  verify(record);
 }
 export function validateBinding(value: unknown): KnowledgeHostBinding {
   const result = object(immutableKnowledgeJson(value)); fields(result, ['workspaceId', 'root', 'rootDevice', 'rootInode', 'storageBindingSha256']);

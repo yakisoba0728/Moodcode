@@ -1,6 +1,13 @@
-import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import {
+  exactKeys,
+  plainJson,
+  recordGuards,
+  type PlainJsonFault,
+  type PlainJsonOptions,
+  type RecordFault,
+} from "../shared/data.js";
 import {
   JOB_LIMITS,
   type JobOwnerProof,
@@ -28,6 +35,44 @@ export function jobPathGone(error: unknown): boolean {
 function invalid(message: string): never {
   return jobError("INVALID_JOB", message);
 }
+function jsonFault(fault: PlainJsonFault): never {
+  switch (fault) {
+    case "structure":
+      return jobError("JOB_LIMIT", "Job DATA structure exceeds its bound");
+    case "bytes":
+      return jobError("JOB_LIMIT", "Job DATA exceeds its encoded byte bound");
+    case "items":
+      return jobError("JOB_LIMIT", "Job DATA array exceeds its count bound");
+    case "text":
+      return invalid("Job text must contain valid Unicode");
+    case "prototype":
+      return invalid("Job DATA cannot use custom prototypes");
+    case "symbol":
+      return invalid("Job DATA cannot contain symbol keys");
+    case "accessor":
+      return invalid("Job DATA cannot contain accessors");
+    case "holes":
+      return invalid("Job arrays must be dense with no extra fields");
+    case "element":
+      return invalid("Job arrays must contain ordinary dense data");
+    case "property":
+      return invalid("Job properties must be ordinary enumerable data");
+    default:
+      return invalid("Job DATA must be ordinary JSON");
+  }
+}
+const JOB_JSON: PlainJsonOptions = {
+  maxBytes: JOB_LIMITS.metadataBytes,
+  maxNodes: 1_048_576,
+  maxDepth: JOB_LIMITS.depth,
+  maxItems: JOB_LIMITS.snapshotEvents,
+  accounting: "encoded",
+  wellFormed: true,
+  rejectKeys: ["__proto__", "toJSON"],
+  freeze: true,
+  nullPrototype: true,
+  fail: jsonFault,
+};
 /** Descriptor-safe bounded DATA cloning; no caller serializer or getter runs. */
 export function jobJson<T>(
   input: T,
@@ -39,82 +84,7 @@ export function jobJson<T>(
     maximum > JOB_LIMITS.snapshotBytes
   )
     jobError("JOB_LIMIT", "Job DATA byte limit is invalid");
-  let bytes = 0,
-    nodes = 0;
-  const visiting = new Set<object>();
-  const account = (count: number): void => {
-    bytes += count;
-    if (bytes > maximum)
-      jobError("JOB_LIMIT", "Job DATA exceeds its encoded byte bound");
-  };
-  function visit(value: unknown, depth: number): unknown {
-    if (++nodes > 1_048_576 || depth > JOB_LIMITS.depth)
-      jobError("JOB_LIMIT", "Job DATA structure exceeds its bound");
-    if (value === null || typeof value === "boolean") {
-      account(value === null ? 4 : value ? 4 : 5);
-      return value;
-    }
-    if (typeof value === "string") {
-      if (Buffer.from(value).toString("utf8") !== value)
-        invalid("Job text must contain valid Unicode");
-      account(Buffer.byteLength(JSON.stringify(value)));
-      return value;
-    }
-    if (typeof value === "number" && Number.isFinite(value)) {
-      account(Buffer.byteLength(JSON.stringify(value)));
-      return value;
-    }
-    if (
-      !value ||
-      typeof value !== "object" ||
-      types.isProxy(value) ||
-      visiting.has(value)
-    )
-      invalid("Job DATA must be ordinary JSON");
-    const array = Array.isArray(value),
-      prototype = Object.getPrototypeOf(value);
-    if (
-      array
-        ? prototype !== Array.prototype
-        : prototype !== Object.prototype && prototype !== null
-    )
-      invalid("Job DATA cannot use custom prototypes");
-    if (array && value.length > JOB_LIMITS.snapshotEvents)
-      jobError("JOB_LIMIT", "Job DATA array exceeds its count bound");
-    visiting.add(value);
-    const descriptors = Object.getOwnPropertyDescriptors(value),
-      keys = Reflect.ownKeys(descriptors);
-    if (keys.some((key) => typeof key !== "string"))
-      invalid("Job DATA cannot contain symbol keys");
-    if (Object.values(descriptors).some((item) => !("value" in item)))
-      invalid("Job DATA cannot contain accessors");
-    account(2 + Math.max(0, keys.length - (array ? 2 : 1)));
-    let result: unknown;
-    if (array) {
-      if (!descriptors.length || keys.length !== value.length + 1)
-        invalid("Job arrays must be dense with no extra fields");
-      const target: unknown[] = [];
-      for (let i = 0; i < value.length; i++) {
-        const descriptor = descriptors[String(i)];
-        if (!descriptor?.enumerable)
-          invalid("Job arrays must contain ordinary dense data");
-        target.push(visit(descriptor.value, depth + 1));
-      }
-      result = target;
-    } else {
-      const target: ObjectValue = Object.create(null) as ObjectValue;
-      for (const [key, descriptor] of Object.entries(descriptors)) {
-        if (!descriptor.enumerable || ["__proto__", "toJSON"].includes(key))
-          invalid("Job properties must be ordinary enumerable data");
-        account(Buffer.byteLength(JSON.stringify(key)) + 1);
-        target[key] = visit(descriptor.value, depth + 1);
-      }
-      result = target;
-    }
-    visiting.delete(value);
-    return Object.freeze(result);
-  }
-  return visit(input, 0) as T;
+  return plainJson(input, { ...JOB_JSON, maxBytes: maximum });
 }
 export function jobObject(
   value: unknown,
@@ -125,55 +95,33 @@ export function jobObject(
   const copy = jobJson(value, maximum);
   if (!copy || typeof copy !== "object" || Array.isArray(copy))
     invalid("Expected a job object");
-  const result = copy as ObjectValue,
-    keys = Object.keys(result);
-  if (
-    keys.some((key) => !fields.includes(key) && !optional.includes(key)) ||
-    fields.some((key) => !Object.hasOwn(result, key))
-  )
+  if (!exactKeys(copy, fields, optional))
     invalid("Job object fields do not match the contract");
-  return result;
+  return copy as ObjectValue;
 }
-export function jobIdentifier(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > JOB_LIMITS.idBytes ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    invalid("Job identities require bounded text");
-  return value as string;
-}
-export function jobInteger(
-  value: unknown,
-  maximum = Number.MAX_SAFE_INTEGER,
-): number {
-  if (
-    !Number.isSafeInteger(value) ||
-    (value as number) < 0 ||
-    (value as number) > maximum
-  )
-    invalid("Job counts must be bounded nonnegative integers");
-  return value as number;
-}
-export function jobSha256(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value))
-    invalid("Job digests require lowercase SHA-256");
-  return value as string;
-}
-export function isCanonicalJobTime(value: unknown): value is string {
-  return (
-    typeof value === "string" &&
-    value.length === 24 &&
-    Number.isFinite(Date.parse(value)) &&
-    new Date(value).toISOString() === value
-  );
-}
-function stamp(value: unknown): string {
-  if (!isCanonicalJobTime(value))
-    invalid("Job time requires canonical UTC ISO text");
-  return value;
-}
+const RECORD_FAULTS: Record<RecordFault, string> = {
+  id: "Job identities require bounded text",
+  integer: "Job counts must be bounded nonnegative integers",
+  sha: "Job digests require lowercase SHA-256",
+  stamp: "Job time requires canonical UTC ISO text",
+  exact: "Job object fields do not match the contract",
+  hash: "Job DATA does not match its checksum",
+};
+const guards = recordGuards({
+  idBytes: JOB_LIMITS.idBytes,
+  json: jobJson,
+  fail: (fault) =>
+    fault === "hash"
+      ? jobError("JOB_HASH_MISMATCH", RECORD_FAULTS.hash)
+      : invalid(RECORD_FAULTS[fault]),
+});
+export const {
+  id: jobIdentifier,
+  integer: jobInteger,
+  sha: jobSha256,
+} = guards;
+export { isCanonicalStamp as isCanonicalJobTime } from "../shared/data.js";
+const { stamp, verify: digest } = guards;
 function nullableText(value: unknown): void {
   if (value !== null) jobIdentifier(value);
 }
@@ -195,12 +143,6 @@ export function signJobData<T extends object>(
   return jobJson({ ...body, sha256: knowledgeHash(body) }, maximum) as T & {
     readonly sha256: string;
   };
-}
-function digest(value: ObjectValue): void {
-  const { sha256, ...body } = value;
-  jobSha256(sha256);
-  if (knowledgeHash(body) !== sha256)
-    jobError("JOB_HASH_MISMATCH", "Job DATA does not match its checksum");
 }
 export function validateTerminalJobSourceProof(
   value: unknown,

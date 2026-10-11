@@ -1,5 +1,7 @@
 import { normalizeArtifactIdentity } from '@moodcode/contracts/validation';
 import { EngineError, type ArtifactIdentity, type ArtifactReference, type JsonValue } from '@moodcode/contracts';
+import { plainJson, type PlainJsonFault } from '../shared/data.js';
+export { utf8Prefix as textPrefix } from '../shared/data.js';
 
 export const ARTIFACT_ID = /^artifact_[a-f0-9]{32}$/;
 const HASH = /^[a-f0-9]{64}$/;
@@ -42,63 +44,16 @@ export function reference(value: ArtifactReference): ArtifactReference {
     producerTruncatedBytes, artifactTruncatedBytes, createdAt: value.createdAt, expiresAt: value.expiresAt, complete: value.complete, outcome: value.outcome };
 }
 
-/** A rendered UTF-8 prefix never splits a Unicode scalar and counts replacement bytes. */
-export function textPrefix(value: string, maximum: number): string {
-  let bytes = 0;
-  let result = '';
-  for (const scalar of value) {
-    const count = Buffer.byteLength(scalar);
-    if (bytes + count > maximum) break;
-    result += scalar;
-    bytes += count;
-  }
-  // Unpaired UTF-16 surrogates become replacement characters on the wire.
-  return Buffer.from(result, 'utf8').toString('utf8');
-}
-
 export class JsonBudgetError extends Error {}
+const JSON_FAULTS: Partial<Record<PlainJsonFault, string>> = {
+  structure: 'JSON result exceeds the nesting or node limit', number: 'JSON result contains a nonfinite number', cycle: 'JSON result contains a cycle',
+  prototype: 'JSON result must contain plain objects', element: 'JSON arrays must be dense data values', accessor: 'JSON objects cannot contain accessors',
+};
+function jsonFault(fault: PlainJsonFault): never {
+  if (fault === 'bytes') throw new JsonBudgetError();
+  return fail('INVALID_ARTIFACT_DATA', JSON_FAULTS[fault] ?? 'Result must contain only JSON values');
+}
 /** Validates JSON without invoking accessors and stops before an oversized projection is allocated. */
 export function boundedJson(value: unknown, maximumBytes: number): JsonValue {
-  let bytes = 0;
-  let nodes = 0;
-  const active = new Set<object>();
-  const consume = (size: number) => { bytes += size; if (bytes > maximumBytes) throw new JsonBudgetError(); };
-  const visit = (input: unknown, depth: number): JsonValue => {
-    if (++nodes > 10_000 || depth > 64) fail('INVALID_ARTIFACT_DATA', 'JSON result exceeds the nesting or node limit');
-    if (input === null) { consume(4); return null; }
-    if (typeof input === 'string') { if (Buffer.byteLength(input) > maximumBytes - bytes) throw new JsonBudgetError(); consume(Buffer.byteLength(JSON.stringify(input))); return input; }
-    if (typeof input === 'boolean') { consume(input ? 4 : 5); return input; }
-    if (typeof input === 'number') {
-      if (!Number.isFinite(input)) fail('INVALID_ARTIFACT_DATA', 'JSON result contains a nonfinite number');
-      consume(Buffer.byteLength(JSON.stringify(input))); return input;
-    }
-    if (!input || typeof input !== 'object') fail('INVALID_ARTIFACT_DATA', 'Result must contain only JSON values');
-    if (active.has(input)) fail('INVALID_ARTIFACT_DATA', 'JSON result contains a cycle');
-    const proto = Object.getPrototypeOf(input);
-    if (!Array.isArray(input) && proto !== Object.prototype && proto !== null) fail('INVALID_ARTIFACT_DATA', 'JSON result must contain plain objects');
-    active.add(input); consume(2);
-    try {
-      if (Array.isArray(input)) {
-        const output: JsonValue[] = [];
-        for (let index = 0; index < input.length; index++) {
-          if (index) consume(1);
-          const descriptor = Object.getOwnPropertyDescriptor(input, String(index));
-          if (!descriptor || !('value' in descriptor)) fail('INVALID_ARTIFACT_DATA', 'JSON arrays must be dense data values');
-          output.push(visit(descriptor.value, depth + 1));
-        }
-        return output;
-      }
-      const output: Record<string, JsonValue> = {};
-      let count = 0;
-      for (const key in input) {
-        const descriptor = Object.getOwnPropertyDescriptor(input, key);
-        if (!descriptor || !('value' in descriptor)) fail('INVALID_ARTIFACT_DATA', 'JSON objects cannot contain accessors');
-        if (Buffer.byteLength(key) > maximumBytes - bytes) throw new JsonBudgetError();
-        consume(Buffer.byteLength(JSON.stringify(key)) + 1 + (count++ ? 1 : 0));
-        Object.defineProperty(output, key, { value: visit(descriptor.value, depth + 1), enumerable: true, writable: true, configurable: true });
-      }
-      return output;
-    } finally { active.delete(input); }
-  };
-  return visit(value, 0);
+  return plainJson(value, { maxBytes: maximumBytes, maxNodes: 10_000, maxDepth: 64, accounting: 'encoded', lenient: true, fail: jsonFault }) as JsonValue;
 }
