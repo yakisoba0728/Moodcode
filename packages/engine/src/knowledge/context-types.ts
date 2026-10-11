@@ -161,10 +161,11 @@ export interface KnowledgeContextSourcePorts {
     workspaceId: string,
     revisionId: string,
   ) => WorkspaceDocumentRevision | undefined;
+  /** Throws KNOWLEDGE_NOT_FOUND when the publication does not exist. */
   readonly getPublication: (
     workspaceId: string,
     publicationId: string,
-  ) => KnowledgePublicationRecord | undefined;
+  ) => KnowledgePublicationRecord;
   readonly getReceipt: (
     workspaceId: string,
     requestId: string,

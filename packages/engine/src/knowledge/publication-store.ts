@@ -4,6 +4,7 @@ import {
   guardedWrite,
   type GuardedWriteOptions,
 } from "../storage/transaction.js";
+import { fieldAt } from "./archive-graph.js";
 import type { KnowledgeTarget } from "./types.js";
 import type {
   KnowledgePublicationArchiveData,
@@ -97,52 +98,43 @@ type Row = {
   id: string;
   workspace_id: string;
   data: string;
-  request_id?: string;
-  operation?: string;
-  document_key?: string;
-  candidate_id?: string;
-  generation_id?: string;
-  state?: string;
-  revision?: number;
-  document_revision_id?: string | null;
-  previous_revision_id?: string | null;
-  publication_id?: string;
-  status?: string;
-  revision_id?: string;
+  [column: string]: SQLInputValue;
 };
-const COLUMNS: Readonly<Record<KnowledgePublicationTable, readonly string[]>> =
-  Object.freeze({
-    knowledge_publications: [
-      "request_id",
-      "operation",
-      "document_key",
-      "candidate_id",
-      "generation_id",
-      "state",
-      "revision",
-      "document_revision_id",
-    ],
-    workspace_document_revisions: [
-      "document_key",
-      "revision",
-      "previous_revision_id",
-      "publication_id",
-      "status",
-    ],
-    workspace_document_heads: [
-      "document_key",
-      "revision",
-      "revision_id",
-      "publication_id",
-      "status",
-    ],
-    knowledge_publication_receipts: [
-      "request_id",
-      "operation",
-      "publication_id",
-      "document_revision_id",
-    ],
-  });
+/** SQL columns that mirror publication body fields, as dotted body paths. */
+export const KNOWLEDGE_PUBLICATION_COLUMNS: Readonly<
+  Record<KnowledgePublicationTable, Readonly<Record<string, string>>>
+> = Object.freeze({
+  knowledge_publications: {
+    request_id: "requestId",
+    operation: "operation",
+    document_key: "documentKey",
+    candidate_id: "provenance.candidateId",
+    generation_id: "provenance.generationId",
+    state: "state",
+    revision: "revision",
+    document_revision_id: "documentRevisionId",
+  },
+  workspace_document_revisions: {
+    document_key: "documentKey",
+    revision: "revision",
+    previous_revision_id: "previousRevisionId",
+    publication_id: "publicationId",
+    status: "status",
+  },
+  workspace_document_heads: {
+    document_key: "documentKey",
+    revision: "revision",
+    revision_id: "revisionId",
+    publication_id: "publicationId",
+    status: "status",
+  },
+  knowledge_publication_receipts: {
+    request_id: "requestId",
+    operation: "operation",
+    publication_id: "publicationId",
+    document_revision_id: "documentRevisionId",
+  },
+});
 function readRow(
   db: DatabaseSync,
   table: KnowledgePublicationTable,
@@ -151,7 +143,7 @@ function readRow(
 ): Row | undefined {
   const row = db
     .prepare(
-      `SELECT id,workspace_id,${COLUMNS[table].join(",")},length(CAST(data AS BLOB)) AS data_bytes,CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND ${KNOWLEDGE_LIMITS.rowBytes} THEN data END AS data FROM ${table} WHERE ${where}`,
+      `SELECT id,workspace_id,${Object.keys(KNOWLEDGE_PUBLICATION_COLUMNS[table]).join(",")},length(CAST(data AS BLOB)) AS data_bytes,CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND ${KNOWLEDGE_LIMITS.rowBytes} THEN data END AS data FROM ${table} WHERE ${where}`,
     )
     .get(...parameters) as (Row & { data_bytes: number }) | undefined;
   if (
@@ -182,39 +174,14 @@ function decode(
     workspaceId: row.workspace_id,
     data: JSON.parse(row.data),
   }).data;
-  const fields = {
-    request_id: "requestId",
-    operation: "operation",
-    document_key: "documentKey",
-    state: "state",
-    revision: "revision",
-    document_revision_id: "documentRevisionId",
-    previous_revision_id: "previousRevisionId",
-    publication_id: "publicationId",
-    status: "status",
-    revision_id: "revisionId",
-  } as const;
-  for (const [column, field] of Object.entries(fields))
-    if (
-      Object.hasOwn(row, column) &&
-      (record as unknown as Record<string, unknown>)[field] !==
-        row[column as keyof Row]
-    )
+  for (const [column, path] of Object.entries(
+    KNOWLEDGE_PUBLICATION_COLUMNS[table],
+  ))
+    if (Object.hasOwn(row, column) && fieldAt(record, path) !== row[column])
       knowledgeError(
         "KNOWLEDGE_RECORD_CONFLICT",
         "Publication indexed columns disagree with their exact native body",
       );
-  if (
-    "provenance" in record &&
-    ((row.candidate_id !== undefined &&
-      row.candidate_id !== record.provenance.candidateId) ||
-      (row.generation_id !== undefined &&
-        row.generation_id !== record.provenance.generationId))
-  )
-    knowledgeError(
-      "KNOWLEDGE_RECORD_CONFLICT",
-      "Native publication provenance columns disagree",
-    );
   return record;
 }
 
@@ -299,56 +266,51 @@ export class KnowledgePublicationStorage {
         "Publication was captured under another workspace/storage binding",
       );
   }
-  getPublication(workspaceId: string, id: string): KnowledgePublicationRecord {
+  private find<T extends KnowledgePublicationArchiveData>(
+    table: KnowledgePublicationTable,
+    column: "id" | "document_key" | "request_id",
+    workspaceId: string,
+    value: string,
+  ): T | undefined {
     identifier(workspaceId);
-    identifier(id);
-    const row = readRow(
-      this.#db,
-      "knowledge_publications",
-      "workspace_id=? AND id=?",
-      [workspaceId, id],
+    identifier(value);
+    const row = readRow(this.#db, table, `workspace_id=? AND ${column}=?`, [
+      workspaceId,
+      value,
+    ]);
+    return row ? (decode(row, table) as T) : undefined;
+  }
+  /** Throws KNOWLEDGE_NOT_FOUND when the publication does not exist. */
+  getPublication(workspaceId: string, id: string): KnowledgePublicationRecord {
+    return (
+      this.find<KnowledgePublicationRecord>(
+        "knowledge_publications",
+        "id",
+        workspaceId,
+        id,
+      ) ??
+      knowledgeError(
+        "KNOWLEDGE_NOT_FOUND",
+        "Native publication does not exist in this workspace",
+      )
     );
-    return row
-      ? (decode(row, "knowledge_publications") as KnowledgePublicationRecord)
-      : knowledgeError(
-          "KNOWLEDGE_NOT_FOUND",
-          "Native publication does not exist in this workspace",
-        );
   }
   getDocumentHead(
     workspaceId: string,
     key: string,
   ): WorkspaceDocumentHead | undefined {
-    identifier(workspaceId);
-    identifier(key);
-    const row = readRow(
-      this.#db,
+    return this.find(
       "workspace_document_heads",
-      "workspace_id=? AND document_key=?",
-      [workspaceId, key],
+      "document_key",
+      workspaceId,
+      key,
     );
-    return row
-      ? (decode(row, "workspace_document_heads") as WorkspaceDocumentHead)
-      : undefined;
   }
   getDocumentRevision(
     workspaceId: string,
     id: string,
   ): WorkspaceDocumentRevision | undefined {
-    identifier(workspaceId);
-    identifier(id);
-    const row = readRow(
-      this.#db,
-      "workspace_document_revisions",
-      "workspace_id=? AND id=?",
-      [workspaceId, id],
-    );
-    return row
-      ? (decode(
-          row,
-          "workspace_document_revisions",
-        ) as WorkspaceDocumentRevision)
-      : undefined;
+    return this.find("workspace_document_revisions", "id", workspaceId, id);
   }
   getCurrentDocument(
     workspaceId: string,
@@ -388,20 +350,12 @@ export class KnowledgePublicationStorage {
     workspaceId: string,
     requestId: string,
   ): KnowledgePublicationReceipt | undefined {
-    identifier(workspaceId);
-    identifier(requestId);
-    const row = readRow(
-      this.#db,
+    return this.find(
       "knowledge_publication_receipts",
-      "workspace_id=? AND request_id=?",
-      [workspaceId, requestId],
+      "request_id",
+      workspaceId,
+      requestId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_publication_receipts",
-        ) as KnowledgePublicationReceipt)
-      : undefined;
   }
   /** The returned head describes this historical commit; the current head is a separate getter. */
   getCommitted(
@@ -444,20 +398,15 @@ export class KnowledgePublicationStorage {
     const request = validatePrepareKnowledgePublication(input),
       fingerprint = knowledgeHash(request),
       receipt = this.getReceipt(request.workspaceId, request.requestId);
-    const row = receipt
-      ? undefined
-      : readRow(
-          this.#db,
-          "knowledge_publications",
-          "workspace_id=? AND request_id=?",
-          [request.workspaceId, request.requestId],
-        );
     const record = receipt
       ? this.getCommitted(request.workspaceId, receipt.publicationId)
           .publication
-      : row
-        ? (decode(row, "knowledge_publications") as KnowledgePublicationRecord)
-        : undefined;
+      : this.find<KnowledgePublicationRecord>(
+          "knowledge_publications",
+          "request_id",
+          request.workspaceId,
+          request.requestId,
+        );
     if (!record) return undefined;
     if (
       record.requestSha256 !== fingerprint ||
@@ -574,23 +523,7 @@ export class KnowledgePublicationStorage {
         }),
       );
       this.assertBinding(request.binding);
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_publications(id,workspace_id,request_id,operation,document_key,candidate_id,generation_id,state,revision,document_revision_id,data) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-        )
-        .run(
-          value.id,
-          value.workspaceId,
-          value.requestId,
-          value.operation,
-          value.documentKey,
-          value.provenance.candidateId,
-          value.provenance.generationId,
-          value.state,
-          value.revision,
-          value.documentRevisionId,
-          JSON.stringify(value),
-        );
+      this.insert("knowledge_publications", value);
       return { kind: "created" as const, record: value };
     });
     if (result.kind === "duplicate") return result;
@@ -635,6 +568,22 @@ export class KnowledgePublicationStorage {
         "Publication owner epoch or terminal fence changed",
       );
     return record;
+  }
+  private insert(
+    table: KnowledgePublicationTable,
+    record: KnowledgePublicationArchiveData,
+  ): void {
+    const columns = Object.entries(KNOWLEDGE_PUBLICATION_COLUMNS[table]);
+    this.#db
+      .prepare(
+        `INSERT INTO ${table}(id,workspace_id,${columns.map(([column]) => column).join(",")},data) VALUES(${"?,".repeat(columns.length + 2)}?)`,
+      )
+      .run(
+        record.id,
+        record.workspaceId,
+        ...columns.map(([, path]) => fieldAt(record, path) as SQLInputValue),
+        JSON.stringify(record),
+      );
   }
   private save(
     previous: KnowledgePublicationRecord,
@@ -800,20 +749,7 @@ export class KnowledgePublicationStorage {
             createdAt: time,
           }),
         );
-      this.#db
-        .prepare(
-          "INSERT INTO workspace_document_revisions(id,workspace_id,document_key,revision,previous_revision_id,publication_id,status,data) VALUES(?,?,?,?,?,?,?,?)",
-        )
-        .run(
-          document.id,
-          document.workspaceId,
-          document.documentKey,
-          document.revision,
-          document.previousRevisionId,
-          document.publicationId,
-          document.status,
-          JSON.stringify(document),
-        );
+      this.insert("workspace_document_revisions", document);
       if (previous) {
         const changed = this.#db
           .prepare(
@@ -837,35 +773,9 @@ export class KnowledgePublicationStorage {
             "KNOWLEDGE_DOCUMENT_REVISION_CONFLICT",
             "Document head compare-and-set lost its original revision",
           );
-      } else
-        this.#db
-          .prepare(
-            "INSERT INTO workspace_document_heads(id,workspace_id,document_key,revision,revision_id,publication_id,status,data) VALUES(?,?,?,?,?,?,?,?)",
-          )
-          .run(
-            head.id,
-            head.workspaceId,
-            head.documentKey,
-            head.revision,
-            head.revisionId,
-            head.publicationId,
-            head.status,
-            JSON.stringify(head),
-          );
+      } else this.insert("workspace_document_heads", head);
       this.save(record, publication);
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_publication_receipts(id,workspace_id,request_id,operation,publication_id,document_revision_id,data) VALUES(?,?,?,?,?,?,?)",
-        )
-        .run(
-          receiptValue.id,
-          receiptValue.workspaceId,
-          receiptValue.requestId,
-          receiptValue.operation,
-          receiptValue.publicationId,
-          receiptValue.documentRevisionId,
-          JSON.stringify(receiptValue),
-        );
+      this.insert("knowledge_publication_receipts", receiptValue);
       return Object.freeze({
         publication,
         document,
@@ -979,7 +889,7 @@ export class KnowledgePublicationStorage {
     identifier(workspaceId);
     const value = immutableKnowledgeJson(options);
     exact(value, [], ["after", "limit", "maxBytes"]);
-    if (value.after !== undefined) identifier(value.after);
+    const after = value.after === undefined ? "" : identifier(value.after);
     const limit = integer(
         value.limit ?? KNOWLEDGE_LIMITS.pageRows,
         KNOWLEDGE_LIMITS.pageRows,
@@ -993,10 +903,7 @@ export class KnowledgePublicationStorage {
         "KNOWLEDGE_PUBLICATION_LIMIT",
         "Publication pages need positive bounded row/byte budgets",
       );
-    const params: SQLInputValue[] = [
-      workspaceId,
-      value.after === undefined ? "" : identifier(value.after),
-    ];
+    const params: SQLInputValue[] = [workspaceId, after];
     if (key !== undefined) params.push(key);
     params.push(limit + 1);
     const metadata = this.#db

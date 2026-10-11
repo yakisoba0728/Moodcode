@@ -1,11 +1,20 @@
-import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import { KNOWLEDGE_PUBLICATION_TABLES } from "./publication-store.js";
+import type { DatabaseSync } from "node:sqlite";
+import {
+  createKnowledgeGraphReader,
+  KNOWLEDGE_PRODUCER_COLUMNS,
+  type KnowledgeGraphFault,
+} from "./archive-graph.js";
+import {
+  KNOWLEDGE_PUBLICATION_COLUMNS,
+  KNOWLEDGE_PUBLICATION_TABLES,
+} from "./publication-store.js";
 import {
   completedPublicationMismatch,
   validateKnowledgePublicationArchiveRow,
   workspaceDocumentHeadFor,
 } from "./publication-validation.js";
 import {
+  KNOWLEDGE_GENERATION_COLUMNS,
   validateKnowledgeGenerationArchiveRow,
 } from "./generation-validation.js";
 import type {
@@ -26,8 +35,6 @@ import type {
   TrustRevision,
 } from "./types.js";
 import {
-  identifier,
-  KNOWLEDGE_LIMITS,
   knowledgeError,
   sameKnowledge as same,
   validateKnowledgeArchiveRow,
@@ -40,63 +47,21 @@ type Table =
   | "workspace_trust_revisions"
   | "knowledge_generations"
   | "knowledge_generation_attempts";
-type Header = {
-  id: string;
-  workspace_id: string;
-  bytes: number;
-  [key: string]: SQLInputValue;
-};
-const ROW_BYTES = KNOWLEDGE_LIMITS.rowBytes;
-const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> = {
-  knowledge_publications: {
-    request_id: "requestId",
-    operation: "operation",
-    document_key: "documentKey",
-    candidate_id: "provenance.candidateId",
-    generation_id: "provenance.generationId",
-    state: "state",
-    revision: "revision",
-    document_revision_id: "documentRevisionId",
-  },
-  workspace_document_revisions: {
-    document_key: "documentKey",
-    revision: "revision",
-    previous_revision_id: "previousRevisionId",
-    publication_id: "publicationId",
-    status: "status",
-  },
-  workspace_document_heads: {
-    document_key: "documentKey",
-    revision: "revision",
-    revision_id: "revisionId",
-    publication_id: "publicationId",
-    status: "status",
-  },
-  knowledge_publication_receipts: {
-    request_id: "requestId",
-    operation: "operation",
-    publication_id: "publicationId",
-    document_revision_id: "documentRevisionId",
-  },
-  knowledge_candidates: {
-    plan_id: "planId",
-    trust_revision_id: "trustRevisionId",
-    generation_owner_id: "generationOwnerId",
-  },
-  knowledge_generation_plans: { trust_revision_id: "trustRevisionId" },
-  workspace_trust_revisions: { revision: "revision" },
-  knowledge_generations: {
-    plan_id: "planId",
-    request_id: "requestId",
-    state: "state",
-    revision: "revision",
-  },
-  knowledge_generation_attempts: {
-    generation_id: "generationId",
-    plan_id: "planId",
-    state: "state",
-    revision: "revision",
-  },
+const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> =
+  Object.freeze({
+    ...KNOWLEDGE_PUBLICATION_COLUMNS,
+    ...KNOWLEDGE_PRODUCER_COLUMNS,
+    knowledge_generations: KNOWLEDGE_GENERATION_COLUMNS.knowledge_generations,
+    knowledge_generation_attempts:
+      KNOWLEDGE_GENERATION_COLUMNS.knowledge_generation_attempts,
+  });
+const FAULTS: Readonly<Record<KnowledgeGraphFault, string>> = {
+  bound: "Publication graph row exceeds its bound before body loading",
+  changed: "Publication graph row changed during bounded reading",
+  json: "Publication graph row is not JSON",
+  columns: "Publication graph indexed columns differ from the actual row",
+  multiple: "Exact publication relation resolves to multiple rows",
+  missing: "Publication references a missing original workspace record",
 };
 function invalid(message: string): never {
   return knowledgeError("KNOWLEDGE_PUBLICATION_RELATION_INVALID", message);
@@ -107,97 +72,24 @@ export function validateKnowledgePublicationDatabase(
   db: DatabaseSync,
   check: () => void,
 ): void {
-  function headers(
-    table: Table,
-    where = "",
-    params: readonly SQLInputValue[] = [],
-  ): Iterable<Header> {
-    check();
-    return db
-      .prepare(
-        `SELECT id,workspace_id,${Object.keys(COLUMNS[table]).join(",")},length(CAST(data AS BLOB)) AS bytes FROM ${table} ${where}`,
-      )
-      .iterate(...params) as Iterable<Header>;
-  }
-  function read<T>(table: Table, header: Header): T {
-    check();
-    identifier(header.id);
-    identifier(header.workspace_id);
-    if (
-      !Number.isSafeInteger(header.bytes) ||
-      header.bytes < 1 ||
-      header.bytes > ROW_BYTES
-    )
-      invalid("Publication graph row exceeds its bound before body loading");
-    const row = db
-      .prepare(
-        `SELECT CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND ${ROW_BYTES} THEN data END AS data FROM ${table} WHERE workspace_id=? AND id=?`,
-      )
-      .get(header.workspace_id, header.id);
-    if (
-      !row ||
-      typeof row.data !== "string" ||
-      Buffer.byteLength(row.data) !== header.bytes
-    )
-      invalid("Publication graph row changed during bounded reading");
-    check();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(row.data);
-    } catch {
-      return invalid("Publication graph row is not JSON");
-    }
-    const wrapper = {
-      table,
-      key: header.id,
-      workspaceId: header.workspace_id,
-      data: parsed,
-    };
-    const data = (KNOWLEDGE_PUBLICATION_TABLES.includes(
-      table as KnowledgePublicationTable,
-    )
-      ? validateKnowledgePublicationArchiveRow(wrapper).data
-      : table === "knowledge_generations" ||
-          table === "knowledge_generation_attempts"
-        ? validateKnowledgeGenerationArchiveRow(wrapper).data
-        : validateKnowledgeArchiveRow(wrapper).data) as unknown as Record<
-      string,
-      unknown
-    >;
-    for (const [column, field] of Object.entries(COLUMNS[table])) {
-      const value = field
-        .split(".")
-        .reduce<unknown>(
-          (current, key) =>
-            current && typeof current === "object"
-              ? (current as Record<string, unknown>)[key]
-              : undefined,
-          data,
-        );
-      if (header[column] !== value)
-        invalid("Publication graph indexed columns differ from the actual row");
-    }
-    return data as T;
-  }
-  function one<T>(
-    table: Table,
-    where: string,
-    params: readonly SQLInputValue[],
-  ): T | undefined {
-    let result: T | undefined;
-    for (const header of headers(table, `WHERE ${where} LIMIT 2`, params)) {
-      if (result !== undefined)
-        invalid("Exact publication relation resolves to multiple rows");
-      result = read<T>(table, header);
-    }
-    return result;
-  }
-  function exact<T>(table: Table, workspaceId: string, id: string): T {
-    return (
-      one<T>(table, "workspace_id=? AND id=?", [workspaceId, id]) ??
-      invalid("Publication references a missing original workspace record")
-    );
-  }
+  const { headers, read, one, exact } = createKnowledgeGraphReader<Table>(
+    db,
+    check,
+    {
+      columns: COLUMNS,
+      validate: (row) =>
+        (KNOWLEDGE_PUBLICATION_TABLES.includes(
+          row.table as KnowledgePublicationTable,
+        )
+          ? validateKnowledgePublicationArchiveRow(row)
+          : row.table === "knowledge_generations" ||
+              row.table === "knowledge_generation_attempts"
+            ? validateKnowledgeGenerationArchiveRow(row)
+            : validateKnowledgeArchiveRow(row)
+        ).data,
+      invalid: (fault) => invalid(FAULTS[fault]),
+    },
+  );
   function provenance(
     workspaceId: string,
     pins: KnowledgePublicationProvenance,

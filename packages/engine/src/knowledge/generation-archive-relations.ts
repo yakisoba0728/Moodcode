@@ -1,4 +1,9 @@
-import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import type { DatabaseSync } from "node:sqlite";
+import {
+  createKnowledgeGraphReader,
+  KNOWLEDGE_PRODUCER_COLUMNS,
+  type KnowledgeGraphFault,
+} from "./archive-graph.js";
 import {
   attemptBelongsTo,
   candidateMatchesOutput,
@@ -14,11 +19,9 @@ import type {
 import type {
   KnowledgeCandidate,
   KnowledgeGenerationPlan,
-  KnowledgeStorageTable,
   TrustRevision,
 } from "./types.js";
 import {
-  identifier,
   knowledgeError,
   knowledgeHash,
   sameKnowledge as equal,
@@ -30,25 +33,19 @@ type Table =
   | "knowledge_generation_plans"
   | "knowledge_candidates"
   | "workspace_trust_revisions";
-type Header = {
-  id: string;
-  workspace_id: string;
-  bytes: number;
-  [key: string]: SQLInputValue;
-};
-type Body = { [key: string]: unknown };
-const ROW_BYTES = 65_536;
 const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> =
   Object.freeze({
     ...KNOWLEDGE_GENERATION_COLUMNS,
-    knowledge_generation_plans: { trust_revision_id: "trustRevisionId" },
-    knowledge_candidates: {
-      plan_id: "planId",
-      trust_revision_id: "trustRevisionId",
-      generation_owner_id: "generationOwnerId",
-    },
-    workspace_trust_revisions: { revision: "revision" },
+    ...KNOWLEDGE_PRODUCER_COLUMNS,
   });
+const FAULTS: Readonly<Record<KnowledgeGraphFault, string>> = {
+  bound: "Stored knowledge row exceeds its byte bound before body loading",
+  changed: "Stored knowledge row changed or exceeds its bounded metadata",
+  json: "Stored knowledge row is not JSON",
+  columns: "Indexed knowledge columns disagree with their validated JSON body",
+  multiple: "An exact knowledge relation resolves to multiple records",
+  missing: "Native generation references a missing exact knowledge record",
+};
 function invalid(message: string): never {
   return knowledgeError("KNOWLEDGE_GENERATION_RELATION_INVALID", message);
 }
@@ -63,91 +60,21 @@ export function validateKnowledgeGenerationDatabase(
   db: DatabaseSync,
   check: () => void,
 ): void {
-  function headers(
-    table: Table,
-    where = "",
-    parameters: readonly SQLInputValue[] = [],
-  ): Iterable<Header> {
-    check();
-    const columns = Object.keys(COLUMNS[table]);
-    return db
-      .prepare(
-        `SELECT id,workspace_id,${columns.length ? columns.join(",") + "," : ""}length(CAST(data AS BLOB)) AS bytes FROM ${table} ${where}`,
-      )
-      .iterate(...parameters) as Iterable<Header>;
-  }
-  function read(table: Table, header: Header): Body {
-    check();
-    identifier(header.id);
-    identifier(header.workspace_id);
-    if (
-      !Number.isSafeInteger(header.bytes) ||
-      header.bytes < 1 ||
-      header.bytes > ROW_BYTES
-    )
-      return invalid(
-        "Stored knowledge row exceeds its byte bound before body loading",
-      );
-    const row = db
-      .prepare(
-        `SELECT CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND ${ROW_BYTES} THEN data END AS data FROM ${table} WHERE id=? AND workspace_id=?`,
-      )
-      .get(header.id, header.workspace_id);
-    if (
-      !row ||
-      typeof row.data !== "string" ||
-      Buffer.byteLength(row.data) !== header.bytes
-    )
-      return invalid(
-        "Stored knowledge row changed or exceeds its bounded metadata",
-      );
-    check();
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(row.data);
-    } catch {
-      return invalid("Stored knowledge row is not JSON");
-    }
-    const wrapper = {
-      table,
-      key: header.id,
-      workspaceId: header.workspace_id,
-      data: parsed,
-    };
-    const data = (KNOWLEDGE_GENERATION_TABLES.includes(
-      table as KnowledgeGenerationTable,
-    )
-      ? validateKnowledgeGenerationArchiveRow(wrapper).data
-      : validateKnowledgeArchiveRow({
-          ...wrapper,
-          table: table as KnowledgeStorageTable,
-        }).data) as unknown as Body;
-    for (const [column, field] of Object.entries(COLUMNS[table]))
-      if (header[column] !== data[field])
-        invalid(
-          "Indexed knowledge columns disagree with their validated JSON body",
-        );
-    return data;
-  }
-  function one(
-    table: Table,
-    where: string,
-    parameters: readonly SQLInputValue[],
-  ): Body | undefined {
-    let result: Body | undefined;
-    for (const header of headers(table, `WHERE ${where} LIMIT 2`, parameters)) {
-      if (result)
-        invalid("An exact knowledge relation resolves to multiple records");
-      result = read(table, header);
-    }
-    return result;
-  }
-  function exact<T>(table: Table, workspaceId: string, id: string): T {
-    return (one(table, "workspace_id=? AND id=?", [workspaceId, id]) ??
-      invalid(
-        "Native generation references a missing exact knowledge record",
-      )) as unknown as T;
-  }
+  const { headers, read, one, exact } = createKnowledgeGraphReader<Table>(
+    db,
+    check,
+    {
+      columns: COLUMNS,
+      validate: (row) =>
+        (KNOWLEDGE_GENERATION_TABLES.includes(
+          row.table as KnowledgeGenerationTable,
+        )
+          ? validateKnowledgeGenerationArchiveRow(row)
+          : validateKnowledgeArchiveRow(row)
+        ).data,
+      invalid: (fault) => invalid(FAULTS[fault]),
+    },
+  );
   function planFor(g: KnowledgeGenerationRecord): KnowledgeGenerationPlan {
     const plan = exact<KnowledgeGenerationPlan>(
       "knowledge_generation_plans",
@@ -257,11 +184,11 @@ export function validateKnowledgeGenerationDatabase(
     a: KnowledgeGenerationAttempt | undefined,
     plan: KnowledgeGenerationPlan,
   ): void {
-    const candidate = one(
+    const candidate = one<KnowledgeCandidate>(
       "knowledge_candidates",
       "workspace_id=? AND generation_owner_id=?",
       [g.workspaceId, g.id],
-    ) as unknown as KnowledgeCandidate | undefined;
+    );
     if (
       g.candidate.state === "recorded" &&
       (!candidate || candidate.id !== g.candidate.candidateId)
@@ -295,16 +222,16 @@ export function validateKnowledgeGenerationDatabase(
   }
 
   for (const header of headers("knowledge_generations", "ORDER BY id")) {
-    const generation = read(
+    const generation = read<KnowledgeGenerationRecord>(
       "knowledge_generations",
       header,
-    ) as unknown as KnowledgeGenerationRecord;
+    );
     const plan = planFor(generation);
-    const attempt = one(
+    const attempt = one<KnowledgeGenerationAttempt>(
       "knowledge_generation_attempts",
       "workspace_id=? AND generation_id=?",
       [generation.workspaceId, generation.id],
-    ) as unknown as KnowledgeGenerationAttempt | undefined;
+    );
     pair(generation, attempt);
     candidateFor(generation, attempt, plan);
   }
@@ -314,10 +241,10 @@ export function validateKnowledgeGenerationDatabase(
     "knowledge_generation_attempts",
     "ORDER BY id",
   )) {
-    const attempt = read(
+    const attempt = read<KnowledgeGenerationAttempt>(
       "knowledge_generation_attempts",
       header,
-    ) as unknown as KnowledgeGenerationAttempt;
+    );
     pair(
       exact<KnowledgeGenerationRecord>(
         "knowledge_generations",

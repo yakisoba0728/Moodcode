@@ -58,7 +58,7 @@ export interface KnowledgePublicationNativePort {
   getPublication(
     workspaceId: string,
     publicationId: string,
-  ): KnowledgePublicationRecord | undefined;
+  ): KnowledgePublicationRecord;
   getDocumentHead(
     workspaceId: string,
     documentKey: string,
