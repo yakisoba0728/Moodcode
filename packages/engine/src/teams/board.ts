@@ -4,6 +4,7 @@ import type { TeamStorage } from "./store.js";
 import type {
   PutTeamTaskInput,
   TeamRequestResult,
+  TeamTaskMutationInput,
   TeamTaskRevision,
 } from "./types.js";
 import {
@@ -121,16 +122,11 @@ export function putTask(
     );
   });
 }
-type ClaimInput = {
-  workspaceId: string;
-  teamId: string;
-  memberId: string;
-  generation: number;
-  taskId: string;
-  requestId: string;
-  expectedRevision: number;
-};
-export function claimTask(s: TeamStorage, original: object, input: ClaimInput) {
+export function claimTask(
+  s: TeamStorage,
+  original: object,
+  input: TeamTaskMutationInput,
+) {
   const r = teamObject(input, [
       "workspaceId",
       "teamId",
@@ -210,7 +206,7 @@ export function claimTask(s: TeamStorage, original: object, input: ClaimInput) {
 export function completeTask(
   s: TeamStorage,
   original: object,
-  input: ClaimInput,
+  input: TeamTaskMutationInput,
 ) {
   const r = teamObject(input, [
       "workspaceId",

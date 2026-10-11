@@ -4,13 +4,16 @@ import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { ToolContext } from "../ports.js";
-import type { TeamMemberRevision, TeamTaskRevision } from "./types.js";
+import type {
+  TeamMemberRevision,
+  TeamTaskMutationInput,
+  TeamTaskRevision,
+} from "./types.js";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
 import type { TeamModelInput, TeamModelOperation } from "./model-tools.js";
-import type { TeamTaskMutationInput } from "./service.js";
 export const TEAM_WORKFLOW_PREFIX = "team.workflow.";
 export interface TeamBoardSubmission {
   id: string;
@@ -182,6 +185,29 @@ export function validateTeamBoardRecord(value: unknown): TeamBoardRecord {
       );
   }
   return r;
+}
+export function assertTeamTaskReviewAccepted(
+  readDoc: (
+    sessionId: string,
+    kind: string,
+  ) => { readonly data: unknown } | null,
+  member: TeamMemberRevision | undefined,
+  input: TeamTaskMutationInput,
+): void {
+  if (!member) return;
+  const doc = readDoc(
+    member.owner.rootSessionId,
+    teamBoardKind(input.teamId, input.taskId),
+  );
+  if (
+    doc &&
+    validateTeamBoardRecord(doc.data).submissions.at(-1)?.review?.verdict !==
+      "accept"
+  )
+    throw new EngineError(
+      "TEAM_REVIEW_REQUIRED",
+      "Submitted advisory DATA requires independent approved review",
+    );
 }
 /** Advisory submissions/reviews; actual effects always use the ordinary native tools and approval. */
 export class TeamWorkflowBoard {

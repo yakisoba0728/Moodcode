@@ -56,7 +56,10 @@ export function teamHostPermissions(
     permissions: value as unknown as TeamPermissions,
   });
 }
-export function teamHostSignal(value: unknown): asserts value is AbortSignal {
+export function teamHostSignal(
+  value: unknown,
+): asserts value is AbortSignal | undefined {
+  if (value === undefined) return;
   if (
     !value ||
     typeof value !== "object" ||

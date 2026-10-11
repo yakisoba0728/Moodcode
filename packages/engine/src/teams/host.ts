@@ -2,16 +2,16 @@ import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type {
-  AgentMessage,
   CreateTeamInput,
   RegisterTeamMemberInput,
+  RetireTeamMemberNativeInput,
   TeamMemberOwnerProof,
   TeamMemberRevision,
   TeamRecord,
   TeamRequestResult,
-  TeamStateRevision,
 } from "./types.js";
 import type { TeamOwnerPort } from "./input-port.js";
+import type { TeamStorage } from "./store.js";
 import {
   teamHostAbort,
   teamHostData,
@@ -29,38 +29,15 @@ import {
   validateTeamOwner,
 } from "./validation.js";
 
-export interface TeamHostNativePort {
-  createTeam(input: CreateTeamInput): TeamRequestResult<TeamRecord>;
-  getTeam(workspaceId: string, teamId: string): TeamRecord | undefined;
-  getMember(
-    workspaceId: string,
-    teamId: string,
-    memberId: string,
-  ): TeamMemberRevision | undefined;
-  findOperationRequest(
-    workspaceId: string,
-    teamId: string,
-    actorId: string,
-    generation: number,
-    requestId: string,
-    inputSha256: string,
-  ): TeamRequestResult<TeamStateRevision | AgentMessage> | undefined;
-  registerMember(
-    originalOwner: object,
-    input: RegisterTeamMemberInput,
-  ): TeamRequestResult<TeamMemberRevision>;
-  retireMember(
-    originalOwner: object,
-    input: {
-      workspaceId: string;
-      teamId: string;
-      memberId: string;
-      generation: number;
-      expectedRevision: number;
-      requestId: string;
-    },
-  ): TeamRequestResult<TeamMemberRevision>;
-}
+export type TeamHostNativePort = Pick<
+  TeamStorage,
+  | "createTeam"
+  | "getTeam"
+  | "getMember"
+  | "findOperationRequest"
+  | "registerMember"
+  | "retireMember"
+>;
 export interface TeamHostServicePorts {
   readonly native: TeamHostNativePort;
   readonly owner: TeamOwnerPort;
@@ -91,13 +68,7 @@ export interface JoinTeamMemberInput {
   readonly preview: TeamMemberPreview;
   readonly signal?: AbortSignal;
 }
-export interface RetireTeamMemberInput {
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly memberId: string;
-  readonly generation: number;
-  readonly expectedRevision: number;
-  readonly requestId: string;
+export interface RetireTeamMemberInput extends RetireTeamMemberNativeInput {
   readonly signal?: AbortSignal;
 }
 interface Owner {
@@ -228,7 +199,7 @@ export class TeamHostService {
       ],
       ["childTaskId", "signal"],
     );
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     teamHostAbort(input.signal);
     teamHostIds(input, ["workspaceId", "teamId", "memberId", "rootSessionId"]);
     teamInteger(input.expectedRevision);
@@ -299,7 +270,7 @@ export class TeamHostService {
     );
     teamId(input.workspaceId);
     teamId(input.requestId);
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     if (input.approved !== true) teamHostError("TEAM_APPROVAL_REQUIRED");
     if (!input.preview || types.isProxy(input.preview))
       teamHostError("TEAM_PREVIEW_STALE");
@@ -369,7 +340,7 @@ export class TeamHostService {
     teamHostIds(input, ["workspaceId", "teamId", "memberId", "requestId"]);
     teamInteger(input.generation);
     teamInteger(input.expectedRevision);
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     teamHostAbort(input.signal);
     const nativeInput = teamHostData({
         workspaceId: input.workspaceId,

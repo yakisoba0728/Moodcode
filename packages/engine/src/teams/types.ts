@@ -258,6 +258,34 @@ export interface PutTeamTaskInput {
   readonly dependencies: readonly string[];
   readonly expiresAt: string;
 }
+export interface TeamTaskMutationInput {
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly taskId: string;
+  readonly memberId: string;
+  readonly generation: number;
+  readonly requestId: string;
+  readonly expectedRevision: number;
+}
+export interface RetireTeamMemberNativeInput {
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly memberId: string;
+  readonly generation: number;
+  readonly expectedRevision: number;
+  readonly requestId: string;
+}
+export interface ReadMailboxNativeInput {
+  readonly workspaceId: string;
+  readonly teamId: string;
+  readonly memberId: string;
+  readonly generation: number;
+  readonly limit?: number;
+}
+export interface CursorRequestInput {
+  readonly requestId: string;
+  readonly expectedCursorRevision: number;
+}
 export interface TeamRequestResult<T> {
   readonly record: T;
   readonly receipt: TeamOperationReceipt;

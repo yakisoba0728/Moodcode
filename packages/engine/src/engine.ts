@@ -18,7 +18,7 @@ import { CodingBatchHost } from "./coding-runs/batch-host.js";
 import { WorkflowEffects, WORKFLOW_MODEL_NAMES } from "./workflows/effects.js";
 import {SandboxHost} from './sandbox/host.js';
 import type {PreviewSandboxGrantInput,ApproveSandboxGrantInput} from './sandbox/types.js';
-import { TeamWorkflowBoard, teamBoardKind, validateTeamBoardRecord } from './teams/workflow-board.js';
+import { TeamWorkflowBoard, assertTeamTaskReviewAccepted } from './teams/workflow-board.js';
 import { assertResidentProviderDispatch } from './child-tasks/resident.js';
 import { HostCommandService } from './jobs/host-command-service.js';
 import { GitCommitHost } from './git/commit-host.js';
@@ -893,14 +893,11 @@ export class MoodcodeEngine implements EngineRuntime {
         readAcceptedInput: (capture, original) => this.teamService.readAcceptedInput(capture,original) });
       this.teamHost = new TeamHostService({ native: this.teamRecords, owner: teamOwners });
       const nativeTeams = this.teamRecords;
-      this.teamService = new TeamService({ beforeCompleteTask:input=>{const member=nativeTeams.getMember(input.workspaceId,input.teamId,input.memberId);if(member){const doc=this.store.getSessionDocument(member.owner.rootSessionId,teamBoardKind(input.teamId,input.taskId));if(doc&&validateTeamBoardRecord(doc.data).submissions.at(-1)?.review?.verdict!=='accept')throw new EngineError('TEAM_REVIEW_REQUIRED','Submitted advisory DATA requires independent approved review');}},host: this.teamHost, native: {
+      this.teamService = new TeamService({ beforeCompleteTask: input => assertTeamTaskReviewAccepted((sessionId,kind) => this.store.getSessionDocument(sessionId,kind), nativeTeams.getMember(input.workspaceId,input.teamId,input.memberId), input), host: this.teamHost, native: {
         ...forward(nativeTeams, ['findSendRequest', 'findOperationRequest', 'getMember', 'send', 'readMailbox', 'claimMailbox', 'releasePage',
           'putTask', 'claimTask', 'completeTask', 'prepareDelivery', 'dispatchDelivery', 'completeDelivery', 'releaseDelivery']),
         cancelDelivery: capture => { nativeTeams.cancelDelivery(capture); },
-        getDeliveryHistory: (workspaceId,id) => this.store.readExecutionObservationEvidence(() => {
-          const record = nativeTeams.getDelivery(workspaceId,id);
-          return record ? { record, receipt: nativeTeams.getDeliveryReceipt(workspaceId,id) ?? null } : undefined;
-        }),
+        getDeliveryHistory: (workspaceId,id) => this.store.readExecutionObservationEvidence(() => nativeTeams.getDeliveryHistory(workspaceId,id)),
       }, input: {
         capture: (sessionId,taskId) => this.children.teamBridge.capture(sessionId,taskId),
         readTarget: original => this.children.teamBridge.readTarget(original as ChildTeamTarget),

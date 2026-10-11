@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { TeamStorage } from "./store.js";
 import type {
+  CursorRequestInput,
+  ReadMailboxNativeInput,
   SendAgentMessageInput,
   TeamDeliveryCapture,
   TeamDeliveryRecord,
@@ -189,13 +191,7 @@ export function sendMessage(
 export function readMailbox(
   s: TeamStorage,
   original: object,
-  input: {
-    workspaceId: string;
-    teamId: string;
-    memberId: string;
-    generation: number;
-    limit?: number;
-  },
+  input: ReadMailboxNativeInput,
 ) {
   const r = teamObject(
     input,
@@ -308,7 +304,7 @@ function ownedPage(
 export function claimMailbox(
   s: TeamStorage,
   page: TeamMailboxPage,
-  input: { requestId: string; expectedCursorRevision: number },
+  input: CursorRequestInput,
 ) {
   const r = teamObject(input, ["requestId", "expectedCursorRevision"]),
     request = teamId(r.requestId),
@@ -371,7 +367,7 @@ export function claimMailbox(
 export function prepareDelivery(
   s: TeamStorage,
   page: TeamMailboxPage,
-  input: { requestId: string; expectedCursorRevision: number },
+  input: CursorRequestInput,
 ) {
   const r = teamObject(input, ["requestId", "expectedCursorRevision"]),
     request = teamId(r.requestId),

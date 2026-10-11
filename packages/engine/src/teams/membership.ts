@@ -4,6 +4,7 @@ import type { TeamStorage } from "./store.js";
 import type {
   CreateTeamInput,
   RegisterTeamMemberInput,
+  RetireTeamMemberNativeInput,
   TeamMemberRevision,
   TeamRecord,
   TeamRequestResult,
@@ -211,14 +212,7 @@ export function registerMember(
 export function retireMember(
   s: TeamStorage,
   original: object,
-  input: {
-    workspaceId: string;
-    teamId: string;
-    memberId: string;
-    generation: number;
-    expectedRevision: number;
-    requestId: string;
-  },
+  input: RetireTeamMemberNativeInput,
 ) {
   const r = teamObject(input, [
       "workspaceId",

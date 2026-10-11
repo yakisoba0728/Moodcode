@@ -2,6 +2,7 @@ import { types } from "node:util";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { TeamHostService } from "./host.js";
 import { teamMailboxInput, type TeamChildInputPort } from "./input-port.js";
+import type { TeamStorage } from "./store.js";
 import {
   teamHostAbort,
   teamHostData,
@@ -13,6 +14,7 @@ import {
 import type {
   AgentMessage,
   PutTeamTaskInput,
+  ReadMailboxNativeInput,
   SendAgentMessageInput,
   TeamAcceptedInputProof,
   TeamClaimReceipt,
@@ -22,108 +24,36 @@ import type {
   TeamMailboxPage,
   TeamMemberRevision,
   TeamRequestResult,
-  TeamStateRevision,
+  TeamTaskMutationInput,
   TeamTaskRevision,
 } from "./types.js";
 import { teamDeliveryRequestId, teamId, teamInteger } from "./validation.js";
 
-export interface TeamServiceNativePort {
-  getMember(
-    workspaceId: string,
-    teamId: string,
-    memberId: string,
-  ): TeamMemberRevision | undefined;
-  findSendRequest(
-    input: SendAgentMessageInput,
-  ): TeamRequestResult<AgentMessage> | undefined;
-  findOperationRequest(
-    workspaceId: string,
-    teamId: string,
-    actorId: string,
-    generation: number,
-    requestId: string,
-    inputSha256: string,
-  ): TeamRequestResult<TeamStateRevision | AgentMessage> | undefined;
-  send(
-    originalSender: object,
-    input: SendAgentMessageInput,
-  ): TeamRequestResult<AgentMessage>;
-  readMailbox(
-    originalRecipient: object,
-    input: {
-      workspaceId: string;
-      teamId: string;
-      memberId: string;
-      generation: number;
-      limit?: number;
-    },
-  ): TeamMailboxPage;
-  claimMailbox(
-    originalPage: TeamMailboxPage,
-    input: { requestId: string; expectedCursorRevision: number },
-  ): TeamClaimReceipt;
-  releasePage(original: TeamMailboxPage): void;
-  putTask(
-    originalCoordinator: object,
-    input: PutTeamTaskInput,
-  ): TeamRequestResult<TeamTaskRevision>;
-  claimTask(
-    originalMember: object,
-    input: TeamTaskMutationInput,
-  ): TeamRequestResult<TeamTaskRevision>;
-  completeTask(
-    originalMember: object,
-    input: TeamTaskMutationInput,
-  ): TeamRequestResult<TeamTaskRevision>;
-  prepareDelivery(
-    originalPage: TeamMailboxPage,
-    input: { requestId: string; expectedCursorRevision: number },
-  ):
-    | {
-        kind: "created";
-        capture: TeamDeliveryCapture;
-        record: TeamDeliveryRecord;
-      }
-    | {
-        kind: "duplicate";
-        record: TeamDeliveryRecord;
-        receipt: TeamDeliveryReceipt | null;
-      };
-  dispatchDelivery(original: TeamDeliveryCapture): TeamDeliveryRecord;
-  completeDelivery(
-    original: TeamDeliveryCapture,
-    originalAccepted: object,
-  ): { record: TeamDeliveryRecord; receipt: TeamDeliveryReceipt };
-  cancelDelivery(original: TeamDeliveryCapture): void;
-  releaseDelivery(original: TeamDeliveryCapture): void;
-  getDeliveryHistory(
-    workspaceId: string,
-    id: string,
-  ):
-    | { record: TeamDeliveryRecord; receipt: TeamDeliveryReceipt | null }
-    | undefined;
-}
-export interface TeamTaskMutationInput {
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly taskId: string;
-  readonly memberId: string;
-  readonly generation: number;
-  readonly requestId: string;
-  readonly expectedRevision: number;
-}
+export type TeamServiceNativePort = Pick<
+  TeamStorage,
+  | "getMember"
+  | "findSendRequest"
+  | "findOperationRequest"
+  | "send"
+  | "readMailbox"
+  | "claimMailbox"
+  | "releasePage"
+  | "putTask"
+  | "claimTask"
+  | "completeTask"
+  | "prepareDelivery"
+  | "dispatchDelivery"
+  | "completeDelivery"
+  | "releaseDelivery"
+  | "getDeliveryHistory"
+> & { cancelDelivery(original: TeamDeliveryCapture): void };
 export interface TeamServicePorts {
   beforeCompleteTask(input: TeamTaskMutationInput): void;
   readonly native: TeamServiceNativePort;
   readonly host: TeamHostService;
   readonly input: TeamChildInputPort;
 }
-export interface ReadAgentMailboxInput {
-  readonly workspaceId: string;
-  readonly teamId: string;
-  readonly memberId: string;
-  readonly generation: number;
-  readonly limit?: number;
+export interface ReadAgentMailboxInput extends ReadMailboxNativeInput {
   readonly signal?: AbortSignal;
 }
 export interface ResumeChildTurnInput {
@@ -188,6 +118,22 @@ export class TeamService {
         : { childTaskId: member.owner.childTaskId }),
     });
   }
+  private withOwner<T>(
+    workspaceId: string,
+    teamId: string,
+    memberId: string,
+    generation: number,
+    operation: (owner: object) => T,
+  ): T {
+    const owner = this.owner(
+      this.member(workspaceId, teamId, memberId, generation),
+    );
+    try {
+      return operation(owner);
+    } finally {
+      this.ports.host.releaseOwner(owner);
+    }
+  }
   sendAgentMessage(
     input: SendAgentMessageInput,
   ): TeamRequestResult<AgentMessage> {
@@ -202,18 +148,13 @@ export class TeamService {
       data.recipientGeneration,
     );
     this.ports.host.assertRecipientCurrent(recipient);
-    const member = this.member(
-        data.workspaceId,
-        data.teamId,
-        data.senderMemberId,
-        data.senderGeneration,
-      ),
-      owner = this.owner(member);
-    try {
-      return this.ports.native.send(owner, data);
-    } finally {
-      this.ports.host.releaseOwner(owner);
-    }
+    return this.withOwner(
+      data.workspaceId,
+      data.teamId,
+      data.senderMemberId,
+      data.senderGeneration,
+      (owner) => this.ports.native.send(owner, data),
+    );
   }
   readAgentMailbox(input: ReadAgentMailboxInput): TeamMailboxPage {
     this.open();
@@ -222,7 +163,7 @@ export class TeamService {
       ["workspaceId", "teamId", "memberId", "generation"],
       ["limit", "signal"],
     );
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     teamHostAbort(input.signal);
     teamHostIds(input, ["workspaceId", "teamId", "memberId"]);
     teamInteger(input.generation);
@@ -279,7 +220,7 @@ export class TeamService {
     );
     teamHostIds(input, ["workspaceId", "requestId"]);
     teamInteger(input.expectedCursorRevision);
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     const page = this.page(input.page, true);
     if (page.original.workspaceId !== input.workspaceId)
       teamHostError("TEAM_PAGE_STALE");
@@ -308,18 +249,13 @@ export class TeamService {
     const data = teamHostData(input),
       duplicate = this.taskDuplicate(data, knowledgeHash(data));
     if (duplicate) return duplicate;
-    const member = this.member(
-        data.workspaceId,
-        data.teamId,
-        data.memberId,
-        data.generation,
-      ),
-      owner = this.owner(member);
-    try {
-      return this.ports.native.putTask(owner, data);
-    } finally {
-      this.ports.host.releaseOwner(owner);
-    }
+    return this.withOwner(
+      data.workspaceId,
+      data.teamId,
+      data.memberId,
+      data.generation,
+      (owner) => this.ports.native.putTask(owner, data),
+    );
   }
   claimTeamTask(
     input: TeamTaskMutationInput,
@@ -371,20 +307,16 @@ export class TeamService {
         knowledgeHash(complete ? { ...data, operation: "complete" } : data),
       );
     if (duplicate) return duplicate;
-    const member = this.member(
-        data.workspaceId,
-        data.teamId,
-        data.memberId,
-        data.generation,
-      ),
-      owner = this.owner(member);
-    try {
-      return complete
-        ? this.ports.native.completeTask(owner, data)
-        : this.ports.native.claimTask(owner, data);
-    } finally {
-      this.ports.host.releaseOwner(owner);
-    }
+    return this.withOwner(
+      data.workspaceId,
+      data.teamId,
+      data.memberId,
+      data.generation,
+      (owner) =>
+        complete
+          ? this.ports.native.completeTask(owner, data)
+          : this.ports.native.claimTask(owner, data),
+    );
   }
   resumeChildTurn(input: ResumeChildTurnInput): ResumeChildTurnResult {
     teamHostObject(
@@ -400,7 +332,7 @@ export class TeamService {
     );
     teamHostIds(input, ["workspaceId", "requestId"]);
     teamInteger(input.expectedCursorRevision);
-    if (input.signal !== undefined) teamHostSignal(input.signal);
+    teamHostSignal(input.signal);
     if (input.approved !== true) teamHostError("TEAM_APPROVAL_REQUIRED");
     const page = this.page(input.page, true);
     if (page.original.workspaceId !== input.workspaceId)
