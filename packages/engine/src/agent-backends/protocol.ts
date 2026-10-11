@@ -34,6 +34,14 @@ import {
 } from "./validation.js";
 
 export const ACP_PROTOCOL_VERSION = 1 as const;
+export const ACP_EFFECT_LIMITS = Object.freeze({
+  writeBytes: 16384,
+  terminalOutputBytes: 16384,
+  commandBytes: 8192,
+  args: 64,
+  argBytes: 2048,
+  permissionOptions: 8,
+});
 export const ACP_V1_STOP_REASONS = [
   "end_turn",
   "max_tokens",
@@ -267,7 +275,7 @@ export function validateAcpV1WriteTextFileParams(
   return envelope(input, ["sessionId", "path", "content"], [], (value) => {
     agentBackendIdentifier(value.sessionId);
     agentBackendAbsolutePath(value.path);
-    agentBackendText(value.content, 16384, true);
+    agentBackendText(value.content, ACP_EFFECT_LIMITS.writeBytes, true);
   }) as unknown as AcpV1WriteTextFileParams;
 }
 export function validateAcpV1TerminalCreateParams(
@@ -279,14 +287,18 @@ export function validateAcpV1TerminalCreateParams(
     ["args", "cwd", "outputByteLimit", "env"],
     (value) => {
       agentBackendIdentifier(value.sessionId);
-      agentBackendText(value.command, 8192);
+      agentBackendText(value.command, ACP_EFFECT_LIMITS.commandBytes);
       if ((value.command as string).includes("\0"))
         agentBackendError("ACP_INVALID_MESSAGE");
       if (value.cwd !== undefined) agentBackendAbsolutePath(value.cwd);
       if (value.args !== undefined) {
-        if (!Array.isArray(value.args) || value.args.length > 64)
+        if (
+          !Array.isArray(value.args) ||
+          value.args.length > ACP_EFFECT_LIMITS.args
+        )
           agentBackendError("AGENT_BACKEND_LIMIT");
-        for (const arg of value.args) agentBackendText(arg, 2048, true);
+        for (const arg of value.args)
+          agentBackendText(arg, ACP_EFFECT_LIMITS.argBytes, true);
       }
       if (
         value.env !== undefined &&
@@ -294,7 +306,11 @@ export function validateAcpV1TerminalCreateParams(
       )
         agentBackendError("ACP_ENV_UNSUPPORTED");
       if (value.outputByteLimit !== undefined)
-        agentBackendInteger(value.outputByteLimit, 16384, 1);
+        agentBackendInteger(
+          value.outputByteLimit,
+          ACP_EFFECT_LIMITS.terminalOutputBytes,
+          1,
+        );
     },
   ) as unknown as AcpV1TerminalCreateParams;
 }
@@ -321,7 +337,7 @@ export function validateAcpV1PermissionParams(
     if (
       !Array.isArray(value.options) ||
       value.options.length < 1 ||
-      value.options.length > 8
+      value.options.length > ACP_EFFECT_LIMITS.permissionOptions
     )
       agentBackendError("AGENT_BACKEND_LIMIT");
     const ids = new Set<string>();
@@ -577,7 +593,11 @@ export function validateAcpV1Result(method: string, input: unknown): object {
         ["output", "truncated"],
         ["exitStatus"],
         (value) => {
-          agentBackendText(value.output, 16384, true);
+          agentBackendText(
+            value.output,
+            ACP_EFFECT_LIMITS.terminalOutputBytes,
+            true,
+          );
           if (typeof value.truncated !== "boolean")
             agentBackendError("ACP_INVALID_MESSAGE");
           if (value.exitStatus !== undefined)

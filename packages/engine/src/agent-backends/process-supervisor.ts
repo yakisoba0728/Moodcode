@@ -7,6 +7,7 @@ import {
   cleanupGroup,
   TERMINATION_LIMITS,
 } from "../tools/command/process-control.js";
+import { AGENT_BACKEND_LIMITS } from "./validation.js";
 
 // IPC disappearance is the root's liveness signal, including SIGKILL. The peer
 // owns a separate process group, so descendants must disappear before release.
@@ -189,7 +190,7 @@ process.on("message", (packet: unknown) => {
     peer &&
     Number.isSafeInteger(value.ordinal) &&
     typeof value.text === "string" &&
-    Buffer.byteLength(value.text) <= 65_537 &&
+    Buffer.byteLength(value.text) <= AGENT_BACKEND_LIMITS.frameBytes + 1 &&
     !writing
   ) {
     writing = true;

@@ -64,6 +64,7 @@ import {
   validateAgentBackendSpec,
 } from "./validation.js";
 import {
+  ACP_EFFECT_LIMITS,
   ACP_V1_STOP_REASONS,
   validateAcpV1Message,
   encodeAcpV1Message,
@@ -2320,7 +2321,8 @@ function validateEffectInput(
       p.command !== input.command ||
       knowledgeHash(p.args ?? []) !== knowledgeHash(input.args) ||
       (p.cwd !== undefined && p.cwd !== input.cwd) ||
-      (p.outputByteLimit ?? 16384) !== input.outputByteLimit
+      (p.outputByteLimit ?? ACP_EFFECT_LIMITS.terminalOutputBytes) !==
+        input.outputByteLimit
     )
       fail("BACKEND_EFFECT_INPUT_INVALID");
   }

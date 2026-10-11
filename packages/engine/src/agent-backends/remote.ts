@@ -18,6 +18,7 @@ import type {
   AcpV1StopReason,
 } from "./types.js";
 import {
+  ACP_PROTOCOL_VERSION,
   negotiateAcpV1Capabilities,
   validateAcpV1Request,
   validateAcpV1Result,
@@ -313,7 +314,7 @@ class RemoteAttempt {
   async initialize(client: ClientCapabilities): Promise<void> {
     const { store, processes, record } = this.options;
     const initialized = await this.handshake("initialize", {
-      protocolVersion: 1,
+      protocolVersion: ACP_PROTOCOL_VERSION,
       clientCapabilities: {
         fs: {
           readTextFile: client.readTextFile,

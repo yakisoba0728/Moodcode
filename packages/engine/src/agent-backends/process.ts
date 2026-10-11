@@ -22,7 +22,10 @@ import {
   validateAcpV1Request,
   validateAcpV1Result,
 } from "./protocol.js";
-import { agentBackendSigned as signed } from "./validation.js";
+import {
+  AGENT_BACKEND_LIMITS,
+  agentBackendSigned as signed,
+} from "./validation.js";
 
 /** Root authenticates the native Attempt and pins actual launch files and credentials. */
 export interface BackendLaunchProof {
@@ -142,7 +145,6 @@ export interface BackendProcessPort {
   close(): Promise<void>;
 }
 
-const MAX_FRAME = 65_536;
 const MAX_BUFFERED_FRAMES = 64;
 const MAX_RECEIVED_BYTES = 2_097_152;
 const MAX_FRAMES = 4_096;
@@ -152,8 +154,10 @@ interface ProcessState {
   readonly child: ChildProcess;
   proof: BackendConnectionProof;
   readonly frames: object[];
+  buffer: Buffer;
   wake?: () => void;
   error?: EngineError;
+  admissionFailed?: (error: EngineError) => void;
   closePromise: Promise<void>;
   closed: boolean;
   consuming: boolean;
@@ -181,6 +185,15 @@ function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
     () => new EngineError("CANCELLED", "Backend operation cancelled"),
     { propagateReason: true },
   );
+}
+function waitClosed(state: ProcessState, ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    const timeout = setTimeout(resolve, ms);
+    void state.closePromise.then(() => {
+      clearTimeout(timeout);
+      resolve();
+    });
+  });
 }
 
 /** Owned IPC supervisor; only Root's original launch producer can authorize spawn. */
@@ -301,6 +314,8 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         child,
         proof,
         frames: [],
+        buffer: Buffer.alloc(0),
+        admissionFailed: failed,
         closePromise,
         closed: false,
         consuming: false,
@@ -312,139 +327,28 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       };
       this.connections.set(handle, state);
       this.active.add(state);
-      const fail = (code: string): void => {
-        state.error ??= new EngineError(
-          code,
-          "The owned backend transport did not complete its protocol",
-        );
-        failed(state.error);
-        state.pendingWrite?.reject(state.error);
-        state.wake?.();
-      };
-      let buffer = Buffer.alloc(0);
-      child.stdout?.on("data", (bytes: Buffer) => {
-        if (state.disposing) return;
-        try {
-          state.receivedBytes += bytes.length;
-          if (state.receivedBytes > MAX_RECEIVED_BYTES)
-            throw new EngineError(
-              "BACKEND_FRAME_LIMIT",
-              "Backend output exceeded the transport budget",
-            );
-          let offset = 0;
-          while (offset < bytes.length) {
-            const newline = bytes.indexOf(10, offset);
-            const end = newline < 0 ? bytes.length : newline;
-            if (buffer.length + end - offset > MAX_FRAME)
-              throw new EngineError(
-                "BACKEND_FRAME_LIMIT",
-                "Backend JSON-RPC frame exceeded its byte limit",
-              );
-            buffer = Buffer.concat([buffer, bytes.subarray(offset, end)]);
-            offset = newline < 0 ? bytes.length : newline + 1;
-            if (newline < 0) break;
-            if (state.receiveOrdinal >= MAX_FRAMES)
-              throw new EngineError(
-                "BACKEND_FRAME_LIMIT",
-                "Backend output exceeded its frame budget",
-              );
-            const content =
-              buffer.at(-1) === 13 ? buffer.subarray(0, -1) : buffer;
-            if (
-              !content.length ||
-              !Buffer.from(content.toString("utf8")).equals(content)
-            )
-              throw new EngineError(
-                "ACP_INVALID_MESSAGE",
-                "Backend frames must contain strict UTF-8 JSON",
-              );
-            const message = parseAcpV1Message(content.toString("utf8"));
-            const original = Object.freeze({
-              kind: "backend-frame",
-              ordinal: ++state.receiveOrdinal,
-            });
-            const frame = signed({
-              workspaceId: state.proof.workspaceId,
-              backendId: state.proof.backendId,
-              connectionId: state.proof.connectionId,
-              epoch: state.proof.epoch,
-              receiveOrdinal: state.receiveOrdinal,
-              wireId: "id" in message ? message.id : null,
-              frameSha256: knowledgeHash(message),
-              message,
-            });
-            this.observations.set(original, frame);
-            state.frames.push(original);
-            // The supervisor pauses the peer once this pipe stops draining.
-            if (state.frames.length >= MAX_BUFFERED_FRAMES)
-              state.child.stdout?.pause();
-            buffer = Buffer.alloc(0);
-            state.wake?.();
-          }
-        } catch (error) {
-          fail(
-            error instanceof EngineError ? error.code : "ACP_INVALID_MESSAGE",
-          );
-          void this.dispose(handle).catch(() => {});
-        }
-      });
+      child.stdout?.on("data", (bytes: Buffer) => this.receive(state, bytes));
       child.stdout?.once("end", () => {
         if (!state.disposing)
-          fail(
-            buffer.length ? "BACKEND_FRAME_INCOMPLETE" : "BACKEND_DISCONNECTED",
+          this.fail(
+            state,
+            state.buffer.length
+              ? "BACKEND_FRAME_INCOMPLETE"
+              : "BACKEND_DISCONNECTED",
           );
       });
       child.stderr?.on("data", () => {});
-      child.stdout?.on("error", () => fail("BACKEND_DISCONNECTED"));
-      child.stderr?.on("error", () => fail("BACKEND_DISCONNECTED"));
-      child.on("error", () => fail("BACKEND_PROCESS_START_FAILED"));
+      child.stdout?.on("error", () => this.fail(state, "BACKEND_DISCONNECTED"));
+      child.stderr?.on("error", () => this.fail(state, "BACKEND_DISCONNECTED"));
+      child.on("error", () => this.fail(state, "BACKEND_PROCESS_START_FAILED"));
       child.once("close", () => {
         state.closed = true;
-        fail("BACKEND_DISCONNECTED");
+        this.fail(state, "BACKEND_DISCONNECTED");
         resolveClosed();
       });
-      child.on("message", (packet: unknown) => {
-        if (!packet || typeof packet !== "object") return;
-        const value = packet as Record<string, unknown>;
-        if (
-          value.type === "started" &&
-          Number.isSafeInteger(value.pid) &&
-          Number(value.pid) > 0
-        )
-          started(Number(value.pid));
-        else if (value.type === "failure")
-          fail(
-            typeof value.code === "string"
-              ? value.code
-              : "BACKEND_DISCONNECTED",
-          );
-        else if (value.type === "written") {
-          const pending = state.pendingWrite;
-          if (
-            !pending ||
-            value.ordinal !== pending.ordinal ||
-            !Number.isSafeInteger(value.bytes)
-          )
-            fail("BACKEND_PIPE_WRITE_FAILED");
-          else {
-            state.pendingWrite = undefined;
-            pending.resolve(Number(value.bytes));
-          }
-        } else if (
-          value.type === "result" &&
-          typeof value.cleanupConfirmed === "boolean"
-        ) {
-          state.outcome = {
-            cleanupConfirmed: value.cleanupConfirmed,
-            exitCode:
-              typeof value.exitCode === "number" ? value.exitCode : null,
-            signal:
-              typeof value.signal === "string"
-                ? (value.signal as NodeJS.Signals)
-                : null,
-          };
-        }
-      });
+      child.on("message", (packet: unknown) =>
+        this.onSupervisorPacket(state, packet, started),
+      );
       const cancel = (): void => {
         void this.dispose(handle).catch(() => {});
       };
@@ -493,6 +397,148 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       throw error;
     }
   }
+  private fail(
+    state: ProcessState,
+    code: string,
+    message = "The owned backend transport did not complete its protocol",
+  ): void {
+    state.error ??= new EngineError(code, message);
+    state.admissionFailed?.(state.error);
+    state.pendingWrite?.reject(state.error);
+    state.wake?.();
+  }
+  private receive(state: ProcessState, bytes: Buffer): void {
+    if (state.disposing) return;
+    try {
+      state.receivedBytes += bytes.length;
+      if (state.receivedBytes > MAX_RECEIVED_BYTES)
+        throw new EngineError(
+          "BACKEND_FRAME_LIMIT",
+          "Backend output exceeded the transport budget",
+        );
+      let offset = 0;
+      while (offset < bytes.length) {
+        const newline = bytes.indexOf(10, offset);
+        const end = newline < 0 ? bytes.length : newline;
+        if (
+          state.buffer.length + end - offset >
+          AGENT_BACKEND_LIMITS.frameBytes
+        )
+          throw new EngineError(
+            "BACKEND_FRAME_LIMIT",
+            "Backend JSON-RPC frame exceeded its byte limit",
+          );
+        state.buffer = Buffer.concat([
+          state.buffer,
+          bytes.subarray(offset, end),
+        ]);
+        offset = newline < 0 ? bytes.length : newline + 1;
+        if (newline < 0) break;
+        if (state.receiveOrdinal >= MAX_FRAMES)
+          throw new EngineError(
+            "BACKEND_FRAME_LIMIT",
+            "Backend output exceeded its frame budget",
+          );
+        const content =
+          state.buffer.at(-1) === 13
+            ? state.buffer.subarray(0, -1)
+            : state.buffer;
+        if (
+          !content.length ||
+          !Buffer.from(content.toString("utf8")).equals(content)
+        )
+          throw new EngineError(
+            "ACP_INVALID_MESSAGE",
+            "Backend frames must contain strict UTF-8 JSON",
+          );
+        const message = parseAcpV1Message(content.toString("utf8"));
+        const original = Object.freeze({
+          kind: "backend-frame",
+          ordinal: ++state.receiveOrdinal,
+        });
+        const frame = signed({
+          workspaceId: state.proof.workspaceId,
+          backendId: state.proof.backendId,
+          connectionId: state.proof.connectionId,
+          epoch: state.proof.epoch,
+          receiveOrdinal: state.receiveOrdinal,
+          wireId: "id" in message ? message.id : null,
+          frameSha256: knowledgeHash(message),
+          message,
+        });
+        this.observations.set(original, frame);
+        state.frames.push(original);
+        // The supervisor pauses the peer once this pipe stops draining.
+        if (state.frames.length >= MAX_BUFFERED_FRAMES)
+          state.child.stdout?.pause();
+        state.buffer = Buffer.alloc(0);
+        state.wake?.();
+      }
+    } catch (error) {
+      this.fail(
+        state,
+        error instanceof EngineError ? error.code : "ACP_INVALID_MESSAGE",
+      );
+      void this.dispose(state.handle).catch(() => {});
+    }
+  }
+  private onSupervisorPacket(
+    state: ProcessState,
+    packet: unknown,
+    started: (pid: number) => void,
+  ): void {
+    if (!packet || typeof packet !== "object") return;
+    const value = packet as Record<string, unknown>;
+    if (
+      value.type === "started" &&
+      Number.isSafeInteger(value.pid) &&
+      Number(value.pid) > 0
+    )
+      started(Number(value.pid));
+    else if (value.type === "failure")
+      this.fail(
+        state,
+        typeof value.code === "string" ? value.code : "BACKEND_DISCONNECTED",
+      );
+    else if (value.type === "written") {
+      const pending = state.pendingWrite;
+      if (
+        !pending ||
+        value.ordinal !== pending.ordinal ||
+        !Number.isSafeInteger(value.bytes)
+      )
+        this.fail(state, "BACKEND_PIPE_WRITE_FAILED");
+      else {
+        state.pendingWrite = undefined;
+        pending.resolve(Number(value.bytes));
+      }
+    } else if (
+      value.type === "result" &&
+      typeof value.cleanupConfirmed === "boolean"
+    ) {
+      state.outcome = {
+        cleanupConfirmed: value.cleanupConfirmed,
+        exitCode: typeof value.exitCode === "number" ? value.exitCode : null,
+        signal:
+          typeof value.signal === "string"
+            ? (value.signal as NodeJS.Signals)
+            : null,
+      };
+    }
+  }
+  private proof<T extends object>(
+    map: WeakMap<object, T>,
+    original: object,
+    what: string,
+  ): T {
+    const proof = map.get(original);
+    if (!proof)
+      throw new EngineError(
+        "BACKEND_ORIGINAL_REQUIRED",
+        `The backend ${what} is foreign or released`,
+      );
+    return immutableKnowledgeJson(proof);
+  }
   private state(original: object): ProcessState {
     const state = this.connections.get(original);
     if (!state)
@@ -509,14 +555,12 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         "The owned supervisor IPC channel is closed",
       );
     state.child.send(packet, (error) => {
-      if (error) {
-        state.error ??= new EngineError(
+      if (error)
+        this.fail(
+          state,
           "BACKEND_DISCONNECTED",
           "The owned supervisor IPC write failed",
         );
-        state.pendingWrite?.reject(state.error);
-        state.wake?.();
-      }
     });
   }
   readConnection(original: object): BackendConnectionProof {
@@ -571,13 +615,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     }
   }
   readPeerObservation(original: object): BackendPeerObservationProof {
-    const proof = this.observations.get(original);
-    if (!proof)
-      throw new EngineError(
-        "BACKEND_ORIGINAL_REQUIRED",
-        "The backend frame is foreign or released",
-      );
-    return immutableKnowledgeJson(proof);
+    return this.proof(this.observations, original, "frame");
   }
   releasePeerObservation(original: object): void {
     this.observations.delete(original);
@@ -598,13 +636,15 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     originalSessionWrite?: object,
   ): Promise<object> {
     const state = this.state(originalConnection);
+    const sameTransport = (proof: { connectionId: string; epoch: string }) =>
+      proof.connectionId === state.proof.connectionId &&
+      proof.epoch === state.proof.epoch;
     let sessionId: string;
     if (originalSessionWrite) {
       const write = this.readWrite(originalSessionWrite);
       const wire = this.writeMessages.get(originalSessionWrite);
       if (
-        write.connectionId !== state.proof.connectionId ||
-        write.epoch !== state.proof.epoch ||
+        !sameTransport(write) ||
         !wire ||
         !("method" in wire) ||
         !("id" in wire) ||
@@ -619,8 +659,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       if (originalSession !== originalSessionWrite) {
         const session = this.readPeerObservation(originalSession);
         if (
-          session.connectionId !== state.proof.connectionId ||
-          session.epoch !== state.proof.epoch ||
+          !sameTransport(session) ||
           "method" in session.message ||
           !("result" in session.message) ||
           session.message.id !== wire.id
@@ -634,8 +673,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     } else {
       const session = this.readPeerObservation(originalSession);
       if (
-        session.connectionId !== state.proof.connectionId ||
-        session.epoch !== state.proof.epoch ||
+        !sameTransport(session) ||
         !("result" in session.message) ||
         !session.message.result ||
         typeof session.message.result !== "object" ||
@@ -664,8 +702,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         : undefined;
       if (
         !permission ||
-        permission.connectionId !== state.proof.connectionId ||
-        permission.epoch !== state.proof.epoch ||
+        !sameTransport(permission) ||
         !("method" in permission.message) ||
         !("id" in permission.message) ||
         permission.message.method !== "session/request_permission" ||
@@ -718,6 +755,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
           "BACKEND_PIPE_WRITE_FAILED",
           "The backend write receipt did not cover the complete frame",
         );
+      const wire = parseAcpV1Message(text.slice(0, -1));
       const handle = Object.freeze({ kind: "backend-write", ordinal });
       this.writes.set(
         handle,
@@ -727,11 +765,11 @@ export class OwnedBackendProcesses implements BackendProcessPort {
           connectionId: state.proof.connectionId,
           epoch: state.proof.epoch,
           writeOrdinal: ordinal,
-          frameSha256: knowledgeHash(parseAcpV1Message(text.slice(0, -1))),
+          frameSha256: knowledgeHash(wire),
           writtenBytes: bytes,
         }),
       );
-      this.writeMessages.set(handle, parseAcpV1Message(text.slice(0, -1)));
+      this.writeMessages.set(handle, wire);
       return handle;
     } finally {
       // An abandoned write still owns the pipe until its receipt or failure.
@@ -740,13 +778,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     }
   }
   readWrite(original: object): BackendWriteProof {
-    const proof = this.writes.get(original);
-    if (!proof)
-      throw new EngineError(
-        "BACKEND_ORIGINAL_REQUIRED",
-        "The backend write is foreign or released",
-      );
-    return immutableKnowledgeJson(proof);
+    return this.proof(this.writes, original, "write");
   }
   releaseWrite(original: object): void {
     this.writes.delete(original);
@@ -765,14 +797,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         } catch {
           /* Native cleanup observation follows. */
         }
-        let timeout: ReturnType<typeof setTimeout> | undefined;
-        await Promise.race([
-          state.closePromise,
-          new Promise<void>((resolve) => {
-            timeout = setTimeout(resolve, 3_000);
-          }),
-        ]);
-        clearTimeout(timeout);
+        await waitClosed(state, 3_000);
       }
       let confirmed = state.outcome?.cleanupConfirmed === true && state.closed;
       if (!confirmed && state.proof.processId > 0) {
@@ -786,10 +811,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       }
       if (!state.closed) {
         state.child.kill("SIGTERM");
-        await Promise.race([
-          state.closePromise,
-          new Promise<void>((resolve) => setTimeout(resolve, 250)),
-        ]);
+        await waitClosed(state, 250);
         if (!state.closed) state.child.kill("SIGKILL");
         confirmed = state.outcome?.cleanupConfirmed === true && state.closed;
       }
@@ -823,13 +845,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
     })());
   }
   readDisposal(original: object): BackendDisposalProof {
-    const proof = this.disposals.get(original);
-    if (!proof)
-      throw new EngineError(
-        "BACKEND_ORIGINAL_REQUIRED",
-        "The backend disposal is foreign or released",
-      );
-    return immutableKnowledgeJson(proof);
+    return this.proof(this.disposals, original, "disposal");
   }
   releaseDisposal(original: object): void {
     this.disposals.delete(original);

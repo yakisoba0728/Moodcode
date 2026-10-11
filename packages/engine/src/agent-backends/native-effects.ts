@@ -19,6 +19,7 @@ import type {
 } from "./store.js";
 import type { AcpV1Request, AcpV1Response } from "./types.js";
 import {
+  ACP_EFFECT_LIMITS,
   validateAcpV1PermissionParams,
   validateAcpV1TerminalCreateParams,
   validateAcpV1WriteTextFileParams,
@@ -112,7 +113,8 @@ export class BackendNativeEffects {
       command: p.command,
       args: p.args ?? [],
       cwd: p.cwd ?? this.scope.cwd,
-      outputByteLimit: p.outputByteLimit ?? 16384,
+      outputByteLimit:
+        p.outputByteLimit ?? ACP_EFFECT_LIMITS.terminalOutputBytes,
     };
   }
   private session(id: string): void {
