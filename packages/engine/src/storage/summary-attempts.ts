@@ -1,7 +1,7 @@
 import { types } from 'node:util';
 import { EngineError, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
 import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
-import { NativeSessionStorage } from './native.js';
+import { NativeSessionStorage, storedJson } from './native.js';
 import { exceedsInclusiveTotals } from './native-usage.js';
 import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
 
@@ -43,7 +43,6 @@ const terminal = new Set<SummaryAttemptState>(['completed', 'failed', 'interrupt
 const keys = ['inputTokens', 'outputTokens', 'cachedInputTokens', 'reasoningOutputTokens'] as const;
 const unknownUsage = (): SummaryUsageSnapshot => ({ inputTokens: null, outputTokens: null, cachedInputTokens: null, reasoningOutputTokens: null });
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
-function json(value: unknown): JsonObject { return JSON.parse(JSON.stringify(value)) as JsonObject; }
 function plain(value: unknown, allowed: readonly string[]): void {
   plainRecord(value, [], allowed, fault => fail('INVALID_SUMMARY_RECORD', fault === 'shape' ? 'Summary records must be plain data' : 'Summary records cannot contain unknown fields or accessors'));
 }
@@ -90,6 +89,9 @@ function validateMetadata(value: SummaryAttemptMetadata, textType: string, textB
   if (terminal.has(value.state) !== !!value.completedAt || value.state === 'completed' && (value.publication !== 'activated' || !value.providerCompletedAt || !value.cleanupConfirmed || !value.summaryRevisionId || value.partialTextTruncated)
     || !terminal.has(value.state) && value.publication !== 'pending' || ['failed','interrupted','uncertain'].includes(value.state) && value.publication !== 'discarded') fail('INVALID_SUMMARY_RECORD', 'Stored summary publication state is inconsistent');
 }
+function assertHeader(record: SummaryAttemptMetadata, idValue: string, row: Record<string, unknown>): void {
+  if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
+}
 function validateRecord(value: SummaryAttemptRecord): void { validateMetadata(value, typeof value.partialText === 'string' ? 'text' : 'invalid', typeof value.partialText === 'string' ? Buffer.byteLength(value.partialText) : -1); }
 function usageMerge(previous: SummaryUsageSnapshot, supplied: Partial<SummaryUsageSnapshot>): SummaryUsageSnapshot {
   plain(supplied, keys);
@@ -102,10 +104,10 @@ function usageMerge(previous: SummaryUsageSnapshot, supplied: Partial<SummaryUsa
 }
 /** Typed summaries never acquire a provider_attempts row or consume an ordinary Turn. */
 export class SummaryAttemptStorage {
-  constructor(private readonly native: NativeSessionStorage, private readonly append: (run: Run, type: string, payload: JsonObject) => EngineEvent) {}
+  constructor(private readonly native: NativeSessionStorage, private readonly appendLegacy: (run: Run, type: string, payload: JsonObject) => EngineEvent) {}
   private get db() { return this.native.database; }
   private emit(record: SummaryAttemptRecord, type: string, payload: JsonObject): void {
-    const event = this.native.appendEvent(record.sessionId, type, payload, { runId: record.runId }); this.append(this.native.scopeRun(record.sessionId, record.runId), type, event.payload);
+    const event = this.native.appendEvent(record.sessionId, type, payload, { runId: record.runId }); this.appendLegacy(this.native.scopeRun(record.sessionId, record.runId), type, event.payload);
   }
   private owner(record: SummaryAttemptMetadata): Run {
     const header = this.db.prepare('SELECT r.session_id,r.workspace_id,s.workspace_id AS session_workspace_id FROM runs r JOIN sessions s ON s.id=r.session_id WHERE r.id=?').get(record.runId);
@@ -125,26 +127,23 @@ export class SummaryAttemptStorage {
   get(idValue: string, expectedSessionId?: string): SummaryAttemptRecord {
     return this.read(idValue, expectedSessionId).record;
   }
-  private read(idValue: string, expectedSessionId?: string): { record: SummaryAttemptRecord; run: Run } {
+  private header(idValue: string, expectedSessionId?: string) {
     this.native.hooks.assertOpen(); if (!isBoundedId(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
     const row = this.db.prepare('SELECT session_id,workspace_id,run_id,scope,state,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?').get(idValue);
     if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
     if (expectedSessionId !== undefined && row.session_id !== expectedSessionId) fail('SUMMARY_BINDING_MISMATCH', 'Summary attempt belongs to another session');
     if (Number(row.bytes) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Stored summary exceeds its read bound');
+    return row;
+  }
+  private read(idValue: string, expectedSessionId?: string): { record: SummaryAttemptRecord; run: Run } {
+    const row = this.header(idValue, expectedSessionId);
     const record = JSON.parse(String(readEvidenceBody(this.db, { table: 'summary_attempts', key: idValue }, { expectedBytes: Number(row.bytes), maxBytes: 524288 }))) as SummaryAttemptRecord;
-    if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
-    validateRecord(record); return { record, run: this.owner(record) };
+    assertHeader(record, idValue, row); validateRecord(record); return { record, run: this.owner(record) };
   }
   /** Full identity/status/proof validation, with text type/UTF8 length checked in SQL. */
   private metadata(idValue: string, expectedSessionId?: string): SummaryAttemptMetadata {
-    this.native.hooks.assertOpen(); if (!isBoundedId(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
-    const row = this.db.prepare(`SELECT session_id,workspace_id,run_id,scope,state,
-      CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,
-      length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?`).get(idValue);
-    if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
-    if (expectedSessionId !== undefined && row.session_id !== expectedSessionId) fail('SUMMARY_BINDING_MISMATCH', 'Summary attempt belongs to another session');
+    const row = this.header(idValue, expectedSessionId);
     // Identity is capped at 64KiB; 16KiB additionally covers status/proof fields.
-    if (Number(row.bytes) > 524288) fail('SUMMARY_RECORD_LIMIT', 'Stored summary exceeds its read bound');
     const projected = this.db.prepare(`SELECT json_type(data,'$.partialText') AS text_type,
       length(CAST(json_extract(data,'$.partialText') AS BLOB)) AS text_bytes,
       json_type(json_remove(data,'$.partialText'),'$.partialText') AS remaining_text_type,
@@ -155,7 +154,7 @@ export class SummaryAttemptStorage {
     if (typeof raw !== 'string') fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
     const record = JSON.parse(raw) as SummaryAttemptMetadata;
     if (Object.hasOwn(record, 'partialText')) fail('INVALID_SUMMARY_RECORD', 'Summary metadata must not contain retained text');
-    if (record.id !== idValue || record.sessionId !== row.session_id || record.workspaceId !== row.workspace_id || record.runId !== row.run_id || record.scope !== row.scope || record.state !== row.state || record.revision !== row.revision || record.schemaVersion !== 2) fail('SUMMARY_BINDING_MISMATCH', 'Summary payload and SQL owner differ');
+    assertHeader(record, idValue, row);
     validateMetadata(record, String(projected.text_type), Number(projected.text_bytes)); this.owner(record); return record;
   }
   /** Validate once within the shared transaction, without a pre-transaction full read. */
@@ -191,13 +190,13 @@ export class SummaryAttemptStorage {
       const record: SummaryAttemptRecord = { ...supplied, schemaVersion: 2, revision: 1, state: 'prepared', createdAt: supplied.createdAt ?? now, updatedAt: now, cleanupConfirmed: true,
         publication: 'pending', observedOutputBytes: 0, retainedTextBytes: 0, partialText: '', partialTextTruncated: false };
       if (this.owner(record).state !== 'running') fail('SUMMARY_OWNER_REQUIRED', 'Summary preparation requires a running Run');
-      this.save(record); this.emit(record, 'summary.prepared', { ...json(supplied), summaryAttemptId: record.id, factsSha256: record.sourceSha256 }); return record;
+      this.save(record); this.emit(record, 'summary.prepared', { ...storedJson(supplied), summaryAttemptId: record.id, factsSha256: record.sourceSha256 }); return record;
     });
   }
   dispatch(idValue: string): SummaryAttemptRecord {
     return this.update(idValue, (record, run) => {
       if (record.state !== 'prepared' || run.state !== 'running') fail('SUMMARY_TRANSITION_INVALID', 'Summary dispatch requires a prepared live owner');
-      const next = { ...record, state: 'dispatched' as const, revision: record.revision + 1, updatedAt: new Date().toISOString(), dispatchedAt: new Date().toISOString(), cleanupConfirmed: false };
+      const now = new Date().toISOString(), next = { ...record, state: 'dispatched' as const, revision: record.revision + 1, updatedAt: now, dispatchedAt: now, cleanupConfirmed: false };
       this.save(next); this.emit(next, 'summary.dispatched', { summaryAttemptId: idValue, scope: next.scope, providerId: next.providerId, modelId: next.modelId }); return next;
     });
   }
@@ -228,7 +227,7 @@ export class SummaryAttemptStorage {
         invalidateEvidenceRead(this.db);
         this.db.prepare('INSERT INTO summary_usage(summary_attempt_id,session_id,run_id,revision,data) VALUES(?,?,?,?,?) ON CONFLICT(summary_attempt_id) DO UPDATE SET revision=excluded.revision,data=excluded.data')
           .run(idValue, record.sessionId, record.runId, observation.revision, JSON.stringify(observation));
-        this.emit(next, 'provider.usage', { purpose: 'summary', summaryAttemptId: idValue, scope: record.scope, ...json(usage) });
+        this.emit(next, 'provider.usage', { purpose: 'summary', summaryAttemptId: idValue, scope: record.scope, ...storedJson(usage) });
       }
       this.save(next); if (record.state === 'dispatched') this.emit(next, 'summary.streaming', { summaryAttemptId: idValue, scope: record.scope }); return next;
     });
@@ -237,7 +236,7 @@ export class SummaryAttemptStorage {
     return this.update(idValue, record => {
       if (record.providerCompletedAt) return record;
       if (record.state !== 'streaming' || record.finishReason !== 'stop' || !record.partialText.trim() || record.partialTextTruncated) fail('SUMMARY_PROTOCOL_ERROR', 'Provider completion requires a complete nonempty retained stop response');
-      const next = { ...record, revision: record.revision + 1, updatedAt: new Date().toISOString(), providerCompletedAt: new Date().toISOString(), cleanupConfirmed: true };
+      const now = new Date().toISOString(), next = { ...record, revision: record.revision + 1, updatedAt: now, providerCompletedAt: now, cleanupConfirmed: true };
       this.save(next); this.emit(next, 'summary.provider_completed', { summaryAttemptId: idValue, scope: record.scope, cleanupConfirmed: true }); return next;
     });
   }
