@@ -11,17 +11,41 @@ const producers = new WeakMap<
   ToolDefinition,
   (prepared: PreparedTool) => object | null
 >();
+interface Permit {
+  claim: object;
+  context: ToolContext;
+  assert(): void;
+  used: boolean;
+  cleanup: boolean | null;
+}
 const claims = new WeakMap<object, Claim>();
-const permits = new WeakMap<
-  object,
-  {
-    claim: object;
-    context: ToolContext;
-    assert(): void;
-    used: boolean;
-    cleanup: boolean | null;
-  }
->();
+const permits = new WeakMap<object, Permit>();
+function claimOf(original: object): Claim {
+  const c = claims.get(original);
+  if (!c)
+    throw new EngineError(
+      "EFFECT_RESOURCE_ORIGINAL_REQUIRED",
+      "Original prepared resource required",
+    );
+  return c;
+}
+function permitFor(
+  original: object,
+  context: ToolContext,
+  physical: object,
+  message: string,
+  unconsumed = false,
+): Permit {
+  const p = permits.get(original);
+  if (
+    !p ||
+    p.context !== context ||
+    claims.get(p.claim)?.physical !== physical ||
+    (unconsumed && (p.used || context.signal.aborted))
+  )
+    throw new EngineError("EFFECT_RESOURCE_PERMIT_STALE", message);
+  return p;
+}
 export function registerPreparedResourceProducer(
   tool: ToolDefinition,
   capture: (prepared: PreparedTool) => object | null,
@@ -51,25 +75,13 @@ export function issuePreparedPatchResource(
   return original;
 }
 export function readPreparedResource(original: object): PreparedResourceClaim {
-  const c = claims.get(original);
-  if (!c)
-    throw new EngineError(
-      "EFFECT_RESOURCE_ORIGINAL_REQUIRED",
-      "Original prepared resource required",
-    );
-  return structuredClone(c.proof);
+  return structuredClone(claimOf(original).proof);
 }
 export async function assertPreparedResourceCurrent(
   original: object,
   signal: AbortSignal,
 ): Promise<void> {
-  const c = claims.get(original);
-  if (!c)
-    throw new EngineError(
-      "EFFECT_RESOURCE_ORIGINAL_REQUIRED",
-      "Original prepared resource required",
-    );
-  await c.fresh(signal);
+  await claimOf(original).fresh(signal);
 }
 function conflictingResources(
   a: PreparedResourceClaim | null,
@@ -99,11 +111,7 @@ export function issueResourcePermit(
   context: ToolContext,
   assert: () => void,
 ): object {
-  if (!claims.has(originalClaim))
-    throw new EngineError(
-      "EFFECT_RESOURCE_ORIGINAL_REQUIRED",
-      "Original prepared resource required",
-    );
+  claimOf(originalClaim);
   assert();
   const permit = Object.freeze(Object.create(null));
   permits.set(permit, {
@@ -120,18 +128,13 @@ export function consumeResourcePermit(
   context: ToolContext,
   physical: object,
 ): void {
-  const p = permits.get(original);
-  if (
-    !p ||
-    p.context !== context ||
-    p.used ||
-    claims.get(p.claim)?.physical !== physical ||
-    context.signal.aborted
-  )
-    throw new EngineError(
-      "EFFECT_RESOURCE_PERMIT_STALE",
-      "Original current resource permit required",
-    );
+  const p = permitFor(
+    original,
+    context,
+    physical,
+    "Original current resource permit required",
+    true,
+  );
   p.assert();
   p.used = true;
 }
@@ -141,13 +144,12 @@ export function settleResourcePermit(
   physical: object,
   cleanupConfirmed: boolean,
 ): void {
-  const p = permits.get(original);
-  if (!p || p.context !== context || claims.get(p.claim)?.physical !== physical)
-    throw new EngineError(
-      "EFFECT_RESOURCE_PERMIT_STALE",
-      "Original resource completion required",
-    );
-  p.cleanup = cleanupConfirmed === true;
+  permitFor(
+    original,
+    context,
+    physical,
+    "Original resource completion required",
+  ).cleanup = cleanupConfirmed === true;
 }
 export function readResourcePermitCleanup(original: object): boolean | null {
   return permits.get(original)?.cleanup ?? null;
@@ -175,13 +177,13 @@ export function planPreparedResources(
     selected.push({ claim: m.claim, wave });
     if (!m.claim) wave++;
   }
+  const waves = selected.map((m) => m.wave);
   return {
-    waves: selected.map((m) => m.wave),
-    mode: selected.some((m, i) =>
-      selected.some((n, j) => i !== j && m.wave === n.wave),
-    )
-      ? ("parallel" as const)
-      : ("serial" as const),
+    waves,
+    mode:
+      new Set(waves).size < waves.length
+        ? ("parallel" as const)
+        : ("serial" as const),
     fallback: members
       .filter((m) => !m.claim)
       .map((m) => `${m.providerCallId}:unproved-resource-serial`),

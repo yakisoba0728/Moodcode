@@ -20,7 +20,7 @@ import {
   readResourcePermitCleanup,
   resourcePermitConsumed,
 } from "./claims.js";
-import { signEffectBatch } from "./storage.js";
+import { EFFECT_BATCH_LIMITS, signEffectBatch } from "./storage.js";
 import type { EffectBatchRecord, EffectBatchMember } from "./types.js";
 export interface EffectBatchHostPorts {
   save(record: EffectBatchRecord): void;
@@ -81,7 +81,7 @@ export class EffectBatchHost {
     input.assertCurrent();
     if (
       input.calls.length < 1 ||
-      input.calls.length > 4 ||
+      input.calls.length > EFFECT_BATCH_LIMITS.members ||
       input.budget.toolCalls !== input.calls.length ||
       input.budget.outputBytes < input.calls.length ||
       input.budget.artifactBytes < input.calls.length

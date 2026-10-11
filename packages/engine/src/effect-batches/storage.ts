@@ -9,7 +9,11 @@ import {
 } from "../storage/native-records.js";
 import { planPreparedResources } from "./claims.js";
 import { jobJson } from "../jobs/validation.js";
-import type { EffectBatchRecord } from "./types.js";
+import {
+  EFFECT_BATCH_STATES,
+  EFFECT_MEMBER_STATES,
+  type EffectBatchRecord,
+} from "./types.js";
 export const EFFECT_BATCH_LIMITS = Object.freeze({
   members: 4,
   records: 256,
@@ -44,15 +48,7 @@ export function validateEffectBatch(value: unknown): EffectBatchRecord {
     !Number.isSafeInteger(r.revision) ||
     r.revision < 1 ||
     r.revision > EFFECT_BATCH_LIMITS.revisions ||
-    ![
-      "preparing",
-      "prepared",
-      "running",
-      "completed",
-      "partial",
-      "uncertain",
-      "paused-import",
-    ].includes(r.state) ||
+    !EFFECT_BATCH_STATES.includes(r.state) ||
     !["parallel", "serial"].includes(r.mode) ||
     !Array.isArray(r.members) ||
     r.members.length < 1 ||
@@ -77,16 +73,7 @@ export function validateEffectBatch(value: unknown): EffectBatchRecord {
       !Number.isSafeInteger(m.wave) ||
       m.wave < 0 ||
       m.wave >= r.members.length ||
-      ![
-        "proposed",
-        "prepared",
-        "running",
-        "completed",
-        "failed",
-        "denied",
-        "cancelled",
-        "uncertain",
-      ].includes(m.state) ||
+      !EFFECT_MEMBER_STATES.includes(m.state) ||
       !Number.isSafeInteger(m.outputBytes) ||
       m.outputBytes < 0 ||
       m.checkpointIds.length > 32 ||

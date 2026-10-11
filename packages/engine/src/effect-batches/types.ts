@@ -17,15 +17,27 @@ export interface PreparedResourceClaim {
   readonly parents: readonly { path: string; device: string; inode: string }[];
   readonly sha256: string;
 }
-export type EffectMemberState =
-  | "proposed"
-  | "prepared"
-  | "running"
-  | "completed"
-  | "failed"
-  | "denied"
-  | "cancelled"
-  | "uncertain";
+export const EFFECT_MEMBER_STATES = Object.freeze([
+  "proposed",
+  "prepared",
+  "running",
+  "completed",
+  "failed",
+  "denied",
+  "cancelled",
+  "uncertain",
+] as const);
+export type EffectMemberState = (typeof EFFECT_MEMBER_STATES)[number];
+export const EFFECT_BATCH_STATES = Object.freeze([
+  "preparing",
+  "prepared",
+  "running",
+  "completed",
+  "partial",
+  "uncertain",
+  "paused-import",
+] as const);
+export type EffectBatchState = (typeof EFFECT_BATCH_STATES)[number];
 export interface EffectBatchMember {
   readonly providerCallId: string;
   readonly toolCallId: string | null;
@@ -54,14 +66,7 @@ export interface EffectBatchRecord {
   readonly attemptId: string;
   readonly revision: number;
   readonly previousSha256: string | null;
-  readonly state:
-    | "preparing"
-    | "prepared"
-    | "running"
-    | "completed"
-    | "partial"
-    | "uncertain"
-    | "paused-import";
+  readonly state: EffectBatchState;
   readonly configSha256: string;
   readonly catalogueSha256: string;
   readonly budget: {
