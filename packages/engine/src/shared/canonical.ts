@@ -18,6 +18,10 @@ export function sealRecord<T extends object>(record: T, normalize: (sealed: Seal
   const { sha256: _stale, ...body } = record as T & { sha256?: unknown };
   return normalize({ ...body, sha256: canonicalSha256(body) } as Sealed<T>);
 }
+/** Patched keys keep their place; new keys go before the fresh sha256. */
+export function reseal<T extends { readonly sha256: string }>(record: T, patch: Partial<Omit<T, 'sha256'>>, normalize: (sealed: T) => T = sealed => sealed): T {
+  return sealRecord<T>({ ...record, ...patch }, normalize);
+}
 export function verifySealed<T extends object>(record: T, onMismatch: () => never): T {
   const { sha256, ...body } = record as T & { sha256?: unknown };
   if (canonicalSha256(body) !== sha256) onMismatch();

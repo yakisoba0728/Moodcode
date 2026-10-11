@@ -1,12 +1,13 @@
 import { assertMediaIndexCapacity, assertProviderMediaPartCapacity } from '../media/storage-capacity.js';
-import { createHash } from 'node:crypto';
+import type { DatabaseSync } from 'node:sqlite';
 import {
   EngineError, isTerminal, type ContextRevision, type JsonObject, type MessagePart,
   type ProviderAttempt, type TurnRecord,
 } from '@moodcode/contracts';
 import { validateContextRevision, validateMessagePart, validateProviderAttempt, validateSessionEvent, validateTurnRecord } from '@moodcode/contracts/validation';
+import { sha256Hex } from '../shared/canonical.js';
 import { NativeSessionStorage, sameRecord, storedJson } from './native.js';
-import { hasEvidenceRead, invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
+import { hasEvidenceRead, invalidateEvidenceRead, readBoundedBody, readBoundedHeader, readEvidenceBody } from './evidence-read.js';
 import type { ToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 
 const FINAL = new Set(['completed', 'failed', 'interrupted', 'uncertain']);
@@ -21,9 +22,26 @@ const ATTEMPT_TRANSITIONS: Record<ProviderAttempt['state'], readonly ProviderAtt
 };
 const PARTS_LIMIT = 4_096;
 const RECORDS_BYTES = 16_777_216;
+const DOCUMENT_ANCHOR_BYTES = 8_192;
+const EVENT_REFS = [['runId', 'run_id'], ['inputId', 'input_id'], ['turnId', 'turn_id'], ['attemptId', 'attempt_id']] as const;
+const PAYLOAD_PATH = /^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)*$/u;
 export interface SessionDocument { revision: number; data: JsonObject }
 export interface TurnPage { turns: TurnRecord[]; nextCursor: string | null }
 export interface PartPage { parts: MessagePart[]; nextCursor: string | null }
+export interface NativeReadErrors { limit: () => never; invalid: () => never }
+export interface EventSearch {
+  sessionId: string;
+  type: string;
+  refs?: { runId?: string; inputId?: string; turnId?: string; attemptId?: string };
+  /** Raw substring of the event, such as a digest. */
+  contains?: string;
+  /** Payload values by dotted path. */
+  payload?: Readonly<Record<string, string | number>>;
+  maxRows: number;
+  maxRowBytes: number;
+  maxTotalBytes?: number;
+}
+export interface AnchoredDocument { revision: number; raw: string; data: unknown }
 
 /** Durable execution records share the inbox's owner, transaction and versioned journal. */
 export class NativeExecutionStorage {
@@ -276,7 +294,7 @@ export class NativeExecutionStorage {
   }
   putContextRevision(value: ContextRevision): ContextRevision {
     const context = validateContextRevision(value);
-    if (createHash('sha256').update(context.text, 'utf8').digest('hex') !== context.sha256) throw new EngineError('CONTEXT_HASH_MISMATCH', 'Context content does not match its hash');
+    if (sha256Hex(context.text) !== context.sha256) throw new EngineError('CONTEXT_HASH_MISMATCH', 'Context content does not match its hash');
     return this.native.write(context.sessionId, () => {
       this.native.hooks.session(context.sessionId);
       const existing = this.database.prepare('SELECT data FROM context_revisions WHERE id=?').get(context.id);
@@ -326,7 +344,7 @@ export class NativeExecutionStorage {
       invalidateEvidenceRead(this.database);
       this.database.prepare('INSERT INTO session_documents(session_id,kind,revision,data) VALUES(?,?,?,?) ON CONFLICT(session_id,kind) DO UPDATE SET revision=excluded.revision,data=excluded.data')
         .run(sessionId, kind, revision, encoded);
-      this.native.appendEvent(sessionId, 'session.document.updated', { kind, revision, sha256: createHash('sha256').update(encoded).digest('hex') });
+      this.native.appendEvent(sessionId, 'session.document.updated', { kind, revision, sha256: sha256Hex(encoded) });
       return { revision, data: event };
     });
   }
@@ -378,4 +396,45 @@ export class NativeExecutionStorage {
 function requireDocumentJson(value: JsonObject): JsonObject {
   return validateSessionEvent({ schemaVersion: 2, stream: 'session-v2', eventId: 'document-validation', sessionId: 'document-validation', seq: 1,
     timestamp: '2026-10-07T00:00:00.000Z', type: 'session.document', payload: value }).payload;
+}
+
+/** Events of one session and type, oldest first. Each body is reread under its exact length and must agree with its SQL row and the search; a body that is not JSON stays a candidate so it reaches the caller's thunks. */
+export function findEventPayloads(db: DatabaseSync, search: EventSearch, errors: NativeReadErrors): JsonObject[] {
+  const refs = EVENT_REFS.filter(([field]) => search.refs?.[field] !== undefined), paths = Object.entries(search.payload ?? {});
+  if (paths.some(([path]) => !PAYLOAD_PATH.test(path))) throw new TypeError('Event payload paths must be dotted identifiers');
+  const filters = ['session_id=?', 'type=?', ...refs.map(([, column]) => `${column}=?`), ...(search.contains === undefined ? [] : ['instr(data,?)>0']), ...paths.map(([path]) => `CASE WHEN json_valid(data) THEN json_extract(data,'$.payload.${path}')=? ELSE 1 END`)];
+  const rows = db.prepare(`SELECT seq,run_id,input_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE ${filters.join(' AND ')} ORDER BY seq LIMIT ?`)
+    .all(search.sessionId, search.type, ...refs.map(([field]) => search.refs![field]!), ...(search.contains === undefined ? [] : [search.contains]), ...paths.map(([, value]) => value), search.maxRows + 1);
+  if (rows.length > search.maxRows || search.maxTotalBytes !== undefined && rows.reduce((total, row) => total + Number(row.bytes), 0) > search.maxTotalBytes) errors.limit();
+  return rows.map(row => {
+    if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > search.maxRowBytes) errors.limit();
+    const raw = readBoundedBody(db, { table: 'session_events', where: 'session_id=? AND seq=?', params: [search.sessionId, row.seq!] }, Number(row.bytes), errors.invalid) ?? errors.invalid();
+    const event = parseObject(raw, errors.invalid), payload = event.payload;
+    if (event.sessionId !== search.sessionId || event.seq !== row.seq || event.type !== search.type || !isObject(payload)
+      || EVENT_REFS.some(([field, column]) => (event[field] ?? null) !== row[column]) || search.contains !== undefined && !raw.includes(search.contains)
+      || paths.some(([path, value]) => path.split('.').reduce<unknown>((node, key) => isObject(node) && Object.hasOwn(node, key) ? node[key] : undefined, payload) !== value)) errors.invalid();
+    return payload as JsonObject;
+  });
+}
+
+/** A session document whose exact bytes match the one `session.document.updated` event putSessionDocument wrote for its revision. */
+export function readAnchoredDocument(db: DatabaseSync, query: { sessionId: string; kind: string; revision?: number; maxBytes: number }, errors: NativeReadErrors & { anchor: () => never }): AnchoredDocument | undefined {
+  const fenced = query.revision === undefined ? '' : ' AND revision=?', params = [query.sessionId, query.kind, ...(query.revision === undefined ? [] : [query.revision])];
+  const header = readBoundedHeader(db, `SELECT revision,length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?${fenced}`, params, query.maxBytes, errors.limit);
+  if (!header) return undefined;
+  const revision = header.revision;
+  if (typeof revision !== 'number' || !Number.isSafeInteger(revision) || revision < 1) return errors.invalid();
+  const raw = readBoundedBody(db, { table: 'session_documents', where: 'session_id=? AND kind=? AND revision=?', params: [query.sessionId, query.kind, revision] }, header.bytes, errors.invalid) ?? errors.invalid();
+  const sha256 = sha256Hex(raw);
+  const anchors = findEventPayloads(db, { sessionId: query.sessionId, type: 'session.document.updated', contains: sha256, payload: { kind: query.kind, revision, sha256 }, maxRows: 1,
+    maxRowBytes: DOCUMENT_ANCHOR_BYTES }, { limit: errors.anchor, invalid: errors.anchor });
+  if (anchors.length !== 1) errors.anchor();
+  return { revision, raw, data: parseObject(raw, errors.invalid) };
+}
+
+function isObject(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
+function parseObject(raw: string, invalid: () => never): Record<string, unknown> {
+  let value: unknown;
+  try { value = JSON.parse(raw); } catch { return invalid(); }
+  return isObject(value) ? value : invalid();
 }

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type ContextRevision, type MessagePart, type ProviderAttempt, type TurnRecord } from '@moodcode/contracts';
 import { sqliteFixtureDirectory } from './fixtures/sqlite-directory.js';
+import { findEventPayloads, readAnchoredDocument } from './native-records.js';
 
 const config = { providerId: 'scripted', modelId: 'local', mode: 'build' as const, limits: { ...DEFAULT_LIMITS } };
 const hasCode = (code: string) => (error: unknown) => error instanceof EngineError && error.code === code;
@@ -213,4 +214,45 @@ test('native execution row bytes and event copies preserve normalized records an
   assert.deepEqual(database.prepare('SELECT data FROM session_events ORDER BY seq').all(), before, 'Idempotency and rejection do not change journal bytes');
   if (part.type === 'reasoning') part.text = 'Caller mutation after commit';
   assert.notEqual(f.store.listParts(f.turn.id)[0]?.type === 'reasoning' && (f.store.listParts(f.turn.id)[0] as { text: string }).text, 'Caller mutation after commit');
+});
+
+test('anchored native readers bind document bytes to their one update event and events to their SQL rows', t => {
+  const f = fixture(t), db = f.observe(), raise = (name: string) => (): never => { throw new Error(name); };
+  const errors = { limit: raise('limit'), invalid: raise('invalid'), anchor: raise('anchor') };
+  f.store.putSessionDocument('session', 'fixture.doc', 0, { value: 'first' });
+  const second = f.store.putSessionDocument('session', 'fixture.doc', 1, { value: 'second 한국어' }), raw = JSON.stringify(second.data);
+  const read = (query: { revision?: number; maxBytes?: number; kind?: string } = {}) => readAnchoredDocument(db, { sessionId: 'session', kind: 'fixture.doc', maxBytes: 1024, ...query }, errors);
+  const events = (search: Partial<Parameters<typeof findEventPayloads>[1]> = {}) => findEventPayloads(db, { sessionId: 'session', type: 'session.document.updated', payload: { kind: 'fixture.doc' }, maxRows: 2, maxRowBytes: 8192, ...search }, errors);
+  assert.deepEqual(read(), { revision: 2, raw, data: second.data }); assert.deepEqual(read({ revision: 2 }), read());
+  assert.equal(read({ revision: 1 }), undefined); assert.equal(read({ kind: 'missing' }), undefined);
+  assert.throws(() => read({ maxBytes: Buffer.byteLength(raw) - 1 }), /limit/u);
+  assert.deepEqual(events().map(payload => payload.revision), [1, 2]);
+  assert.deepEqual(events({ contains: hash(raw) }), [{ kind: 'fixture.doc', revision: 2, sha256: hash(raw) }]);
+  assert.equal(findEventPayloads(db, { sessionId: 'session', type: 'input.accepted', refs: { inputId: f.accepted.inputId }, maxRows: 1, maxRowBytes: 65536 }, errors).length, 1);
+  assert.equal(findEventPayloads(db, { sessionId: 'session', type: 'input.accepted', refs: { inputId: 'other' }, maxRows: 1, maxRowBytes: 65536 }, errors).length, 0);
+  for (const search of [{ maxRows: 1 }, { maxRowBytes: 64 }, { maxTotalBytes: 64 }]) assert.throws(() => events(search), /limit/u);
+  assert.throws(() => events({ payload: { "kind') OR 1=1 --": 'x' } }), TypeError);
+  db.prepare("UPDATE session_documents SET data=? WHERE session_id='session' AND kind='fixture.doc'").run(raw.replace('second', 'SECOND'));
+  assert.throws(() => read(), /anchor/u);
+  db.prepare("UPDATE session_documents SET data=? WHERE session_id='session' AND kind='fixture.doc'").run(raw); assert.equal(read()!.raw, raw);
+  const anchor = Number(db.prepare("SELECT seq FROM session_events WHERE type='session.document.updated' ORDER BY seq DESC LIMIT 1").get()!.seq);
+  db.prepare('UPDATE session_events SET run_id=? WHERE session_id=? AND seq=?').run(f.run.id, 'session', anchor);
+  assert.throws(() => events(), /invalid/u); assert.throws(() => read(), /anchor/u);
+  db.prepare('UPDATE session_events SET run_id=NULL WHERE session_id=? AND seq=?').run('session', anchor); assert.equal(read()!.revision, 2);
+  db.prepare("INSERT INTO session_events(session_id,seq,event_id,schema_version,type,data) SELECT session_id,seq+1000,event_id||'-copy',schema_version,type,json_set(data,'$.seq',seq+1000,'$.eventId',event_id||'-copy') FROM session_events WHERE session_id=? AND seq=?").run('session', anchor);
+  assert.throws(() => read(), /anchor/u);
+});
+
+test('anchored native readers send event rows SQLite cannot parse to their thunks', t => {
+  const f = fixture(t), db = f.observe(), raise = (name: string) => (): never => { throw new Error(name); };
+  const errors = { limit: raise('limit'), invalid: raise('invalid'), anchor: raise('anchor') };
+  const document = f.store.putSessionDocument('session', 'fixture.doc', 0, { value: 'first' }), sha256 = hash(JSON.stringify(document.data)), broken = `{"broken ${sha256}`;
+  const read = () => readAnchoredDocument(db, { sessionId: 'session', kind: 'fixture.doc', maxBytes: 1024 }, errors);
+  const events = (maxRows: number) => findEventPayloads(db, { sessionId: 'session', type: 'session.document.updated', payload: { kind: 'fixture.doc' }, maxRows, maxRowBytes: 8192 }, errors);
+  const anchor = Number(db.prepare("SELECT seq FROM session_events WHERE type='session.document.updated'").get()!.seq), valid = String(db.prepare('SELECT data FROM session_events WHERE session_id=? AND seq=?').get('session', anchor)!.data);
+  db.prepare('UPDATE session_events SET data=? WHERE session_id=? AND seq=?').run(broken, 'session', anchor);
+  assert.throws(() => read(), /^Error: anchor$/u); assert.throws(() => events(2), /^Error: invalid$/u);
+  db.prepare('UPDATE session_events SET data=? WHERE session_id=? AND seq=?').run(valid, 'session', anchor); assert.equal(read()!.revision, 1);
+  db.prepare("INSERT INTO session_events(session_id,seq,event_id,schema_version,type,data) VALUES(?,?,?,2,'session.document.updated',?)").run('session', anchor + 1000, 'broken-anchor', broken);
+  assert.throws(() => read(), /^Error: anchor$/u); assert.throws(() => events(1), /^Error: limit$/u); assert.throws(() => events(2), /^Error: invalid$/u);
 });

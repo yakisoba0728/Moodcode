@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { canonicalKnowledge, knowledgeHash, sha256 } from '../knowledge/validation.js';
-import { canonicalJson, canonicalSha256, jsonTextSha256, sameCanonical, sealRecord, sha256Hex, verifySealed } from './canonical.js';
+import { canonicalKnowledge, immutableKnowledgeJson, knowledgeHash, sha256 } from '../knowledge/validation.js';
+import { canonicalJson, canonicalSha256, jsonTextSha256, reseal, sameCanonical, sealRecord, sha256Hex, verifySealed } from './canonical.js';
 
 const nested = { z: 1, a: [true, null, { y: 'é "\\', b: -0 }], m: { c: 0.1, b: 1e21, a: 'x' } };
 const binding = { workspaceId: 'workspace', root: '/tmp/root', rootDevice: '16777232', rootInode: '123456', storageBindingSha256: 'a'.repeat(64) };
@@ -31,4 +31,15 @@ test('sealing replaces a stale digest and verification rejects any other body', 
   assert.throws(() => verifySealed({ ...next, revision: 3 }, mismatch), /mismatch/);
   assert.throws(() => verifySealed({ id: 'record', revision: 2 }, mismatch), /mismatch/);
   assert.ok(sameCanonical({ a: 1, b: [2] }, { b: [2], a: 1 })); assert.ok(!sameCanonical({ a: 1 }, { a: '1' }));
+});
+
+test('reseal writes the same bytes as the hand-written patch-and-rehash it replaces', () => {
+  const record = sealRecord({ id: 'generation', state: 'running', revision: 1, nested: { b: 2, a: 1 } });
+  const { sha256: _old, ...body } = record, patch = { state: 'completed', revision: 2, completedAt: '2026-10-11T00:00:00.000Z' };
+  const legacy = immutableKnowledgeJson({ ...body, ...patch, sha256: knowledgeHash({ ...body, ...patch }) });
+  const next = reseal(record, patch, immutableKnowledgeJson);
+  assert.equal(JSON.stringify(next), JSON.stringify(legacy));
+  assert.equal(JSON.stringify(next), '{"id":"generation","state":"completed","revision":2,"nested":{"b":2,"a":1},"completedAt":"2026-10-11T00:00:00.000Z","sha256":"9bc5ae7f7cc9e1a5e690b9c3c1001837ba1566504e24c40279046256bbaea008"}');
+  assert.equal(verifySealed(next, () => assert.fail('a resealed record must verify')), next);
+  assert.equal(record.state, 'running');
 });

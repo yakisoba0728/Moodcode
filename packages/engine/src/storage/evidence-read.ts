@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLInputValue, SQLOutputValue } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 
@@ -26,7 +26,7 @@ function plain(value: unknown, fields: readonly string[], required: readonly str
   if (required.some(key => !Object.hasOwn(value, key))) fail('INVALID_REQUEST', 'Evidence read descriptors require their own data fields');
 }
 function identifier(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
-function address(value: EvidenceAddress): { table: EvidenceTable; parameters: string[]; where: string; projection: EvidenceProjection; expression: string; cacheKey: string } {
+function address(value: EvidenceAddress): { table: EvidenceTable; parameters: string[]; where: string; expression: string; cacheKey: string } {
   plain(value, ['table','key','projection'], ['table','key']);
   if (typeof value.table !== 'string' || !Object.hasOwn(primaryKeys, value.table)) fail('INVALID_REQUEST', 'Evidence reads require a known primary table');
   const table = value.table as EvidenceTable, projection = Object.hasOwn(value, 'projection') ? value.projection : 'data';
@@ -44,7 +44,7 @@ function address(value: EvidenceAddress): { table: EvidenceTable; parameters: st
     parameters = [value.key]; where = `${primaryKeys[table]}=?`;
   }
   const expression = projection === 'summary-metadata-v1' ? "json_remove(data,'$.partialText')" : projection === 'mcp-proposal-v1' ? "json_remove(data,'$.result')" : 'data';
-  return { table, parameters, where, projection: projection as EvidenceProjection, expression, cacheKey: JSON.stringify([table, parameters, projection]) };
+  return { table, parameters, where, expression, cacheKey: JSON.stringify([table, parameters, projection]) };
 }
 function observedEpoch(db: DatabaseSync): string {
   const row = db.prepare('SELECT CAST(total_changes() AS TEXT) AS changes,data_version FROM pragma_data_version').get();
@@ -96,21 +96,42 @@ export function readEvidenceBody(db: DatabaseSync, supplied: EvidenceAddress, su
     if (expectedBytes !== undefined && expectedBytes !== cached.bytes) fail('CHANGED', 'Cached evidence no longer matches selected metadata');
     return cached.raw;
   }
-  const metadata = expectedBytes === undefined ? db.prepare(`SELECT length(CAST(${selected.expression} AS BLOB)) AS bytes FROM ${selected.table} WHERE ${selected.where}`).get(...selected.parameters) : { bytes: expectedBytes };
-  if (!metadata) return undefined;
-  if (!Number.isSafeInteger(metadata.bytes) || Number(metadata.bytes) < 0 || Number(metadata.bytes) > maxBytes) return limit(frame);
-  const bytes = Number(metadata.bytes);
+  let bytes = expectedBytes;
+  if (bytes === undefined) {
+    const header = readBoundedHeader(db, `SELECT length(CAST(${selected.expression} AS BLOB)) AS bytes FROM ${selected.table} WHERE ${selected.where}`, selected.parameters, maxBytes, () => limit(frame));
+    if (!header) return undefined;
+    bytes = header.bytes;
+  }
   if (frame) {
     if (frame.cache.size >= EVIDENCE_READ_LIMITS.maxCachedBodies || bytes > EVIDENCE_READ_LIMITS.maxSelectedBytes - frame.bytes) return limit(frame);
     frame.bytes += bytes;
   }
-  const field = selected.projection === 'data' ? 'data' : `${selected.expression} AS data`;
-  // A host/native callback may write after its owner header was selected. Keep
-  // the byte proof in the body SQL as well, so stale sizes cannot copy a larger
-  // value into JavaScript before the caller detects the changed source.
-  const row = db.prepare(`SELECT ${field} FROM ${selected.table} WHERE ${selected.where} AND length(CAST(${selected.expression} AS BLOB))=?`).get(...selected.parameters, bytes);
+  const raw = readBoundedBody(db, { table: selected.table, where: selected.where, params: selected.parameters, expression: selected.expression }, bytes,
+    () => fail('CHANGED', 'Returned evidence disagrees with its selected byte size'));
+  if (raw !== undefined && frame) frame.cache.set(selected.cacheKey, { raw, bytes });
+  return raw;
+}
+
+/** Trusted SQL identifiers; values bind through params. */
+export interface BoundedBodySource { table: string; where: string; params: readonly SQLInputValue[]; expression?: string }
+
+/** The header's `bytes` column is the body length; an oversized body fails before any of it is copied. */
+export function readBoundedHeader(db: DatabaseSync, sql: string, params: readonly SQLInputValue[], maxBytes: number, limit: () => never): Record<string, SQLOutputValue> & { bytes: number } | undefined {
+  const row = db.prepare(sql).get(...params);
   if (!row) return undefined;
-  if (typeof row.data !== 'string' || Buffer.byteLength(row.data) !== bytes) fail('CHANGED', 'Returned evidence disagrees with its selected byte size');
-  if (frame) frame.cache.set(selected.cacheKey, { raw: row.data, bytes });
+  if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 0 || Number(row.bytes) > maxBytes) return limit();
+  return row as Record<string, SQLOutputValue> & { bytes: number };
+}
+
+/**
+ * A writer may change the row after its header was selected. The body SQL repeats
+ * the byte proof, so a stale size cannot copy a larger value into JavaScript; a
+ * row that vanished or changed size reads as undefined.
+ */
+export function readBoundedBody(db: DatabaseSync, source: BoundedBodySource, bytes: number, changed: () => never): string | undefined {
+  const expression = source.expression ?? 'data', field = expression === 'data' ? 'data' : `${expression} AS data`;
+  const row = db.prepare(`SELECT ${field} FROM ${source.table} WHERE ${source.where} AND length(CAST(${expression} AS BLOB))=?`).get(...source.params, bytes);
+  if (!row) return undefined;
+  if (typeof row.data !== 'string' || Buffer.byteLength(row.data) !== bytes) return changed();
   return row.data;
 }

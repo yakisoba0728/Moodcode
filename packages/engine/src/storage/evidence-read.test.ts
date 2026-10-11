@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { EVIDENCE_READ_LIMITS, hasEvidenceRead, invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
+import { EVIDENCE_READ_LIMITS, hasEvidenceRead, invalidateEvidenceRead, readBoundedBody, readBoundedHeader, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 
 const code = (name: string) => (error: unknown) => error instanceof EngineError && error.code === `RECOVERY_EVIDENCE_${name}`;
 function fixture(t: TestContext, path = ':memory:') {
@@ -167,4 +167,20 @@ test('a write between fresh length preflight and body SQL cannot bypass the byte
     return statement;
   }) as typeof f.db.prepare;
   f.transaction(() => { assert.equal(f.read(),undefined); assert.equal(changed,true); assert.equal(returnedBytes,0); }); f.db.prepare = prepare;
+});
+
+test('frame-free bounded reads take caller codes and keep the exact-length body proof', t => {
+  const f = fixture(t), raise = (name: string) => (): never => { throw new Error(name); };
+  const header = (maxBytes: number, id = 'message') => readBoundedHeader(f.db, 'SELECT session_id,length(CAST(data AS BLOB)) bytes FROM messages WHERE id=?', [id], maxBytes, raise('limit'));
+  const body = (bytes: number, id = 'message') => readBoundedBody(f.db, { table: 'messages', where: 'id=?', params: [id] }, bytes, raise('changed'));
+  const selected = header(1024)!, raw = '{"text":"original"}';
+  assert.deepEqual({ ...selected }, { session_id: 'session', bytes: Buffer.byteLength(raw) });
+  assert.throws(() => header(selected.bytes - 1), /limit/u); assert.equal(header(1024, 'missing'), undefined); assert.equal(f.bodies.length, 0);
+  assert.equal(body(selected.bytes), raw); assert.equal(f.bodies.at(-1), 'SELECT data FROM messages WHERE id=? AND length(CAST(data AS BLOB))=?');
+  f.db.prepare("UPDATE messages SET data=? WHERE id='message'").run('x'.repeat(EVIDENCE_READ_LIMITS.maxSelectedBytes));
+  assert.equal(body(selected.bytes), undefined);
+  f.db.prepare('INSERT INTO messages VALUES(?,?,?)').run('blob', 'session', Buffer.from(raw));
+  assert.throws(() => body(Buffer.byteLength(raw), 'blob'), /changed/u);
+  assert.equal(readBoundedBody(f.db, { table: 'summary_attempts', where: 'id=?', params: ['missing'], expression: "json_remove(data,'$.partialText')" }, 2, raise('changed')), undefined);
+  assert.equal(f.bodies.at(-1), "SELECT json_remove(data,'$.partialText') AS data FROM summary_attempts WHERE id=? AND length(CAST(json_remove(data,'$.partialText') AS BLOB))=?");
 });
