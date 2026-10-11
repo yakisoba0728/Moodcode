@@ -17,8 +17,12 @@ export const COMMAND_JOB_MODEL_TOOLS = [
   "read_command_job",
   "read_command_job_output",
 ] as const;
-export type CommandJobSourceKind =
-  "user-terminal" | "run-command" | "host-command";
+const COMMAND_JOB_SOURCE_KINDS = [
+  "user-terminal",
+  "run-command",
+  "host-command",
+] as const;
+export type CommandJobSourceKind = (typeof COMMAND_JOB_SOURCE_KINDS)[number];
 export interface CommandJobReadSelection {
   readonly alias: string;
   readonly kind: CommandJobSourceKind;
@@ -66,19 +70,17 @@ export interface CommandJobModelCursor {
   readonly byteOffset: number;
   readonly sha256: string;
 }
+interface Freeze {
+  source: CommandReadSource;
+  original: object;
+  snapshot: CommandReadSnapshot;
+  sha256: string;
+  bytes: number;
+}
 interface Grant {
   readonly input: BindCommandJobModelToolsInput;
   readonly sources: Map<string, CommandReadSource>;
-  readonly freezes: Map<
-    string,
-    {
-      source: CommandReadSource;
-      original: object;
-      snapshot: CommandReadSnapshot;
-      sha256: string;
-      bytes: number;
-    }
-  >;
+  readonly freezes: Map<string, Freeze>;
   active: boolean;
 }
 interface Invocation {
@@ -168,9 +170,7 @@ export class CommandJobModelHost {
         jobIdentifier(selection.alias);
         jobIdentifier(selection.jobId);
         if (
-          !["user-terminal", "run-command", "host-command"].includes(
-            selection.kind,
-          ) ||
+          !COMMAND_JOB_SOURCE_KINDS.includes(selection.kind) ||
           sources.has(selection.alias)
         )
           fail("COMMAND_JOB_AUDIENCE_DENIED");
@@ -236,6 +236,148 @@ export class CommandJobModelHost {
       fail("COMMAND_JOB_PROFILE_STALE");
     return knowledgeHash(actor);
   }
+  private freeze(
+    grant: Grant,
+    source: CommandReadSource,
+    alias: string,
+    cursor: unknown,
+  ): { freezeId: string; seq: number; offset: number } {
+    if (cursor !== undefined) {
+      const c = jobObject(cursor, [
+        "version",
+        "alias",
+        "freezeId",
+        "sourceSha256",
+        "snapshotSha256",
+        "eventSeq",
+        "byteOffset",
+        "sha256",
+      ]);
+      const { sha256, ...body } = c;
+      if (
+        knowledgeHash(body) !== sha256 ||
+        c.version !== 1 ||
+        c.alias !== alias ||
+        c.sourceSha256 !== source.sourceSha256 ||
+        !Number.isSafeInteger(c.eventSeq) ||
+        !Number.isSafeInteger(c.byteOffset) ||
+        Number(c.eventSeq) < 1 ||
+        Number(c.byteOffset) < 0
+      )
+        fail("COMMAND_JOB_CURSOR_INVALID");
+      const freezeId = String(c.freezeId);
+      const f = grant.freezes.get(freezeId);
+      if (!f || f.source !== source || f.sha256 !== c.snapshotSha256)
+        fail("COMMAND_JOB_CURSOR_INVALID");
+      return {
+        freezeId,
+        seq: Number(c.eventSeq),
+        offset: Number(c.byteOffset),
+      };
+    }
+    const capture = source.capture();
+    let freezeId: string = randomUUID();
+    try {
+      const snapshot = jobJson(capture.snapshot, 4194304),
+        sha256 = knowledgeHash(snapshot),
+        bytes = Buffer.byteLength(JSON.stringify(snapshot));
+      const existing = [...grant.freezes.entries()].find(
+        ([, f]) => f.source === source && f.sha256 === sha256,
+      );
+      if (existing) {
+        source.release(capture.original);
+        freezeId = existing[0];
+      } else {
+        if (
+          grant.freezes.size >= 32 ||
+          this.snapshotCount >= 64 ||
+          bytes > 16777216 - this.snapshotBytes
+        )
+          fail("COMMAND_JOB_MODEL_LIMIT");
+        grant.freezes.set(freezeId, {
+          source,
+          original: capture.original,
+          snapshot,
+          sha256,
+          bytes,
+        });
+        this.snapshotCount++;
+        this.snapshotBytes += bytes;
+      }
+    } catch (e) {
+      source.release(capture.original);
+      throw e;
+    }
+    return { freezeId, seq: 1, offset: 0 };
+  }
+  private page(f: Freeze, seq: number, offset: number, maxOutputBytes: number) {
+    if (
+      seq > f.snapshot.throughSeq + 1 ||
+      (seq === f.snapshot.throughSeq + 1 && offset !== 0)
+    )
+      fail("COMMAND_JOB_CURSOR_INVALID");
+    const gap =
+      seq < f.snapshot.oldestSeq
+        ? {
+            fromSeq: seq,
+            fromByteOffset: offset,
+            throughSeq: f.snapshot.oldestSeq - 1,
+            oldestSeq: f.snapshot.oldestSeq,
+          }
+        : null;
+    if (gap) {
+      seq = f.snapshot.oldestSeq;
+      offset = 0;
+    }
+    const fragments: JsonObject[] = [];
+    let bytes = 0,
+      encoded = 0;
+    const limit = Math.min(8192, Math.max(0, maxOutputBytes - 3072));
+    if (limit < 256) fail("COMMAND_JOB_MODEL_OUTPUT_LIMIT");
+    for (const event of f.snapshot.output) {
+      if (event.seq < seq) continue;
+      if (
+        !Number.isSafeInteger(event.seq) ||
+        event.bytes !== Buffer.byteLength(event.data)
+      )
+        fail("COMMAND_JOB_SOURCE_INVALID");
+      const raw = Buffer.from(event.data);
+      if (
+        offset > raw.length ||
+        (offset < raw.length && (raw[offset]! & 192) === 128)
+      )
+        fail("COMMAND_JOB_CURSOR_INVALID");
+      let used = 0,
+        quoted = 0;
+      for (const char of raw.subarray(offset).toString("utf8")) {
+        const count = Buffer.byteLength(char),
+          escaped = Buffer.byteLength(JSON.stringify(char)) - 2;
+        if (
+          bytes + used + count > limit ||
+          encoded + quoted + escaped > Math.min(32768, maxOutputBytes - 3072)
+        )
+          break;
+        used += count;
+        quoted += escaped;
+      }
+      if (!used) break;
+      const text = raw.subarray(offset, offset + used).toString("utf8");
+      fragments.push({
+        eventSeq: event.seq,
+        byteOffset: offset,
+        stream: event.stream,
+        data: text,
+        bytes: used,
+        rawSha256: createHash("sha256").update(raw).digest("hex"),
+      });
+      bytes += used;
+      encoded += quoted;
+      seq = offset + used === raw.length ? event.seq + 1 : event.seq;
+      offset = offset + used === raw.length ? 0 : offset + used;
+      if (seq === event.seq || fragments.length >= 64) break;
+    }
+    return { gap, fragments, bytes, seq, offset };
+  }
   prepare(
     operation: string,
     value: unknown,
@@ -245,6 +387,7 @@ export class CommandJobModelHost {
     const fields = operation === "read_command_job" ? [] : ["cursor"];
     const input = jobObject(value, ["alias"], fields, 8192);
     jobIdentifier(input.alias);
+    const alias = String(input.alias);
     const originalActor = this.owner(context, "prepare");
     const grant = this.bySession.get(originalActor.sessionId);
     if (!grant) fail("COMMAND_JOB_AUDIENCE_DENIED");
@@ -256,154 +399,25 @@ export class CommandJobModelHost {
     if (operation === "read_command_job") {
       data = {
         authority: "untrusted-command-observation",
-        alias: String(input.alias),
+        alias,
         sourceKind: source.kind,
         result: source.summary(),
       };
     } else {
       if (context.limits.maxOutputBytes < 3328)
         fail("COMMAND_JOB_MODEL_OUTPUT_LIMIT");
-      let freezeId: string,
-        seq = 1,
-        offset = 0;
-      if (input.cursor !== undefined) {
-        const c = jobObject(input.cursor, [
-          "version",
-          "alias",
-          "freezeId",
-          "sourceSha256",
-          "snapshotSha256",
-          "eventSeq",
-          "byteOffset",
-          "sha256",
-        ]);
-        const { sha256, ...body } = c;
-        if (
-          knowledgeHash(body) !== sha256 ||
-          c.version !== 1 ||
-          c.alias !== input.alias ||
-          c.sourceSha256 !== source.sourceSha256 ||
-          !Number.isSafeInteger(c.eventSeq) ||
-          !Number.isSafeInteger(c.byteOffset) ||
-          Number(c.eventSeq) < 1 ||
-          Number(c.byteOffset) < 0
-        )
-          fail("COMMAND_JOB_CURSOR_INVALID");
-        freezeId = String(c.freezeId);
-        const f = grant.freezes.get(freezeId);
-        if (!f || f.source !== source || f.sha256 !== c.snapshotSha256)
-          fail("COMMAND_JOB_CURSOR_INVALID");
-        seq = Number(c.eventSeq);
-        offset = Number(c.byteOffset);
-      } else {
-        const capture = source.capture();
-        freezeId = randomUUID();
-        try {
-          const snapshot = jobJson(capture.snapshot, 4194304),
-            sha256 = knowledgeHash(snapshot),
-            bytes = Buffer.byteLength(JSON.stringify(snapshot));
-          const existing = [...grant.freezes.entries()].find(
-            ([, f]) => f.source === source && f.sha256 === sha256,
-          );
-          if (existing) {
-            source.release(capture.original);
-            freezeId = existing[0];
-          } else {
-            if (
-              grant.freezes.size >= 32 ||
-              this.snapshotCount >= 64 ||
-              bytes > 16777216 - this.snapshotBytes
-            )
-              fail("COMMAND_JOB_MODEL_LIMIT");
-            grant.freezes.set(freezeId, {
-              source,
-              original: capture.original,
-              snapshot,
-              sha256,
-              bytes,
-            });
-            this.snapshotCount++;
-            this.snapshotBytes += bytes;
-          }
-        } catch (e) {
-          source.release(capture.original);
-          throw e;
-        }
-      }
-      const f = grant.freezes.get(freezeId)!;
-      if (
-        seq > f.snapshot.throughSeq + 1 ||
-        (seq === f.snapshot.throughSeq + 1 && offset !== 0)
-      )
-        fail("COMMAND_JOB_CURSOR_INVALID");
-      const gap =
-        seq < f.snapshot.oldestSeq
-          ? {
-              fromSeq: seq,
-              fromByteOffset: offset,
-              throughSeq: f.snapshot.oldestSeq - 1,
-              oldestSeq: f.snapshot.oldestSeq,
-            }
-          : null;
-      if (gap) {
-        seq = f.snapshot.oldestSeq;
-        offset = 0;
-      }
-      const fragments: JsonObject[] = [];
-      let bytes = 0,
-        encoded = 0;
-      const limit = Math.min(
-        8192,
-        Math.max(0, context.limits.maxOutputBytes - 3072),
-      );
-      if (limit < 256) fail("COMMAND_JOB_MODEL_OUTPUT_LIMIT");
-      for (const event of f.snapshot.output) {
-        if (event.seq < seq) continue;
-        if (
-          !Number.isSafeInteger(event.seq) ||
-          event.bytes !== Buffer.byteLength(event.data)
-        )
-          fail("COMMAND_JOB_SOURCE_INVALID");
-        const raw = Buffer.from(event.data);
-        if (
-          offset > raw.length ||
-          (offset < raw.length && (raw[offset]! & 192) === 128)
-        )
-          fail("COMMAND_JOB_CURSOR_INVALID");
-        let used = 0,
-          quoted = 0;
-        for (const char of raw.subarray(offset).toString("utf8")) {
-          const count = Buffer.byteLength(char),
-            escaped = Buffer.byteLength(JSON.stringify(char)) - 2;
-          if (
-            bytes + used + count > limit ||
-            encoded + quoted + escaped >
-              Math.min(32768, context.limits.maxOutputBytes - 3072)
-          )
-            break;
-          used += count;
-          quoted += escaped;
-        }
-        if (!used) break;
-        const text = raw.subarray(offset, offset + used).toString("utf8");
-        fragments.push({
-          eventSeq: event.seq,
-          byteOffset: offset,
-          stream: event.stream,
-          data: text,
-          bytes: used,
-          rawSha256: createHash("sha256").update(raw).digest("hex"),
-        });
-        bytes += used;
-        encoded += quoted;
-        seq = offset + used === raw.length ? event.seq + 1 : event.seq;
-        offset = offset + used === raw.length ? 0 : offset + used;
-        if (seq === event.seq || fragments.length >= 64) break;
-      }
+      const frozen = this.freeze(grant, source, alias, input.cursor),
+        f = grant.freezes.get(frozen.freezeId)!,
+        { gap, fragments, bytes, seq, offset } = this.page(
+          f,
+          frozen.seq,
+          frozen.offset,
+          context.limits.maxOutputBytes,
+        );
       const cursor = signJobData({
         version: 1 as const,
-        alias: String(input.alias),
-        freezeId,
+        alias,
+        freezeId: frozen.freezeId,
         sourceSha256: source.sourceSha256,
         snapshotSha256: f.sha256,
         eventSeq: seq,
@@ -411,7 +425,7 @@ export class CommandJobModelHost {
       });
       data = {
         authority: "untrusted-command-observation",
-        alias: String(input.alias),
+        alias,
         sourceKind: source.kind,
         sourceSha256: source.sourceSha256,
         nativeSnapshotSha256: f.snapshot.nativeSnapshotSha256,
@@ -438,7 +452,7 @@ export class CommandJobModelHost {
       fingerprint,
       requiresApproval: false,
       preview: {
-        alias: input.alias as string,
+        alias,
         sourceKind: source.kind,
         sourceSha256: source.sourceSha256,
         advisory: true,

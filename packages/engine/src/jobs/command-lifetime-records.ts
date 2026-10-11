@@ -71,6 +71,13 @@ function fail(): never {
     "Command lifetime ownership or native evidence is invalid",
   );
 }
+const BOUNDS = {
+  revision: [1, 256],
+  generation: [1, 64],
+  stdinSeq: [0, 64],
+  stdinBytes: [0, 65536],
+  transfers: [0, 16],
+} as const;
 export function validateCommandLifetimeRecord(
   value: unknown,
 ): CommandLifetimeRecord {
@@ -115,25 +122,8 @@ export function validateCommandLifetimeRecord(
   for (const k of ["rootEpoch", "hostPreviewSha256", "sha256"]) jobSha256(r[k]);
   for (const k of ["completionSha256", "previousSha256"])
     if (r[k] !== null) jobSha256(r[k]);
-  for (const k of [
-    "revision",
-    "generation",
-    "stdinSeq",
-    "stdinBytes",
-    "transfers",
-  ])
-    if (
-      !Number.isSafeInteger(r[k]) ||
-      Number(r[k]) < (k === "revision" || k === "generation" ? 1 : 0) ||
-      Number(r[k]) >
-        (k === "stdinBytes"
-          ? 65536
-          : k === "revision"
-            ? 256
-            : k === "transfers"
-              ? 16
-              : 64)
-    )
+  for (const [k, [min, max]] of Object.entries(BOUNDS))
+    if (!Number.isSafeInteger(r[k]) || Number(r[k]) < min || Number(r[k]) > max)
       fail();
   if (typeof r.stdinEof !== "boolean") fail();
   for (const k of ["createdAt", "updatedAt"])
@@ -240,6 +230,203 @@ export function readCommandLifetimes(
     return r;
   });
 }
+function assertLifetimeStep(
+  previous: CommandLifetimeRecord | undefined,
+  r: CommandLifetimeRecord,
+) {
+  if (previous) {
+    if (
+      ["settled", "paused-import"].includes(previous.state) &&
+      r.state !== previous.state &&
+      r.operation.kind !== "import"
+    )
+      fail();
+    if (
+      r.operation.kind !== "transfer" &&
+      (r.mode !== previous.mode ||
+        r.generation !== previous.generation ||
+        r.transfers !== previous.transfers)
+    )
+      fail();
+    if (
+      previous.physical === null &&
+      r.physical !== null &&
+      r.operation.kind !== "started"
+    )
+      fail();
+    if (r.operation.kind === "input-intent") {
+      if (
+        !r.operation.approved ||
+        r.stdinSeq !== previous.stdinSeq + 1 ||
+        r.stdinBytes - previous.stdinBytes > 16384 ||
+        previous.stdinEof
+      )
+        fail();
+    } else if (
+      r.stdinSeq !== previous.stdinSeq ||
+      r.stdinBytes !== previous.stdinBytes ||
+      r.stdinEof !== previous.stdinEof
+    )
+      fail();
+    if (
+      r.operation.kind === "input-ack" &&
+      (previous.operation.kind !== "input-intent" ||
+        r.operation.requestId !== previous.operation.requestId ||
+        r.operation.requestSha256 !== previous.operation.requestSha256 ||
+        !r.operation.approved)
+    )
+      fail();
+    if (
+      r.operation.kind === "transfer" &&
+      r.operation.requestSha256 !==
+        knowledgeHash({
+          fingerprint: knowledgeHash({
+            record: previous.sha256,
+            mode: r.mode,
+            physical: previous.physical,
+            epoch: previous.rootEpoch,
+          }),
+          approved: true,
+        })
+    )
+      fail();
+    for (const k of [
+      "origin",
+      "rootEpoch",
+      "hostPreviewSha256",
+      "createdAt",
+    ] as const)
+      if (knowledgeHash(r[k]) !== knowledgeHash(previous[k])) fail();
+    if (
+      r.physical &&
+      previous.physical &&
+      knowledgeHash(r.physical) !== knowledgeHash(previous.physical)
+    )
+      fail();
+    if (
+      r.stdinSeq < previous.stdinSeq ||
+      r.stdinBytes < previous.stdinBytes ||
+      (previous.stdinEof && !r.stdinEof) ||
+      r.transfers < previous.transfers ||
+      r.generation < previous.generation
+    )
+      fail();
+    if (
+      r.operation.kind === "transfer" &&
+      (r.physical === null ||
+        r.generation !== previous.generation + 1 ||
+        r.transfers !== previous.transfers + 1 ||
+        r.mode === previous.mode ||
+        !r.operation.approved)
+    )
+      fail();
+  } else if (
+    r.state !== "starting" ||
+    r.operation.kind !== "admit" ||
+    r.physical !== null ||
+    r.revision !== 1 ||
+    r.generation !== 1
+  )
+    fail();
+}
+function assertLifetimeHost(db: DatabaseSync, head: CommandLifetimeRecord) {
+  const host = readHostCommand(db, head.workspaceId, head.jobId);
+  if (host) {
+    if (
+      host.sessionId !== head.sessionId ||
+      knowledgeHash(host.preview) !== head.hostPreviewSha256 ||
+      (head.physical && host.pid !== head.physical.groupPid)
+    )
+      fail();
+    if (
+      head.state === "settled" &&
+      (!host.completion ||
+        knowledgeHash(host.completion) !== head.completionSha256 ||
+        !host.completion.outcome.cleanupConfirmed ||
+        host.completion.observationFailure)
+    )
+      fail();
+  } else if (
+    head.state !== "uncertain" &&
+    head.state !== "starting" &&
+    head.state !== "paused-import"
+  )
+    fail();
+}
+function assertLifetimeOrigin(db: DatabaseSync, head: CommandLifetimeRecord) {
+  if (!head.origin) return;
+  const o = head.origin,
+    tool = db.prepare("SELECT * FROM tools WHERE id=?").get(o.toolCallId),
+    approval = db
+      .prepare("SELECT * FROM approvals WHERE id=?")
+      .get(o.approvalId),
+    run = db.prepare("SELECT * FROM runs WHERE id=?").get(o.runId),
+    turn = db.prepare("SELECT * FROM session_turns WHERE id=?").get(o.turnId),
+    attempt = db
+      .prepare("SELECT * FROM provider_attempts WHERE id=?")
+      .get(o.attemptId);
+  if (!tool || !approval || !run || !turn || !attempt) fail();
+  const t = JSON.parse(String(tool.data)),
+    a = JSON.parse(String(approval.data)),
+    r = JSON.parse(String(run.data)),
+    v = JSON.parse(String(turn.data)),
+    p = JSON.parse(String(attempt.data));
+  if (
+    tool.run_id !== t.runId ||
+    tool.session_id !== t.sessionId ||
+    tool.state !== t.state ||
+    approval.run_id !== a.runId ||
+    approval.session_id !== a.sessionId ||
+    approval.tool_call_id !== a.toolCallId ||
+    approval.status !== a.status ||
+    run.session_id !== r.sessionId ||
+    run.workspace_id !== r.workspaceId ||
+    run.state !== r.state ||
+    turn.session_id !== v.sessionId ||
+    turn.run_id !== v.runId ||
+    turn.state !== v.state ||
+    attempt.session_id !== p.sessionId ||
+    attempt.run_id !== p.runId ||
+    attempt.turn_id !== p.turnId ||
+    attempt.state !== p.state
+  )
+    fail();
+  const parts = db
+    .prepare(
+      "SELECT data,state FROM message_parts WHERE session_id=? AND run_id=? AND turn_id=? AND json_extract(data,'$.toolCallId')=? LIMIT 2",
+    )
+    .all(head.sessionId, o.runId, o.turnId, o.toolCallId);
+  if (parts.length !== 1) fail();
+  const part = JSON.parse(String(parts[0]!.data));
+  if (
+    part.type !== "tool" ||
+    part.toolCallId !== o.toolCallId ||
+    part.sessionId !== head.sessionId ||
+    part.runId !== o.runId ||
+    part.turnId !== o.turnId ||
+    parts[0]!.state !== part.state ||
+    !["running", "completed", "failed", "interrupted"].includes(t.state)
+  )
+    fail();
+  if (
+    t.name !== "run_command_job" ||
+    t.runId !== o.runId ||
+    t.sessionId !== head.sessionId ||
+    knowledgeHash(t.input) !== o.inputSha256 ||
+    a.status !== "allowed" ||
+    a.toolCallId !== t.id ||
+    a.runId !== r.id ||
+    a.sessionId !== head.sessionId ||
+    a.fingerprint !== o.approvalFingerprint ||
+    a.toolName !== t.name ||
+    r.workspaceId !== head.workspaceId ||
+    r.sessionId !== head.sessionId ||
+    knowledgeHash(r.config) !== o.configSha256 ||
+    v.runId !== r.id ||
+    p.turnId !== v.id
+  )
+    fail();
+}
 export function validateCommandLifetimeDatabase(
   db: DatabaseSync,
   check: () => void = () => {},
@@ -283,201 +470,12 @@ export function validateCommandLifetimeDatabase(
         event.type !== "command.lifetime.revision"
       )
         fail();
-      if (previous) {
-        if (
-          ["settled", "paused-import"].includes(previous.state) &&
-          r.state !== previous.state &&
-          r.operation.kind !== "import"
-        )
-          fail();
-        if (
-          (r.mode !== previous.mode && r.operation.kind !== "transfer") ||
-          (r.generation !== previous.generation &&
-            r.operation.kind !== "transfer") ||
-          (r.transfers !== previous.transfers &&
-            r.operation.kind !== "transfer")
-        )
-          fail();
-        if (
-          previous.physical === null &&
-          r.physical !== null &&
-          r.operation.kind !== "started"
-        )
-          fail();
-        if (r.operation.kind === "input-intent") {
-          if (
-            !r.operation.approved ||
-            r.stdinSeq !== previous.stdinSeq + 1 ||
-            r.stdinBytes - previous.stdinBytes > 16384 ||
-            previous.stdinEof
-          )
-            fail();
-        } else if (
-          r.stdinSeq !== previous.stdinSeq ||
-          r.stdinBytes !== previous.stdinBytes ||
-          r.stdinEof !== previous.stdinEof
-        )
-          fail();
-        if (
-          r.operation.kind === "input-ack" &&
-          (previous.operation.kind !== "input-intent" ||
-            r.operation.requestId !== previous.operation.requestId ||
-            r.operation.requestSha256 !== previous.operation.requestSha256 ||
-            !r.operation.approved)
-        )
-          fail();
-        if (
-          r.operation.kind === "transfer" &&
-          r.operation.requestSha256 !==
-            knowledgeHash({
-              fingerprint: knowledgeHash({
-                record: previous.sha256,
-                mode: r.mode,
-                physical: previous.physical,
-                epoch: previous.rootEpoch,
-              }),
-              approved: true,
-            })
-        )
-          fail();
-        for (const k of [
-          "origin",
-          "rootEpoch",
-          "hostPreviewSha256",
-          "createdAt",
-        ] as const)
-          if (knowledgeHash(r[k]) !== knowledgeHash(previous[k])) fail();
-        if (
-          r.physical &&
-          previous.physical &&
-          knowledgeHash(r.physical) !== knowledgeHash(previous.physical)
-        )
-          fail();
-        if (
-          r.stdinSeq < previous.stdinSeq ||
-          r.stdinBytes < previous.stdinBytes ||
-          (previous.stdinEof && !r.stdinEof) ||
-          r.transfers < previous.transfers ||
-          r.generation < previous.generation
-        )
-          fail();
-        if (
-          r.operation.kind === "transfer" &&
-          (r.physical === null ||
-            r.generation !== previous.generation + 1 ||
-            r.transfers !== previous.transfers + 1 ||
-            r.mode === previous.mode ||
-            !r.operation.approved)
-        )
-          fail();
-      } else if (
-        r.state !== "starting" ||
-        r.operation.kind !== "admit" ||
-        r.physical !== null ||
-        r.revision !== 1 ||
-        r.generation !== 1
-      )
-        fail();
+      assertLifetimeStep(previous, r);
       previous = r;
     }
     if (previous?.sha256 !== head.sha256) fail();
-    const host = readHostCommand(db, head.workspaceId, head.jobId);
-    if (host) {
-      if (
-        host.sessionId !== head.sessionId ||
-        knowledgeHash(host.preview) !== head.hostPreviewSha256 ||
-        (head.physical && host.pid !== head.physical.groupPid)
-      )
-        fail();
-      if (
-        head.state === "settled" &&
-        (!host.completion ||
-          knowledgeHash(host.completion) !== head.completionSha256 ||
-          !host.completion.outcome.cleanupConfirmed ||
-          host.completion.observationFailure)
-      )
-        fail();
-    } else if (
-      head.state !== "uncertain" &&
-      head.state !== "starting" &&
-      head.state !== "paused-import"
-    )
-      fail();
-    if (head.origin) {
-      const o = head.origin,
-        tool = db.prepare("SELECT * FROM tools WHERE id=?").get(o.toolCallId),
-        approval = db
-          .prepare("SELECT * FROM approvals WHERE id=?")
-          .get(o.approvalId),
-        run = db.prepare("SELECT * FROM runs WHERE id=?").get(o.runId),
-        turn = db
-          .prepare("SELECT * FROM session_turns WHERE id=?")
-          .get(o.turnId),
-        attempt = db
-          .prepare("SELECT * FROM provider_attempts WHERE id=?")
-          .get(o.attemptId);
-      if (!tool || !approval || !run || !turn || !attempt) fail();
-      const t = JSON.parse(String(tool.data)),
-        a = JSON.parse(String(approval.data)),
-        r = JSON.parse(String(run.data)),
-        v = JSON.parse(String(turn.data)),
-        p = JSON.parse(String(attempt.data));
-      if (
-        tool.run_id !== t.runId ||
-        tool.session_id !== t.sessionId ||
-        tool.state !== t.state ||
-        approval.run_id !== a.runId ||
-        approval.session_id !== a.sessionId ||
-        approval.tool_call_id !== a.toolCallId ||
-        approval.status !== a.status ||
-        run.session_id !== r.sessionId ||
-        run.workspace_id !== r.workspaceId ||
-        run.state !== r.state ||
-        turn.session_id !== v.sessionId ||
-        turn.run_id !== v.runId ||
-        turn.state !== v.state ||
-        attempt.session_id !== p.sessionId ||
-        attempt.run_id !== p.runId ||
-        attempt.turn_id !== p.turnId ||
-        attempt.state !== p.state
-      )
-        fail();
-      const parts = db
-        .prepare(
-          "SELECT data,state FROM message_parts WHERE session_id=? AND run_id=? AND turn_id=? AND json_extract(data,'$.toolCallId')=? LIMIT 2",
-        )
-        .all(head.sessionId, o.runId, o.turnId, o.toolCallId);
-      if (parts.length !== 1) fail();
-      const part = JSON.parse(String(parts[0]!.data));
-      if (
-        part.type !== "tool" ||
-        part.toolCallId !== o.toolCallId ||
-        part.sessionId !== head.sessionId ||
-        part.runId !== o.runId ||
-        part.turnId !== o.turnId ||
-        parts[0]!.state !== part.state ||
-        !["running", "completed", "failed", "interrupted"].includes(t.state)
-      )
-        fail();
-      if (
-        t.name !== "run_command_job" ||
-        t.runId !== o.runId ||
-        t.sessionId !== head.sessionId ||
-        knowledgeHash(t.input) !== o.inputSha256 ||
-        a.status !== "allowed" ||
-        a.toolCallId !== t.id ||
-        a.runId !== r.id ||
-        a.sessionId !== head.sessionId ||
-        a.fingerprint !== o.approvalFingerprint ||
-        a.toolName !== t.name ||
-        r.workspaceId !== head.workspaceId ||
-        r.sessionId !== head.sessionId ||
-        knowledgeHash(r.config) !== o.configSha256 ||
-        v.runId !== r.id ||
-        p.turnId !== v.id
-      )
-        fail();
-    }
+    assertLifetimeHost(db, head);
+    assertLifetimeOrigin(db, head);
   }
 }
 export function pauseCommandLifetimes(
