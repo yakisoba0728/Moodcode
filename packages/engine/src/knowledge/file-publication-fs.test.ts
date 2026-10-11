@@ -473,6 +473,32 @@ test("actual parent symlink swap across awaited intent yields no target effect a
   verifyExecutionIdle(f.lockPath);
 });
 
+test("capture rejects a root replaced by a symlink after its closing root check", async (t) => {
+  const f = fixture(t);
+  mkdirSync(join(f.root, "memory"));
+  writeFileSync(join(f.root, "memory", "MEMORY.md"), "Original.");
+  let bindingReads = 0;
+  const host = new FileKnowledgePublicationHost({
+    checkBinding: () => {
+      // The fourth read ends the closing root check; the parent recheck runs next.
+      if (++bindingReads === 4) {
+        renameSync(f.root, join(f.base, "moved-root"));
+        symlinkSync(join(f.base, "moved-root"), f.root);
+      }
+      return f.binding;
+    },
+    readTargetRevision: () => 0,
+    acquireExecutionGuard: () => acquireExecutionLock(f.lockPath),
+  });
+  await assert.rejects(
+    host.captureTarget(f.binding, "memory/MEMORY.md"),
+    (error: unknown) =>
+      code("KNOWLEDGE_FILE_STALE")(error) &&
+      (error as Error).message === "Parent changed during capture",
+  );
+  assert.equal(bindingReads, 4);
+});
+
 test("root moved after intent await yields no file effect, and pre-abort/deadline never acquires execution guard", async (t) => {
   const f = fixture(t),
     prepared = await f.host.captureTarget(f.binding, "MEMORY.md");

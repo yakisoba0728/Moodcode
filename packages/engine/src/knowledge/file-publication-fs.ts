@@ -116,6 +116,94 @@ function stable(a: BigIntStats, b: BigIntStats): boolean {
 function absent(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
+function plainDirectory(value: BigIntStats): boolean {
+  return value.isDirectory() && !value.isSymbolicLink();
+}
+function originalRoot(
+  value: BigIntStats,
+  binding: KnowledgeHostBinding,
+): boolean {
+  return (
+    plainDirectory(value) &&
+    value.dev.toString() === binding.rootDevice &&
+    value.ino.toString() === binding.rootInode
+  );
+}
+function observableFile(value: BigIntStats): boolean {
+  return (
+    value.isFile() &&
+    !value.isSymbolicLink() &&
+    value.nlink === 1n &&
+    value.size <= BigInt(MAX_BODY)
+  );
+}
+function physicalPin(selected: string, value: BigIntStats): FileParentPin {
+  return Object.freeze({ path: selected, ...metadata(value) });
+}
+/** Every parent directory of `relative` below the root, outermost first. */
+function parentPrefixes(relative: string): string[] {
+  const components = relative.split("/");
+  if (components.length > 64)
+    fail(
+      "KNOWLEDGE_FILE_LIMIT",
+      "File parent observations are bounded to 64 components",
+    );
+  return components
+    .slice(1)
+    .map((_, index) => components.slice(0, index + 1).join("/"));
+}
+function absentObservation(
+  binding: KnowledgeHostBinding,
+  relative: string,
+  parentPins: readonly FileParentPin[],
+  missingParents: readonly string[],
+): FilePhysicalObservation {
+  return {
+    binding,
+    path: relative,
+    present: false,
+    sha256: null,
+    bytes: 0,
+    device: null,
+    inode: null,
+    mode: null,
+    mtimeNs: null,
+    ctimeNs: null,
+    parentPins,
+    missingParents,
+  };
+}
+/** Accepts one bounded descriptor read only if the file stayed put and holds plain UTF-8. */
+function observedBody(
+  empty: FilePhysicalObservation,
+  raw: Buffer,
+  before: BigIntStats,
+  after: BigIntStats,
+  current: BigIntStats,
+  messages: { readonly changed: string; readonly text: string },
+): { observation: FilePhysicalObservation; body: string } {
+  if (
+    raw.length > MAX_BODY ||
+    BigInt(raw.length) !== after.size ||
+    !stable(before, after) ||
+    !stable(after, current) ||
+    current.isSymbolicLink()
+  )
+    fail("KNOWLEDGE_FILE_STALE", messages.changed);
+  const body = raw.toString("utf8");
+  if (!Buffer.from(body).equals(raw) || body.includes("\0"))
+    fail("KNOWLEDGE_FILE_UNSAFE", messages.text);
+  return {
+    body,
+    observation: {
+      ...empty,
+      present: true,
+      sha256: sha256(body),
+      bytes: raw.length,
+      ...metadata(after),
+    },
+  };
+}
 function ordinary(
   value: unknown,
   required: readonly string[],
@@ -179,10 +267,7 @@ export class FileKnowledgePublicationHost {
     this.current(binding);
     const value = await lstat(binding.root, { bigint: true });
     if (
-      !value.isDirectory() ||
-      value.isSymbolicLink() ||
-      value.dev.toString() !== binding.rootDevice ||
-      value.ino.toString() !== binding.rootInode ||
+      !originalRoot(value, binding) ||
       (await realpath(binding.root)) !== binding.root
     )
       fail(
@@ -190,7 +275,7 @@ export class FileKnowledgePublicationHost {
         "File publication requires the original canonical physical root",
       );
     this.current(binding);
-    return Object.freeze({ path: ".", ...metadata(value) });
+    return physicalPin(".", value);
   }
   private revision(binding: KnowledgeHostBinding, relative: string): number {
     const value = this.#ports.readTargetRevision(binding, relative);
@@ -201,7 +286,7 @@ export class FileKnowledgePublicationHost {
       );
     return value;
   }
-  /** Raw physical read for the existing synchronous host target API. Never calls readTargetRevision. */
+  /** Synchronous observation for in-transaction currentness checks; never calls readTargetRevision. */
   observeTargetSync(
     inputBinding: KnowledgeHostBinding,
     inputPath: string,
@@ -212,66 +297,42 @@ export class FileKnowledgePublicationHost {
     const physicalRoot = () => {
       const value = lstatSync(binding.root, { bigint: true });
       if (
-        !value.isDirectory() ||
-        value.isSymbolicLink() ||
-        value.dev.toString() !== binding.rootDevice ||
-        value.ino.toString() !== binding.rootInode ||
+        !originalRoot(value, binding) ||
         realpathSync(binding.root) !== binding.root
       )
         fail("KNOWLEDGE_BINDING_MISMATCH", "Physical file root changed");
-      return { path: ".", ...metadata(value) };
+      return physicalPin(".", value);
     };
     const root = physicalRoot(),
       parentPins: FileParentPin[] = [root],
-      missingParents: string[] = [],
-      components = relative.split("/");
-    let missing = false;
-    if (components.length > 64)
-      fail(
-        "KNOWLEDGE_FILE_LIMIT",
-        "File parent observations are bounded to 64 components",
-      );
-    for (let index = 1; index < components.length; index++) {
-      const selected = components.slice(0, index).join("/"),
-        absolute = path.join(binding.root, selected);
-      if (missing) {
+      missingParents: string[] = [];
+    for (const selected of parentPrefixes(relative)) {
+      if (missingParents.length) {
         missingParents.push(selected);
         continue;
       }
+      const absolute = path.join(binding.root, selected);
       try {
         const value = lstatSync(absolute, { bigint: true });
-        if (
-          !value.isDirectory() ||
-          value.isSymbolicLink() ||
-          realpathSync(absolute) !== absolute
-        )
+        if (!plainDirectory(value) || realpathSync(absolute) !== absolute)
           fail(
             "KNOWLEDGE_FILE_UNSAFE",
             "File parent must be an ordinary canonical directory",
           );
-        parentPins.push({ path: selected, ...metadata(value) });
+        parentPins.push(physicalPin(selected, value));
       } catch (error) {
         if (!absent(error)) throw error;
-        missing = true;
         missingParents.push(selected);
       }
     }
-    const empty: FilePhysicalObservation = {
+    const empty = absentObservation(
       binding,
-      path: relative,
-      present: false,
-      sha256: null,
-      bytes: 0,
-      device: null,
-      inode: null,
-      mode: null,
-      mtimeNs: null,
-      ctimeNs: null,
+      relative,
       parentPins,
       missingParents,
-    };
+    );
     let observation = empty;
-    if (!missing) {
+    if (!missingParents.length) {
       const absolute = path.join(binding.root, relative);
       let initial: BigIntStats | undefined;
       try {
@@ -280,13 +341,7 @@ export class FileKnowledgePublicationHost {
         if (!absent(error)) throw error;
       }
       if (initial) {
-        if (
-          !initial.isFile() ||
-          initial.isSymbolicLink() ||
-          initial.nlink !== 1n ||
-          initial.size > BigInt(MAX_BODY) ||
-          realpathSync(absolute) !== absolute
-        )
+        if (!observableFile(initial) || realpathSync(absolute) !== absolute)
           fail(
             "KNOWLEDGE_FILE_UNSAFE",
             "File must be bounded ordinary single-link text",
@@ -316,32 +371,18 @@ export class FileKnowledgePublicationHost {
             if (!count) break;
           }
           const after = fstatSync(descriptor, { bigint: true }),
-            current = lstatSync(absolute, { bigint: true }),
-            raw = buffer.subarray(0, bytes),
-            body = raw.toString("utf8");
-          if (
-            bytes > MAX_BODY ||
-            BigInt(bytes) !== after.size ||
-            !stable(before, after) ||
-            !stable(after, current) ||
-            current.isSymbolicLink()
-          )
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "File changed during physical observation",
-            );
-          if (!Buffer.from(body).equals(raw) || body.includes("\0"))
-            fail(
-              "KNOWLEDGE_FILE_UNSAFE",
-              "File must contain complete plain UTF-8 text",
-            );
-          observation = {
-            ...empty,
-            present: true,
-            sha256: sha256(body),
-            bytes,
-            ...metadata(after),
-          };
+            current = lstatSync(absolute, { bigint: true });
+          observation = observedBody(
+            empty,
+            buffer.subarray(0, bytes),
+            before,
+            after,
+            current,
+            {
+              changed: "File changed during physical observation",
+              text: "File must contain complete plain UTF-8 text",
+            },
+          ).observation;
         } finally {
           closeSync(descriptor);
         }
@@ -354,10 +395,9 @@ export class FileKnowledgePublicationHost {
       const absolute = path.join(binding.root, pin.path),
         value = lstatSync(absolute, { bigint: true });
       if (
-        !value.isDirectory() ||
-        value.isSymbolicLink() ||
+        !plainDirectory(value) ||
         realpathSync(absolute) !== absolute ||
-        !same(pin, { path: pin.path, ...metadata(value) })
+        !same(pin, physicalPin(pin.path, value))
       )
         fail(
           "KNOWLEDGE_FILE_STALE",
@@ -378,56 +418,35 @@ export class FileKnowledgePublicationHost {
     const root = await this.root(binding),
       parentPins: FileParentPin[] = [root],
       missingParents: string[] = [];
-    const components = relative.split("/");
-    let missing = false;
-    if (components.length > 64)
-      fail(
-        "KNOWLEDGE_FILE_LIMIT",
-        "File parent observations are bounded to 64 components",
-      );
-    for (let index = 1; index < components.length; index++) {
+    for (const selected of parentPrefixes(relative)) {
       check(signal);
-      const selected = components.slice(0, index).join("/"),
-        absolute = path.join(binding.root, selected);
-      if (missing) {
+      if (missingParents.length) {
         missingParents.push(selected);
         continue;
       }
+      const absolute = path.join(binding.root, selected);
       try {
         const value = await lstat(absolute, { bigint: true });
-        if (
-          !value.isDirectory() ||
-          value.isSymbolicLink() ||
-          (await realpath(absolute)) !== absolute
-        )
+        if (!plainDirectory(value) || (await realpath(absolute)) !== absolute)
           fail(
             "KNOWLEDGE_FILE_UNSAFE",
             "File publication parent must be an ordinary canonical directory",
           );
-        parentPins.push(Object.freeze({ path: selected, ...metadata(value) }));
+        parentPins.push(physicalPin(selected, value));
       } catch (error) {
         if (!absent(error)) throw error;
-        missing = true;
         missingParents.push(selected);
       }
     }
-    const empty = {
+    const empty = absentObservation(
       binding,
-      path: relative,
-      present: false,
-      sha256: null,
-      bytes: 0,
-      device: null,
-      inode: null,
-      mode: null,
-      mtimeNs: null,
-      ctimeNs: null,
+      relative,
       parentPins,
       missingParents,
-    };
+    );
     let beforeContent: string | null = null,
-      observation: FilePhysicalObservation = empty;
-    if (!missing) {
+      observation = empty;
+    if (!missingParents.length) {
       const absolute = path.join(binding.root, relative);
       let initial: BigIntStats | undefined;
       try {
@@ -436,13 +455,7 @@ export class FileKnowledgePublicationHost {
         if (!absent(error)) throw error;
       }
       if (initial) {
-        if (
-          !initial.isFile() ||
-          initial.isSymbolicLink() ||
-          initial.nlink !== 1n ||
-          initial.size > BigInt(MAX_BODY) ||
-          (await realpath(absolute)) !== absolute
-        )
+        if (!observableFile(initial) || (await realpath(absolute)) !== absolute)
           fail(
             "KNOWLEDGE_FILE_UNSAFE",
             "File publication requires a bounded ordinary file with one link",
@@ -473,32 +486,19 @@ export class FileKnowledgePublicationHost {
           }
           const after = await handle.stat({ bigint: true }),
             current = await lstat(absolute, { bigint: true });
-          if (
-            bytes > MAX_BODY ||
-            BigInt(bytes) !== after.size ||
-            !stable(before, after) ||
-            !stable(after, current) ||
-            current.isSymbolicLink()
-          )
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "File changed during bounded descriptor observation",
-            );
-          const raw = buffer.subarray(0, bytes),
-            body = raw.toString("utf8");
-          if (!Buffer.from(body).equals(raw) || body.includes("\0"))
-            fail(
-              "KNOWLEDGE_FILE_UNSAFE",
-              "File publication requires complete plain UTF-8 text",
-            );
-          beforeContent = body;
-          observation = {
-            ...empty,
-            present: true,
-            sha256: sha256(body),
-            bytes,
-            ...metadata(after),
-          };
+          const observed = observedBody(
+            empty,
+            buffer.subarray(0, bytes),
+            before,
+            after,
+            current,
+            {
+              changed: "File changed during bounded descriptor observation",
+              text: "File publication requires complete plain UTF-8 text",
+            },
+          );
+          beforeContent = observed.body;
+          observation = observed.observation;
         } finally {
           await handle.close();
         }
@@ -509,13 +509,12 @@ export class FileKnowledgePublicationHost {
     if (!same(root, endRoot))
       fail("KNOWLEDGE_FILE_STALE", "Root changed during capture");
     for (const pin of parentPins.slice(1)) {
-      const value = await lstat(path.join(binding.root, pin.path), {
-        bigint: true,
-      });
+      const absolute = path.join(binding.root, pin.path),
+        value = await lstat(absolute, { bigint: true });
       if (
-        !value.isDirectory() ||
-        value.isSymbolicLink() ||
-        !same(pin, { path: pin.path, ...metadata(value) })
+        !plainDirectory(value) ||
+        (await realpath(absolute)) !== absolute ||
+        !same(pin, physicalPin(pin.path, value))
       )
         fail("KNOWLEDGE_FILE_STALE", "Parent changed during capture");
     }
@@ -699,12 +698,8 @@ export class FileKnowledgePublicationHost {
       errorCode: string | undefined,
       temp: string | undefined,
       tempIdentity: { device: string; inode: string } | undefined;
-    const parent = (selected: string) => {
-      const value = path.posix.dirname(selected);
-      return value === "." ? "." : value;
-    };
-    const absolute = (selected: string) =>
-      selected === "." ? binding.root : path.join(binding.root, selected);
+    const parent = (selected: string) => path.posix.dirname(selected);
+    const absolute = (selected: string) => path.join(binding.root, selected);
     const alive = () => {
       this.owned(capture);
       check(state.signal, data.deadline);
@@ -714,16 +709,12 @@ export class FileKnowledgePublicationHost {
     const directoryPin = async (selected: string): Promise<FileParentPin> => {
       const target = absolute(selected),
         value = await lstat(target, { bigint: true });
-      if (
-        !value.isDirectory() ||
-        value.isSymbolicLink() ||
-        (await realpath(target)) !== target
-      )
+      if (!plainDirectory(value) || (await realpath(target)) !== target)
         fail(
           "KNOWLEDGE_FILE_UNSAFE",
           "File effect parent ceased to be an ordinary directory",
         );
-      return { path: selected, ...metadata(value) };
+      return physicalPin(selected, value);
     };
     const refresh = async (selected: string) => {
       this.current(binding);

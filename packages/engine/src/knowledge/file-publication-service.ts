@@ -264,7 +264,22 @@ export class KnowledgeFilePublicationService {
     pending.finally(() => this.#pending.delete(pending)).catch(() => {});
     return pending;
   }
-  private metadata(preview: KnowledgeFilePublicationPreview): void {
+  private serviceSignal(extra?: AbortSignal): AbortSignal {
+    return AbortSignal.any(
+      [this.#abort.signal, this.#ports.signal, extra].filter(
+        (value): value is AbortSignal => !!value,
+      ),
+    );
+  }
+  private result(
+    committed: KnowledgeFilePublicationCommitResult,
+    duplicate: boolean,
+  ): WorkspaceKnowledgeFilePublicationResult {
+    return Object.freeze({ ...committed, duplicate });
+  }
+  private assertApprovalCurrent(
+    preview: KnowledgeFilePublicationPreview,
+  ): void {
     sync(this.#ports.assertUnpaused(preview.workspaceId));
     if (
       !same(
@@ -344,10 +359,7 @@ export class KnowledgeFilePublicationService {
         "KNOWLEDGE_FILE_TARGET_UNSUPPORTED",
         "File publication requires an original workspace-file candidate",
       );
-    const originalSignal = AbortSignal.any([
-      this.#abort.signal,
-      ...(this.#ports.signal ? [this.#ports.signal] : []),
-    ]);
+    const originalSignal = this.serviceSignal();
     abort(originalSignal);
     const physical = await this.#ports.host.captureTarget(
       candidate.binding,
@@ -460,9 +472,9 @@ export class KnowledgeFilePublicationService {
         { ...base, sha256: knowledgeHash(base) },
         MAX_PREVIEW_BYTES,
       );
-      this.metadata(preview);
+      this.assertApprovalCurrent(preview);
       await this.#ports.host.assertFresh(physical.capture, originalSignal);
-      this.metadata(preview);
+      this.assertApprovalCurrent(preview);
       abort(originalSignal);
       if (this.#active.size >= MAX_PREVIEWS)
         fail(
@@ -553,7 +565,7 @@ export class KnowledgeFilePublicationService {
     this.#active.delete(preview);
     this.#previews.delete(preview);
   }
-  /** Called synchronously by the actual native transaction; no arbitrary record acquires permission. */
+  /** Synchronous currentness gate. Runs inside the native dispatch/complete transaction (storage port) and, for dispatch, also immediately before it in beforeEffect. */
   assertCommitCurrent(
     record: KnowledgeFilePublicationRecord,
     phase: "dispatch" | "complete",
@@ -575,7 +587,7 @@ export class KnowledgeFilePublicationService {
         "KNOWLEDGE_FILE_PREVIEW_INVALID",
         "Native file owner has no original approved capture",
       );
-    this.metadata(owner.state.preview);
+    this.assertApprovalCurrent(owner.state.preview);
     if (phase === "dispatch") {
       abort(owner.signal);
       if (this.now() >= owner.request.deadline)
@@ -692,21 +704,17 @@ export class KnowledgeFilePublicationService {
           "KNOWLEDGE_FILE_NOT_COMPLETED",
           "An earlier file intent cannot be automatically retried",
         );
-      return Object.freeze({
-        ...this.#ports.native.getCommitted(workspaceId, prior.id),
-        duplicate: true,
-      });
+      return this.result(
+        this.#ports.native.getCommitted(workspaceId, prior.id),
+        true,
+      );
     }
     if (state.used)
       fail(
         "KNOWLEDGE_FILE_PREVIEW_USED",
         "Original file preview was already consumed",
       );
-    const combined = AbortSignal.any([
-      this.#abort.signal,
-      ...(this.#ports.signal ? [this.#ports.signal] : []),
-      ...(input.signal ? [input.signal] : []),
-    ]);
+    const combined = this.serviceSignal(input.signal);
     abort(combined);
     if (this.#reserved >= MAX_OPERATIONS)
       fail(
@@ -740,12 +748,12 @@ export class KnowledgeFilePublicationService {
           leaseSignal,
         ]);
         abort(executionSignal);
-        this.metadata(state.preview);
+        this.assertApprovalCurrent(state.preview);
         await this.#ports.host.assertFresh(
           state.physical.capture,
           executionSignal,
         );
-        this.metadata(state.preview);
+        this.assertApprovalCurrent(state.preview);
         abort(executionSignal);
         if (this.now() >= request.deadline)
           fail(
@@ -759,10 +767,10 @@ export class KnowledgeFilePublicationService {
               "KNOWLEDGE_FILE_NOT_COMPLETED",
               "Concurrent original file intent is not a receipt",
             );
-          return Object.freeze({
-            ...this.#ports.native.getCommitted(workspaceId, prepared.record.id),
-            duplicate: true,
-          });
+          return this.result(
+            this.#ports.native.getCommitted(workspaceId, prepared.record.id),
+            true,
+          );
         }
         capture = prepared.capture;
         owner = { state, request, signal: executionSignal, dispatched: false };
@@ -802,16 +810,16 @@ export class KnowledgeFilePublicationService {
           checkpoint: outcome.checkpoint,
           cleanup: { confirmed: true, reason: null },
         });
-        return Object.freeze({ ...completed, duplicate: false });
+        return this.result(completed, false);
       });
     } catch (error) {
-      if (completed) return Object.freeze({ ...completed, duplicate: false });
+      if (completed) return this.result(completed, false);
       const prior = this.#ports.native.findRequest(request);
       if (prior?.state === "completed")
-        return Object.freeze({
-          ...this.#ports.native.getCommitted(workspaceId, prior.id),
-          duplicate: true,
-        });
+        return this.result(
+          this.#ports.native.getCommitted(workspaceId, prior.id),
+          true,
+        );
       if (
         capture &&
         prior &&
