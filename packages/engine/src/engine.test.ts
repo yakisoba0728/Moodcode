@@ -4,7 +4,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { InputReceipt, RunReceipt } from '@moodcode/contracts';
-import { createEngine, type EngineOptions } from './engine.js';
+import { createEngine, RUN_PARTICIPANT_ORDER, type EngineOptions } from './engine.js';
 import { acquireExecutionLock } from './tools/command/execution-lock.js';
 import { createCommandEnvironment } from './tools/command/process-control.js';
 
@@ -13,6 +13,18 @@ async function fixture(options: Omit<EngineOptions, 'dbPath'> = {}) {
   const engine = createEngine({ dbPath: join(root, 'state.sqlite'), tools: [], ...options });
   return { engine, dbPath: join(root, 'state.sqlite'), async cleanup() { await engine.close(); await rm(root, { recursive: true, force: true }); } };
 }
+
+test('run participants keep the promotion and provider dispatch fence orders that decide which error surfaces first', async () => {
+  assert.deepEqual(RUN_PARTICIPANT_ORDER, {
+    promotion: ['schedule', 'job', 'ownedCommand', 'prFeedback', 'hostCommandDelivery', 'conversationFork', 'workflow'],
+    dispatch: ['resident', 'sandbox', 'prFeedback', 'hostCommandDelivery', 'codingBatch', 'schedule', 'job', 'ownedCommand', 'conversationFork', 'workflow', 'commandLifetime', 'codeMode'],
+  });
+  const f = await fixture();
+  try {
+    assert.equal((Reflect.get(f.engine.coordinator, 'participants') as unknown[]).length, RUN_PARTICIPANT_ORDER.dispatch.length + 1);
+    assert.equal((Reflect.get(Reflect.get(f.engine.scheduler, 'options'), 'participants') as unknown[]).length, RUN_PARTICIPANT_ORDER.promotion.length);
+  } finally { await f.cleanup(); }
+});
 
 test('capabilities describe local adapters and configured defaults without invoking a provider', async () => {
   let calls = 0;

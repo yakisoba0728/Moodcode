@@ -1,6 +1,6 @@
 import { EngineError, isTerminal, type AcceptInput, type InputReceipt, type InputRecord, type SessionControl, type SubmitInput, type RunReceipt } from '@moodcode/contracts';
 import { normalizeAcceptInput, normalizeEngineBudgets } from '@moodcode/contracts/validation';
-import type { SessionEngineStore } from '../ports.js';
+import type { RunParticipant, SessionEngineStore } from '../ports.js';
 import type { RunCoordinator } from './index.js';
 import { AMBIGUOUS_DISPATCH_ERRORS } from './turn-executor.js';
 
@@ -10,6 +10,8 @@ export interface InputSchedulerOptions {
   coordinator: RunCoordinator;
   /** Synchronous host pin check immediately before a durable input becomes a Run. */
   beforePromotion?(input: InputRecord): void;
+  /** Ordered; each promotion fence runs after beforePromotion. */
+  participants?: readonly RunParticipant[];
 }
 
 /** One owner per session; workspace tickets wait in order and independent workspaces run concurrently. */
@@ -114,7 +116,7 @@ export class InputScheduler {
         const [input] = this.options.store.pendingInputs(sessionId, undefined, 1);
         if (!input) { this.finish(flight); continue; }
         this.options.coordinator.assertWorkspaceAvailable(flight.workspaceId);
-        this.options.beforePromotion?.(input);
+        this.beforePromotion(input);
         const promoted = this.options.store.promoteInput(input.id);
         this.run(flight, this.options.coordinator.startPromoted(promoted.run.id));
       } catch (error) {
@@ -125,6 +127,10 @@ export class InputScheduler {
         }
       }
     }
+  }
+  private beforePromotion(input: InputRecord): void {
+    this.options.beforePromotion?.(input);
+    for (const participant of this.options.participants ?? []) participant.beforePromotion?.(input);
   }
   private enqueue(flight: Flight): void { if (!flight.queued && !this.closing) { flight.queued = true; this.ready.push(flight.sessionId); } }
   private run(flight: Flight, done: Promise<import('@moodcode/contracts').Run>): void {
@@ -150,7 +156,7 @@ export class InputScheduler {
     const inputIds: string[] = [];
     for (const input of pending) {
       if (JSON.stringify(input.config) !== JSON.stringify(run.config)) break;
-      this.options.beforePromotion?.(input);
+      this.beforePromotion(input);
       inputIds.push(input.id);
     }
     if (!inputIds.length) return false;

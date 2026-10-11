@@ -125,6 +125,12 @@ export interface RunUsage { turns: number; toolCalls: number; outputBytes: numbe
 export type ContextBuilder = (request: ContextRequest) => Promise<ProviderMessage[]>;
 export interface LifecycleContinuationRequest { verificationSha256: string; data: JsonObject; sha256: string }
 export interface LifecycleContinuationCapture { id: string; message: ProviderMessage; verificationSha256: string }
+/** One feature's input fences and tool observation; each participant ignores inputs and tools it does not own. */
+export interface RunParticipant {
+  beforePromotion?(input: InputRecord): void;
+  beforeProviderDispatch?(run: Run): void;
+  toolSettled?(record: ToolCallRecord, settlement: { interrupted: boolean }): void;
+}
 export interface CoordinatorOptions {
   store: EngineStore; providers: ReadonlyMap<string, ProviderAdapter>; tools: readonly ToolDefinition[]; approvals: ApprovalPort; artifactDir: string; executionLockPath?: string;
   executionObserver?: EngineExecutionObserver; effectBatches?: EffectBatchHost; providerArtifacts?: () => Promise<ArtifactStore>;
@@ -132,6 +138,8 @@ export interface CoordinatorOptions {
   releaseContext?: (sessionId: string, runId: string) => void; recoverContextOverflow?: (request: ContextRequest, provider: ProviderAdapter) => Promise<void>;
   toolRuntime?: ScopedToolRuntime; toolDiscoveryPolicy?: ResolvedToolDiscoveryPolicy; coreToolNames?: readonly string[]; getToolProfile?: (run: Run) => RuntimeToolProfile | undefined; getAllowedTools?: (run: Run) => readonly string[] | undefined;
   onRunStarted?: (run: Run, signal: AbortSignal) => Promise<void>; beforeProviderDispatch?: (run: Run) => void; beforeActualProviderRequest?: (original: TurnRequest) => void;
+  /** Ordered; each provider dispatch fence runs after beforeProviderDispatch. */
+  participants?: readonly RunParticipant[];
   lifecycleHooks?: LifecycleHookRegistry;
   lifecycleContinuation?: {
     capture(run: Run, boundary: VerificationBoundary, signal: AbortSignal): Promise<{ verificationSha256: string } | null>;
@@ -141,7 +149,14 @@ export interface CoordinatorOptions {
   verificationStop?(run: Run, boundary: VerificationBoundary, signal: AbortSignal): Promise<{ stageId: string; message: ProviderMessage } | null>;
   verificationBeforeProvider?(run: Run, boundary: VerificationBoundary, signal: AbortSignal): Promise<void>;
   onToolCheckpoint?: (observation: ToolCheckpointObservation) => void | Promise<void>;
-  onOwnedCommandToolSettled?: (record: ToolCallRecord) => void; onWorkflowToolSettled?: (record: ToolCallRecord) => void; onCommandLifetimeToolSettled?: (record: ToolCallRecord) => void; onCodeModeToolSettled?: (record: ToolCallRecord) => void;
+  /** @deprecated Use a RunParticipant. */
+  onOwnedCommandToolSettled?: (record: ToolCallRecord) => void;
+  /** @deprecated Use a RunParticipant. */
+  onWorkflowToolSettled?: (record: ToolCallRecord) => void;
+  /** @deprecated Use a RunParticipant. */
+  onCommandLifetimeToolSettled?: (record: ToolCallRecord) => void;
+  /** @deprecated Use a RunParticipant. */
+  onCodeModeToolSettled?: (record: ToolCallRecord) => void;
   onCommandLifetimesSettling?: (runId: string, outcome: 'completed' | 'failed' | 'cancelled') => Promise<void>;
 }
 export interface CoordinatorPort { submit(input: SubmitInput): RunReceipt; cancel(runId: string): { runId: string; state: RunState }; waitForRun(runId: string): Promise<Run>; close(): Promise<void> }

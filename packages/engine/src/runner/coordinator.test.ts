@@ -8,7 +8,7 @@ import {
   type SessionSnapshot, type SubmitInput, type ToolCallRecord, type Workspace,
 } from '@moodcode/contracts';
 import type {
-  ApprovalPort, ApprovalRequest, CommitChange, ContextBuilder, EngineStore,
+  ApprovalPort, ApprovalRequest, CommitChange, ContextBuilder, CoordinatorOptions, EngineStore,
   PreparedTool, ProviderAdapter, ProviderEvent, ToolContext, ToolDefinition,
   ToolResult, TurnRequest,
 } from '../ports.js';
@@ -213,7 +213,7 @@ function tool(name: string, requiresApproval: boolean, execute: (prepared: Prepa
   };
 }
 
-function fixture(provider: FakeProvider, tools: ToolDefinition[] = [], buildContext?: ContextBuilder) {
+function fixture(provider: FakeProvider, tools: ToolDefinition[] = [], buildContext?: ContextBuilder, hooks: Partial<CoordinatorOptions> = {}) {
   const store = new FakeStore();
   const approvals = new FakeApprovals(store);
   const contextRequests: Parameters<ContextBuilder>[0][] = [];
@@ -225,6 +225,7 @@ function fixture(provider: FakeProvider, tools: ToolDefinition[] = [], buildCont
       if (buildContext) return buildContext(request);
       return request.snapshot.messages.map(({ role, content, toolCalls, toolCallId, providerReplay }) => ({ role, content, toolCalls, toolCallId, ...(providerReplay ? { providerReplay } : {}) }));
     },
+    ...hooks,
   });
   const input = (mode: 'plan' | 'build' = 'build', limits: Partial<RunLimits> = {}): SubmitInput => ({
     sessionId: store.session.id, requestId: 'request-1', prompt: 'Please test the runner',
@@ -881,6 +882,43 @@ test('confirmed successful cleanup allows subsequent workspace runs with fresh d
     assert.ok([...store.toolRows.values()].every((record) => record.state === 'completed'));
     assert.equal(store.terminalCommits(first.runId).length, 1);
     assert.equal(store.terminalCommits(second.runId).length, 1);
+  } finally { await runner.close(); }
+});
+
+test('participants fence provider dispatch after the host hook in order and observe settled tools beside deprecated hooks', { timeout: 5_000 }, async () => {
+  const trace: string[] = [];
+  const participant = (label: string) => ({
+    beforeProviderDispatch() { trace.push(`dispatch:${label}`); },
+    toolSettled(record: ToolCallRecord, { interrupted }: { interrupted: boolean }) { trace.push(`settled:${label}:${record.name}:${interrupted}`); },
+  });
+  const provider = scripted([[call('merge-id', 'merge_workflow_stage'), finishTools], [finish]]);
+  const { runner, input } = fixture(provider, [tool('merge_workflow_stage', false, async () => ({ content: 'merged' }))], undefined, {
+    beforeProviderDispatch: () => { trace.push('dispatch:host'); },
+    participants: [participant('first'), participant('second')],
+    onWorkflowToolSettled: record => { trace.push(`deprecated:${record.name}`); },
+  });
+  try {
+    assert.equal((await runner.waitForRun(runner.submit(input()).runId)).state, 'completed');
+    const settled = trace.filter(entry => !entry.startsWith('dispatch:'));
+    assert.deepEqual(settled, ['settled:first:merge_workflow_stage:false', 'settled:second:merge_workflow_stage:false', 'deprecated:merge_workflow_stage']);
+    const dispatches = trace.filter(entry => entry.startsWith('dispatch:'));
+    assert.ok(dispatches.length >= 6 && dispatches.length % 3 === 0);
+    for (let index = 0; index < dispatches.length; index += 3) assert.deepEqual(dispatches.slice(index, index + 3), ['dispatch:host', 'dispatch:first', 'dispatch:second']);
+  } finally { await runner.close(); }
+});
+
+test('an interrupted code-mode tool reaches participants only through the guarded settlement after the turn fails', { timeout: 5_000 }, async () => {
+  const seen: string[] = [];
+  const provider = scripted([[call('code-id', 'execute_code'), finishTools], [finish]]);
+  const { runner, input } = fixture(provider, [tool('execute_code', false, async () => { throw new EngineError('CLEANUP_UNCERTAIN', 'Code cleanup failed'); })], undefined, {
+    participants: [{ toolSettled(record, { interrupted }) { seen.push(`${record.name}:${record.state}:${interrupted}`); throw new Error('Settlement write failed'); } }],
+  });
+  try {
+    const run = await runner.waitForRun(runner.submit(input()).runId);
+    assert.equal(run.state, 'failed');
+    assert.equal(run.error?.code, 'CLEANUP_UNCERTAIN');
+    assert.equal(run.error?.message, 'Code-mode cancellation observation could not be durably settled');
+    assert.deepEqual(seen, ['execute_code:interrupted:true']);
   } finally { await runner.close(); }
 });
 

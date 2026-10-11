@@ -1,4 +1,4 @@
-import {CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
+import {COMMAND_LIFETIME_TOOLS,CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
 import {EffectBatchHost} from './effect-batches/host.js';
 import {CodeModeHost, createExecuteCodeTool} from './code-mode/host.js';
 import {jobJson} from './jobs/validation.js';
@@ -30,9 +30,9 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonObject, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
+import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonObject, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2, type ToolCallRecord } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeRunConfig, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
-import type { PreparedTool, ProviderAdapter, ProviderEvent, ProviderMessage, ToolContext, ToolDefinition } from './ports.js';
+import type { PreparedTool, ProviderAdapter, ProviderEvent, ProviderMessage, RunParticipant, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
@@ -192,6 +192,12 @@ export interface ReviewHistoryResult {
 function metadataFailure(): { code: string; message: string } {
   return { code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' };
 }
+
+/** Fence order decides which error surfaces first, so promotion and provider dispatch keep their own orders. */
+export const RUN_PARTICIPANT_ORDER = Object.freeze({
+  promotion: ['schedule', 'job', 'ownedCommand', 'prFeedback', 'hostCommandDelivery', 'conversationFork', 'workflow'],
+  dispatch: ['resident', 'sandbox', 'prFeedback', 'hostCommandDelivery', 'codingBatch', 'schedule', 'job', 'ownedCommand', 'conversationFork', 'workflow', 'commandLifetime', 'codeMode'],
+} as const);
 
 const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
 
@@ -1170,38 +1176,34 @@ export class MoodcodeEngine implements EngineRuntime {
         features: { historyPaging: true, sessionMetrics: true },
         extensions: { sessionSchemaVersions: [SESSION_SCHEMA_VERSION], commands: [...NATIVE_COMMANDS_ENABLED] },
       };
+      const fences = (get: () => RunParticipant | undefined): RunParticipant => ({ beforePromotion: input => get()?.beforePromotion?.(input), beforeProviderDispatch: run => get()?.beforeProviderDispatch?.(run) });
+      const settles = (names: readonly string[], get: () => { toolSettled(record: ToolCallRecord): void } | undefined) => (record: ToolCallRecord) => { if (names.includes(record.name)) get()?.toolSettled(record); };
+      const participants: Record<(typeof RUN_PARTICIPANT_ORDER.dispatch)[number], RunParticipant> = {
+        resident: { beforeProviderDispatch: run => assertResidentProviderDispatch(this, run) },
+        sandbox: { beforeProviderDispatch: () => { if (this.sandboxEnabled && this.lifecycleHooks.list().length) throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED', 'New host lifecycle effects require a fresh supported producer'); } },
+        prFeedback: fences(() => this.prFeedbackHost),
+        hostCommandDelivery: fences(() => this.hostCommandDeliveryProducer),
+        codingBatch: { beforeProviderDispatch: () => this.codingBatchDispatchGuard?.() },
+        schedule: fences(() => this.scheduleProducer),
+        job: fences(() => this.jobProducer),
+        ownedCommand: { ...fences(() => this.ownedCommandProducer), toolSettled: settles(['run_command'], () => this.ownedCommandHost) },
+        conversationFork: { beforePromotion: input => this.conversationForkHost.context(input.sessionId, input.config), beforeProviderDispatch: run => this.conversationForkHost.context(run.sessionId, run.config) },
+        workflow: { beforePromotion: input => this.workflowEffects.beforeInput(input.id, input.requestId),
+          beforeProviderDispatch: run => { for (const id of this.store.listRunInputIds(run.id)) this.workflowEffects.beforeInput(id, this.store.getInput(id).requestId, run); },
+          toolSettled: settles(['merge_workflow_stage'], () => this.workflowModelTools) },
+        commandLifetime: { toolSettled: settles(COMMAND_LIFETIME_TOOLS, () => this.commandLifetimes) },
+        codeMode: { toolSettled: settles(['execute_code'], () => this.codeModeHost) },
+      };
       this.coordinator = new RunCoordinator({
         ...(options.effectBatches===true?{effectBatches:new EffectBatchHost({save:record=>this.store.writeEffectBatch(record),memberSettled:(record,index)=>this.store.recordEffectBatchMember(record,index),assertOpen:()=>{if(this.closing)throw new EngineError('ENGINE_CLOSED','Effect batch host closed');this.verifyChildStorageIdentity();}})}:{}),
         onCommandLifetimesSettling:(runId,outcome)=>this.commandLifetimes?.runSettling(runId,outcome)??Promise.resolve(),
-        onCommandLifetimeToolSettled:record=>this.commandLifetimes?.toolSettled(record),
+        participants: RUN_PARTICIPANT_ORDER.dispatch.map(name => participants[name]),
         beforeActualProviderRequest: (original) => {
           if (this.codingBatchCharge) {
             this.coordinator.assertProviderRequest(original, "dispatch");
             this.codingBatchCharge();
           }
         },
-        beforeProviderDispatch: (run) => {
-          assertResidentProviderDispatch(this,run);
-          if(this.sandboxEnabled && this.lifecycleHooks.list().length)throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','New host lifecycle effects require a fresh supported producer');
-          this.prFeedbackHost?.beforeProviderDispatch(run);
-          this.hostCommandDeliveryProducer?.beforeProviderDispatch(run);
-          this.codingBatchDispatchGuard?.();
-          this.scheduleProducer.beforeProviderDispatch(run);
-          this.jobProducer?.beforeProviderDispatch(run);
-          this.ownedCommandProducer?.beforeProviderDispatch(run);
-          this.conversationForkHost.context(run.sessionId, run.config);
-          for (const id of this.store.listRunInputIds(run.id))
-            this.workflowEffects.beforeInput(
-              id,
-              this.store.getInput(id).requestId,
-              run,
-            );
-        },
-        onWorkflowToolSettled: (record) =>
-          this.workflowModelTools.toolSettled(record),
-        onCodeModeToolSettled:record=>this.codeModeHost?.toolSettled(record),
-        onOwnedCommandToolSettled: (record) =>
-          this.ownedCommandHost?.toolSettled(record),
         onRunStarted: async (run, signal) => {
           const admission = waitChildProviderAdmission(this, signal);
           if (admission) await admission;
@@ -1360,7 +1362,7 @@ export class MoodcodeEngine implements EngineRuntime {
         assertDueBatchCurrent: (original, expected, spec) => this.scheduleProducer.assertDueBatchCurrent(original, expected, spec),
       });
       this.scheduleRecords.recoverInterrupted();
-      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, beforePromotion: input => { this.scheduleProducer.beforePromotion(input); this.jobProducer?.beforePromotion(input); this.ownedCommandProducer?.beforePromotion(input); this.prFeedbackHost?.beforePromotion(input); this.hostCommandDeliveryProducer?.beforePromotion(input); this.conversationForkHost.context(input.sessionId,input.config); this.workflowEffects.beforeInput(input.id,input.requestId); } });
+      this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, participants: RUN_PARTICIPANT_ORDER.promotion.map(name => participants[name]) });
       this.conversationForkHost = new ConversationForkHost(this,knowledgeBinding,id=>providers.get(id),this.conversationForksEnabled);
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });

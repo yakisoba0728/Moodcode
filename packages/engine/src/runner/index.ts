@@ -9,7 +9,7 @@ import {
 } from '@moodcode/contracts';
 import type {
   CoordinatorOptions, CoordinatorPort, PreparedTool, ProviderAdapter, ProviderEvent,
-  ProviderMessage, ToolContext, ToolDefinition, ToolResult,
+  ProviderMessage, RunParticipant, ToolContext, ToolDefinition, ToolResult,
   ChildRunReservation, RunUsage, LifecycleContinuationCapture, TurnRequest, ProviderRequestOwner,
 } from '../ports.js';
 import type { BackendClientReadInput, BackendClientReadProof, BackendClientEffectInput, BackendClientPermissionProof } from '../agent-backends/client-effects.js';
@@ -42,6 +42,16 @@ const PROVIDER_CLEANUP_GRACE_MS = CLEANUP_GRACE_MS * 3;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
 const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
 const COMMAND_LIFETIME_TOOLS = new Set(['run_command_job', 'command_job_input', 'wait_command_job']);
+
+/** Routes settled tools to the deprecated per-feature CoordinatorOptions hooks. */
+function deprecatedHookParticipant(options: CoordinatorOptions): RunParticipant {
+  return { toolSettled: tool => {
+    if (COMMAND_LIFETIME_TOOLS.has(tool.name)) options.onCommandLifetimeToolSettled?.(tool);
+    else if (tool.name === 'run_command') options.onOwnedCommandToolSettled?.(tool);
+    else if (tool.name === 'execute_code') options.onCodeModeToolSettled?.(tool);
+    else if (tool.name === 'merge_workflow_stage') options.onWorkflowToolSettled?.(tool);
+  } };
+}
 
 export interface Owner {
   run: Run;
@@ -181,7 +191,16 @@ export class RunCoordinator implements CoordinatorPort {
     workspaceIdle(workspaceId: string): void;
   };
 
-  constructor(private readonly options: CoordinatorOptions) {
+  private readonly options: CoordinatorOptions;
+  private readonly participants: readonly RunParticipant[];
+
+  constructor(input: CoordinatorOptions) {
+    const participants = [...input.participants ?? [], deprecatedHookParticipant(input)];
+    const options: CoordinatorOptions = { ...input, beforeProviderDispatch: run => {
+      input.beforeProviderDispatch?.(run);
+      for (const participant of participants) participant.beforeProviderDispatch?.(run);
+    } };
+    this.options = options; this.participants = participants;
     for (const tool of options.tools) {
       if (this.tools.has(tool.name)) throw new EngineError('INVALID_CONFIG', `Duplicate tool name: ${tool.name}`);
       this.tools.set(tool.name, tool);
@@ -1082,12 +1101,12 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       // after Turn.fail has closed the original Part; a Tool interruption alone
       // proves no cleanup.
       for (const tool of owner.interruptedWindowsCommands ?? []) {
-        try { this.options.onOwnedCommandToolSettled?.(tool); }
+        try { this.toolSettled(tool, true); }
         catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Native command cancellation observation could not be durably settled'); }
       }
       owner.interruptedWindowsCommands = undefined;
       for (const tool of owner.interruptedCodeModeTools ?? []) {
-        try { this.options.onCodeModeToolSettled?.(tool); }
+        try { this.toolSettled(tool, true); }
         catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Code-mode cancellation observation could not be durably settled'); }
       }
       owner.interruptedCodeModeTools = undefined;
@@ -1392,14 +1411,13 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
 
   /** An interrupted Windows command or code-mode tool is observed only after Turn.fail. */
   private notifySettled(owner: Owner, tool: ToolCallRecord, interrupted: boolean): void {
-    if (COMMAND_LIFETIME_TOOLS.has(tool.name)) this.options.onCommandLifetimeToolSettled?.(tool);
-    else if (tool.name === 'run_command') {
-      if (interrupted && process.platform === 'win32') (owner.interruptedWindowsCommands ??= []).push(tool);
-      else this.options.onOwnedCommandToolSettled?.(tool);
-    } else if (tool.name === 'execute_code') {
-      if (interrupted) (owner.interruptedCodeModeTools ??= []).push(tool);
-      else this.options.onCodeModeToolSettled?.(tool);
-    } else if (tool.name === 'merge_workflow_stage') this.options.onWorkflowToolSettled?.(tool);
+    if (interrupted && tool.name === 'run_command' && process.platform === 'win32') (owner.interruptedWindowsCommands ??= []).push(tool);
+    else if (interrupted && tool.name === 'execute_code') (owner.interruptedCodeModeTools ??= []).push(tool);
+    else this.toolSettled(tool, interrupted);
+  }
+
+  private toolSettled(tool: ToolCallRecord, interrupted: boolean): void {
+    for (const participant of this.participants) participant.toolSettled?.(tool, { interrupted });
   }
 
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
