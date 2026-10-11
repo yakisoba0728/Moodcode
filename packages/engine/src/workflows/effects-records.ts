@@ -5,6 +5,7 @@ import {
 } from "@moodcode/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { reseal, sealRecord, verifySealed } from "../shared/canonical.js";
 import { workflowJson } from "./spec.js";
 import {
   childStorageKind,
@@ -29,9 +30,18 @@ export function effectFail(code = "WORKFLOW_EFFECT_INVALID"): never {
   );
 }
 export function signEffect<T extends object>(body: T): T & { sha256: string } {
-  const copy = { ...body } as T & { sha256?: string };
-  delete copy.sha256;
-  return workflowJson({ ...copy, sha256: knowledgeHash(copy) });
+  return sealRecord(body, workflowJson);
+}
+/** The next revision of an effect record, chained to the digest of the one it replaces. */
+export function advanceEffect(
+  record: WorkflowEffectRecord,
+  patch: Partial<Pick<WorkflowEffectRecord, "state" | "merge">>,
+): WorkflowEffectRecord {
+  return reseal(
+    record,
+    { ...patch, revision: record.revision + 1, previousSha256: record.sha256 },
+    workflowJson,
+  );
 }
 export interface WorkflowFilePin {
   readonly path: string;
@@ -103,12 +113,34 @@ function body(db: DatabaseSync, sessionId: string, kind: string): unknown {
     ),
   );
 }
-function signed(value: unknown): Record<string, unknown> {
+function verifiedEffect(value: unknown): Record<string, unknown> {
   const data = workflowJson(value) as Record<string, unknown>;
   if (!data || typeof data !== "object" || Array.isArray(data)) effectFail();
-  const { sha256, ...rest } = data;
-  if (sha256 !== knowledgeHash(rest)) effectFail();
-  return data;
+  return verifySealed(data, () => effectFail());
+}
+/** Effect and delivery documents, all sessions or one workspace, within the 512-document bound. */
+function effectDocuments(
+  db: DatabaseSync,
+  scope: { readonly workspaceId?: string; readonly effectsOnly?: boolean } = {},
+) {
+  const { workspaceId } = scope,
+    prefixes = scope.effectsOnly
+      ? [EFFECT_PREFIX]
+      : [EFFECT_PREFIX, DELIVERY_PREFIX],
+    join =
+      workspaceId === undefined
+        ? ""
+        : " JOIN sessions s ON s.id=d.session_id AND s.workspace_id=?";
+  const rows = db
+    .prepare(
+      `SELECT d.session_id,d.kind,length(CAST(d.data AS BLOB)) bytes FROM session_documents d${join} WHERE ${prefixes.map(() => "d.kind LIKE ?").join(" OR ")} LIMIT 513`,
+    )
+    .all(
+      ...(workspaceId === undefined ? [] : [workspaceId]),
+      ...prefixes.map((prefix) => `${prefix}%`),
+    );
+  if (rows.length > 512) effectFail("WORKFLOW_EFFECT_LIMIT");
+  return rows;
 }
 function anchor(
   db: DatabaseSync,
@@ -151,7 +183,7 @@ function nativeRevision(
     Number(head.bytes) > 131072
   )
     effectFail();
-  const data = signed(
+  const data = verifiedEffect(
     JSON.parse(
       String(
         db.prepare("SELECT data FROM workflow_revisions WHERE id=?").get(id)!
@@ -170,7 +202,7 @@ export function readWorkflowEffect(
 ): WorkflowEffectRecord | null {
   const value = body(db, sessionId, effectKind(instanceId, stageId));
   if (!value) return null;
-  const r = signed(value) as unknown as WorkflowEffectRecord;
+  const r = verifiedEffect(value) as unknown as WorkflowEffectRecord;
   if (
     r.version !== 1 ||
     r.sessionId !== sessionId ||
@@ -291,8 +323,8 @@ export function readWorkflowEffect(
       ))
   )
     effectFail("WORKFLOW_VERIFICATION_FAILED");
-  signed(r.evidence);
-  signed(r.completion);
+  verifiedEffect(r.evidence);
+  verifiedEffect(r.completion);
   if (
     r.evidence.run.id !== r.completion.child.childRunId ||
     r.evidence.run.sessionId !== r.completion.child.childSessionId ||
@@ -436,7 +468,7 @@ export function readWorkflowDelivery(
 ): WorkflowDeliveryRecord | null {
   const value = body(db, sessionId, deliveryKind(instanceId));
   if (!value) return null;
-  const r = signed(value) as unknown as WorkflowDeliveryRecord;
+  const r = verifiedEffect(value) as unknown as WorkflowDeliveryRecord;
   if (
     r.version !== 1 ||
     r.sessionId !== sessionId ||
@@ -502,15 +534,11 @@ export function readWorkflowDelivery(
   return r;
 }
 export function validateWorkflowEffectsDatabase(db: DatabaseSync): void {
-  const rows = db
-    .prepare(
-      "SELECT session_id,kind,length(CAST(data AS BLOB)) bytes FROM session_documents WHERE kind LIKE 'workflow.effect.%' OR kind LIKE 'workflow.delivery.%' LIMIT 513",
-    )
-    .all();
-  if (rows.length > 512) effectFail("WORKFLOW_EFFECT_LIMIT");
-  for (const row of rows) {
+  for (const row of effectDocuments(db)) {
     if (Number(row.bytes) > 131072) effectFail("WORKFLOW_EFFECT_LIMIT");
-    const r = signed(body(db, String(row.session_id), String(row.kind)));
+    const r = verifiedEffect(
+      body(db, String(row.session_id), String(row.kind)),
+    );
     if (String(row.kind).startsWith(EFFECT_PREFIX))
       readWorkflowEffect(
         db,
@@ -734,23 +762,12 @@ export class WorkflowEffectStorage {
   }
   recover(): void {
     this.ports.transaction(() => {
-      const rows = this.db
-        .prepare(
-          "SELECT session_id,kind FROM session_documents WHERE kind LIKE 'workflow.effect.%' LIMIT 513",
-        )
-        .all();
-      if (rows.length > 512) effectFail("WORKFLOW_EFFECT_LIMIT");
-      for (const row of rows) {
-        const value = signed(
+      for (const row of effectDocuments(this.db, { effectsOnly: true })) {
+        const value = verifiedEffect(
           body(this.db, String(row.session_id), String(row.kind)),
         ) as unknown as WorkflowEffectRecord;
         if (value.state !== "merge-dispatching") continue;
-        const next = signEffect({
-          ...value,
-          state: "uncertain" as const,
-          revision: value.revision + 1,
-          previousSha256: value.sha256,
-        });
+        const next = advanceEffect(value, { state: "uncertain" });
         this.ports.putDocument(
           next.sessionId,
           String(row.kind),
@@ -769,23 +786,17 @@ export function pauseImportedWorkflowEffects(
   workspaceId: string,
   ports: Pick<WorkflowEffectNativePorts, "putDocument" | "appendEvent">,
 ): void {
-  const rows = db
-    .prepare(
-      "SELECT d.session_id,d.kind FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE s.workspace_id=? AND (d.kind LIKE 'workflow.effect.%' OR d.kind LIKE 'workflow.delivery.%') LIMIT 513",
-    )
-    .all(workspaceId);
-  if (rows.length > 512) effectFail("WORKFLOW_EFFECT_LIMIT");
-  for (const row of rows) {
-    const data = signed(body(db, String(row.session_id), String(row.kind)));
+  for (const row of effectDocuments(db, { workspaceId })) {
+    const data = verifiedEffect(
+      body(db, String(row.session_id), String(row.kind)),
+    );
     if (data.state === "paused-import") continue;
     const effect = String(row.kind).startsWith(EFFECT_PREFIX),
-      next = signEffect({
-        ...data,
-        state: "paused-import",
-        ...(effect
-          ? { revision: Number(data.revision) + 1, previousSha256: data.sha256 }
-          : {}),
-      });
+      next = effect
+        ? advanceEffect(data as unknown as WorkflowEffectRecord, {
+            state: "paused-import",
+          })
+        : signEffect({ ...data, state: "paused-import" });
     const header = db
       .prepare(
         "SELECT revision FROM session_documents WHERE session_id=? AND kind=?",

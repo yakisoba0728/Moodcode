@@ -3,6 +3,10 @@ import type { ExecutionLockMarker } from "../tools/command/execution-lock.js";
 import type { DatabaseSync } from "node:sqlite";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import {
+  findEventPayloads,
+  type EventSearch,
+} from "../storage/native-records.js";
 import { planPreparedResources } from "./claims.js";
 import { jobJson } from "../jobs/validation.js";
 import type { EffectBatchRecord } from "./types.js";
@@ -26,10 +30,12 @@ export function signEffectBatch(
   return { ...body, sha256: knowledgeHash(body) };
 }
 export function validateEffectBatch(value: unknown): EffectBatchRecord {
-  const r = jobJson(
-    value,
-    EFFECT_BATCH_LIMITS.nativeBytes,
-  ) as EffectBatchRecord;
+  let r: EffectBatchRecord;
+  try {
+    r = jobJson(value, EFFECT_BATCH_LIMITS.nativeBytes) as EffectBatchRecord;
+  } catch {
+    return fail();
+  }
   if (
     !r ||
     r.version !== 1 ||
@@ -161,6 +167,18 @@ function body(
     String(db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id)!.data),
   );
 }
+/** The payload of the one bounded event matching the search. */
+function onlyEvent(
+  db: DatabaseSync,
+  search: Omit<EventSearch, "maxRows" | "maxRowBytes">,
+): JsonObject {
+  const events = findEventPayloads(
+    db,
+    { ...search, maxRows: 1, maxRowBytes: EFFECT_BATCH_LIMITS.nativeBytes },
+    { limit: fail, invalid: fail },
+  );
+  return events[0] ?? fail();
+}
 function relation(db: DatabaseSync, r: EffectBatchRecord): void {
   const run = db
       .prepare("SELECT workspace_id,session_id FROM runs WHERE id=?")
@@ -278,24 +296,18 @@ function relation(db: DatabaseSync, r: EffectBatchRecord): void {
         fail();
     }
     if (m.fingerprint) {
-      const events = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type='effect.batch.resource_prepared' AND instr(data,?)>0 LIMIT 2",
-        )
-        .all(r.sessionId, r.runId, r.turnId, r.attemptId, m.toolCallId!);
+      const payload = onlyEvent(db, {
+        sessionId: r.sessionId,
+        type: "effect.batch.resource_prepared",
+        refs: { runId: r.runId, turnId: r.turnId, attemptId: r.attemptId },
+        contains: m.toolCallId!,
+      });
       if (
-        events.length !== 1 ||
-        Buffer.byteLength(String(events[0]!.data)) >
-          EFFECT_BATCH_LIMITS.nativeBytes
-      )
-        fail();
-      const event = JSON.parse(String(events[0]!.data));
-      if (
-        event.payload.toolCallId !== m.toolCallId ||
-        event.payload.providerCallId !== m.providerCallId ||
-        event.payload.fingerprint !== m.fingerprint ||
-        event.payload.inputSha256 !== knowledgeHash(tool.input) ||
-        knowledgeHash(event.payload.claim) !== knowledgeHash(m.claim)
+        payload.toolCallId !== m.toolCallId ||
+        payload.providerCallId !== m.providerCallId ||
+        payload.fingerprint !== m.fingerprint ||
+        payload.inputSha256 !== knowledgeHash(tool.input) ||
+        knowledgeHash(payload.claim) !== knowledgeHash(m.claim)
       )
         fail();
     }
@@ -303,25 +315,20 @@ function relation(db: DatabaseSync, r: EffectBatchRecord): void {
       ["completed", "failed", "denied", "cancelled"].includes(m.state) ||
       (m.state === "uncertain" && m.endedAt)
     ) {
-      const events = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND type='effect.batch.member_settled' AND instr(data,?)>0 LIMIT 2",
-        )
-        .all(r.sessionId, m.toolCallId!);
+      const settled = {
+        sessionId: r.sessionId,
+        type: "effect.batch.member_settled",
+        contains: m.toolCallId!,
+      };
+      const payload = onlyEvent(db, settled);
+      // The one settled event must carry no Run.
+      onlyEvent(db, { ...settled, refs: { runId: null } });
       if (
-        events.length !== 1 ||
-        Buffer.byteLength(String(events[0]!.data)) >
-          EFFECT_BATCH_LIMITS.nativeBytes
-      )
-        fail();
-      const event = JSON.parse(String(events[0]!.data));
-      if (
-        event.runId ||
-        event.payload.batchId !== r.id ||
-        event.payload.runId !== r.runId ||
-        event.payload.turnId !== r.turnId ||
-        event.payload.attemptId !== r.attemptId ||
-        knowledgeHash(event.payload.member) !== knowledgeHash(m)
+        payload.batchId !== r.id ||
+        payload.runId !== r.runId ||
+        payload.turnId !== r.turnId ||
+        payload.attemptId !== r.attemptId ||
+        knowledgeHash(payload.member) !== knowledgeHash(m)
       )
         fail();
     }
@@ -538,16 +545,17 @@ export function pauseEffectBatches(
           }
         : m,
     );
-    const next = signEffectBatch({
-      ...r,
-      revision: r.revision + 1,
-      previousSha256: r.sha256,
-      state: workspaceId ? "paused-import" : "uncertain",
-      members,
-    } as unknown as Omit<EffectBatchRecord, "sha256">);
-    const { sha256: ignored, ...clean } = next;
-    const corrected = signEffectBatch({ ...clean });
-    writeEffectBatch(db, corrected, ports);
+    writeEffectBatch(
+      db,
+      signEffectBatch({
+        ...r,
+        revision: r.revision + 1,
+        previousSha256: r.sha256,
+        state: workspaceId ? "paused-import" : "uncertain",
+        members,
+      }),
+      ports,
+    );
     count++;
   }
   return count;

@@ -34,17 +34,30 @@ export function teamError(code = "INVALID_TEAM"): never {
     "Team records require exact workspace, membership generation and native ownership",
   );
 }
-export function teamJson<T>(value: T): T {
+/** Immutable knowledge JSON within a serialized byte bound; walker errors propagate unless onInvalid maps them. */
+export function boundedTeamJson<T>(
+  value: T,
+  maximum: number,
+  onLimit: () => never,
+  onInvalid?: () => never,
+): T {
+  let result: T;
   try {
-    const result = immutableKnowledgeJson(value);
-    if (Buffer.byteLength(JSON.stringify(result)) > TEAM_LIMITS.rowBytes)
-      teamError("TEAM_LIMIT");
-    return result;
+    result = immutableKnowledgeJson(value);
   } catch (error) {
-    if (error instanceof EngineError && error.code.startsWith("TEAM"))
-      throw error;
-    return teamError("INVALID_TEAM");
+    if (!onInvalid) throw error;
+    return onInvalid();
   }
+  if (Buffer.byteLength(JSON.stringify(result)) > maximum) onLimit();
+  return result;
+}
+export function teamJson<T>(value: T): T {
+  return boundedTeamJson(
+    value,
+    TEAM_LIMITS.rowBytes,
+    () => teamError("TEAM_LIMIT"),
+    () => teamError("INVALID_TEAM"),
+  );
 }
 export function teamObject(
   value: unknown,

@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -16,6 +16,7 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { sealRecord, sha256Hex, verifySealed } from "../shared/canonical.js";
 import { requestIdentity } from "../storage/native-schema.js";
 import type {
   ScheduleDueBatch,
@@ -331,10 +332,7 @@ function json<T>(
   return result;
 }
 function signed<T extends object>(value: T): T & { sha256: string } {
-  const { sha256: _old, ...body } = value as T & { sha256?: string };
-  return json({ ...body, sha256: knowledgeHash(body) }) as T & {
-    sha256: string;
-  };
+  return sealRecord(value, json);
 }
 function fields(value: object, keys: readonly string[]): void {
   if (
@@ -357,15 +355,7 @@ function payload(value: Revision): Record<string, unknown> {
   return body;
 }
 function digest<T extends { sha256: string }>(input: T): T {
-  const value = json(input),
-    { sha256, ...body } = value;
-  if (
-    typeof sha256 !== "string" ||
-    !/^[a-f0-9]{64}$/.test(sha256) ||
-    knowledgeHash(body) !== sha256
-  )
-    fail();
-  return value;
+  return verifySealed(json(input), () => fail());
 }
 function id(value: unknown): string {
   if (
@@ -402,8 +392,6 @@ function data<T>(input: T, required: readonly string[]): T {
     fail("INVALID_SCHEDULE_INPUT");
   return value;
 }
-const rawHash = (value: string) =>
-  createHash("sha256").update(value).digest("hex");
 function sync(value: unknown): void {
   if (value !== undefined) {
     void Promise.resolve(value).catch(() => {});
@@ -1600,7 +1588,7 @@ export class ScheduleStorage {
           ...before,
           state: "dispatching",
           prompt: safe.prompt,
-          promptSha256: rawHash(safe.prompt),
+          promptSha256: sha256Hex(safe.prompt),
         };
       },
       "dispatch",
@@ -1645,7 +1633,7 @@ export class ScheduleStorage {
       record.requestId !== occurrence.inputRequestId ||
       record.delivery !== "queue" ||
       record.prompt !== occurrence.prompt ||
-      rawHash(record.prompt) !== occurrence.promptSha256 ||
+      sha256Hex(record.prompt) !== occurrence.promptSha256 ||
       knowledgeHash(record.config) !== schedule.target.configSha256 ||
       String(raw.fingerprint) !== requestIdentity(accepted) ||
       record.attachments?.length ||
@@ -2290,7 +2278,7 @@ export class ScheduleStorage {
         ...expected,
         state: "dispatching",
         prompt: request.prompt,
-        promptSha256: rawHash(String(request.prompt)),
+        promptSha256: sha256Hex(String(request.prompt)),
       };
     } else if (receipt.operation === "accepted") {
       if (
@@ -2471,7 +2459,7 @@ export class ScheduleStorage {
           occurrence.prompt !== null &&
           (occurrence.prompt !==
             formatScheduleInput(schedule.spec, occurrence.candidate) ||
-            occurrence.promptSha256 !== rawHash(occurrence.prompt))
+            occurrence.promptSha256 !== sha256Hex(occurrence.prompt))
         )
           fail();
         if (occurrence.worker !== null) {

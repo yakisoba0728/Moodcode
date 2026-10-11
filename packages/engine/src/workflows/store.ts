@@ -1,12 +1,10 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { JsonObject, Workspace } from "@moodcode/contracts";
 import type { WorkflowSpec, WorkflowSpecInput } from "./types.js";
-import {
-  knowledgeHash,
-  immutableKnowledgeJson,
-} from "../knowledge/validation.js";
+import { knowledgeHash } from "../knowledge/validation.js";
+import { sealRecord, sha256Hex, verifySealed } from "../shared/canonical.js";
 import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import {
   childStorageKind,
@@ -19,6 +17,7 @@ import {
   workflowError,
   workflowIdentifier,
   workflowInteger,
+  workflowJson,
   workflowObject,
   workflowSha,
   validateNewWorkflowWorktreeSharing,
@@ -181,26 +180,19 @@ interface NativeRow {
   data: string;
   bytes: number;
 }
-const rawHash = (value: string) =>
-  createHash("sha256").update(value).digest("hex");
 function json<T>(value: T, cap?: number): T {
-  const result = immutableKnowledgeJson(value);
+  const result = workflowJson(value);
   if (cap !== undefined && Buffer.byteLength(JSON.stringify(result)) > cap)
     workflowError("WORKFLOW_LIMIT");
   return result;
 }
 function signed<T extends object>(body: T): T & { sha256: string } {
-  const { sha256: _old, ...fields } = body as T & { sha256?: string };
-  return json({ ...fields, sha256: knowledgeHash(fields) }) as T & {
-    sha256: string;
-  };
+  return sealRecord(body, json);
 }
 function verifyDigest<T extends { sha256: string }>(value: T): T {
-  const data = json(value),
-    { sha256, ...body } = data;
-  if (workflowSha(sha256) !== knowledgeHash(body))
-    workflowError("WORKFLOW_DATABASE_INVALID");
-  return data;
+  const data = json(value);
+  workflowSha(data.sha256);
+  return verifySealed(data, () => workflowError("WORKFLOW_DATABASE_INVALID"));
 }
 function fields(value: object, required: readonly string[]): void {
   if (
@@ -1537,7 +1529,7 @@ export class WorkflowStorage {
         operation: "prepare",
         stageId: input.stageId,
         childRequestId: input.childRequestId,
-        promptSha256: rawHash(input.prompt),
+        promptSha256: sha256Hex(input.prompt),
       };
     });
   }
@@ -1881,7 +1873,7 @@ export class WorkflowStorage {
           operation: "prepare",
           stageId: stageId!,
           childRequestId: workflowIdentifier(request.childRequestId),
-          promptSha256: rawHash(request.prompt),
+          promptSha256: sha256Hex(request.prompt),
         };
       } else if (receipt.operation === "admit") {
         fields(request, [

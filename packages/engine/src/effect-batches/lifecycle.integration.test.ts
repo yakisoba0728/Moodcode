@@ -11,6 +11,7 @@ import {
 } from "../storage/archive.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { batchFixture, until } from "./fixtures/batch.js";
+import { EFFECT_BATCH_LIMITS, validateEffectBatch } from "./storage.js";
 test("completed native batch reopens with default-off history and imports paused without provider or effect replay", async (t) => {
   const f = await batchFixture(t);
   const receipt = await f.submit();
@@ -119,4 +120,44 @@ test("fully rehashed native completion and resource contradiction cannot replace
   ).run(JSON.stringify(head), f.session.id, `effect.batch.${original.id}`);
   db.close();
   assert.throws(() => f.records(), { code: "EFFECT_BATCH_EVIDENCE_INVALID" });
+});
+test("a settled member event must be the only one for its tool call and carry no Run", async (t) => {
+  const f = await batchFixture(t);
+  const receipt = await f.submit();
+  await until(() => f.pending().length === 2, "Approvals");
+  f.approve();
+  await f.engine.coordinator.waitForRun(receipt.runId);
+  const original = f.records()[0]!,
+    db = new DatabaseSync(f.dbPath);
+  const seq = Number(
+    db
+      .prepare(
+        "SELECT seq FROM session_events WHERE session_id=? AND type='effect.batch.member_settled' ORDER BY seq LIMIT 1",
+      )
+      .get(f.session.id)!.seq,
+  );
+  db.prepare(
+    "INSERT INTO session_events(session_id,seq,event_id,schema_version,run_id,type,data) SELECT session_id,seq+1000000,event_id||'-copy',schema_version,?,type,json_set(data,'$.seq',seq+1000000,'$.eventId',event_id||'-copy','$.runId',?) FROM session_events WHERE session_id=? AND seq=?",
+  ).run(receipt.runId, receipt.runId, f.session.id, seq);
+  assert.throws(() => f.records(), { code: "EFFECT_BATCH_EVIDENCE_INVALID" });
+  db.prepare("DELETE FROM session_events WHERE session_id=? AND seq=?").run(
+    f.session.id,
+    seq + 1000000,
+  );
+  assert.equal(f.records()[0]!.sha256, original.sha256);
+  db.prepare(
+    "UPDATE session_events SET run_id=?,data=json_set(data,'$.runId',?) WHERE session_id=? AND seq=?",
+  ).run(receipt.runId, receipt.runId, f.session.id, seq);
+  db.close();
+  assert.throws(() => f.records(), { code: "EFFECT_BATCH_EVIDENCE_INVALID" });
+});
+test("malformed or oversized effect batch evidence reports the effect batch code, not a job code", () => {
+  const oversized = {
+    version: 1,
+    padding: "x".repeat(EFFECT_BATCH_LIMITS.nativeBytes),
+  };
+  for (const value of [new Proxy({ version: 1 }, {}), oversized])
+    assert.throws(() => validateEffectBatch(value), {
+      code: "EFFECT_BATCH_EVIDENCE_INVALID",
+    });
 });

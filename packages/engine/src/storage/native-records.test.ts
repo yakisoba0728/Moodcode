@@ -238,6 +238,7 @@ test('anchored native readers bind document bytes to their one update event and 
   const anchor = Number(db.prepare("SELECT seq FROM session_events WHERE type='session.document.updated' ORDER BY seq DESC LIMIT 1").get()!.seq);
   db.prepare('UPDATE session_events SET run_id=? WHERE session_id=? AND seq=?').run(f.run.id, 'session', anchor);
   assert.throws(() => events(), /invalid/u); assert.throws(() => read(), /anchor/u);
+  assert.deepEqual(events({ refs: { runId: null } }).map(payload => payload.revision), [1], 'A null reference selects only events without one');
   db.prepare('UPDATE session_events SET run_id=NULL WHERE session_id=? AND seq=?').run('session', anchor); assert.equal(read()!.revision, 2);
   db.prepare("INSERT INTO session_events(session_id,seq,event_id,schema_version,type,data) SELECT session_id,seq+1000,event_id||'-copy',schema_version,type,json_set(data,'$.seq',seq+1000,'$.eventId',event_id||'-copy') FROM session_events WHERE session_id=? AND seq=?").run('session', anchor);
   assert.throws(() => read(), /anchor/u);

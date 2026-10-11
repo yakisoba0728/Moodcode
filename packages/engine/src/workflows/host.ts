@@ -4,6 +4,8 @@ import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ChildBudget } from "../child-tasks/index.js";
 import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sealRecord } from "../shared/canonical.js";
+import { assertNativeSignal, plainRecord } from "../shared/data.js";
 import type {
   WorkflowSpecRevision,
   WorkflowOwnerProof,
@@ -24,64 +26,18 @@ import {
   validateNewWorkflowWorktreeSharing,
 } from "./spec.js";
 
+const invalidInput = (): never => workflowError("INVALID_WORKFLOW_INPUT");
 export function workflowHostRecord(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    workflowError("INVALID_WORKFLOW_INPUT");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(descriptors, key)) ||
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !descriptors[key]!.enumerable ||
-        !Object.hasOwn(descriptors[key]!, "value"),
-    )
-  )
-    workflowError("INVALID_WORKFLOW_INPUT");
-  return value as Record<string, unknown>;
-}
-function workflowSignal(value?: AbortSignal): boolean {
-  if (value === undefined) return false;
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    !(value instanceof AbortSignal)
-  )
-    workflowError("INVALID_WORKFLOW_INPUT");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    [
-      "aborted",
-      "reason",
-      "addEventListener",
-      "removeEventListener",
-      "throwIfAborted",
-    ].some((key) => Object.hasOwn(descriptors, key))
-  )
-    workflowError("INVALID_WORKFLOW_INPUT");
-  try {
-    return Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(value);
-  } catch {
-    workflowError("INVALID_WORKFLOW_INPUT");
-  }
+  return plainRecord(value, required, optional, invalidInput);
 }
 export function workflowAbort(signal?: AbortSignal): void {
-  if (workflowSignal(signal))
+  if (signal === undefined) return;
+  assertNativeSignal(signal, invalidInput);
+  if (signal.aborted)
     throw new EngineError("CANCELLED", "Workflow request was cancelled");
 }
 export interface WorkflowParentConfiguration {
@@ -323,10 +279,7 @@ export class WorkflowHost {
         ),
         automaticParentDelivery: false as const,
       });
-      const preview = workflowJson({
-          ...content,
-          sha256: knowledgeHash(content),
-        }),
+      const preview = sealRecord(content, workflowJson),
         state: OwnedWorkflowPreview = {
           preview,
           originalOwner,

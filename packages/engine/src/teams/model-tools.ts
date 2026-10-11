@@ -10,6 +10,8 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { plainRecord } from "../shared/data.js";
+import { boundedTeamJson } from "./validation.js";
 
 export const TEAM_MODEL_TOOL_NAMES = Object.freeze([
   "send_agent_message",
@@ -102,27 +104,7 @@ function object(
   required: readonly string[],
   optional: readonly string[] = [],
 ): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail();
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    fail();
-  return value as Record<string, unknown>;
+  return plainRecord(value, required, optional, () => fail());
 }
 function id(value: unknown, max: number): string {
   if (
@@ -245,13 +227,8 @@ export function parseTeamModelInput(
   return immutableKnowledgeJson(parsed);
 }
 function safeJson<T>(value: T, maximum: number, code: string): T {
-  try {
-    const detached = immutableKnowledgeJson(value);
-    if (Buffer.byteLength(JSON.stringify(detached)) > maximum) fail(code);
-    return detached;
-  } catch {
-    return fail(code);
-  }
+  const invalid = () => fail(code);
+  return boundedTeamJson(value, maximum, invalid, invalid);
 }
 function jsonObject(value: unknown): asserts value is JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value))

@@ -326,6 +326,25 @@ test("exported native workflow inputs reject accessors and proxy has traps befor
   assert.throws(() => native.prepareStage({}, getter));
   assert.throws(() => native.prepareStage({}, proxy));
   assert.throws(() => native.admitStage({}, {}, proxy));
+  const control = {
+    workspaceId: f.workspace.id,
+    instanceId: created.record.instanceId,
+    requestId: "trap-control",
+    expectedRevision: 1,
+    operation: "cancel" as const,
+  };
+  Object.defineProperty(control, "operation", {
+    enumerable: true,
+    get() {
+      traps++;
+      return "cancel";
+    },
+  });
+  assert.throws(
+    () => native.control({}, control),
+    code("INVALID_WORKFLOW_SPEC"),
+    "Store JSON guards report workflow codes, not knowledge codes",
+  );
   assert.equal(traps, 0);
   assert.deepEqual(f.counts(), before);
   assert.equal(f.children.length, 0);

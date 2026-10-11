@@ -1,6 +1,7 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { assertNativeSignal, plainRecord } from "../shared/data.js";
 import { formatScheduleInput } from "./occurrences.js";
 import {
   scheduleIdentifier,
@@ -43,65 +44,20 @@ export function scheduleHostError(code: string): never {
   );
 }
 
+const invalidInput = (): never => scheduleHostError("INVALID_SCHEDULE_INPUT");
 /** Shallow validation preserves original capability and AbortSignal identities without invoking accessors. */
 export function scheduleHostRecord(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    scheduleHostError("INVALID_SCHEDULE_INPUT");
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    scheduleHostError("INVALID_SCHEDULE_INPUT");
-  return value as Record<string, unknown>;
+  return plainRecord(value, required, optional, invalidInput);
 }
 
 export function scheduleHostAbort(signal?: AbortSignal): void {
   if (signal === undefined) return;
-  if (
-    !signal ||
-    typeof signal !== "object" ||
-    types.isProxy(signal) ||
-    !(signal instanceof AbortSignal)
-  )
-    scheduleHostError("INVALID_SCHEDULE_INPUT");
-  const fields = Object.getOwnPropertyDescriptors(signal);
-  if (
-    [
-      "aborted",
-      "reason",
-      "throwIfAborted",
-      "addEventListener",
-      "removeEventListener",
-    ].some((key) => Object.hasOwn(fields, key))
-  )
-    scheduleHostError("INVALID_SCHEDULE_INPUT");
-  let aborted: boolean;
-  try {
-    aborted = Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(signal);
-  } catch {
-    return scheduleHostError("INVALID_SCHEDULE_INPUT");
-  }
-  if (aborted)
+  assertNativeSignal(signal, invalidInput);
+  if (signal.aborted)
     throw new EngineError("CANCELLED", "Scheduled request was cancelled");
 }
 

@@ -32,7 +32,8 @@ export interface NativeReadErrors { limit: () => never; invalid: () => never }
 export interface EventSearch {
   sessionId: string;
   type: string;
-  refs?: { runId?: string; inputId?: string; turnId?: string; attemptId?: string };
+  /** null selects events without that reference. */
+  refs?: { runId?: string | null; inputId?: string | null; turnId?: string | null; attemptId?: string | null };
   /** Raw substring of the event, such as a digest. */
   contains?: string;
   /** Payload values by dotted path. */
@@ -400,11 +401,11 @@ function requireDocumentJson(value: JsonObject): JsonObject {
 
 /** Events of one session and type, oldest first. Each body is reread under its exact length and must agree with its SQL row and the search; a body that is not JSON stays a candidate so it reaches the caller's thunks. */
 export function findEventPayloads(db: DatabaseSync, search: EventSearch, errors: NativeReadErrors): JsonObject[] {
-  const refs = EVENT_REFS.filter(([field]) => search.refs?.[field] !== undefined), paths = Object.entries(search.payload ?? {});
+  const refs = EVENT_REFS.filter(([field]) => search.refs?.[field] !== undefined), refValues = refs.flatMap(([field]) => search.refs![field] ?? []), paths = Object.entries(search.payload ?? {});
   if (paths.some(([path]) => !PAYLOAD_PATH.test(path))) throw new TypeError('Event payload paths must be dotted identifiers');
-  const filters = ['session_id=?', 'type=?', ...refs.map(([, column]) => `${column}=?`), ...(search.contains === undefined ? [] : ['instr(data,?)>0']), ...paths.map(([path]) => `CASE WHEN json_valid(data) THEN json_extract(data,'$.payload.${path}')=? ELSE 1 END`)];
+  const filters = ['session_id=?', 'type=?', ...refs.map(([field, column]) => search.refs![field] === null ? `${column} IS NULL` : `${column}=?`), ...(search.contains === undefined ? [] : ['instr(data,?)>0']), ...paths.map(([path]) => `CASE WHEN json_valid(data) THEN json_extract(data,'$.payload.${path}')=? ELSE 1 END`)];
   const rows = db.prepare(`SELECT seq,run_id,input_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE ${filters.join(' AND ')} ORDER BY seq LIMIT ?`)
-    .all(search.sessionId, search.type, ...refs.map(([field]) => search.refs![field]!), ...(search.contains === undefined ? [] : [search.contains]), ...paths.map(([, value]) => value), search.maxRows + 1);
+    .all(search.sessionId, search.type, ...refValues, ...(search.contains === undefined ? [] : [search.contains]), ...paths.map(([, value]) => value), search.maxRows + 1);
   if (rows.length > search.maxRows || search.maxTotalBytes !== undefined && rows.reduce((total, row) => total + Number(row.bytes), 0) > search.maxTotalBytes) errors.limit();
   return rows.map(row => {
     if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 1 || Number(row.bytes) > search.maxRowBytes) errors.limit();

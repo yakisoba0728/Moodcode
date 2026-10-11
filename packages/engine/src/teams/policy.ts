@@ -1,8 +1,13 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
-import { immutableKnowledgeJson } from "../knowledge/validation.js";
+import { plainRecord } from "../shared/data.js";
 import type { TeamPermissions, TeamRole } from "./types.js";
-import { TEAM_LIMITS, teamDate, teamId } from "./validation.js";
+import {
+  boundedTeamJson,
+  TEAM_LIMITS,
+  teamDate,
+  teamId,
+} from "./validation.js";
 
 export function teamHostError(code = "INVALID_TEAM_HOST_INPUT"): never {
   throw new EngineError(
@@ -15,32 +20,12 @@ export function teamHostObject(
   required: readonly string[],
   optional: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    teamHostError();
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    teamHostError();
+  plainRecord(value, required, optional, () => teamHostError());
 }
 export function teamHostData<T>(value: T): T {
-  const result = immutableKnowledgeJson(value);
-  if (Buffer.byteLength(JSON.stringify(result)) > TEAM_LIMITS.rowBytes)
-    teamHostError("TEAM_LIMIT");
-  return result;
+  return boundedTeamJson(value, TEAM_LIMITS.rowBytes, () =>
+    teamHostError("TEAM_LIMIT"),
+  );
 }
 export function teamHostExpiry(
   value: unknown,

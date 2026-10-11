@@ -1,13 +1,4 @@
-import { createHash } from "node:crypto";
-import {
-  constants,
-  openSync,
-  closeSync,
-  fstatSync,
-  lstatSync,
-  readSync,
-  realpathSync,
-} from "node:fs";
+import { realpathSync } from "node:fs";
 import { join, relative } from "node:path";
 import { types } from "node:util";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
@@ -27,6 +18,7 @@ import type {
 } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { readStableFile } from "../shared/fs.js";
 import { describeEngineQueueTarget } from "../jobs/queue-target.js";
 import { runGit } from "../workspace/git.js";
 import { createChildMergeTool } from "../child-tasks/merge.js";
@@ -51,6 +43,7 @@ import {
   WORKFLOW_READ_TOOLS,
 } from "./spec.js";
 import {
+  advanceEffect,
   effectFail,
   signEffect,
   formatWorkflowResult,
@@ -65,59 +58,28 @@ export const WORKFLOW_MODEL_NAMES = [
   "merge_workflow_stage",
   "deliver_workflow_result",
 ] as const;
+/** A missing, replaced or changing file is WORKFLOW_SOURCE_STALE; growth past 1 MiB while reading is WORKFLOW_EFFECT_LIMIT. */
 function filePin(path: string): WorkflowFilePin {
-  let fd: number | undefined;
+  const stale = (): never => effectFail("WORKFLOW_SOURCE_STALE");
   try {
-    const before = lstatSync(path, { bigint: true });
-    if (
-      !before.isFile() ||
-      before.isSymbolicLink() ||
-      before.nlink !== 1n ||
-      before.size > 1048576n ||
-      realpathSync(path) !== path
-    )
-      effectFail("WORKFLOW_SOURCE_STALE");
-    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-    const start = fstatSync(fd, { bigint: true }),
-      hash = createHash("sha256"),
-      chunk = Buffer.alloc(16384);
-    let size = 0;
-    for (;;) {
-      const n = readSync(fd, chunk, 0, chunk.length, null);
-      if (!n) break;
-      size += n;
-      if (size > 1048576) effectFail("WORKFLOW_EFFECT_LIMIT");
-      hash.update(chunk.subarray(0, n));
-    }
-    const after = fstatSync(fd, { bigint: true }),
-      current = lstatSync(path, { bigint: true });
-    if (
-      start.dev !== before.dev ||
-      start.ino !== before.ino ||
-      start.dev !== after.dev ||
-      start.ino !== after.ino ||
-      start.size !== after.size ||
-      start.mtimeNs !== after.mtimeNs ||
-      start.ctimeNs !== after.ctimeNs ||
-      current.dev !== after.dev ||
-      current.ino !== after.ino ||
-      current.mtimeNs !== after.mtimeNs ||
-      current.ctimeNs !== after.ctimeNs ||
-      realpathSync(path) !== path
-    )
-      effectFail("WORKFLOW_SOURCE_STALE");
+    const { stats, bytes, sha256 } = readStableFile(path, {
+      maxBytes: 1048576,
+      stable: ["size", "mtime", "ctime"],
+      requireSingleLink: true,
+      onChanged: stale,
+      onLimit: () => effectFail("WORKFLOW_EFFECT_LIMIT"),
+    });
+    if (realpathSync(path) !== path) stale();
     return {
       path,
-      device: after.dev.toString(),
-      inode: after.ino.toString(),
-      size,
-      sha256: hash.digest("hex"),
+      device: stats.dev.toString(),
+      inode: stats.ino.toString(),
+      size: bytes,
+      sha256,
     };
   } catch (error) {
     if (error instanceof EngineError) throw error;
-    return effectFail("WORKFLOW_SOURCE_STALE");
-  } finally {
-    if (fd !== undefined) closeSync(fd);
+    return stale();
   }
 }
 function pinsCurrent(pins: readonly WorkflowFilePin[]): void {
@@ -915,11 +877,8 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     mergeBound(p.inner, now.editor, a.record.worktrees[p.editor.stageId]!.root);
     this.actor(context, "execute", p.binding);
     const approval = this.engine.coordinator.getWorkflowToolApproval(context);
-    const intent = signEffect({
-      ...p.editor,
-      revision: p.editor.revision + 1,
-      previousSha256: p.editor.sha256,
-      state: "merge-dispatching" as const,
+    const intent = advanceEffect(p.editor, {
+      state: "merge-dispatching",
       merge: {
         toolCallId: context.toolCallId,
         runId: context.runId,
@@ -966,12 +925,7 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
   private finishMergeUnknown(id: string): void {
     const p = this.pendingMerge.get(id);
     if (!p) return;
-    const record = signEffect({
-      ...p.record,
-      state: "uncertain" as const,
-      revision: p.record.revision + 1,
-      previousSha256: p.record.sha256,
-    });
+    const record = advanceEffect(p.record, { state: "uncertain" });
     const o = this.issue(this.effects, { record, check: () => {} });
     try {
       this.native.publish(o, p.expectedRevision);
@@ -995,11 +949,8 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
       this.finishMergeUnknown(tool.id);
       return;
     }
-    const record = signEffect({
-        ...p.record,
-        state: "merged" as const,
-        revision: p.record.revision + 1,
-        previousSha256: p.record.sha256,
+    const record = advanceEffect(p.record, {
+        state: "merged",
         merge: {
           ...p.record.merge!,
           checkpointIds: checkpoints.map((c) => c.id),

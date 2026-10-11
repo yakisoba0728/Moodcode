@@ -10,6 +10,7 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { sealRecord } from "../shared/canonical.js";
 import { exactPath } from "../tools/file-actions/text.js";
 
 import type {
@@ -605,7 +606,7 @@ export function validateWorkflowStageResult(
     authority: "advisory-data" as const,
     value: validateWorkflowValue(selected.resultSchema, value) as JsonObject,
   };
-  return workflowJson({ ...result, sha256: knowledgeHash(result) });
+  return sealRecord(result, workflowJson);
 }
 
 /** Only an editor and its explicit validator may reuse the released physical child worktree. */
