@@ -1,8 +1,4 @@
-import {
-  EngineError,
-  type RunConfig,
-  type JsonObject,
-} from "@moodcode/contracts";
+import { EngineError, type RunConfig } from "@moodcode/contracts";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import type { ScheduleTargetPin } from "../schedules/types.js";
 import type {
@@ -10,7 +6,13 @@ import type {
   VerificationSource,
 } from "../verification/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { commitJson } from "../git/types.js";
+import {
+  commitData,
+  commitDigest,
+  commitId,
+  commitJson,
+  signedCommit,
+} from "../git/types.js";
 export const PR_LIMITS = Object.freeze({
   watches: 32,
   occurrences: 128,
@@ -32,27 +34,18 @@ export function prFail(code = "PR_FEEDBACK_INVALID"): never {
     "The bounded PR feedback, source or native admission evidence is invalid",
   );
 }
-export const prJson = <T>(v: T): T => {
-  try {
-    return commitJson(v);
-  } catch {
-    return prFail();
-  }
-};
-export function prId(v: unknown): string {
-  if (
-    typeof v !== "string" ||
-    !v ||
-    Buffer.byteLength(v) > 128 ||
-    /[\x00-\x1f\x7f]/.test(v)
-  )
-    prFail();
-  return v;
+function remap<A extends unknown[], R>(f: (...a: A) => R): (...a: A) => R {
+  return (...a) => {
+    try {
+      return f(...a);
+    } catch {
+      return prFail();
+    }
+  };
 }
-export function prDigest(v: unknown): string {
-  if (typeof v !== "string" || !/^[a-f0-9]{64}$/.test(v)) prFail();
-  return v;
-}
+export const prJson = remap(commitJson);
+export const prId = remap(commitId);
+export const prDigest = remap(commitDigest);
 export function prGitSha(v: unknown): string {
   if (typeof v !== "string" || !/^[a-f0-9]{40}$/.test(v)) prFail();
   return v;
@@ -80,10 +73,7 @@ export function prFields(
     prFail();
   return p as Record<string, unknown>;
 }
-export const prSign = <T extends object>(v: T): T & { sha256: string } => {
-  const { sha256: _, ...b } = v as T & { sha256?: string };
-  return prJson({ ...b, sha256: knowledgeHash(b) }) as T & { sha256: string };
-};
+export const prSign = remap(signedCommit);
 export function prSigned<T extends { sha256: string }>(v: T): T {
   const c = prJson(v);
   const { sha256, ...b } = c;
@@ -184,6 +174,37 @@ export function prChangesRequested(
   }
   return [...decisions.values()].some((r) => r.state === "CHANGES_REQUESTED");
 }
+export const PR_REVIEW_STATES: readonly string[] = [
+  "APPROVED",
+  "CHANGES_REQUESTED",
+  "COMMENTED",
+  "DISMISSED",
+  "PENDING",
+];
+export const prCheckKey = (
+  c: Pick<PrCheckSnapshot, "kind" | "name" | "appId">,
+) => knowledgeHash([c.kind, c.name, c.appId]);
+export function prRequiredState(
+  policy: PrPolicy,
+  checks: readonly PrCheckSnapshot[],
+): PrRemoteSnapshot["requiredState"] {
+  const required = policy.required.map((p) => {
+    const found = checks.filter(
+      (c) =>
+        c.kind === p.kind &&
+        c.name === p.name &&
+        (p.appId === null || p.appId === c.appId),
+    );
+    return found.length === 1 ? found[0]!.state : "missing";
+  });
+  return required.includes("failed")
+    ? "failed"
+    : required.includes("missing")
+      ? "missing"
+      : required.includes("pending")
+        ? "pending"
+        : "passed";
+}
 export interface PrRemoteSnapshot {
   readonly version: 1;
   readonly provider: "github";
@@ -258,7 +279,7 @@ export interface PrPollResult {
   readonly watch: PrWatchRecord;
   readonly occurrence: PrFeedbackOccurrence | null;
 }
-export const prData = (v: object) => v as unknown as JsonObject;
+export const prData = commitData;
 export function validatePrRepository(v: unknown): PrRepository {
   const p = prFields(v, ["owner", "name", "number"]);
   for (const k of ["owner", "name"])

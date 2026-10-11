@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { readFileSync, realpathSync, lstatSync } from "node:fs";
 import { join, relative } from "node:path";
@@ -10,6 +10,7 @@ import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 import {
   latestRequiredReceipts,
   verificationDocumentKind,
@@ -29,6 +30,7 @@ import { GitHubPrReader, PrHttpError, validatePrApiBase } from "./github.js";
 import { PrFeedbackStorage, validatePrPreview } from "./records.js";
 import {
   PR_LIMITS,
+  prCheckKey,
   prFail,
   prJson,
   prFields,
@@ -48,9 +50,6 @@ import {
   type PrSourcePin,
   type PrPollResult,
 } from "./types.js";
-function rawSha(v: Uint8Array | string) {
-  return createHash("sha256").update(v).digest("hex");
-}
 function gitBlob(root: string, args: string[], maxBuffer: number): Buffer {
   const env: NodeJS.ProcessEnv = {
     PATH: process.env.PATH,
@@ -111,7 +110,7 @@ function fileHash(root: string, path: string): string {
     before.mtimeNs !== after.mtimeNs
   )
     prFail("PR_SOURCE_STALE");
-  return rawSha(data);
+  return sha256Hex(data);
 }
 interface SnapshotHandle {
   readonly watch: PrWatchRecord;
@@ -133,7 +132,7 @@ export class PrFeedbackHost {
   private readonly pending = new Set<Promise<unknown>>();
   private readonly polls = new Map<string, Promise<PrPollResult>>();
   private readonly loops = new Map<string, WatchLoop>();
-  private readonly epoch = rawSha(randomUUID());
+  private readonly epoch = sha256Hex(randomUUID());
   private readonly firstDispatch = new Set<string>();
   private closed = false;
   constructor(
@@ -211,7 +210,7 @@ export class PrFeedbackHost {
           ["cat-file", "blob", p.source.head + ":" + f.path],
           8388609,
         );
-        if (rawSha(blob) !== f.hash) return false;
+        if (sha256Hex(blob) !== f.hash) return false;
       }
       return true;
     } catch {
@@ -364,7 +363,7 @@ export class PrFeedbackHost {
           files: observation.manifest.files,
           verificationSource: observed,
           verificationRevision: state.revision,
-          verificationDocumentSha256: rawSha(JSON.stringify(doc.data)),
+          verificationDocumentSha256: sha256Hex(JSON.stringify(doc.data)),
           receipts,
           configurationSha256: knowledgeHash(configuration),
         });
@@ -497,11 +496,7 @@ export class PrFeedbackHost {
       snapshot.head,
     );
     if (
-      snapshot.checks.some(
-        (c) =>
-          c.id <
-          (watermarks.get(knowledgeHash([c.kind, c.name, c.appId])) ?? 0),
-      )
+      snapshot.checks.some((c) => c.id < (watermarks.get(prCheckKey(c)) ?? 0))
     )
       return this.records.gap(i, "PR_OUT_OF_ORDER", null, durable);
     const original = this.issue(this.snapshots, { watch, snapshot });
@@ -720,7 +715,7 @@ export class PrFeedbackHost {
       workspaceId,
       sessionId,
       verificationRevision: state.revision,
-      verificationDocumentSha256: rawSha(JSON.stringify(doc.data)),
+      verificationDocumentSha256: sha256Hex(JSON.stringify(doc.data)),
       verification: receipts,
       source,
     });

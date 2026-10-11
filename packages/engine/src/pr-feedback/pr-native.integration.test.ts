@@ -139,3 +139,36 @@ test(
     );
   },
 );
+test(
+  "database validation runs check before each PR record read",
+  posix,
+  async (t) => {
+    const f = await prFixture(t);
+    f.engine.store.setSessionPaused(f.session.id, true, "user");
+    await f.register();
+    await f.engine.pollPrWatch(f.pollInput());
+    const db = Reflect.get(f.engine.store, "db") as DatabaseSync;
+    let calls = 0;
+    validatePrFeedbackDatabase(db, { check: () => void calls++ });
+    assert.equal(calls, 2);
+    const stale = new Error("stale snapshot");
+    db.exec("SAVEPOINT check_probe");
+    try {
+      db.prepare(
+        "UPDATE session_documents SET data=? WHERE session_id=? AND kind=?",
+      ).run("{}", f.session.id, prWatchKind("watch"));
+      assert.throws(
+        () =>
+          validatePrFeedbackDatabase(db, {
+            check: () => {
+              throw stale;
+            },
+          }),
+        (err: unknown) => err === stale,
+      );
+    } finally {
+      db.exec("ROLLBACK TO check_probe");
+      db.exec("RELEASE check_probe");
+    }
+  },
+);

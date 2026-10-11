@@ -1,10 +1,13 @@
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   PR_LIMITS,
+  PR_REVIEW_STATES,
   prChangesRequested,
+  prCheckKey,
   prFail,
   prGitSha,
   prInt,
+  prRequiredState,
   prSign,
   validatePrRepository,
   type PrPolicy,
@@ -300,27 +303,10 @@ export class GitHubPrReader {
       };
       if (!old || id > old.id) choices.set(key, item);
     }
-    const checks = [...choices.values()].sort((a, b) =>
-      knowledgeHash([a.kind, a.name, a.appId]).localeCompare(
-        knowledgeHash([b.kind, b.name, b.appId]),
-      ),
-    );
-    const required = policy.required.map((p) => {
-      const found = checks.filter(
-        (c) =>
-          c.kind === p.kind &&
-          c.name === p.name &&
-          (p.appId === null || p.appId === c.appId),
-      );
-      return found.length === 1 ? found[0]!.state : "missing";
-    });
-    const requiredState = required.includes("failed")
-      ? "failed"
-      : required.includes("missing")
-        ? "missing"
-        : required.includes("pending")
-          ? "pending"
-          : "passed";
+    const checks = [...choices.values()]
+      .map((c) => [prCheckKey(c), c] as const)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, c]) => c);
     const reviewMap = new Map<number, PrReviewSnapshot>();
     for (const r of reviewRows) {
       if (r.commit_id !== head || !r.submitted_at) continue;
@@ -331,16 +317,7 @@ export class GitHubPrReader {
           1,
         ),
         state = String(r.state);
-      if (
-        ![
-          "APPROVED",
-          "CHANGES_REQUESTED",
-          "COMMENTED",
-          "DISMISSED",
-          "PENDING",
-        ].includes(state)
-      )
-        prFail("PR_HTTP_SCHEMA");
+      if (!PR_REVIEW_STATES.includes(state)) prFail("PR_HTTP_SCHEMA");
       const item: PrReviewSnapshot = {
         id,
         authorId,
@@ -365,7 +342,7 @@ export class GitHubPrReader {
         state: first.state as "open" | "closed",
         checks,
         reviews,
-        requiredState: requiredState as PrRemoteSnapshot["requiredState"],
+        requiredState: prRequiredState(policy, checks),
         changesRequested: prChangesRequested(reviews),
         coverage: "complete" as const,
         mergeAuthority: false as const,

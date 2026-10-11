@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import type { JsonObject, InputRecord, AcceptInput } from "@moodcode/contracts";
@@ -8,11 +7,14 @@ import {
 } from "@moodcode/contracts/validation";
 import { requestIdentity } from "../storage/native-schema.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 import { validateQueueTarget } from "../runner/queue-target.js";
 import { validateCommitVerification } from "../git/commit-receipts.js";
 import {
   PR_LIMITS,
+  PR_REVIEW_STATES,
   prChangesRequested,
+  prCheckKey,
   prFail,
   prId,
   prInt,
@@ -20,6 +22,7 @@ import {
   prGitSha,
   prJson,
   prFields,
+  prRequiredState,
   prSigned,
   prSign,
   prData,
@@ -35,7 +38,6 @@ import {
   type RegisterPrWatchInput,
   type PrPollResult,
 } from "./types.js";
-const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 export const prWatchKind = (id: string) =>
   "pr.watch." + knowledgeHash(prId(id)).slice(0, 40);
 export const prOccurrenceKind = (id: string) =>
@@ -164,7 +166,7 @@ function body(db: DatabaseSync, h: Header): unknown {
     "revision",
     h.revision,
   );
-  if (events.length !== 1 || events[0]!.sha256 !== sha(String(row.data)))
+  if (events.length !== 1 || events[0]!.sha256 !== sha256Hex(String(row.data)))
     prFail("PR_DOCUMENT_ANCHOR_INVALID");
   return data;
 }
@@ -285,47 +287,26 @@ function validatePrSnapshot(
       prFail();
     if (c.kind === "check") prInt(c.appId, Number.MAX_SAFE_INTEGER, 1);
     else if (c.appId !== null) prFail();
-    const key = knowledgeHash([c.kind, c.name, c.appId]);
+    const key = prCheckKey(c);
     if (identities.has(key)) prFail();
     identities.add(key);
   }
-  const required = policy.required.map((p) => {
-    const xs = s.checks.filter(
-      (c) =>
-        c.kind === p.kind &&
-        c.name === p.name &&
-        (p.appId === null || c.appId === p.appId),
-    );
-    return xs.length === 1 ? xs[0]!.state : "missing";
-  });
-  const computed = required.includes("failed")
-    ? "failed"
-    : required.includes("missing")
-      ? "missing"
-      : required.includes("pending")
-        ? "pending"
-        : "passed";
-  if (s.requiredState !== computed) prFail("PR_REQUIRED_POLICY_INVALID");
-  const authors = new Set<number>();
+  if (s.requiredState !== prRequiredState(policy, s.checks))
+    prFail("PR_REQUIRED_POLICY_INVALID");
+  const reviewIds = new Set<number>();
   for (const r of s.reviews) {
     prInt(r.id, Number.MAX_SAFE_INTEGER, 1);
     prInt(r.authorId, Number.MAX_SAFE_INTEGER, 1);
     if (
       r.head !== s.head ||
-      authors.has(r.id) ||
-      ![
-        "APPROVED",
-        "CHANGES_REQUESTED",
-        "COMMENTED",
-        "DISMISSED",
-        "PENDING",
-      ].includes(r.state) ||
+      reviewIds.has(r.id) ||
+      !PR_REVIEW_STATES.includes(r.state) ||
       typeof r.body !== "string" ||
       Buffer.byteLength(r.body) > 1024 ||
       !Number.isFinite(Date.parse(r.submittedAt))
     )
       prFail();
-    authors.add(r.id);
+    reviewIds.add(r.id);
   }
   if (s.changesRequested !== prChangesRequested(s.reviews)) prFail();
   return s;
@@ -705,6 +686,43 @@ function acceptedSql(db: DatabaseSync, o: PrFeedbackOccurrence) {
   )
     prFail("PR_LINK_INVALID");
 }
+function readWatch(db: DatabaseSync, h: Header): PrWatchRecord {
+  prId(h.workspace_id);
+  prId(h.session_id);
+  const r = validatePrWatch(body(db, h));
+  if (
+    r.preview.workspaceId !== h.workspace_id ||
+    h.revision !== r.revision ||
+    h.kind !== prWatchKind(r.preview.id)
+  )
+    prFail();
+  watchGraph(db, r);
+  return r;
+}
+function readOccurrence(db: DatabaseSync, h: Header): PrFeedbackOccurrence {
+  const o = validatePrOccurrence(body(db, h));
+  if (
+    o.workspaceId !== h.workspace_id ||
+    o.revision !== h.revision ||
+    h.kind !== prOccurrenceKind(o.id)
+  )
+    prFail();
+  sourceSql(db, o.preview);
+  const b = event(db, h.session_id, "pr.feedback.admitted", "id", o.id);
+  if (b.length !== 1) prFail();
+  const born = validatePrOccurrence(b[0]!.occurrence);
+  if (
+    !same(
+      o.state === "paused-import"
+        ? { ...o, state: born.state, revision: 1, sha256: born.sha256 }
+        : o,
+      born,
+    )
+  )
+    prFail("PR_FEEDBACK_ANCHOR_INVALID");
+  acceptedSql(db, o);
+  return o;
+}
 export class PrFeedbackStorage {
   constructor(
     readonly db: DatabaseSync,
@@ -748,33 +766,12 @@ export class PrFeedbackStorage {
     const h = header(this.db, session, prWatchKind(id));
     if (!h) return null;
     caps(this.db);
-    const r = validatePrWatch(body(this.db, h));
-    if (
-      r.preview.workspaceId !== ws ||
-      h.workspace_id !== ws ||
-      h.revision !== r.revision
-    )
-      prFail();
-    watchGraph(this.db, r);
-    return r;
+    if (h.workspace_id !== ws) prFail();
+    return readWatch(this.db, h);
   }
   list(ws?: string): PrWatchRecord[] {
     caps(this.db);
-    return headers(this.db, "pr.watch.*", ws).map((h) =>
-      this.get(
-        h.workspace_id,
-        h.session_id,
-        JSON.parse(
-          String(
-            this.db
-              .prepare(
-                "SELECT data FROM session_documents WHERE session_id=? AND kind=? AND length(CAST(data AS BLOB))=?",
-              )
-              .get(h.session_id, h.kind, h.bytes)!.data,
-          ),
-        ).preview.id,
-      )!,
-    );
+    return headers(this.db, "pr.watch.*", ws).map((h) => readWatch(this.db, h));
   }
   occurrence(
     ws: string,
@@ -784,64 +781,55 @@ export class PrFeedbackStorage {
     const h = header(this.db, session, prOccurrenceKind(id));
     if (!h) return null;
     caps(this.db);
-    const o = validatePrOccurrence(body(this.db, h));
-    if (
-      o.id !== id ||
-      o.workspaceId !== ws ||
-      h.workspace_id !== ws ||
-      o.revision !== h.revision
-    )
-      prFail();
-    sourceSql(this.db, o.preview);
-    const b = event(this.db, session, "pr.feedback.admitted", "id", id);
-    if (b.length !== 1) prFail();
-    const born = validatePrOccurrence(b[0]!.occurrence);
-    if (
-      !same(
-        o.state === "paused-import"
-          ? { ...o, state: born.state, revision: 1, sha256: born.sha256 }
-          : o,
-        born,
-      )
-    )
-      prFail("PR_FEEDBACK_ANCHOR_INVALID");
-    acceptedSql(this.db, o);
+    if (h.workspace_id !== ws) prFail();
+    const o = readOccurrence(this.db, h);
+    if (o.id !== id) prFail();
     return o;
   }
   occurrences(ws?: string): PrFeedbackOccurrence[] {
     caps(this.db);
-    return headers(this.db, "pr.feedback.*", ws).map((h) => {
-      const x = body(this.db, h) as PrFeedbackOccurrence;
-      return this.occurrence(h.workspace_id, h.session_id, x.id)!;
-    });
+    return headers(this.db, "pr.feedback.*", ws).map((h) =>
+      readOccurrence(this.db, h),
+    );
+  }
+  private requestRows(session: string, id: string, requestId: string) {
+    return [
+      ...event(
+        this.db,
+        session,
+        "pr.watch.transition",
+        "id",
+        id,
+        "requestId",
+        requestId,
+      ),
+      ...event(
+        this.db,
+        session,
+        "pr.request.duplicate",
+        "id",
+        id,
+        "requestId",
+        requestId,
+      ),
+    ];
   }
   request(input: PollPrWatchInput): PrPollResult | null {
     const i = prJson(input);
-    const matches = [
-      ...event(
-        this.db,
-        i.sessionId,
-        "pr.watch.transition",
-        "id",
-        i.watchId,
-        "requestId",
-        i.requestId,
-      ),
-      ...event(
-        this.db,
-        i.sessionId,
-        "pr.request.duplicate",
-        "id",
-        i.watchId,
-        "requestId",
-        i.requestId,
-      ),
-    ];
+    return this.replay(
+      i,
+      this.requestRows(i.sessionId, i.watchId, i.requestId),
+    );
+  }
+  private replay(
+    i: PollPrWatchInput,
+    matches: Record<string, any>[],
+  ): PrPollResult | null {
     if (!matches.length) return null;
     if (matches.length !== 1 || matches[0]!.requestSha256 !== knowledgeHash(i))
       prFail("PR_REQUEST_CONFLICT");
     const r = validatePrWatch(matches[0]!.record);
-    watchGraph(this.db, this.get(i.workspaceId, i.sessionId, i.watchId)!);
+    if (!this.get(i.workspaceId, i.sessionId, i.watchId)) prFail();
     return {
       kind: "duplicate",
       watch: r,
@@ -866,7 +854,7 @@ export class PrFeedbackStorage {
       const s = p.snapshot as PrRemoteSnapshot;
       if (s.head !== head) continue;
       for (const c of s.checks) {
-        const k = knowledgeHash([c.kind, c.name, c.appId]);
+        const k = prCheckKey(c);
         map.set(k, Math.max(map.get(k) ?? 0, c.id));
       }
     }
@@ -878,36 +866,20 @@ export class PrFeedbackStorage {
     id: string,
     requestId: string,
   ): PrPollResult | null {
-    const rows = [
-      ...event(
-        this.db,
-        session,
-        "pr.watch.transition",
-        "id",
-        id,
-        "requestId",
-        requestId,
-      ),
-      ...event(
-        this.db,
-        session,
-        "pr.request.duplicate",
-        "id",
-        id,
-        "requestId",
-        requestId,
-      ),
-    ];
+    const rows = this.requestRows(session, id, requestId);
     if (!rows.length) return null;
     if (rows.length !== 1) prFail();
     const record = validatePrWatch(rows[0]!.record);
-    return this.request({
-      workspaceId: ws,
-      sessionId: session,
-      watchId: id,
-      requestId,
-      expectedRevision: rows[0]!.expectedRevision ?? record.revision - 1,
-    });
+    return this.replay(
+      prJson({
+        workspaceId: ws,
+        sessionId: session,
+        watchId: id,
+        requestId,
+        expectedRevision: rows[0]!.expectedRevision ?? record.revision - 1,
+      }),
+      rows,
+    );
   }
   register(
     original: object,
@@ -1226,13 +1198,16 @@ export function validatePrFeedbackDatabase(
   options: { check?: () => void } = {},
 ) {
   caps(db);
-  const records = new PrFeedbackStorage(db, {
-    writeTx: () => prFail(),
-    writeDocument: () => prFail(),
-    appendEvent: () => prFail(),
-  });
-  for (const r of records.list()) options.check?.();
-  for (const o of records.occurrences()) options.check?.();
+  for (const h of headers(db, "pr.watch.*")) {
+    options.check?.();
+    readWatch(db, h);
+  }
+  const occurrences = new Map<string, PrFeedbackOccurrence>();
+  for (const h of headers(db, "pr.feedback.*")) {
+    options.check?.();
+    const o = readOccurrence(db, h);
+    occurrences.set(JSON.stringify([h.session_id, o.id]), o);
+  }
   const born = db
     .prepare(
       "SELECT count(*) n FROM session_events WHERE type='pr.watch.admitted'",
@@ -1242,11 +1217,10 @@ export function validatePrFeedbackDatabase(
     prFail("PR_ORPHAN_WATCH");
   for (const h of headers(db, "pr.input.*")) {
     const link = body(db, h) as any;
-    const o = records.occurrence(
-      h.workspace_id,
-      h.session_id,
-      link.occurrenceId,
+    const o = occurrences.get(
+      JSON.stringify([h.session_id, prId(link.occurrenceId)]),
     );
+    if (o && o.workspaceId !== h.workspace_id) prFail();
     if (
       !o?.accepted ||
       o.accepted.inputId !== link.inputId ||
