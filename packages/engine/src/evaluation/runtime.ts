@@ -1,9 +1,19 @@
 import assert from "node:assert/strict";
 import { createHash, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
-import { lstat, readdir, readFile, realpath, rm, stat } from "node:fs/promises";
-import { arch, platform, release } from "node:os";
+import {
+  lstat,
+  mkdir,
+  mkdtemp,
+  readdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+} from "node:fs/promises";
+import { arch, platform, release, tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
+import { performance } from "node:perf_hooks";
 import { fileURLToPath } from "node:url";
 import type { JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
@@ -124,6 +134,10 @@ export async function sourceRuntimeIdentity() {
     runtime = module.endsWith(".ts") ? "source" : "compiled";
   const root = await realpath(join(dirname(module), "../../../.."));
   const pins: Pin[] = [];
+  const pin = async (absolute: string, path = relative(root, absolute)) => {
+    const bytes = await readFile(absolute);
+    pins.push({ path, bytes: bytes.length, sha256: digest(bytes) });
+  };
   async function walk(directory: string) {
     for (const entry of (
       await readdir(directory, { withFileTypes: true })
@@ -141,12 +155,7 @@ export async function sourceRuntimeIdentity() {
           !info.isSymbolicLink() && info.size <= 16_777_216,
           "SOURCE_IDENTITY_INVALID",
         );
-        const bytes = await readFile(path);
-        pins.push({
-          path: relative(root, path),
-          bytes: bytes.length,
-          sha256: digest(bytes),
-        });
+        await pin(path);
       }
     }
   }
@@ -164,33 +173,19 @@ export async function sourceRuntimeIdentity() {
     "scripts/benchmark-engine.mjs",
     "packages/engine/package.json",
     "packages/contracts/package.json",
-  ]) {
-    const bytes = await readFile(join(root, path));
-    pins.push({ path, bytes: bytes.length, sha256: digest(bytes) });
-  }
-  for (const path of [
     "packages/engine/src/storage/fixtures/summary-hotpath-benchmark.ts",
     ...(runtime === "compiled"
       ? ["packages/engine/dist/storage/fixtures/summary-hotpath-benchmark.js"]
       : []),
-  ]) {
-    const bytes = await readFile(join(root, path));
-    pins.push({ path, bytes: bytes.length, sha256: digest(bytes) });
-  }
+  ])
+    await pin(join(root, path), path);
   for (const evaluationDirectory of new Set([
     join(root, "packages/engine/src/evaluation"),
     dirname(module),
   ]))
     for (const entry of (await readdir(evaluationDirectory)).sort())
-      if (/\.(ts|js)$/.test(entry) && !/\.test\.|\.d\.ts$/.test(entry)) {
-        const path = join(evaluationDirectory, entry),
-          bytes = await readFile(path);
-        pins.push({
-          path: relative(root, path),
-          bytes: bytes.length,
-          sha256: digest(bytes),
-        });
-      }
+      if (/\.(ts|js)$/.test(entry) && !/\.test\.|\.d\.ts$/.test(entry))
+        await pin(join(evaluationDirectory, entry));
   pins.sort((a, b) => a.path.localeCompare(b.path));
   assert.ok(pins.length > 0 && pins.length <= 2500);
   let gitHead: string | null = null;
@@ -229,15 +224,39 @@ export async function directoryBytes(root: string): Promise<number> {
   }
   return bytes;
 }
+interface CleanupProof {
+  engineClosed: boolean;
+  nativeCleanupConfirmed: boolean | null;
+  runtimeCleanupConfirmed: boolean | null;
+  noActiveExecution: boolean | null;
+  temporaryFilesRemoved: boolean;
+  /** Set when the fixture files were kept. */
+  retainedDirectory?: string;
+  /** Set when the fixture files were removed. */
+  retainedBytesBeforeRemoval?: number;
+  failure: string | null;
+}
 export async function cleanup(
   engine: MoodcodeEngine | undefined,
   directory: string,
-) {
+): Promise<CleanupProof> {
   let engineClosed = false;
   let nativeCleanupConfirmed: boolean | null = engine ? null : true;
   let runtimeCleanupConfirmed: boolean | null = engine ? null : true;
   let noActiveExecution: boolean | null = engine ? null : true;
   let failure: string | null = null;
+  const flags = () => ({
+      engineClosed,
+      nativeCleanupConfirmed,
+      runtimeCleanupConfirmed,
+      noActiveExecution,
+    }),
+    retained = (code: string): CleanupProof => ({
+      ...flags(),
+      temporaryFilesRemoved: false,
+      retainedDirectory: directory,
+      failure: code,
+    });
   if (engine) {
     // close() joins its owners, but a resolved close is not a recovery acknowledgment.
     // Capture both native debt and runtime-only quarantine before close hides those facts.
@@ -271,38 +290,47 @@ export async function cleanup(
       nativeCleanupConfirmed !== true ||
       runtimeCleanupConfirmed !== true ||
       noActiveExecution !== true
-    ) {
-      return {
-        engineClosed,
-        nativeCleanupConfirmed,
-        runtimeCleanupConfirmed,
-        noActiveExecution,
-        temporaryFilesRemoved: false,
-        retainedDirectory: directory,
-        failure: failure ?? "BASELINE_CLEANUP_PROOF_UNAVAILABLE",
-      };
-    }
+    )
+      return retained(failure ?? "BASELINE_CLEANUP_PROOF_UNAVAILABLE");
     const retainedBytesBeforeRemoval = await directoryBytes(directory);
     await rm(directory, { force: true, recursive: true });
     return {
-      engineClosed,
-      nativeCleanupConfirmed,
-      runtimeCleanupConfirmed,
-      noActiveExecution,
+      ...flags(),
       temporaryFilesRemoved: true,
       retainedBytesBeforeRemoval,
       failure: null,
     };
   } catch (error) {
     // Keep the database/artifacts on unconfirmed cleanup or unreadable native proof.
-    return {
-      engineClosed,
-      nativeCleanupConfirmed,
-      runtimeCleanupConfirmed,
-      noActiveExecution,
-      temporaryFilesRemoved: false,
-      retainedDirectory: directory,
-      failure: failureCode(error),
-    };
+    return retained(failureCode(error));
   }
+}
+/** A fresh temporary fixture directory; its `repository` child is created by initRepository. */
+export async function fixtureDirectory(prefix: string) {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), prefix)));
+  return { directory, root: join(directory, "repository") };
+}
+/** Call inside the harness try block so a failure is reported and the fixture cleaned up. */
+export async function initRepository(root: string): Promise<void> {
+  await mkdir(root);
+  git(root, "init", "--quiet", "--template=");
+}
+/** A report whose cleanup is unconfirmed or whose files were retained never passes. */
+export async function settleReport(
+  report: {
+    passed: boolean;
+    failure: string | null;
+    cleanup: CleanupProof | null;
+    durationMs: number;
+  },
+  engine: MoodcodeEngine | undefined,
+  directory: string,
+  started: number,
+): Promise<void> {
+  report.cleanup = await cleanup(engine, directory);
+  if (!report.cleanup.engineClosed || !report.cleanup.temporaryFilesRemoved) {
+    report.passed = false;
+    report.failure = report.cleanup.failure;
+  }
+  report.durationMs = rounded(performance.now() - started);
 }

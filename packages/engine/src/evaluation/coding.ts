@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import {
-  mkdtemp,
-  mkdir,
-  readFile,
-  realpath,
-  writeFile,
-} from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import type {
@@ -23,11 +16,13 @@ import {
   command,
   digest,
   failureCode,
+  fixtureDirectory,
   git,
+  initRepository,
   integer,
   jsonDigest,
-  rounded,
   seeded,
+  settleReport,
   shellQuote,
 } from "./runtime.js";
 
@@ -161,10 +156,9 @@ async function evaluateTask(
   task: Task,
   options: CodingOptions,
 ): Promise<CodingTaskReport> {
-  const directory = await realpath(
-      await mkdtemp(join(tmpdir(), "moodcode-native-evaluation-")),
-    ),
-    root = join(directory, "repository");
+  const { directory, root } = await fixtureDirectory(
+    "moodcode-native-evaluation-",
+  );
   const report: CodingTaskReport = {
     taskId: task.id,
     kind: "deterministic-native-coding-task",
@@ -219,8 +213,7 @@ async function evaluateTask(
   const abort = new AbortController(),
     start = performance.now();
   try {
-    await mkdir(root);
-    git(root, "init", "--quiet", "--template=");
+    await initRepository(root);
     git(root, "config", "user.name", "Moodcode Evaluation");
     git(root, "config", "user.email", "evaluation@example.invalid");
     git(root, "config", "commit.gpgSign", "false");
@@ -538,12 +531,7 @@ async function evaluateTask(
       report.passed = false;
       report.failure = failureCode(pumpFailure);
     }
-    report.cleanup = await cleanup(engine, directory);
-    if (!report.cleanup.engineClosed || !report.cleanup.temporaryFilesRemoved) {
-      report.passed = false;
-      report.failure = report.cleanup.failure;
-    }
-    report.durationMs = rounded(performance.now() - start);
+    await settleReport(report, engine, directory, start);
   }
   return report;
 }

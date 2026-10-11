@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, realpath, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { performance } from "node:perf_hooks";
 import type { DatabaseSync } from "node:sqlite";
@@ -20,11 +19,13 @@ import {
   directoryBytes,
   distribution,
   failureCode,
-  git,
+  fixtureDirectory,
+  initRepository,
   integer,
   jsonDigest,
   rounded,
   seeded,
+  settleReport,
 } from "./runtime.js";
 
 export interface BenchmarkOptions {
@@ -85,10 +86,9 @@ export async function runEngineBenchmark(options: BenchmarkOptions) {
   integer(options.samples, 3, 100);
   integer(options.warmup, 0, 10);
   integer(options.seed, 0, 0xffffffff);
-  const directory = await realpath(
-      await mkdtemp(join(tmpdir(), "moodcode-engine-baseline-")),
-    ),
-    root = join(directory, "repository");
+  const { directory, root } = await fixtureDirectory(
+    "moodcode-engine-baseline-",
+  );
   const measurements: Record<string, Measurement> = {};
   const report: {
     passed: boolean;
@@ -121,8 +121,7 @@ export async function runEngineBenchmark(options: BenchmarkOptions) {
   let engine: ReturnType<typeof createEngine> | undefined;
   const started = performance.now();
   try {
-    await mkdir(root);
-    git(root, "init", "--quiet", "--template=");
+    await initRepository(root);
     await writeFile(
       join(root, "baseline.txt"),
       "Read-only native benchmark workspace.\n",
@@ -460,12 +459,7 @@ export async function runEngineBenchmark(options: BenchmarkOptions) {
   } catch (error) {
     report.failure = failureCode(error);
   } finally {
-    report.cleanup = await cleanup(engine, directory);
-    if (!report.cleanup.engineClosed || !report.cleanup.temporaryFilesRemoved) {
-      report.passed = false;
-      report.failure = report.cleanup.failure;
-    }
-    report.durationMs = rounded(performance.now() - started);
+    await settleReport(report, engine, directory, started);
   }
   return report;
 }
