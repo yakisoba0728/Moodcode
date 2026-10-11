@@ -1,7 +1,7 @@
 import { EngineError } from '@moodcode/contracts';
 import type { CredentialBroker, CredentialReference } from '../credentials/index.js';
 import { SseDataParser } from '../provider/sse.js';
-import { encodeMessage, markMcpDispatchTransport, MCP_LIMITS, parseMessage, type JsonRpcMessage, type McpProtocolVersion, type McpTransport, type McpTransportSendObservation } from './protocol.js';
+import { encodeMessage, markMcpDispatchTransport, MCP_DEFAULT_VERSION, MCP_LIMITS, MCP_PROTOCOL_VERSIONS, parseMessage, type JsonRpcMessage, type McpProtocolVersion, type McpTransport, type McpTransportSendObservation } from './protocol.js';
 export interface HttpMcpOptions { url: string; protocolVersion?: McpProtocolVersion; credential?: { broker: CredentialBroker; reference: CredentialReference }; fetch?: typeof fetch }
 function cleanupFailure(message: string): EngineError { return new EngineError('MCP_TRANSPORT_CLEANUP_UNCERTAIN', message, { cleanupUncertain: true, transportCleanupConfirmed: false }); }
 async function cancelBody(body: ReadableStream<Uint8Array> | null | undefined): Promise<void> { try { await body?.cancel(); } catch { throw cleanupFailure('MCP HTTP response body did not confirm local cleanup'); } }
@@ -15,8 +15,8 @@ export class HttpMcpTransport implements McpTransport {
   constructor(private readonly options: HttpMcpOptions) {
     let url: URL; try { url = new URL(options.url); } catch { throw new EngineError('INVALID_MCP_HTTP', 'MCP endpoint must be an absolute URL'); }
     if (url.username || url.password || url.hash || url.search || !['https:', 'http:'].includes(url.protocol) || url.protocol === 'http:' && !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) throw new EngineError('INVALID_MCP_HTTP', 'MCP endpoint requires HTTPS or explicit loopback HTTP, without URL credentials/query/fragment');
-    this.url = url.href; this.version = options.protocolVersion ?? '2026-07-28';
-    if (!['2026-07-28', '2025-11-25'].includes(this.version)) throw new EngineError('MCP_VERSION_UNSUPPORTED', 'MCP transport protocol version is unsupported');
+    this.url = url.href; this.version = options.protocolVersion ?? MCP_DEFAULT_VERSION;
+    if (!MCP_PROTOCOL_VERSIONS.includes(this.version)) throw new EngineError('MCP_VERSION_UNSUPPORTED', 'MCP transport protocol version is unsupported');
     markMcpDispatchTransport(this, HttpMcpTransport.prototype.send);
   }
   async start(onMessage: (message: JsonRpcMessage) => void, onClose: (error?: EngineError) => void): Promise<void> { if (this.started || this.closed) throw new EngineError('MCP_TRANSPORT_STATE', 'MCP HTTP transport can start only once'); this.started = true; this.receive = onMessage; this.disconnected = onClose; }
@@ -66,7 +66,7 @@ export class HttpMcpTransport implements McpTransport {
         finally { try { reader.releaseLock(); } catch { throw cleanupFailure('MCP HTTP response reader lock did not confirm release'); } }
       }
     };
-    try { if (this.options.credential) await this.options.credential.broker.withAuthorization(this.options.credential.reference, this.url, combined, auth => operation(auth)); else await operation(); }
+    try { await this.authorized(combined, operation); }
     catch (error) {
       const safe = error instanceof EngineError ? error : new EngineError('MCP_HTTP_FAILED', 'MCP HTTP transport failed');
       if (combined.aborted && safe.details?.cleanupUncertain !== true) throw new EngineError('MCP_CANCELLED', 'MCP HTTP request cancelled');
@@ -75,13 +75,15 @@ export class HttpMcpTransport implements McpTransport {
     } finally { if (id === undefined) this.notifications.delete(controller); else this.active.delete(id); }
   }
   async cancel(requestId: number): Promise<void> { this.active.get(requestId)?.abort(); if (this.version === '2025-11-25' && !this.closed) await this.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId } }).catch(() => {}); }
-  private async fail(error: EngineError): Promise<void> { if (this.closed) return; this.closed = true; for (const controller of this.active.values()) controller.abort(); for (const controller of this.notifications) controller.abort(); this.disconnected?.(error); }
+  private authorized(signal: AbortSignal, operation: (authorization?: string) => Promise<void>): Promise<void> { const credential = this.options.credential; return credential ? credential.broker.withAuthorization(credential.reference, this.url, signal, auth => operation(auth)) : operation(); }
+  private abortAll(): void { for (const controller of this.active.values()) controller.abort(); for (const controller of this.notifications) controller.abort(); }
+  private async fail(error: EngineError): Promise<void> { if (this.closed) return; this.closed = true; this.abortAll(); this.disconnected?.(error); }
   close(): Promise<void> { return this.closePromise ??= this.shutdown(); }
   private async shutdown(): Promise<void> {
-    if (this.closed) return; this.closed = true; for (const controller of this.active.values()) controller.abort(); for (const controller of this.notifications) controller.abort(); this.disconnected?.();
+    if (this.closed) return; this.closed = true; this.abortAll(); this.disconnected?.();
     if (this.version === '2025-11-25' && this.sessionId) {
       const signal = AbortSignal.timeout(1000); const operation = async (authorization?: string) => { const response = await (this.options.fetch ?? fetch)(this.url, { method: 'DELETE', redirect: 'error', headers: this.headers(undefined, authorization), signal }); await cancelBody(response.body); };
-      try { if (this.options.credential) await this.options.credential.broker.withAuthorization(this.options.credential.reference, this.url, signal, auth => operation(auth)); else await operation(); } catch (error) { if (error instanceof EngineError && error.details?.cleanupUncertain === true) throw error; /* Remote termination failures cannot confirm or deny an operation outcome. */ }
+      try { await this.authorized(signal, operation); } catch (error) { if (error instanceof EngineError && error.details?.cleanupUncertain === true) throw error; /* Remote termination failures cannot confirm or deny an operation outcome. */ }
     }
   }
 }

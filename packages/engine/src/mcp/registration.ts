@@ -3,6 +3,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition } from '../ports.js';
 import { projectToolResult } from '../artifacts/result.js';
 import { cappedJson, object } from './protocol.js';
+import { validateMcpToolResult } from './execution-observation.js';
 import { McpClient, type McpResource, type McpTool } from './client.js';
 import { ScopedToolRuntime } from '../tools/runtime/index.js';
 function binding(context: ToolContext): string { return JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]); }
@@ -12,14 +13,15 @@ function definition(client: McpClient, remote: McpTool, revision: number): ToolD
   return { name, effectClass: 'unknown', description: remote.description, inputSchema: structuredClone(remote.inputSchema),
     async prepare(value, context) { if (!client.connected || client.revision !== revision) throw new EngineError('MCP_CATALOGUE_STALE', 'MCP connection or advertised schema changed'); const input = cappedJson(value, 256 * 1024); if (!object(input)) throw new EngineError('MCP_INVALID_TOOL_ARGUMENT', 'MCP tool arguments must be a bounded object');
       const preview: JsonObject = { serverId: client.id, remoteTool: remote.name, arguments: input, catalogueRevision: revision, effects: 'untrusted server effects require approval' };
-      const prepared: PreparedTool = { name, input, preview, requiresApproval: true, fingerprint: createHash('sha256').update(JSON.stringify({ name, revision, input, binding: binding(context), preview })).digest('hex') }; requests.set(prepared, { snapshot: JSON.stringify(prepared), binding: binding(context), used: false }); return prepared;
+      const bound = binding(context);
+      const prepared: PreparedTool = { name, input, preview, requiresApproval: true, fingerprint: createHash('sha256').update(JSON.stringify({ name, revision, input, binding: bound, preview })).digest('hex') }; requests.set(prepared, { snapshot: JSON.stringify(prepared), binding: bound, used: false }); return prepared;
     },
     async execute(prepared, context) { const request = requests.get(prepared); if (!request || request.used) throw new EngineError('INVALID_PREPARED_MCP_TOOL', 'MCP call must be prepared by this connection and used once'); request.used = true;
       if (request.binding !== binding(context) || request.snapshot !== JSON.stringify(prepared)) throw new EngineError('MCP_APPROVAL_STALE', 'MCP call or authorization context changed');
       const result = await client.callTool(remote.name, prepared.input as JsonObject, revision, context.signal, context.mcpExecutionObserver);
-      if (!Array.isArray(result.content) || result.content.length > 64 || result.isError !== undefined && typeof result.isError !== 'boolean') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP tool result content is invalid');
+      validateMcpToolResult(result);
       const texts: string[] = []; let omitted = 0;
-      for (const block of result.content) { if (!object(block) || typeof block.type !== 'string') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP content block is invalid'); if (block.type === 'text') { if (typeof block.text !== 'string') throw new EngineError('MCP_INVALID_TOOL_RESULT', 'MCP text content is invalid'); texts.push(block.text); } else if (block.type === 'resource' && object(block.resource) && typeof block.resource.text === 'string') texts.push(block.resource.text); else omitted++; }
+      for (const block of result.content as JsonObject[]) { if (block.type === 'text') texts.push(block.text as string); else if (block.type === 'resource' && object(block.resource) && typeof block.resource.text === 'string') texts.push(block.resource.text); else omitted++; }
       const warnings = omitted ? [`${omitted} non-text MCP content block(s) were omitted from model text projection.`] : [];
       return projectToolResult({ displayContent: texts.join('\n'), structuredData: result.structuredContent ?? result, metadata: { serverId: client.id, remoteTool: remote.name, catalogueRevision: revision, omittedNonTextBlocks: omitted }, warnings, outcome: result.isError ? 'failed' : 'completed' }, { maxModelBytes: Math.min(context.limits.maxOutputBytes, 32 * 1024), maxDisplayBytes: Math.min(context.limits.maxOutputBytes, 64 * 1024) });
     },

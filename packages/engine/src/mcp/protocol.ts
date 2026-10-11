@@ -1,6 +1,8 @@
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import { boundedJson, JsonBudgetError } from '../artifacts/validation.js';
-export type McpProtocolVersion = '2026-07-28' | '2025-11-25';
+export const MCP_PROTOCOL_VERSIONS = ['2026-07-28', '2025-11-25'] as const;
+export type McpProtocolVersion = (typeof MCP_PROTOCOL_VERSIONS)[number];
+export const MCP_DEFAULT_VERSION: McpProtocolVersion = '2026-07-28';
 export interface JsonRpcRequest { jsonrpc: '2.0'; id?: number | string; method: string; params?: JsonObject }
 export type JsonRpcMessage = JsonRpcRequest | { jsonrpc: '2.0'; id: number | string; result: JsonValue } | { jsonrpc: '2.0'; id: number | string; error: { code: number; message: string; data?: JsonValue } };
 export interface McpTransportSendObservation { beforeSend(): void }
