@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
-import { fork } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from "node:fs";
 import { EngineError } from "@moodcode/contracts";
-import { createEngine, type MoodcodeEngine } from "../engine.js";
+import type { MoodcodeEngine } from "../engine.js";
 import type { OwnedCommandJobRecord } from "../jobs/owned-command-records.js";
 import {
   assertIdentityStable,
@@ -15,12 +13,15 @@ import { groupExists } from "../tools/command/process-control.js";
 import { inspectExecutionLock } from "../tools/command/execution-lock.js";
 import {
   bounded,
+  failedWorkerGroup,
+  failureOf,
   fixturePaths,
-  hash,
+  forkResilienceWorker,
+  launchCount,
   newBase,
+  openFixtureEngine,
   pidAbsent,
   POSIX_SUPPORTED,
-  PROFILES,
   until,
 } from "./fixture.js";
 import {
@@ -39,7 +40,6 @@ import {
   resolvePersistentSoakOptions,
   type PersistentSoakOptions,
 } from "./persistent-options.js";
-import { failureOf } from "./scenarios.js";
 import type { runPersistentLoad } from "./persistent-worker.js";
 export { resolvePersistentSoakOptions } from "./persistent-options.js";
 export type { PersistentSoakOptions } from "./persistent-options.js";
@@ -61,8 +61,7 @@ export async function verifyEnginePersistentSoak(
   const resolved = resolvePersistentSoakOptions(options),
     started = performance.now();
   const base = newBase(),
-    paths = fixturePaths(base),
-    extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
+    paths = fixturePaths(base);
   const source = await sourceRuntimeIdentity();
   const cliUrl = new URL(
     "../../../../scripts/verify-engine-persistent-soak.mjs",
@@ -161,42 +160,13 @@ export async function verifyEnginePersistentSoak(
     );
     return result;
   }
-  let engine: MoodcodeEngine | undefined,
-    ready: Ready | undefined,
-    exited = false;
-  let diagnostics = Buffer.alloc(0);
-  const child = fork(
-    fileURLToPath(new URL(`./persistent-worker.${extension}`, import.meta.url)),
-    ["--persistent-soak-worker", base, JSON.stringify(resolved)],
-    {
-      silent: true,
-      execArgv:
-        extension === "ts"
-          ? [
-              "--import",
-              fileURLToPath(
-                new URL(
-                  "../../../../node_modules/tsx/dist/loader.mjs",
-                  import.meta.url,
-                ),
-              ),
-            ]
-          : [],
-    },
-  );
-  const capture = (data: Buffer) => {
-    diagnostics = Buffer.concat([diagnostics, data]).subarray(-32768);
-  };
-  child.stdout!.on("data", capture);
-  child.stderr!.on("data", capture);
-  const ended = new Promise<void>((yes, no) => {
-    child.once("error", no);
-    child.once("exit", () => {
-      exited = true;
-      yes();
-    });
-  });
-  void ended.catch(() => {});
+  let engine: MoodcodeEngine | undefined, ready: Ready | undefined;
+  const worker = forkResilienceWorker("persistent-worker", [
+    "--persistent-soak-worker",
+    base,
+    JSON.stringify(resolved),
+  ]);
+  const { child, ended } = worker;
   let verified = false;
   try {
     ready = await bounded(
@@ -225,7 +195,7 @@ export async function verifyEnginePersistentSoak(
         child.once("exit", () =>
           no(
             new Error(
-              `Persistent worker exited before crash checkpoint; diagnostic SHA ${hash([...diagnostics])}`,
+              `Persistent worker exited before crash checkpoint; diagnostic SHA ${worker.diagnosticSha256()}`,
             ),
           ),
         );
@@ -292,14 +262,7 @@ export async function verifyEnginePersistentSoak(
       "persistent effect owner release",
     );
     const local = persistentProviders(ready.commandText);
-    engine = createEngine({
-      dbPath: paths.dbPath,
-      artifactDir: paths.artifactDir,
-      providers: local.providers,
-      defaults: ready.config,
-      agentProfiles: PROFILES,
-      jobs: true,
-    });
+    engine = openFixtureEngine(paths, local.providers, ready.config);
     const restored = engine.getOwnedCommandJob(
       ready.workspaceId,
       ready.job.jobId,
@@ -395,9 +358,7 @@ export async function verifyEnginePersistentSoak(
     );
     assert.deepEqual(local.calls(), { command: 0, observer: 0 });
     assert.deepEqual(persistentNativeDigest(paths.dbPath), after);
-    const launches = readFileSync(paths.launches, "utf8")
-      .trim()
-      .split("\n").length;
+    const launches = launchCount(paths);
     assert.equal(launches, ready.summary.commands);
     assert.equal(
       readFileSync(paths.root + "/preserved.txt", "utf8"),
@@ -465,7 +426,7 @@ export async function verifyEnginePersistentSoak(
     result.failure = failureOf(error);
   } finally {
     try {
-      if (!exited) {
+      if (!worker.exited()) {
         child.kill("SIGKILL");
         await bounded(
           ended,
@@ -473,7 +434,7 @@ export async function verifyEnginePersistentSoak(
           "failed persistent worker termination",
         );
       }
-      result.cleanup.workerExited = exited;
+      result.cleanup.workerExited = worker.exited();
       if (engine && !result.cleanup.recoveryEngineClosed) {
         await bounded(
           engine.close(),
@@ -482,13 +443,7 @@ export async function verifyEnginePersistentSoak(
         );
         result.cleanup.recoveryEngineClosed = true;
       }
-      const inspection = existsSync(paths.dbPath + ".effects.sqlite")
-        ? inspectExecutionLock(paths.dbPath + ".effects.sqlite")
-        : null;
-      const marker = inspection?.marker;
-      const groupPid =
-        ready?.groupPid ??
-        (marker && marker.ownerPid === child.pid ? marker.groupPid : null);
+      const { groupPid } = failedWorkerGroup(paths, child, ready?.groupPid);
       if (groupPid && groupExists(groupPid)) {
         throw new Error(
           "Historical command group still exists; retained evidence does not grant signal authority",

@@ -5,11 +5,12 @@ import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { MoodcodeEngine } from "../engine.js";
+import { digest as sha256 } from "../evaluation/runtime.js";
 import {
   ownedCommandJobKind,
   type OwnedCommandJobSource,
 } from "../jobs/owned-command-records.js";
-import { hash } from "./fixture.js";
+import { hash, tableCounts } from "./fixture.js";
 
 const TABLES = [
   "runs",
@@ -28,12 +29,7 @@ const TABLES = [
 export function persistentNativeCounts(dbPath: string): Record<string, number> {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
-    return Object.fromEntries(
-      TABLES.map((table) => [
-        table,
-        Number(db.prepare(`SELECT count(*) n FROM ${table}`).get()!.n),
-      ]),
-    );
+    return tableCounts(db, TABLES);
   } finally {
     db.close();
   }
@@ -56,7 +52,7 @@ export function persistentNativeDigest(dbPath: string) {
     );
     assert.equal(db.prepare("PRAGMA foreign_key_check").all().length, 0);
     return {
-      counts: persistentNativeCounts(dbPath),
+      counts: tableCounts(db, TABLES),
       recordsSha256: digest.digest("hex"),
       integrity: "ok" as const,
       foreignKeyViolations: 0,
@@ -223,9 +219,7 @@ function artifactMeasure(root: string) {
         bytes += size;
         digest.update(path.slice(root.length) + ":" + size + "\n");
         content.update(path.slice(root.length) + "\n");
-        content.update(
-          createHash("sha256").update(readFileSync(path)).digest("hex") + "\n",
-        );
+        content.update(sha256(readFileSync(path)) + "\n");
       }
     }
   }

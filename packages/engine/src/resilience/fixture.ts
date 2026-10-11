@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { fork, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import {
   existsSync,
   mkdirSync,
@@ -13,8 +13,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 import {
   DEFAULT_LIMITS,
+  EngineError,
   type InputReceipt,
   type JsonObject,
   type RunConfig,
@@ -23,10 +25,13 @@ import {
 } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import { createEngine, type MoodcodeEngine } from "../engine.js";
+import { git, jsonDigest, shellQuote } from "../evaluation/runtime.js";
 import { ScriptedProvider } from "../provider/scripted.js";
 import type { ProviderAdapter } from "../ports.js";
 import type { OwnedCommandJobRecord } from "../jobs/owned-command-records.js";
+import { inspectExecutionLock } from "../tools/command/execution-lock.js";
 import { cleanupGroup, groupExists } from "../tools/command/process-control.js";
+import type { ResilienceScenario } from "./options.js";
 
 export const COMMAND_PROFILE = {
   id: "resilience-command",
@@ -44,8 +49,8 @@ export const PROFILES = [COMMAND_PROFILE, OBSERVER_PROFILE];
 export const POSIX_SUPPORTED = ["darwin", "linux", "freebsd"].includes(
   process.platform,
 );
-export const hash = (value: unknown): string =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
+export const hash = jsonDigest;
+export const RUNTIME_EXTENSION = import.meta.url.endsWith(".ts") ? "ts" : "js";
 export function newBase(): string {
   return realpathSync(mkdtempSync(join(tmpdir(), "moodcode-resilience-")));
 }
@@ -122,6 +127,17 @@ export async function command<T>(
   assert.equal(response.ok, true, `Native ${type}: ${response.error?.code}`);
   return response.result as unknown as T;
 }
+export function tableCounts<T extends string>(
+  db: DatabaseSync,
+  tables: readonly T[],
+): Record<T, number> {
+  return Object.fromEntries(
+    tables.map((table) => [
+      table,
+      Number(db.prepare(`SELECT count(*) n FROM ${table}`).get()!.n),
+    ]),
+  ) as Record<T, number>;
+}
 export function nativeSnapshot(dbPath: string) {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   try {
@@ -135,12 +151,7 @@ export function nativeSnapshot(dbPath: string) {
       "message_parts",
       "attempt_cleanup",
     ] as const;
-    const counts = Object.fromEntries(
-      tables.map((table) => [
-        table,
-        Number(db.prepare(`SELECT count(*) n FROM ${table}`).get()!.n),
-      ]),
-    ) as Record<(typeof tables)[number], number>;
+    const counts = tableCounts(db, tables);
     // The full table body is bounded by this isolated scenario, never a user DB.
     const records = tables.map((table) => {
       assert.ok(
@@ -162,6 +173,90 @@ export function nativeSnapshot(dbPath: string) {
   } finally {
     db.close();
   }
+}
+export interface IterationResult {
+  iteration: number;
+  seed: number;
+  scenario: ResilienceScenario;
+  passed: boolean;
+  durationMs: number;
+  boundariesMs: Record<string, number>;
+  providerCalls: { command: number; observer: number; reopened: number };
+  processLaunches: number;
+  noReplay: boolean;
+  cleanup: {
+    engineClosed: boolean;
+    physicalGroupAbsent: boolean;
+    databaseRemoved: boolean;
+    retainedEvidencePath: string | null;
+  };
+  native: null | {
+    beforeReopen: ReturnType<typeof nativeSnapshot>;
+    afterReopen: ReturnType<typeof nativeSnapshot>;
+    job: {
+      jobId: string;
+      state: string;
+      sha256: string;
+      completionSha256: string | null;
+    };
+    sourceRunState: string;
+    sourceConfigSha256: string;
+    measuredUsage: {
+      turns: number;
+      toolCalls: number;
+      outputBytes: number;
+    } | null;
+    unknownTokenAttempts: number;
+    tokens: null;
+    cost: null;
+    pendingInputState: string;
+    cancelledInputState: string;
+    resumeOutcome: "resumed" | "cleanup-pending";
+  };
+  failure: null | { name: string; code: string | null; message: string };
+}
+export function resultBase(
+  iteration: number,
+  seed: number,
+  scenario: ResilienceScenario,
+): IterationResult {
+  return {
+    iteration,
+    seed,
+    scenario,
+    passed: false,
+    durationMs: 0,
+    boundariesMs: {},
+    providerCalls: { command: 0, observer: 0, reopened: 0 },
+    processLaunches: 0,
+    noReplay: false,
+    cleanup: {
+      engineClosed: false,
+      physicalGroupAbsent: false,
+      databaseRemoved: false,
+      retainedEvidencePath: null,
+    },
+    native: null,
+    failure: null,
+  };
+}
+export function failureOf(error: unknown): IterationResult["failure"] {
+  return {
+    name: error instanceof Error ? error.name : "UnknownError",
+    code: error instanceof EngineError ? error.code : null,
+    message: (error instanceof Error
+      ? error.message
+      : "Resilience check failed"
+    ).slice(0, 512),
+  };
+}
+export function jobSummary(job: OwnedCommandJobRecord) {
+  return {
+    jobId: job.jobId,
+    state: job.state,
+    sha256: job.sha256,
+    completionSha256: job.completion ? hash(job.completion) : null,
+  };
 }
 export function localProviders(commandText: string) {
   const commands = new ScriptedProvider([
@@ -221,34 +316,40 @@ export function fixturePaths(base: string): FixturePaths {
     release: join(root, "command.release"),
   };
 }
-export async function createFixture(
-  base: string,
-  seed: number,
-  timeoutMs: number,
-) {
-  const paths = fixturePaths(base);
-  mkdirSync(paths.root);
+export function launchCount(paths: FixturePaths): number {
+  return existsSync(paths.launches)
+    ? readFileSync(paths.launches, "utf8").trim().split("\n").length
+    : 0;
+}
+/** Writes the owned fixture command and returns its exact shell command text. */
+export function writeCommandScript(
+  paths: FixturePaths,
+  label: string,
+  payloadJs: string,
+): string {
   const script = join(paths.root, "command.mjs");
-  const outputCopies = 128 + (seed % 1024);
   writeFileSync(
     script,
     `import{appendFileSync,writeFileSync,renameSync,existsSync}from'node:fs';
 appendFileSync(${JSON.stringify(paths.launches)},String(process.pid)+'\\n');
 writeFileSync(${JSON.stringify(paths.marker + ".tmp")},String(process.pid));
 renameSync(${JSON.stringify(paths.marker + ".tmp")},${JSON.stringify(paths.marker)});
-process.stdout.write('RESILIENCE_READY\\n'+'한글🙂'.repeat(${outputCopies}));
-const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){clearInterval(gate);process.stdout.write('\\nRESILIENCE_DONE\\n',()=>process.exit(0));}},5);
+process.stdout.write('${label}_READY\\n'+${payloadJs});
+const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){clearInterval(gate);process.stdout.write('\\n${label}_DONE\\n',()=>process.exit(0));}},5);
 `,
   );
-  writeFileSync(join(paths.root, "preserved.txt"), `Seed ${seed}\n`);
-  const git = (...args: string[]) =>
-    execFileSync("git", ["-C", paths.root, ...args], {
-      timeout: timeoutMs,
-      stdio: "pipe",
-    });
-  git("init", "--quiet", "--template=");
-  git("add", ".");
+  return `${shellQuote(process.execPath)} ${shellQuote(script)}`;
+}
+export function initFixtureRepository(
+  root: string,
+  preservedText: string,
+  message: string,
+): void {
+  writeFileSync(join(root, "preserved.txt"), preservedText);
+  git(root, "init", "--quiet", "--template=");
+  git(root, "add", ".");
   git(
+    root,
     "-c",
     "user.name=Resilience Fixture",
     "-c",
@@ -260,14 +361,19 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     "commit",
     "--quiet",
     "-m",
-    "Isolated resilience fixture",
+    message,
   );
-  const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`;
-  const commandText = `${quote(process.execPath)} ${quote(script)}`;
-  const local = localProviders(commandText);
+}
+/** Command and observer configs; observerTurns caps observer runs that never take a steer. */
+export function fixtureRunConfigs(options: {
+  modelId: string;
+  observerProviderId: string;
+  maxPendingInputs: number;
+  observerTurns?: number;
+}) {
   const config: RunConfig = {
     providerId: "scripted",
-    modelId: "local-resilience",
+    modelId: options.modelId,
     mode: "build",
     agentProfileId: COMMAND_PROFILE.id,
     limits: {
@@ -281,7 +387,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     budgets: normalizeEngineBudgets({
       turnAllowance: 2,
       maxProviderAttempts: 1,
-      maxPendingInputs: 4,
+      maxPendingInputs: options.maxPendingInputs,
       maxPendingBytes: 65536,
       maxToolCallsPerTurn: 1,
       maxArtifactBytes: 65536,
@@ -289,22 +395,121 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
       retryBaseDelayMs: 0,
     }),
   };
+  const turns = options.observerTurns;
   const observerConfig: RunConfig = {
     ...config,
-    providerId: "resilience-observer",
+    providerId: options.observerProviderId,
     mode: "plan",
     agentProfileId: OBSERVER_PROFILE.id,
-    limits: { ...config.limits, maxTurns: 1 },
-    budgets: { ...config.budgets!, turnAllowance: 1 },
+    ...(turns === undefined
+      ? {}
+      : {
+          limits: { ...config.limits, maxTurns: turns },
+          budgets: { ...config.budgets!, turnAllowance: turns },
+        }),
   };
-  const engine = createEngine({
+  return { config, observerConfig };
+}
+export function openFixtureEngine(
+  paths: Pick<FixturePaths, "dbPath" | "artifactDir">,
+  providers: ProviderAdapter[],
+  defaults: RunConfig,
+  jobs = true,
+): MoodcodeEngine {
+  return createEngine({
     dbPath: paths.dbPath,
     artifactDir: paths.artifactDir,
-    providers: local.providers,
-    defaults: config,
+    providers,
+    defaults,
     agentProfiles: PROFILES,
-    jobs: true,
+    jobs,
   });
+}
+/** Forks a sibling worker module in this runtime mode, keeping a 32 KiB output tail. */
+export function forkResilienceWorker(moduleBase: string, args: string[]) {
+  const child = fork(
+    fileURLToPath(
+      new URL(`./${moduleBase}.${RUNTIME_EXTENSION}`, import.meta.url),
+    ),
+    args,
+    {
+      silent: true,
+      execArgv:
+        RUNTIME_EXTENSION === "ts"
+          ? [
+              "--import",
+              fileURLToPath(
+                new URL(
+                  "../../../../node_modules/tsx/dist/loader.mjs",
+                  import.meta.url,
+                ),
+              ),
+            ]
+          : [],
+    },
+  );
+  let diagnostics = Buffer.alloc(0),
+    exited = false;
+  const capture = (data: Buffer) => {
+    diagnostics = Buffer.concat([diagnostics, data]).subarray(-32768);
+  };
+  child.stdout!.on("data", capture);
+  child.stderr!.on("data", capture);
+  const ended = new Promise<void>((yes, no) => {
+    child.once("error", no);
+    child.once("exit", () => {
+      exited = true;
+      yes();
+    });
+  });
+  // Attach a rejection handler while callers wait for their separately bounded readiness.
+  void ended.catch(() => {});
+  return {
+    child,
+    ended,
+    exited: () => exited,
+    diagnosticSha256: () => hash([...diagnostics]),
+  };
+}
+/** In cleanup, attributes a leftover group to the worker only through its readiness or this fixture's exact lock marker. */
+export function failedWorkerGroup(
+  paths: FixturePaths,
+  worker: ChildProcess,
+  readyGroupPid: number | undefined,
+) {
+  const lock = paths.dbPath + ".effects.sqlite";
+  const inspection = existsSync(lock) ? inspectExecutionLock(lock) : null;
+  const marker = inspection?.marker;
+  const groupPid =
+    readyGroupPid ??
+    (marker && marker.ownerPid === worker.pid ? marker.groupPid : null);
+  return { inspection, groupPid };
+}
+export async function createFixture(
+  base: string,
+  seed: number,
+  timeoutMs: number,
+) {
+  const paths = fixturePaths(base);
+  mkdirSync(paths.root);
+  const commandText = writeCommandScript(
+    paths,
+    "RESILIENCE",
+    `'한글🙂'.repeat(${128 + (seed % 1024)})`,
+  );
+  initFixtureRepository(
+    paths.root,
+    `Seed ${seed}\n`,
+    "Isolated resilience fixture",
+  );
+  const local = localProviders(commandText);
+  const { config, observerConfig } = fixtureRunConfigs({
+    modelId: "local-resilience",
+    observerProviderId: "resilience-observer",
+    maxPendingInputs: 4,
+    observerTurns: 1,
+  });
+  const engine = openFixtureEngine(paths, local.providers, config);
   const engines = new Set([engine]);
   let actualPid = 0,
     actualGroupPid = 0;
@@ -470,8 +675,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
       queuedInput,
       local,
       finish: () => writeFileSync(paths.release, "Explicit fixture release\n"),
-      launchCount: () =>
-        readFileSync(paths.launches, "utf8").trim().split("\n").length,
+      launchCount: () => launchCount(paths),
       cleanup,
     };
   } catch (error) {

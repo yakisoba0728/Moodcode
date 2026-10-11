@@ -9,7 +9,6 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import {
-  DEFAULT_LIMITS,
   EngineError,
   type InputReceipt,
   type JsonObject,
@@ -17,20 +16,22 @@ import {
   type Session,
   type Workspace,
 } from "@moodcode/contracts";
-import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
-import { createEngine, type MoodcodeEngine } from "../engine.js";
 import type { ProviderAdapter, TurnRequest } from "../ports.js";
 import { ScriptedProvider } from "../provider/scripted.js";
 import type { OwnedCommandJobRecord } from "../jobs/owned-command-records.js";
-import { git, shellQuote } from "../evaluation/runtime.js";
+import { digest } from "../evaluation/runtime.js";
 import {
   bounded,
   command,
   fixturePaths,
+  fixtureRunConfigs,
   hash,
+  initFixtureRepository,
+  launchCount,
+  openFixtureEngine,
   pidAbsent,
-  PROFILES,
   until,
+  writeCommandScript,
 } from "./fixture.js";
 import { groupExists } from "../tools/command/process-control.js";
 import {
@@ -134,96 +135,29 @@ export function persistentProviders(commandText: string) {
     },
   };
 }
-function initializePersistentRepository(
-  root: string,
-  preservedText: string,
-  commitMessage: string,
-) {
-  writeFileSync(join(root, "preserved.txt"), preservedText);
-  git(root, "init", "--quiet", "--template=");
-  git(root, "add", ".");
-  git(
-    root,
-    "-c",
-    "user.name=Persistent Fixture",
-    "-c",
-    "user.email=persistent@example.invalid",
-    "-c",
-    "commit.gpgsign=false",
-    "-c",
-    "core.hooksPath=/dev/null",
-    "commit",
-    "--quiet",
-    "-m",
-    commitMessage,
-  );
-}
-function persistentRunConfigs() {
-  const config: RunConfig = {
-    providerId: "scripted",
-    modelId: "local-persistent",
-    mode: "build",
-    agentProfileId: PROFILES[0]!.id,
-    limits: {
-      ...DEFAULT_LIMITS,
-      maxTurns: 2,
-      maxToolCalls: 1,
-      maxOutputBytes: 65536,
-      maxDurationMs: 90000,
-      toolTimeoutMs: 65000,
-    },
-    budgets: normalizeEngineBudgets({
-      turnAllowance: 2,
-      maxProviderAttempts: 1,
-      maxPendingInputs: 8,
-      maxPendingBytes: 65536,
-      maxToolCallsPerTurn: 1,
-      maxArtifactBytes: 65536,
-      maxProducerBytes: 131072,
-      retryBaseDelayMs: 0,
-    }),
-  };
-  const observerConfig: RunConfig = {
-    ...config,
-    providerId: "persistent-observer",
-    mode: "plan",
-    agentProfileId: PROFILES[1]!.id,
-  };
-  return { config, observerConfig };
-}
 export async function createPersistentFixture(
   base: string,
   options: ResolvedPersistentSoakOptions,
 ) {
   const paths = fixturePaths(base);
   mkdirSync(paths.root);
-  const script = join(paths.root, "command.mjs");
-  writeFileSync(
-    script,
-    `import{appendFileSync,writeFileSync,renameSync,existsSync}from'node:fs';
-appendFileSync(${JSON.stringify(paths.launches)},String(process.pid)+'\\n');
-writeFileSync(${JSON.stringify(paths.marker + ".tmp")},String(process.pid));renameSync(${JSON.stringify(paths.marker + ".tmp")},${JSON.stringify(paths.marker)});
-process.stdout.write('PERSISTENT_READY\\n'+'local-${options.seed}-'.repeat(128));
-const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){clearInterval(gate);process.stdout.write('\\nPERSISTENT_DONE\\n',()=>process.exit(0));}},5);
-`,
+  const commandText = writeCommandScript(
+    paths,
+    "PERSISTENT",
+    `'local-${options.seed}-'.repeat(128)`,
   );
-  initializePersistentRepository(
+  initFixtureRepository(
     paths.root,
     `Persistent seed ${options.seed}\n`,
     "Isolated persistent fixture",
   );
-  const commandText = `${shellQuote(process.execPath)} ${shellQuote(script)}`;
   const local = persistentProviders(commandText);
-  const { config, observerConfig } = persistentRunConfigs();
-  const open = () =>
-    createEngine({
-      dbPath: paths.dbPath,
-      artifactDir: paths.artifactDir,
-      providers: local.providers,
-      defaults: config,
-      agentProfiles: PROFILES,
-      jobs: true,
-    });
+  const { config, observerConfig } = fixtureRunConfigs({
+    modelId: "local-persistent",
+    observerProviderId: "persistent-observer",
+    maxPendingInputs: 8,
+  });
+  const open = () => openFixtureEngine(paths, local.providers, config);
   let engine = open(),
     instance = 1;
   const workspace = await command<Workspace>(engine, "workspace.open", {
@@ -234,7 +168,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
   });
   const cancelRoot = join(base, "cancellation-repository");
   mkdirSync(cancelRoot);
-  initializePersistentRepository(
+  initFixtureRepository(
     cancelRoot,
     `Cancellation seed ${options.seed}\n`,
     "Isolated cancellation fixture",
@@ -402,9 +336,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     return job;
   }
   function launches() {
-    return existsSync(paths.launches)
-      ? readFileSync(paths.launches, "utf8").trim().split("\n").length
-      : 0;
+    return launchCount(paths);
   }
   function assertBudget(
     runId: string,
@@ -570,12 +502,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
             output.artifactBytes <= config.budgets!.maxArtifactBytes &&
               output.observedBytes <= config.budgets!.maxProducerBytes,
           );
-          assert.equal(
-            createHash("sha256")
-              .update(readFileSync(output.path))
-              .digest("hex"),
-            output.sha256,
-          );
+          assert.equal(digest(readFileSync(output.path)), output.sha256);
         }
         completedCommands++;
       } else {
@@ -633,7 +560,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     await command(engine, "session.pause", { sessionId: session.id });
     const pending = await accept("graceful-reopen-queue", observerConfig),
       calls = local.calls(),
-      launchCount = launches();
+      launchesBefore = launches();
     await close();
     const before = persistentNativeDigest(paths.dbPath);
     engine = open();
@@ -641,7 +568,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     const after = persistentNativeDigest(paths.dbPath);
     assert.deepEqual(after, before);
     assert.deepEqual(local.calls(), calls);
-    assert.equal(launches(), launchCount);
+    assert.equal(launches(), launchesBefore);
     if (cancellation) {
       assert.equal(
         engine.getOwnedCommandJob(cancellation.workspaceId, cancellation.jobId)!
@@ -680,7 +607,7 @@ const gate=setInterval(()=>{if(existsSync(${JSON.stringify(paths.release)})){cle
     );
     assert.equal(local.calls().command, calls.command);
     assert.equal(local.calls().observer, calls.observer + 1);
-    assert.equal(launches(), launchCount);
+    assert.equal(launches(), launchesBefore);
     return {
       before,
       after,

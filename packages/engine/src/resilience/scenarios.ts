@@ -1,113 +1,30 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { groupExists } from "../tools/command/process-control.js";
 import {
   EngineError,
   type InputReceipt,
   type JsonObject,
 } from "@moodcode/contracts";
-import { createEngine } from "../engine.js";
-import type { OwnedCommandJobRecord } from "../jobs/owned-command-records.js";
+import { digest } from "../evaluation/runtime.js";
 import {
   bounded,
   command,
   createFixture,
   FixtureAdmissionFailure,
+  failureOf,
   hash,
+  jobSummary,
   localProviders,
   nativeSnapshot,
+  openFixtureEngine,
   pidAbsent,
-  PROFILES,
+  resultBase,
   until,
+  type IterationResult,
   type ResilienceFixture,
 } from "./fixture.js";
-import type { ResilienceScenario } from "./options.js";
 
-export interface IterationResult {
-  iteration: number;
-  seed: number;
-  scenario: ResilienceScenario;
-  passed: boolean;
-  durationMs: number;
-  boundariesMs: Record<string, number>;
-  providerCalls: { command: number; observer: number; reopened: number };
-  processLaunches: number;
-  noReplay: boolean;
-  cleanup: {
-    engineClosed: boolean;
-    physicalGroupAbsent: boolean;
-    databaseRemoved: boolean;
-    retainedEvidencePath: string | null;
-  };
-  native: null | {
-    beforeReopen: ReturnType<typeof nativeSnapshot>;
-    afterReopen: ReturnType<typeof nativeSnapshot>;
-    job: {
-      jobId: string;
-      state: string;
-      sha256: string;
-      completionSha256: string | null;
-    };
-    sourceRunState: string;
-    sourceConfigSha256: string;
-    measuredUsage: {
-      turns: number;
-      toolCalls: number;
-      outputBytes: number;
-    } | null;
-    unknownTokenAttempts: number;
-    tokens: null;
-    cost: null;
-    pendingInputState: string;
-    cancelledInputState: string;
-    resumeOutcome: "resumed" | "cleanup-pending";
-  };
-  failure: null | { name: string; code: string | null; message: string };
-}
-export function resultBase(
-  iteration: number,
-  seed: number,
-  scenario: ResilienceScenario,
-): IterationResult {
-  return {
-    iteration,
-    seed,
-    scenario,
-    passed: false,
-    durationMs: 0,
-    boundariesMs: {},
-    providerCalls: { command: 0, observer: 0, reopened: 0 },
-    processLaunches: 0,
-    noReplay: false,
-    cleanup: {
-      engineClosed: false,
-      physicalGroupAbsent: false,
-      databaseRemoved: false,
-      retainedEvidencePath: null,
-    },
-    native: null,
-    failure: null,
-  };
-}
-export function failureOf(error: unknown): IterationResult["failure"] {
-  return {
-    name: error instanceof Error ? error.name : "UnknownError",
-    code: error instanceof EngineError ? error.code : null,
-    message: (error instanceof Error
-      ? error.message
-      : "Resilience check failed"
-    ).slice(0, 512),
-  };
-}
-export function jobSummary(job: OwnedCommandJobRecord) {
-  return {
-    jobId: job.jobId,
-    state: job.state,
-    sha256: job.sha256,
-    completionSha256: job.completion ? hash(job.completion) : null,
-  };
-}
 export async function runLocalScenario(
   base: string,
   iteration: number,
@@ -214,9 +131,7 @@ export async function runLocalScenario(
           f.config.budgets!.maxProducerBytes,
       );
       assert.equal(
-        createHash("sha256")
-          .update(readFileSync(job.completion!.stdout.path))
-          .digest("hex"),
+        digest(readFileSync(job.completion!.stdout.path)),
         job.completion!.stdout.sha256,
       );
     } else {
@@ -262,14 +177,13 @@ export async function runLocalScenario(
     await bounded(f.engine.close(), timeoutMs, "first Engine close");
     const beforeReopen = nativeSnapshot(f.dbPath);
     const reopenedProviders = localProviders(f.commandText);
-    const reopened = createEngine({
-      dbPath: f.dbPath,
-      artifactDir: f.artifactDir,
-      providers: reopenedProviders.providers,
-      defaults: f.config,
-      agentProfiles: PROFILES,
-      // Jobs stays default-off; readonly native history still must validate.
-    });
+    // Jobs stays off; readonly native history still must validate.
+    const reopened = openFixtureEngine(
+      f,
+      reopenedProviders.providers,
+      f.config,
+      false,
+    );
     f.engines.add(reopened);
     const restored = reopened.getOwnedCommandJob(f.workspace.id, job.jobId);
     assert.ok(restored);

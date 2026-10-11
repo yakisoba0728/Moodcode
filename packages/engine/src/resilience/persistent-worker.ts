@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { bounded } from "./fixture.js";
+import { bounded, failureOf } from "./fixture.js";
 import {
   createPersistentFixture,
   type PersistentFixture,
@@ -12,7 +12,6 @@ import {
   resolvePersistentSoakOptions,
   type ResolvedPersistentSoakOptions,
 } from "./persistent-options.js";
-import { failureOf } from "./scenarios.js";
 
 export async function runPersistentLoad(
   f: PersistentFixture,

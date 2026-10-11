@@ -12,30 +12,39 @@ export interface ResolvedResilienceOptions {
   seed: number;
   boundaryTimeoutMs: number;
 }
-/** A seed chooses bounded payloads, not random sleeps or weaker assertions. */
+/** A seed chooses bounded fixture payloads. */
 export function resolveResilienceOptions(
   input: ResilienceOptions = {},
 ): ResolvedResilienceOptions {
-  for (const key of Object.keys(input))
-    if (!["profile", "iterations", "seed", "boundaryTimeoutMs"].includes(key))
-      throw new RangeError("Unknown resilience option");
   const profile = input.profile ?? "quick";
+  const result = {
+    profile,
+    iterations: input.iterations ?? (profile === "quick" ? 3 : 12),
+    seed: input.seed ?? 20261009,
+    boundaryTimeoutMs: input.boundaryTimeoutMs ?? 10000,
+  };
+  for (const key of Object.keys(input))
+    if (!Object.hasOwn(result, key))
+      throw new RangeError("Unknown resilience option");
   if (profile !== "quick" && profile !== "extended")
     throw new RangeError("Profile must be quick or extended");
-  const iterations = input.iterations ?? (profile === "quick" ? 3 : 12);
-  const seed = input.seed ?? 20261009;
-  const boundaryTimeoutMs = input.boundaryTimeoutMs ?? 10000;
-  if (!Number.isSafeInteger(iterations) || iterations < 3 || iterations > 60)
-    throw new RangeError("Iterations must be between 3 and 60");
-  if (!Number.isSafeInteger(seed) || seed < 0 || seed > 0xffffffff)
-    throw new RangeError("Seed must be a uint32");
-  if (
-    !Number.isSafeInteger(boundaryTimeoutMs) ||
-    boundaryTimeoutMs < 1000 ||
-    boundaryTimeoutMs > 30000
-  )
-    throw new RangeError("Boundary timeout must be between 1000 and 30000 ms");
-  return { profile, iterations, seed, boundaryTimeoutMs };
+  const bounds = {
+    iterations: [3, 60],
+    seed: [0, 0xffffffff],
+    boundaryTimeoutMs: [1000, 30000],
+  } as const;
+  for (const key of Object.keys(bounds) as Array<keyof typeof bounds>) {
+    const [min, max] = bounds[key];
+    if (
+      !Number.isSafeInteger(result[key]) ||
+      result[key] < min ||
+      result[key] > max
+    )
+      throw new RangeError(
+        `${key} must be an integer between ${min} and ${max}`,
+      );
+  }
+  return result;
 }
 export function scenarioAt(iteration: number): ResilienceScenario {
   return (["complete", "cancel", "root-sigkill"] as const)[iteration % 3]!;

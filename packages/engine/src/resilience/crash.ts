@@ -1,28 +1,27 @@
 import assert from "node:assert/strict";
-import { fork } from "node:child_process";
-import { existsSync, readFileSync, rmSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { rmSync } from "node:fs";
 import { EngineError, type RunConfig } from "@moodcode/contracts";
-import { createEngine, type MoodcodeEngine } from "../engine.js";
+import type { MoodcodeEngine } from "../engine.js";
 import type { OwnedCommandJobRecord } from "../jobs/owned-command-records.js";
 import { inspectExecutionLock } from "../tools/command/execution-lock.js";
 import { cleanupGroup, groupExists } from "../tools/command/process-control.js";
 import {
   bounded,
+  failedWorkerGroup,
+  failureOf,
   fixturePaths,
+  forkResilienceWorker,
   hash,
+  jobSummary,
+  launchCount,
   localProviders,
   nativeSnapshot,
+  openFixtureEngine,
   pidAbsent,
-  PROFILES,
-  until,
-} from "./fixture.js";
-import {
-  failureOf,
-  jobSummary,
   resultBase,
+  until,
   type IterationResult,
-} from "./scenarios.js";
+} from "./fixture.js";
 
 interface Ready {
   type: "ready";
@@ -48,44 +47,14 @@ export async function runCrashScenario(
   const result = resultBase(iteration, seed, "root-sigkill");
   const started = performance.now();
   const paths = fixturePaths(base);
-  const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
-  const child = fork(
-    fileURLToPath(new URL(`./crash-worker.${extension}`, import.meta.url)),
-    ["--resilience-crash-worker", base, String(seed), String(timeoutMs)],
-    {
-      silent: true,
-      execArgv:
-        extension === "ts"
-          ? [
-              "--import",
-              fileURLToPath(
-                new URL(
-                  "../../../../node_modules/tsx/dist/loader.mjs",
-                  import.meta.url,
-                ),
-              ),
-            ]
-          : [],
-    },
-  );
-  let ready: Ready | undefined,
-    engine: MoodcodeEngine | undefined,
-    exited = false;
-  let diagnostics = Buffer.alloc(0);
-  const capture = (data: Buffer) => {
-    diagnostics = Buffer.concat([diagnostics, data]).subarray(-32768);
-  };
-  child.stdout!.on("data", capture);
-  child.stderr!.on("data", capture);
-  const ended = new Promise<void>((yes, no) => {
-    child.once("error", no);
-    child.once("exit", () => {
-      exited = true;
-      yes();
-    });
-  });
-  // Attach a rejection handler while waiting for the separately bounded readiness event.
-  void ended.catch(() => {});
+  const worker = forkResilienceWorker("crash-worker", [
+    "--resilience-crash-worker",
+    base,
+    String(seed),
+    String(timeoutMs),
+  ]);
+  const { child, ended } = worker;
+  let ready: Ready | undefined, engine: MoodcodeEngine | undefined;
   let verified = false;
   try {
     ready = await bounded(
@@ -111,7 +80,7 @@ export async function runCrashScenario(
         child.once("exit", () =>
           no(
             new Error(
-              `Worker exited before native readiness; diagnostic SHA ${hash([...diagnostics])}`,
+              `Worker exited before native readiness; diagnostic SHA ${worker.diagnosticSha256()}`,
             ),
           ),
         );
@@ -127,9 +96,7 @@ export async function runCrashScenario(
     assert.equal(ready.providerCalls.observer, 0);
     assert.equal(groupExists(ready.groupPid), true);
     assert.equal(pidAbsent(ready.pid), false);
-    const launches = () =>
-      readFileSync(paths.launches, "utf8").trim().split("\n").length;
-    assert.equal(launches(), 1);
+    assert.equal(launchCount(paths), 1);
     result.boundariesMs.admission = Math.round(performance.now() - started);
     assert.equal(child.kill("SIGKILL"), true);
     await bounded(ended, timeoutMs, "actual Root SIGKILL");
@@ -148,14 +115,7 @@ export async function runCrashScenario(
     );
     result.boundariesMs.settlement = Math.round(performance.now() - started);
     const local = localProviders(ready.commandText);
-    engine = createEngine({
-      dbPath: paths.dbPath,
-      artifactDir: paths.artifactDir,
-      providers: local.providers,
-      defaults: ready.config,
-      agentProfiles: PROFILES,
-      jobs: true,
-    });
+    engine = openFixtureEngine(paths, local.providers, ready.config);
     const restored = engine.getOwnedCommandJob(
       ready.workspaceId,
       ready.job.jobId,
@@ -191,13 +151,13 @@ export async function runCrashScenario(
     );
     assert.deepEqual(local.calls(), { command: 0, observer: 0 });
     assert.deepEqual(nativeSnapshot(paths.dbPath).counts, afterReopen.counts);
-    assert.equal(launches(), 1);
+    assert.equal(launchCount(paths), 1);
     const metrics = engine.store.getNativeMetrics(ready.sessionId);
     assert.equal(metrics.attemptUsage.inputTokens.tokens, null);
     assert.equal(metrics.attemptUsage.outputTokens.tokens, null);
     assert.equal(metrics.attempts.retries, 0);
     result.providerCalls = { ...ready.providerCalls, reopened: 0 };
-    result.processLaunches = launches();
+    result.processLaunches = launchCount(paths);
     result.noReplay = true;
     result.native = {
       beforeReopen: ready.before,
@@ -218,20 +178,17 @@ export async function runCrashScenario(
     result.failure = failureOf(error);
   } finally {
     try {
-      if (!exited) {
+      if (!worker.exited()) {
         child.kill("SIGKILL");
         await bounded(ended, timeoutMs, "failed crash worker termination");
       }
       if (engine)
         await bounded(engine.close(), timeoutMs, "recovered Engine close");
-      // On a failed readiness path, inspect only this private fixture's exact worker marker.
-      const inspection = existsSync(paths.dbPath + ".effects.sqlite")
-        ? inspectExecutionLock(paths.dbPath + ".effects.sqlite")
-        : null;
-      const marker = inspection?.marker;
-      const group =
-        ready?.groupPid ??
-        (marker && marker.ownerPid === child.pid ? marker.groupPid : null);
+      const { inspection, groupPid: group } = failedWorkerGroup(
+        paths,
+        child,
+        ready?.groupPid,
+      );
       if (group && groupExists(group))
         assert.equal(await cleanupGroup(group), true);
       if (ready)

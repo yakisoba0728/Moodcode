@@ -27,6 +27,6 @@ if (process.argv[2] === "--resilience-crash-worker") {
     providerCalls: f.local.calls(),
     before: nativeSnapshot(f.dbPath),
   });
-  // No timeout-only readiness, mocked ToolContext or fabricated native completion.
+  // Hold the running owned command until the parent SIGKILLs this worker.
   await new Promise<never>(() => {});
 }

@@ -1,10 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { newBase, POSIX_SUPPORTED } from "./fixture.js";
+import { digest } from "../evaluation/runtime.js";
+import {
+  newBase,
+  POSIX_SUPPORTED,
+  RUNTIME_EXTENSION,
+  type IterationResult,
+} from "./fixture.js";
 import { runCrashScenario } from "./crash.js";
-import { runLocalScenario, type IterationResult } from "./scenarios.js";
+import { runLocalScenario } from "./scenarios.js";
 import {
   iterationSeed,
   resolveResilienceOptions,
@@ -14,13 +19,11 @@ import {
 export { resolveResilienceOptions } from "./options.js";
 export type { ResilienceOptions } from "./options.js";
 
-/** Account-free compound native lifecycle assertions, rather than synthetic proof rows. */
+/** Runs account-free soak iterations against a real engine, SQLite store and child processes. */
 export async function verifyEngineResilience(options: ResilienceOptions = {}) {
   const resolved = resolveResilienceOptions(options);
   const started = performance.now();
-  const extension = import.meta.url.endsWith(".ts") ? "ts" : "js";
-  const digestFile = (url: URL) =>
-    createHash("sha256").update(readFileSync(url)).digest("hex");
+  const digestFile = (url: URL) => digest(readFileSync(url));
   let gitHead: string | null = null;
   try {
     gitHead = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -34,10 +37,10 @@ export async function verifyEngineResilience(options: ResilienceOptions = {}) {
   }
   const source = {
     harnessEntrySha256: digestFile(
-      new URL(`./index.${extension}`, import.meta.url),
+      new URL(`./index.${RUNTIME_EXTENSION}`, import.meta.url),
     ),
     engineEntrySha256: digestFile(
-      new URL(`../engine.${extension}`, import.meta.url),
+      new URL(`../engine.${RUNTIME_EXTENSION}`, import.meta.url),
     ),
     gitHead,
     qualification:
@@ -80,7 +83,7 @@ export async function verifyEngineResilience(options: ResilienceOptions = {}) {
     noLive: true,
     ...resolved,
     runtime: {
-      mode: extension === "ts" ? "source" : "compiled",
+      mode: RUNTIME_EXTENSION === "ts" ? "source" : "compiled",
       node: process.version,
       platform: process.platform,
       arch: process.arch,
