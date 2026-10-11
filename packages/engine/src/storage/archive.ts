@@ -1,59 +1,18 @@
-import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
-import {validateEffectBatchDatabase} from '../effect-batches/storage.js';
-import {validateCodeModeDatabase} from '../code-mode/records.js';
 import {validateMediaDatabase,validateMediaFiles} from '../media/native-validation.js';
-import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
-import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
-
-import { validateCodingBatchDatabase } from "../coding-runs/groups.js";
-import {validateWorkflowEffectsDatabase} from "../workflows/effects-records.js";
-import {validateSandboxDatabase} from '../sandbox/records.js';
-import { validateResidentTeamDatabase, validateResidentChildHistory } from '../teams/resident-validation.js';
-import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
-import { validateGitCommitDatabase } from '../git/commit-receipts.js';
-import { validateConversationForkDatabase } from '../sessions/fork-native.js';
+import { validateResidentChildHistory } from '../teams/resident-validation.js';
 import { randomUUID } from 'node:crypto';
 import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync, type Stats } from 'node:fs';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
-import { acquireRecoveryLease } from '../recovery/index.js';
-import { readAudits, readOperations, scope } from '../recovery/ledger.js';
-import { canonical, checkDatabase, recoveryPaths, regular, sameIdentity, takeSnapshot, type Identity } from '../recovery/snapshot.js';
+import { acquireRecoveryLeases, type RecoveryLease } from '../recovery/index.js';
+import { readAudits, readOperations, reviewOperationBound, scope } from '../recovery/ledger.js';
+import { canonical, checkDatabase, readEffectMarker, recoveryPaths, regular, sameIdentity, takeSnapshot, type Identity } from '../recovery/snapshot.js';
 import { backupDatabase } from './maintenance.js';
-import { databaseVersion, DB_VERSION } from './migrations.js';
-import { NATIVE_SESSION_TABLES } from './native-schema.js';
-import { SUMMARY_STORAGE_TABLES } from './summary-attempts.js';
-import { SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
-import { ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
-import { PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
-import { MCP_EXECUTION_TABLES } from './mcp-executions.js';
-import { KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
-import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-store.js';
-import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
-import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
-import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
-import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
-import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
-import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
-import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
-import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
-import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
-import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
-import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
-import { WORKFLOW_TABLES } from '../workflows/schema.js';
-import { validateWorkflowDatabase } from '../workflows/store.js';
-import { SCHEDULE_TABLES } from '../schedules/schema.js';
-import { validateScheduleDatabase } from '../schedules/store.js';
-import { BACKEND_TABLES } from '../agent-backends/schema.js';
-import { validateAgentBackendDatabase } from '../agent-backends/store.js';
-import { JOB_TABLES } from '../jobs/schema.js';
-import { validateJobDatabase } from '../jobs/store.js';
-import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.js';
-import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
+import { databaseVersion, DB_VERSION, primaryFeaturesFor, primaryTablesFor, type PrimaryFeature } from './migrations.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
-import { knowledgeHash } from '../knowledge/validation.js';
+import { KNOWLEDGE_LIMITS, knowledgeHash } from '../knowledge/validation.js';
 import { sha256Hex } from '../shared/canonical.js';
 import { streamStableFile, symlinkFreeDirectorySync, syncDirectory, within } from '../shared/fs.js';
 import { SqliteStore } from './index.js';
@@ -70,7 +29,6 @@ const ENGINE_ARCHIVE_VERSION = 1;
 const ENGINE_ARCHIVE_LIMITS = Object.freeze({ maxFiles: 4096, maxFileBytes: 268_435_456, maxTotalBytes: 536_870_912, maxManifestBytes: 4_194_304 });
 type Role = 'primary' | 'review' | 'ledger' | 'effect';
 const databaseFiles: Record<Role, string> = { primary: 'engine.sqlite', review: 'engine.sqlite.review.sqlite', ledger: 'engine.sqlite.recovery.sqlite', effect: 'engine.sqlite.effects.sqlite' };
-const primaryTables = ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events'];
 export interface ArchiveFile { file: string; bytes: number; sha256: string }
 export interface ArchiveDatabase extends ArchiveFile { role: Role; schemaVersion: number; logicalHash: string }
 export interface ArchiveChildDatabase extends ArchiveFile { schemaVersion: number; logicalHash: string }
@@ -184,120 +142,42 @@ function sqlite(path: string): DatabaseSync {
   finally { closeSync(fd); }
   const db = new DatabaseSync(path, { readOnly: true }); db.exec('PRAGMA trusted_schema=OFF'); return db;
 }
+/** Archive-only bounded JSON row checks for one feature's knowledge tables. */
+function validateArchiveRows(db: DatabaseSync, tables: readonly string[], rows: NonNullable<PrimaryFeature['archiveRows']>, check: () => void): void {
+  for (const table of tables) {
+    for (const row of db.prepare(`SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM ${table} ORDER BY id`).iterate()) {
+      check(); if (Number(row.bytes) > KNOWLEDGE_LIMITS.rowBytes) fail('ARCHIVE_KNOWLEDGE_INVALID', rows.boundMessage);
+      try { rows.validate({ table, key: row.id, workspaceId: row.workspace_id, data: JSON.parse(String(row.data)) }); }
+      catch { fail('ARCHIVE_KNOWLEDGE_INVALID', rows.message); }
+    }
+  }
+}
 function logicalDatabase(db: DatabaseSync, role: Role, check: () => void): { schemaVersion: number; logicalHash: string } {
   const schemaVersion = Number(db.prepare('PRAGMA user_version').get()?.user_version);
   if (role === 'primary') {
     databaseVersion(db);validateMediaDatabase(db,check);
     if (schemaVersion < 1) fail('ARCHIVE_DATABASE_INVALID', 'Primary archive database has no supported schema');
-    const tables = schemaVersion >= 2 ? [...primaryTables, ...NATIVE_SESSION_TABLES] : primaryTables;
-    const usageTables = schemaVersion >= 3 ? [...tables, 'attempt_usage'] : tables;
-    const summaryTables = schemaVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
-    const recoveryTables = schemaVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
-    const cleanupTables = schemaVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
-    const providerTables = schemaVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables;
-    const mcpTables = schemaVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables;
-    if (schemaVersion >= 10) for (const table of KNOWLEDGE_STORAGE_TABLES) {
-      for (const row of db.prepare(`SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM ${table} ORDER BY id`).iterate()) {
-        check(); if (Number(row.bytes) > KNOWLEDGE_LIMITS.rowBytes) fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived knowledge row exceeds its bound');
-        try { validateKnowledgeArchiveRow({ table, key: row.id, workspaceId: row.workspace_id, data: JSON.parse(String(row.data)) }); }
-        catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace trust or pending knowledge record is invalid'); }
-      }
-    }
-    if (schemaVersion >= 11) for (const table of KNOWLEDGE_GENERATION_TABLES) {
-      for (const row of db.prepare(`SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes,substr(data,1,65537) AS data FROM ${table} ORDER BY id`).iterate()) {
-        check(); if (Number(row.bytes) > KNOWLEDGE_LIMITS.rowBytes) fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived generation row exceeds its bound');
-        try { validateKnowledgeGenerationArchiveRow({ table, key: row.id, workspaceId: row.workspace_id, data: JSON.parse(String(row.data)) }); }
-        catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived native generation record is invalid'); }
-      }
-    }
-    if (schemaVersion >= 11) {
-      try { validateKnowledgeGenerationDatabase(db, check); }
+    for (const feature of primaryFeaturesFor(schemaVersion)) {
+      if (feature.archiveRows) validateArchiveRows(db, feature.tables, feature.archiveRows, check);
+      if (!feature.validate) continue;
+      try { feature.validate(db, check, true); }
       catch (error) {
-        if (error instanceof EngineError && !error.code.startsWith('KNOWLEDGE_') && !error.code.startsWith('INVALID_KNOWLEDGE')) throw error;
-        fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived native generation relationships are invalid');
+        if (feature.archiveKnowledgeOnly && error instanceof EngineError && !error.code.startsWith('KNOWLEDGE_') && !error.code.startsWith('INVALID_KNOWLEDGE')) throw error;
+        fail(feature.archiveCode, feature.archiveMessage);
       }
     }
-    const knowledgeTables = schemaVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables;
-    const generationTables = schemaVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables;
-    if (schemaVersion >= 12) {
-      try { validateKnowledgePublicationDatabase(db, check); }
-      catch (error) {
-        if (error instanceof EngineError && !error.code.startsWith('KNOWLEDGE_') && !error.code.startsWith('INVALID_KNOWLEDGE')) throw error;
-        fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived workspace publication relationships are invalid');
-      }
-    }
-    if (schemaVersion >= 13) {
-      try { validateKnowledgeFilePublicationDatabase(db, check); validateKnowledgeFileExecutionGuards(db, check); }
-      catch { fail('ARCHIVE_KNOWLEDGE_INVALID', 'Archived physical file publication relationships are invalid'); }
-    }
-    const publicationTables = schemaVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables;
-    const fileTables = schemaVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables;
-    if (schemaVersion >= 14) {
-      try { validateDiagnosticExecutionObservationDatabase(db, check); }
-      catch { fail('ARCHIVE_EXECUTION_OBSERVATION_INVALID', 'Archived original execution observations or effect epochs are invalid'); }
-    }
-    const observationTables = schemaVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables;
-    if (schemaVersion >= 15) {
-      try { validateKnowledgeImportRecoveryDatabase(db, check); }
-      catch { fail('ARCHIVE_KNOWLEDGE_IMPORT_INVALID', 'Archived imported knowledge recovery decisions or activation lineage are invalid'); }
-    }
-    const importTables = schemaVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
-    if (schemaVersion >= 16) {
-      try { validateProposalDatabase(db, check); }
-      catch { fail('ARCHIVE_PROPOSAL_INVALID', 'Archived pending proposals or their original artifact owners are invalid'); }
-    }
-    const proposalTables = schemaVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
-    if (schemaVersion >= 17) {
-      try { validateProposalApplyDatabase(db, check); validateProposalApplyExecutionGuards(db, check); }
-      catch { fail('ARCHIVE_DATABASE_INVALID', 'Proposal apply ownership, checkpoints, artifacts or receipt proofs are invalid'); }
-    }
-    const applyTables = schemaVersion >= 17 ? [...proposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : proposalTables;
-    if (schemaVersion >= 18) {
-      try { validateTeamDatabase(db, check);validateResidentTeamDatabase(db,check); }
-      catch { fail('ARCHIVE_TEAM_INVALID', 'Team membership, mailbox, board or actual input delivery relationships are invalid'); }
-    }
-    const teamTables = schemaVersion >= 18 ? [...applyTables, ...TEAM_TABLES] : applyTables;
-    if (schemaVersion >= 19) {
-      try { validateWorkflowDatabase(db, { check }); validateWorkflowEffectsDatabase(db);
-validateCodingBatchDatabase(db);
- }
-      catch { fail('ARCHIVE_WORKFLOW_INVALID', 'Archived workflow revisions, native stage ownership or transition receipts are invalid'); }
-    }
-    const workflowTables = schemaVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
-    if (schemaVersion >= 20) {
-      try { validateScheduleDatabase(db, { check }); }
-      catch { fail('ARCHIVE_SCHEDULE_INVALID', 'Archived schedule revisions, occurrence ownership or actual input relationships are invalid'); }
-    }
-    const scheduleTables = schemaVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
-    if (schemaVersion >= 21) {
-      try { validateAgentBackendDatabase(db, { check }); }
-      catch { fail('ARCHIVE_BACKEND_INVALID', 'Archived backend ownership, remote requests or client effect receipts are invalid'); }
-    }
-    const backendTables = schemaVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
-    if (schemaVersion >= 22) {
-      try { validateEffectBatchDatabase(db); validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check }); validateGitCommitDatabase(db, {check}); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db,{check}); validateSandboxDatabase(db,{check}); validateCodeModeDatabase(db,{check}); }
-      catch { fail('ARCHIVE_JOB_INVALID', 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid'); }
-    }
-    const jobTables = schemaVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (schemaVersion >= 23) { try { validateHostCommandDatabase(db,{check}); validateHostCommandDeliveryDatabase(db,{check}); validateCommandLifetimeDatabase(db,check); } catch { fail('ARCHIVE_HOST_COMMAND_INVALID','Independent host command approval, process, checkpoint or cleanup evidence is invalid'); } }
-    return { schemaVersion, logicalHash: checkDatabase(db,schemaVersion,schemaVersion >= 23 ? [...jobTables,...HOST_COMMAND_TABLES] : jobTables,check) };
+    return { schemaVersion, logicalHash: checkDatabase(db, schemaVersion, primaryTablesFor(schemaVersion), check) };
   }
   if (role === 'review') return { schemaVersion, logicalHash: readOperations(db, check).logicalHash };
   if (role === 'ledger') return { schemaVersion, logicalHash: readAudits(db, check).logicalHash };
   const hasMarker = db.prepare("SELECT name FROM sqlite_schema WHERE name='command_execution'").get() !== undefined;
-  if (hasMarker) {
-    const rows = db.prepare('SELECT id,owner_pid,group_pid,active,updated_at FROM command_execution LIMIT 2').all();
-    const validPid = (value: unknown) => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647;
-    if (rows.length > 1 || rows.some(row => row.id !== 1 || !validPid(row.owner_pid) || row.group_pid !== null && !validPid(row.group_pid) || row.active !== 0 && row.active !== 1 || typeof row.updated_at !== 'string' || !Number.isFinite(Date.parse(row.updated_at)))) fail('ARCHIVE_DATABASE_INVALID', 'Effect marker record is invalid');
-  }
+  if (hasMarker && readEffectMarker(db) === 'invalid') fail('ARCHIVE_DATABASE_INVALID', 'Effect marker record is invalid');
   return { schemaVersion, logicalHash: checkDatabase(db, 0, hasMarker ? ['command_execution'] : [], check) };
 }
 function validateReviewBindings(primary: DatabaseSync, review: DatabaseSync, check: () => void): void {
   for (const { operation } of readOperations(review, check).operations) {
     check();
-    const run = primary.prepare('SELECT workspace_id,session_id,state FROM runs WHERE id=?').get(operation.runId);
-    const checkpoint = primary.prepare("SELECT json_extract(data,'$.id') AS id,json_extract(data,'$.runId') AS run_id FROM checkpoints WHERE id=? AND run_id=?").get(operation.checkpointId, operation.runId);
-    if (!run || run.workspace_id !== operation.workspaceId || run.session_id !== operation.sessionId || !['completed', 'cancelled', 'failed', 'interrupted'].includes(String(run.state)) || checkpoint?.id !== operation.checkpointId || checkpoint.run_id !== operation.runId) fail('ARCHIVE_DATABASE_INVALID', 'Unresolved review operation does not match its primary checkpoint and owner');
+    if (!reviewOperationBound(primary, operation)) fail('ARCHIVE_DATABASE_INVALID', 'Unresolved review operation does not match its primary checkpoint and owner');
   }
 }
 function validateReviewFiles(root: string, check: () => void): void {
@@ -630,16 +510,11 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
   abort(options.signal); const paths = recoveryPaths(options), destination = destinationPath(options.destination);
   if (within(paths.artifacts, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive destination must be outside the source artifact tree');
   if (!regular(paths.db) || !regular(paths.review)) fail('ARCHIVE_DATABASE_MISSING', 'Archive requires primary and review databases');
-  const leases: ReturnType<typeof acquireRecoveryLease>[] = [];
+  const leases: RecoveryLease[] = [];
   const childReaders: ReturnType<typeof openChildDocumentReader>[]=[];
   let snapshot: ReturnType<typeof takeSnapshot> | undefined, staging: string | undefined;
   try {
-    leases.push(acquireRecoveryLease(paths.db + '.owner.sqlite', 'owner'));
-    leases.push(acquireRecoveryLease(paths.review + '.owner.sqlite', 'owner'));
-    if (regular(paths.effect)) leases.push(acquireRecoveryLease(paths.effect, 'effect'));
-    leases.push(acquireRecoveryLease(paths.db, 'source'));
-    leases.push(acquireRecoveryLease(paths.review, 'source'));
-    if (regular(paths.ledger)) leases.push(acquireRecoveryLease(paths.ledger, 'source'));
+    acquireRecoveryLeases(paths, leases, { ledger: true });
     snapshot = takeSnapshot(paths);
     const effect = snapshot.open('effect');
     if (effect) {

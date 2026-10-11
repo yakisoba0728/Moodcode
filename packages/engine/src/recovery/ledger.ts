@@ -103,6 +103,13 @@ export function readOperations(db: DatabaseSync, check: () => void): { operation
   });
   return { operations, logicalHash };
 }
+/** Whether the primary database still holds the operation's settled Run and checkpoint. */
+export function reviewOperationBound(primary: DatabaseSync, operation: RestoreOperation): boolean {
+  const run = primary.prepare('SELECT workspace_id,session_id,state FROM runs WHERE id=?').get(operation.runId);
+  const checkpoint = primary.prepare("SELECT json_extract(data,'$.id') AS id,json_extract(data,'$.runId') AS run_id FROM checkpoints WHERE id=? AND run_id=?").get(operation.checkpointId, operation.runId);
+  return Boolean(run && run.workspace_id === operation.workspaceId && run.session_id === operation.sessionId
+    && ['completed', 'cancelled', 'failed', 'interrupted'].includes(String(run.state)) && checkpoint?.id === operation.checkpointId && checkpoint.run_id === operation.runId);
+}
 export function readAudits(db: DatabaseSync | undefined, check: () => void): { audits: RecoveryAudit[]; logicalHash: string } {
   if (!db) return { audits: [], logicalHash: hash('[]') };
   const logicalHash = checkDatabase(db, RECOVERY_LEDGER_VERSION, ['recovery_audit'], check, RECOVERY_LEDGER_APPLICATION_ID);

@@ -1,56 +1,16 @@
-import {validateCommandLifetimeDatabase} from '../jobs/command-lifetime-records.js';
 import {validateMediaDatabase} from '../media/native-validation.js';
-import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
-import {validateHostCommandDeliveryDatabase} from '../jobs/host-command-delivery-records.js';
-
-import { validateCodingBatchDatabase } from "../coding-runs/groups.js";
-import {validateWorkflowEffectsDatabase} from "../workflows/effects-records.js";
-import {validateSandboxDatabase} from '../sandbox/records.js';
-import { validateResidentTeamDatabase } from '../teams/resident-validation.js';
-import { validateGitCommitDatabase } from '../git/commit-receipts.js';
-import { validateConversationForkDatabase } from '../sessions/fork-native.js';
 import { randomUUID } from 'node:crypto';
 import { closeSync, constants, fsyncSync, fstatSync, lstatSync, openSync, readSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { backupDatabase } from '../storage/maintenance.js';
-import { databaseVersion } from '../storage/migrations.js';
+import { databaseVersion, primaryFeaturesFor, primaryTablesFor } from '../storage/migrations.js';
 import { pidPresence, type PidPresence } from '../shared/runtime.js';
-import { NATIVE_SESSION_TABLES } from '../storage/native-schema.js';
-import { SUMMARY_STORAGE_TABLES } from '../storage/summary-attempts.js';
-import { SUMMARY_RECOVERY_TABLES } from './summary.js';
-import { ATTEMPT_CLEANUP_TABLES } from '../storage/attempt-cleanup.js';
-import { PROVIDER_RECOVERY_TABLES } from './provider.js';
-import { MCP_EXECUTION_TABLES } from '../storage/mcp-executions.js';
-import { KNOWLEDGE_STORAGE_TABLES } from '../knowledge/validation.js';
-import { KNOWLEDGE_GENERATION_TABLES } from '../knowledge/generation-store.js';
-import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
-import { KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
-import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
-import { KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
-import { KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
-import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
-import { KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
-import { PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
-import { PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
-import { PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
-import { TEAM_TABLES, validateTeamDatabase } from '../teams/store.js';
-import { WORKFLOW_TABLES } from '../workflows/schema.js';
-import { validateWorkflowDatabase } from '../workflows/store.js';
-import { SCHEDULE_TABLES } from '../schedules/schema.js';
-import { validateScheduleDatabase } from '../schedules/store.js';
-import { BACKEND_TABLES } from '../agent-backends/schema.js';
-import { validateAgentBackendDatabase } from '../agent-backends/store.js';
-import { JOB_TABLES } from '../jobs/schema.js';
-import { validateJobDatabase } from '../jobs/store.js';
-import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.js';
-import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
-import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
-import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, scope,
+import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, reviewOperationBound, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
-import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
-  verifiedFileDigest, RECOVERY_LIMITS, type RecoveryPaths, type Snapshot } from './snapshot.js';
+import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, readEffectMarker, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
+  verifiedFileDigest, RECOVERY_LIMITS, type EffectMarker, type RecoveryPaths, type Snapshot } from './snapshot.js';
 
 export { isRestoreAcknowledged, RECOVERY_LIMITS };
 export type { RecoveryAcknowledgment };
@@ -75,21 +35,19 @@ export interface RecoveryResult {
   /** Why an active marker stayed set after the acknowledgments were committed. */
   effectMarkerBlocker?: RecoveryBlocker;
 }
-interface Marker { ownerPid: number; groupPid: number | null; active: boolean; updatedAt: string }
 interface Inspection {
   status: RecoveryStatus;
   snapshot: Snapshot;
-  marker: Marker | null;
+  marker: EffectMarker | null;
   acknowledgments: RecoveryAcknowledgment[];
   unresolved: ReturnType<typeof readOperations>['operations'];
 }
-const PRIMARY_TABLES = ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events'];
 function busy(error: unknown): boolean {
   const code = (error as { errcode?: number })?.errcode;
   return typeof code === 'number' && ((code & 0xff) === 5 || (code & 0xff) === 6);
 }
 const observe = (pid: number, group: boolean): PidPresence => pidPresence(pid, { group }).presence;
-function processBlocker(marker: Marker): RecoveryBlocker | undefined {
+function processBlocker(marker: EffectMarker): RecoveryBlocker | undefined {
   if (marker.groupPid === null) return 'PROCESS_GROUP_NOT_RECORDED';
   const owner = observe(marker.ownerPid, false), group = observe(marker.groupPid, true);
   if (owner === 'alive') return 'PROCESS_OWNER_ALIVE';
@@ -137,64 +95,23 @@ function inspect(options: RecoveryOptions, probeOwners = true): Inspection {
     if (!review) blockers.push('REVIEW_DATABASE_MISSING');
     const primaryVersion = primary ? databaseVersion(primary) : 0;
     if (primary && primaryVersion < 1) fail('RECOVERY_DATABASE_INVALID');
-    const primaryTables = primaryVersion >= 2 ? [...PRIMARY_TABLES, ...NATIVE_SESSION_TABLES] : PRIMARY_TABLES;
-    const usageTables = primaryVersion >= 3 ? [...primaryTables, 'attempt_usage'] : primaryTables;
-    const summaryTables = primaryVersion >= 4 ? [...usageTables, ...SUMMARY_STORAGE_TABLES] : usageTables;
-    const recoveryTables = primaryVersion >= 5 ? [...summaryTables, ...SUMMARY_RECOVERY_TABLES] : summaryTables;
-    const cleanupTables = primaryVersion >= 6 ? [...recoveryTables, ...ATTEMPT_CLEANUP_TABLES] : recoveryTables;
-    const providerTables = primaryVersion >= 7 ? [...cleanupTables, ...PROVIDER_RECOVERY_TABLES] : cleanupTables;
-    const mcpTables = primaryVersion >= 9 ? [...providerTables, ...MCP_EXECUTION_TABLES] : providerTables;
-    const knowledgeTables = primaryVersion >= 10 ? [...mcpTables, ...KNOWLEDGE_STORAGE_TABLES] : mcpTables;
-    if (primary && primaryVersion >= 11) validateKnowledgeGenerationDatabase(primary, snapshot.check);
-    if (primary && primaryVersion >= 12) validateKnowledgePublicationDatabase(primary, snapshot.check);
-    if (primary && primaryVersion >= 13) {
-      validateKnowledgeFilePublicationDatabase(primary, snapshot.check);
-      validateKnowledgeFileExecutionGuards(primary, snapshot.check);
+    if (primary) {
+      for (const feature of primaryFeaturesFor(primaryVersion)) feature.validate?.(primary, snapshot.check, false);
+      validateMediaDatabase(primary, snapshot.check);
     }
-    const generationTables = primaryVersion >= 11 ? [...knowledgeTables, ...KNOWLEDGE_GENERATION_TABLES] : knowledgeTables;
-    const publicationTables = primaryVersion >= 12 ? [...generationTables, ...KNOWLEDGE_PUBLICATION_TABLES] : generationTables;
-    const fileTables = primaryVersion >= 13 ? [...publicationTables, ...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE] : publicationTables;
-    if (primary && primaryVersion >= 14) validateDiagnosticExecutionObservationDatabase(primary, snapshot.check);
-    const observationTables = primaryVersion >= 14 ? [...fileTables, ...DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES] : fileTables;
-    if (primary && primaryVersion >= 15) validateKnowledgeImportRecoveryDatabase(primary, snapshot.check);
-    const importTables = primaryVersion >= 15 ? [...observationTables, ...KNOWLEDGE_IMPORT_RECOVERY_TABLES] : observationTables;
-    if (primary && primaryVersion >= 16) validateProposalDatabase(primary, snapshot.check);
-    const pendingProposalTables = primaryVersion >= 16 ? [...importTables, ...PROPOSAL_TABLES] : importTables;
-    if (primary && primaryVersion >= 17) { validateProposalApplyDatabase(primary, snapshot.check); validateProposalApplyExecutionGuards(primary, snapshot.check); }
-    const proposalTables = primaryVersion >= 17 ? [...pendingProposalTables, ...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE] : pendingProposalTables;
-    if (primary && primaryVersion >= 18) {validateTeamDatabase(primary, snapshot.check);validateResidentTeamDatabase(primary,snapshot.check);}
-    const teamTables = primaryVersion >= 18 ? [...proposalTables, ...TEAM_TABLES] : proposalTables;
-    if (primary && primaryVersion >= 19) {validateWorkflowDatabase(primary, { check: snapshot.check });validateWorkflowEffectsDatabase(primary);
-validateCodingBatchDatabase(primary);
-}
-    const workflowTables = primaryVersion >= 19 ? [...teamTables, ...WORKFLOW_TABLES] : teamTables;
-    if (primary && primaryVersion >= 20) validateScheduleDatabase(primary, { check: snapshot.check });
-    const scheduleTables = primaryVersion >= 20 ? [...workflowTables, ...SCHEDULE_TABLES] : workflowTables;
-    if (primary && primaryVersion >= 21) validateAgentBackendDatabase(primary, { check: snapshot.check });
-    const backendTables = primaryVersion >= 21 ? [...scheduleTables, ...BACKEND_TABLES] : scheduleTables;
-    if (primary && primaryVersion >= 22) { validateJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandJobDatabase(primary, { check: snapshot.check }); validateOwnedCommandDeliveryDatabase(primary, { check: snapshot.check }); validateGitCommitDatabase(primary, {check:snapshot.check}); validateConversationForkDatabase(primary); validatePrFeedbackDatabase(primary,{check:snapshot.check}); validateSandboxDatabase(primary,{check:snapshot.check}); }
-    const jobTables = primaryVersion >= 22 ? [...backendTables, ...JOB_TABLES] : backendTables;
-    if (primary && primaryVersion >= 23) {validateHostCommandDatabase(primary, { check: snapshot.check }); validateHostCommandDeliveryDatabase(primary,{check:snapshot.check});validateCommandLifetimeDatabase(primary,snapshot.check);}
-    const hostCommandTables = primaryVersion >= 23 ? [...jobTables, ...HOST_COMMAND_TABLES] : jobTables;
-    if(primary)validateMediaDatabase(primary,snapshot.check);
-    const primaryHash = primary ? checkDatabase(primary, primaryVersion, hostCommandTables, snapshot.check) : null;
+    const primaryHash = primary ? checkDatabase(primary, primaryVersion, primaryTablesFor(primaryVersion), snapshot.check) : null;
     const operations = review ? readOperations(review, snapshot.check) : { operations: [], logicalHash: null };
     const audits = readAudits(ledger, snapshot.check);
-    let marker: Marker | null = null;
+    let marker: EffectMarker | null = null;
     let effectHash: string | null = null;
     if (effect) {
       const exists = effect.prepare("SELECT name FROM sqlite_schema WHERE type='table' AND name='command_execution'").get();
       effectHash = checkDatabase(effect, 0, exists ? ['command_execution'] : [], snapshot.check);
       if (exists) {
-        const rows = effect.prepare('SELECT id,owner_pid,group_pid,active,updated_at FROM command_execution LIMIT 2').all();
-        if (rows.length > 1) fail('RECOVERY_DATABASE_INVALID');
-        const row = rows[0];
-        if (row) {
-          const validPid = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647;
-          if (row.id !== 1 || !validPid(row.owner_pid) || row.group_pid !== null && !validPid(row.group_pid)
-            || row.active !== 0 && row.active !== 1 || typeof row.updated_at !== 'string' || Buffer.byteLength(row.updated_at) > 128 || !Number.isFinite(Date.parse(row.updated_at))) fail('RECOVERY_DATABASE_INVALID');
-          marker = { ownerPid: row.owner_pid, groupPid: row.group_pid as number | null, active: row.active === 1, updatedAt: row.updated_at };
-        }
+        const row = readEffectMarker(effect);
+        // Recovery alone bounds the marker timestamp.
+        if (row === 'invalid' || row && Buffer.byteLength(row.updatedAt) > 128) fail('RECOVERY_DATABASE_INVALID');
+        marker = row;
       }
     }
     const markerStatus: RecoveryStatus['marker'] = marker ? {
@@ -210,12 +127,7 @@ validateCodingBatchDatabase(primary);
     const acknowledgments = matchingAcknowledgments(snapshot, operations.operations, audits.audits);
     const unresolved = operations.operations.filter(({ operation }) => !isRestoreAcknowledged(operation, acknowledgments));
     if (unresolved.some(item => item.operation.state === 'started')) blockers.push('RESTORE_RESTART_REQUIRED');
-    if (primary) for (const { operation } of operations.operations) {
-      const run = primary.prepare('SELECT workspace_id,session_id,state FROM runs WHERE id=?').get(operation.runId);
-      const checkpoint = primary.prepare("SELECT json_extract(data,'$.id') AS id,json_extract(data,'$.runId') AS run_id FROM checkpoints WHERE id=? AND run_id=?").get(operation.checkpointId, operation.runId);
-      if (!run || run.workspace_id !== operation.workspaceId || run.session_id !== operation.sessionId
-        || !['completed', 'cancelled', 'failed', 'interrupted'].includes(String(run.state)) || checkpoint?.id !== operation.checkpointId || checkpoint.run_id !== operation.runId) fail('RECOVERY_DATABASE_INVALID');
-    }
+    if (primary) for (const { operation } of operations.operations) if (!reviewOperationBound(primary, operation)) fail('RECOVERY_DATABASE_INVALID');
     const activeRunCount = primary ? Number(primary.prepare("SELECT count(*) AS count FROM runs WHERE state IN ('created','running','awaiting_approval','cancelling')").get()?.count) : 0;
     if (!Number.isSafeInteger(activeRunCount) || activeRunCount < 0) fail('RECOVERY_DATABASE_INVALID');
     if (probeOwners) {
@@ -280,13 +192,22 @@ export function acquireRecoveryLease(file: string, kind: 'owner' | 'effect' | 's
     throw safeError(error);
   }
 }
-const acquire = acquireRecoveryLease;
+export type RecoveryLease = ReturnType<typeof acquireRecoveryLease>;
+/** Leases owners, the effect marker and sources in lock order; each is pushed once held so the caller releases a partial set. */
+export function acquireRecoveryLeases(paths: RecoveryPaths, leases: RecoveryLease[], options: { ledger?: boolean } = {}): void {
+  leases.push(acquireRecoveryLease(paths.db + '.owner.sqlite', 'owner'));
+  leases.push(acquireRecoveryLease(paths.review + '.owner.sqlite', 'owner'));
+  if (regular(paths.effect)) leases.push(acquireRecoveryLease(paths.effect, 'effect'));
+  leases.push(acquireRecoveryLease(paths.db, 'source'));
+  leases.push(acquireRecoveryLease(paths.review, 'source'));
+  if (options.ledger && regular(paths.ledger)) leases.push(acquireRecoveryLease(paths.ledger, 'source'));
+}
 function requireRecoverable(inspection: Inspection, expected: string): void {
   if (inspection.status.fingerprint !== expected) fail('RECOVERY_STALE');
   if (inspection.status.blockers.length) fail('RECOVERY_BLOCKED');
   if (inspection.status.state === 'clear') fail('RECOVERY_NOT_NEEDED');
 }
-function assertIdentities(locks: ReturnType<typeof acquire>[], artifacts: RecoveryPaths, snapshot: Snapshot): void {
+function assertIdentities(locks: RecoveryLease[], artifacts: RecoveryPaths, snapshot: Snapshot): void {
   for (const lock of locks) if (!sameIdentity(lock.identity, regular(lock.file))) fail('RECOVERY_SOURCE_CHANGED');
   if (!sameIdentity(snapshot.artifactIdentity, lstatSync(artifacts.artifacts))) fail('RECOVERY_SOURCE_CHANGED');
 }
@@ -305,17 +226,13 @@ function durableDirectory(file: string): void {
 /** Acknowledges stopped effects; never signals processes, reruns tools, or edits original Runs/review operations. */
 export async function recoverEngine(options: RecoverEngineOptions): Promise<RecoveryResult> {
   if (!options || options.acknowledged !== true || typeof options.fingerprint !== 'string' || !/^[a-f0-9]{64}$/.test(options.fingerprint)) fail('RECOVERY_ACKNOWLEDGMENT_REQUIRED');
-  const locks: ReturnType<typeof acquire>[] = [];
+  const locks: RecoveryLease[] = [];
   let inspection: Inspection | undefined;
   let ledger: DatabaseSync | undefined;
   try {
     const paths = recoveryPaths(options);
     // Ownership is admission authority; an observation from diagnostics never grants a lease.
-    locks.push(acquire(paths.db + '.owner.sqlite', 'owner'));
-    locks.push(acquire(paths.review + '.owner.sqlite', 'owner'));
-    if (regular(paths.effect)) locks.push(acquire(paths.effect, 'effect'));
-    locks.push(acquire(paths.db, 'source'));
-    locks.push(acquire(paths.review, 'source'));
+    acquireRecoveryLeases(paths, locks);
     inspection = inspect(options, false);
     requireRecoverable(inspection, options.fingerprint);
     const id = randomUUID();

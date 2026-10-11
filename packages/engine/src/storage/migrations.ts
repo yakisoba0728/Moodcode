@@ -1,29 +1,50 @@
-import { HOST_COMMAND_SCHEMA_SQL } from '../jobs/host-command-records.js';
+import { HOST_COMMAND_SCHEMA_SQL, HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { inspectIntegrity } from './maintenance.js';
-import { migrateNativeSessions } from './native-schema.js';
+import { migrateNativeSessions, NATIVE_SESSION_TABLES } from './native-schema.js';
 import { ATTEMPT_USAGE_SCHEMA } from './native-usage.js';
-import { SUMMARY_ATTEMPT_SCHEMA } from './summary-attempts.js';
-import { SUMMARY_RECOVERY_SCHEMA, SUMMARY_RECOVERY_PROOF_SCHEMA } from '../recovery/summary.js';
-import { ATTEMPT_CLEANUP_SCHEMA } from './attempt-cleanup.js';
-import { PROVIDER_RECOVERY_SCHEMA } from '../recovery/provider.js';
-import { MCP_EXECUTION_SCHEMA } from './mcp-executions.js';
+import { SUMMARY_ATTEMPT_SCHEMA, SUMMARY_STORAGE_TABLES } from './summary-attempts.js';
+import { SUMMARY_RECOVERY_SCHEMA, SUMMARY_RECOVERY_PROOF_SCHEMA, SUMMARY_RECOVERY_TABLES } from '../recovery/summary.js';
+import { ATTEMPT_CLEANUP_SCHEMA, ATTEMPT_CLEANUP_TABLES } from './attempt-cleanup.js';
+import { PROVIDER_RECOVERY_SCHEMA, PROVIDER_RECOVERY_TABLES } from '../recovery/provider.js';
+import { MCP_EXECUTION_SCHEMA, MCP_EXECUTION_TABLES } from './mcp-executions.js';
 import { KNOWLEDGE_SCHEMA_SQL } from '../knowledge/store.js';
-import { KNOWLEDGE_GENERATION_SCHEMA_SQL } from '../knowledge/generation-store.js';
-import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL } from '../knowledge/publication-store.js';
-import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL } from '../knowledge/file-publication-store.js';
-import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL } from '../knowledge/file-execution-guards.js';
-import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL } from '../diagnostics/execution-observation-store.js';
-import { KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL } from '../knowledge/import-recovery-store.js';
-import { PROPOSAL_SCHEMA_SQL } from '../proposals/store.js';
-import { PROPOSAL_APPLY_SCHEMA_SQL } from '../proposals/apply-store.js';
-import { PROPOSAL_APPLY_GUARD_SCHEMA_SQL } from '../proposals/execution-guards.js';
-import { TEAM_SCHEMA_SQL } from '../teams/schema.js';
-import { WORKFLOW_SCHEMA_SQL } from '../workflows/schema.js';
-import { SCHEDULE_SCHEMA_SQL } from '../schedules/schema.js';
-import { BACKEND_SCHEMA_SQL } from '../agent-backends/schema.js';
-import { JOB_SCHEMA_SQL } from '../jobs/schema.js';
+import { KNOWLEDGE_STORAGE_TABLES, validateKnowledgeArchiveRow } from '../knowledge/validation.js';
+import { KNOWLEDGE_GENERATION_SCHEMA_SQL, KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from '../knowledge/generation-store.js';
+import { validateKnowledgeGenerationDatabase } from '../knowledge/generation-archive-relations.js';
+import { KNOWLEDGE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_PUBLICATION_TABLES } from '../knowledge/publication-store.js';
+import { validateKnowledgePublicationDatabase } from '../knowledge/publication-archive-relations.js';
+import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_FILE_PUBLICATION_TABLES, validateKnowledgeFilePublicationDatabase } from '../knowledge/file-publication-store.js';
+import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
+import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL, DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
+import { KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL, KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
+import { PROPOSAL_SCHEMA_SQL, PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
+import { PROPOSAL_APPLY_SCHEMA_SQL, PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
+import { PROPOSAL_APPLY_GUARD_SCHEMA_SQL, PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
+import { TEAM_SCHEMA_SQL, TEAM_TABLES } from '../teams/schema.js';
+import { validateTeamDatabase } from '../teams/store.js';
+import { validateResidentTeamDatabase } from '../teams/resident-validation.js';
+import { WORKFLOW_SCHEMA_SQL, WORKFLOW_TABLES } from '../workflows/schema.js';
+import { validateWorkflowDatabase } from '../workflows/store.js';
+import { validateWorkflowEffectsDatabase } from '../workflows/effects-records.js';
+import { validateCodingBatchDatabase } from '../coding-runs/groups.js';
+import { SCHEDULE_SCHEMA_SQL, SCHEDULE_TABLES } from '../schedules/schema.js';
+import { validateScheduleDatabase } from '../schedules/store.js';
+import { BACKEND_SCHEMA_SQL, BACKEND_TABLES } from '../agent-backends/schema.js';
+import { validateAgentBackendDatabase } from '../agent-backends/store.js';
+import { JOB_SCHEMA_SQL, JOB_TABLES } from '../jobs/schema.js';
+import { validateJobDatabase } from '../jobs/store.js';
+import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.js';
+import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
+import { validateHostCommandDeliveryDatabase } from '../jobs/host-command-delivery-records.js';
+import { validateCommandLifetimeDatabase } from '../jobs/command-lifetime-records.js';
+import { validateEffectBatchDatabase } from '../effect-batches/storage.js';
+import { validateGitCommitDatabase } from '../git/commit-receipts.js';
+import { validateConversationForkDatabase } from '../sessions/fork-native.js';
+import { validatePrFeedbackDatabase } from '../pr-feedback/records.js';
+import { validateSandboxDatabase } from '../sandbox/records.js';
+import { validateCodeModeDatabase } from '../code-mode/records.js';
 
 export interface DatabaseMigration {
   /** Append-only, consecutive primary database version, starting at 1. */
@@ -97,6 +118,73 @@ export const DATABASE_MIGRATIONS: readonly DatabaseMigration[] = Object.freeze([
   Object.freeze({ version: 23, name: 'independent-approved-host-commands', apply: (database: DatabaseSync) => { database.exec(HOST_COMMAND_SCHEMA_SQL); } }),
 ]);
 export const DB_VERSION = DATABASE_MIGRATIONS.length;
+
+/** Archive-only bounded JSON row checks, run before the feature's relationship checks. */
+interface ArchiveRowCheck { readonly validate: (row: unknown) => unknown; readonly boundMessage: string; readonly message: string }
+interface PrimaryChecks {
+  /** Relationship checks shared by recovery and archives; `archive` adds the ones recovery does not run. */
+  readonly validate: (db: DatabaseSync, check: () => void, archive: boolean) => void;
+  readonly archiveCode: string;
+  readonly archiveMessage: string;
+  /** Archives map only knowledge errors to archiveCode and rethrow other engine errors. */
+  readonly archiveKnowledgeOnly?: true;
+}
+export type PrimaryFeature = { readonly since: number; readonly tables: readonly string[]; readonly archiveRows?: ArchiveRowCheck }
+  & (PrimaryChecks | { readonly validate?: undefined });
+
+/** Tables each primary schema version adds, in version order; recovery and archives check them in this order. */
+const PRIMARY_FEATURES: readonly PrimaryFeature[] = [
+  { since: 1, tables: ['workspaces', 'sessions', 'inputs', 'runs', 'messages', 'tools', 'approvals', 'checkpoints', 'events'] },
+  { since: 2, tables: NATIVE_SESSION_TABLES },
+  { since: 3, tables: ['attempt_usage'] },
+  { since: 4, tables: SUMMARY_STORAGE_TABLES },
+  { since: 5, tables: SUMMARY_RECOVERY_TABLES },
+  { since: 6, tables: ATTEMPT_CLEANUP_TABLES },
+  { since: 7, tables: PROVIDER_RECOVERY_TABLES },
+  { since: 9, tables: MCP_EXECUTION_TABLES },
+  { since: 10, tables: KNOWLEDGE_STORAGE_TABLES, archiveRows: { validate: validateKnowledgeArchiveRow,
+    boundMessage: 'Archived knowledge row exceeds its bound', message: 'Archived workspace trust or pending knowledge record is invalid' } },
+  { since: 11, tables: KNOWLEDGE_GENERATION_TABLES, archiveRows: { validate: validateKnowledgeGenerationArchiveRow,
+    boundMessage: 'Archived generation row exceeds its bound', message: 'Archived native generation record is invalid' },
+    validate: (db, check) => validateKnowledgeGenerationDatabase(db, check), archiveKnowledgeOnly: true,
+    archiveCode: 'ARCHIVE_KNOWLEDGE_INVALID', archiveMessage: 'Archived native generation relationships are invalid' },
+  { since: 12, tables: KNOWLEDGE_PUBLICATION_TABLES, validate: (db, check) => validateKnowledgePublicationDatabase(db, check), archiveKnowledgeOnly: true,
+    archiveCode: 'ARCHIVE_KNOWLEDGE_INVALID', archiveMessage: 'Archived workspace publication relationships are invalid' },
+  { since: 13, tables: [...KNOWLEDGE_FILE_PUBLICATION_TABLES, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE],
+    validate: (db, check) => { validateKnowledgeFilePublicationDatabase(db, check); validateKnowledgeFileExecutionGuards(db, check); },
+    archiveCode: 'ARCHIVE_KNOWLEDGE_INVALID', archiveMessage: 'Archived physical file publication relationships are invalid' },
+  { since: 14, tables: DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validate: (db, check) => validateDiagnosticExecutionObservationDatabase(db, check),
+    archiveCode: 'ARCHIVE_EXECUTION_OBSERVATION_INVALID', archiveMessage: 'Archived original execution observations or effect epochs are invalid' },
+  { since: 15, tables: KNOWLEDGE_IMPORT_RECOVERY_TABLES, validate: (db, check) => validateKnowledgeImportRecoveryDatabase(db, check),
+    archiveCode: 'ARCHIVE_KNOWLEDGE_IMPORT_INVALID', archiveMessage: 'Archived imported knowledge recovery decisions or activation lineage are invalid' },
+  { since: 16, tables: PROPOSAL_TABLES, validate: (db, check) => validateProposalDatabase(db, check),
+    archiveCode: 'ARCHIVE_PROPOSAL_INVALID', archiveMessage: 'Archived pending proposals or their original artifact owners are invalid' },
+  { since: 17, tables: [...PROPOSAL_APPLY_TABLES, PROPOSAL_APPLY_GUARD_TABLE],
+    validate: (db, check) => { validateProposalApplyDatabase(db, check); validateProposalApplyExecutionGuards(db, check); },
+    archiveCode: 'ARCHIVE_DATABASE_INVALID', archiveMessage: 'Proposal apply ownership, checkpoints, artifacts or receipt proofs are invalid' },
+  { since: 18, tables: TEAM_TABLES, validate: (db, check) => { validateTeamDatabase(db, check); validateResidentTeamDatabase(db, check); },
+    archiveCode: 'ARCHIVE_TEAM_INVALID', archiveMessage: 'Team membership, mailbox, board or actual input delivery relationships are invalid' },
+  { since: 19, tables: WORKFLOW_TABLES,
+    validate: (db, check) => { validateWorkflowDatabase(db, { check }); validateWorkflowEffectsDatabase(db); validateCodingBatchDatabase(db); },
+    archiveCode: 'ARCHIVE_WORKFLOW_INVALID', archiveMessage: 'Archived workflow revisions, native stage ownership or transition receipts are invalid' },
+  { since: 20, tables: SCHEDULE_TABLES, validate: (db, check) => validateScheduleDatabase(db, { check }),
+    archiveCode: 'ARCHIVE_SCHEDULE_INVALID', archiveMessage: 'Archived schedule revisions, occurrence ownership or actual input relationships are invalid' },
+  { since: 21, tables: BACKEND_TABLES, validate: (db, check) => validateAgentBackendDatabase(db, { check }),
+    archiveCode: 'ARCHIVE_BACKEND_INVALID', archiveMessage: 'Archived backend ownership, remote requests or client effect receipts are invalid' },
+  { since: 22, tables: JOB_TABLES, validate: (db, check, archive) => {
+    // Only archives check effect batches and code-mode records.
+    if (archive) validateEffectBatchDatabase(db);
+    validateJobDatabase(db, { check }); validateOwnedCommandJobDatabase(db, { check }); validateOwnedCommandDeliveryDatabase(db, { check });
+    validateGitCommitDatabase(db, { check }); validateConversationForkDatabase(db); validatePrFeedbackDatabase(db, { check }); validateSandboxDatabase(db, { check });
+    if (archive) validateCodeModeDatabase(db, { check });
+  }, archiveCode: 'ARCHIVE_JOB_INVALID', archiveMessage: 'Archived terminal job sources, immutable output pages or completion delivery receipts are invalid' },
+  { since: 23, tables: HOST_COMMAND_TABLES,
+    validate: (db, check) => { validateHostCommandDatabase(db, { check }); validateHostCommandDeliveryDatabase(db, { check }); validateCommandLifetimeDatabase(db, check); },
+    archiveCode: 'ARCHIVE_HOST_COMMAND_INVALID', archiveMessage: 'Independent host command approval, process, checkpoint or cleanup evidence is invalid' },
+];
+export const primaryFeaturesFor = (version: number): PrimaryFeature[] => PRIMARY_FEATURES.filter(feature => version >= feature.since);
+/** checkDatabase sorts tables, so this order does not affect logical hashes. */
+export const primaryTablesFor = (version: number): string[] => primaryFeaturesFor(version).flatMap(feature => feature.tables);
 
 /** Read before changing connection pragmas, especially for a database from a newer engine. */
 export function databaseVersion(database: DatabaseSync, maximum = DB_VERSION): number {

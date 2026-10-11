@@ -160,6 +160,16 @@ export function checkDatabase(db: DatabaseSync, version: number, expectedTables:
   }
   return digest.digest('hex');
 }
+export interface EffectMarker { ownerPid: number; groupPid: number | null; active: boolean; updatedAt: string }
+const validPid = (value: unknown): value is number => typeof value === 'number' && Number.isSafeInteger(value) && value > 0 && value <= 2_147_483_647;
+/** The single command_execution row: null when the table is empty, 'invalid' when malformed. */
+export function readEffectMarker(db: DatabaseSync): EffectMarker | null | 'invalid' {
+  const [row, extra] = db.prepare('SELECT id,owner_pid,group_pid,active,updated_at FROM command_execution LIMIT 2').all();
+  if (!row) return null;
+  if (extra || row.id !== 1 || !validPid(row.owner_pid) || row.group_pid !== null && !validPid(row.group_pid)
+    || row.active !== 0 && row.active !== 1 || typeof row.updated_at !== 'string' || !Number.isFinite(Date.parse(row.updated_at))) return 'invalid';
+  return { ownerPid: row.owner_pid, groupPid: row.group_pid as number | null, active: row.active === 1, updatedAt: row.updated_at };
+}
 export function preparePrivateDirectory(parent: string, name: string): string {
   const identity = lstatSync(parent);
   const output = join(parent, name);
