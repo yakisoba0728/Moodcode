@@ -5,6 +5,7 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { sealRecord } from "../shared/canonical.js";
 import type {
   AgentBackendCredentialReference,
   AgentBackendLaunch,
@@ -64,6 +65,17 @@ export function agentBackendJson<T>(
         : "INVALID_AGENT_BACKEND",
     );
   }
+}
+/** Seals the body, replacing any stale sha256, and freezes it; a cap applies agentBackendJson's bound and codes. */
+export function agentBackendSigned<T extends object>(
+  value: T,
+  cap?: number,
+): T & { sha256: string } {
+  return sealRecord(value, (sealed) =>
+    cap === undefined
+      ? immutableKnowledgeJson(sealed)
+      : agentBackendJson(sealed, cap),
+  );
 }
 export function agentBackendObject(
   input: unknown,

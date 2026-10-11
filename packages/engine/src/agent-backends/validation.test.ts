@@ -7,6 +7,7 @@ import type { AgentBackendSpecInput, AgentBackendTargetPin } from "./types.js";
 import {
   AGENT_BACKEND_LIMITS,
   agentBackendJson,
+  agentBackendSigned,
   validateAgentBackendLaunch,
   validateAgentBackendSpec,
   validateAgentBackendTarget,
@@ -363,4 +364,21 @@ test("bounded UTF-8 and deep data reject malformed strings and oversized/deep gr
   let deep: unknown = {};
   for (let i = 0; i < 15; i++) deep = { data: deep };
   assert.throws(() => agentBackendJson(deep), fails("AGENT_BACKEND_LIMIT"));
+});
+test("signed proofs hash the body without a stale sha256 and apply a given cap", () => {
+  const body = { connectionId: "c", processId: 7 };
+  const proof = agentBackendSigned(body);
+  assert.deepEqual(proof, { ...body, sha256: knowledgeHash(body) });
+  assert.ok(Object.isFrozen(proof));
+  assert.deepEqual(agentBackendSigned({ ...proof, processId: 8 }), {
+    connectionId: "c",
+    processId: 8,
+    sha256: knowledgeHash({ connectionId: "c", processId: 8 }),
+  });
+  const frame = { message: "a".repeat(128) };
+  assert.equal(agentBackendSigned(frame).sha256, knowledgeHash(frame));
+  assert.throws(
+    () => agentBackendSigned(frame, 128),
+    fails("AGENT_BACKEND_LIMIT"),
+  );
 });

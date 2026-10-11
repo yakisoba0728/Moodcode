@@ -1,5 +1,5 @@
 import { readOwnedCommandJob } from "../jobs/owned-command-records.js";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EngineError,
@@ -7,15 +7,18 @@ import {
   type Workspace,
 } from "@moodcode/contracts";
 import {
-  immutableKnowledgeJson,
+  immutableKnowledgeJson as json,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import type { TurnRequest } from "../ports.js";
 import type {
   AgentBackendSpec,
   AgentBackendSpecInput,
   AgentBackendTargetPin,
   AcpV1Id,
   AcpV1Message,
+  AcpV1NegotiatedCapabilities,
 } from "./types.js";
 import type {
   BackendConnectionProof,
@@ -42,6 +45,7 @@ import {
 } from "./reducer.js";
 import {
   AGENT_BACKEND_LIMITS,
+  agentBackendSigned as signed,
   validateAgentBackendSpec,
 } from "./validation.js";
 import {
@@ -143,7 +147,7 @@ export interface BackendConnectionRevision extends BackendRevisionBase {
   readonly observation: BackendPeerObservationProof | null;
   readonly disposal: BackendDisposalProof | null;
   readonly errorCode: string | null;
-  readonly capabilities?: import("./types.js").AcpV1NegotiatedCapabilities;
+  readonly capabilities?: AcpV1NegotiatedCapabilities;
   readonly sessionLoad?: BackendSessionLoadRevision;
 }
 export interface BackendSessionLoadRevision {
@@ -322,15 +326,6 @@ function fail(code = "BACKEND_DATABASE_INVALID"): never {
     "Backend journal or original runtime owner is stale or invalid",
   );
 }
-function json<T>(value: T): T {
-  return immutableKnowledgeJson(value);
-}
-function signed<T extends object>(value: T): T & { sha256: string } {
-  const { sha256: _old, ...body } = value as T & { sha256?: string };
-  return json({ ...body, sha256: knowledgeHash(body) }) as T & {
-    sha256: string;
-  };
-}
 /** Callers select inputs and capture IDs/time; validation precedes receipt signing. */
 function prepareSignedBackendRevision<T extends AgentBackendRecord>(
   input: SignedBackendRevisionInput<T>,
@@ -385,7 +380,7 @@ function prepareSignedBackendRevision<T extends AgentBackendRecord>(
 function digest<T extends { sha256: string }>(value: T): T {
   const copy = json(value),
     { sha256, ...body } = copy;
-  if (!/^[a-f0-9]{64}$/.test(sha256) || knowledgeHash(body) !== sha256) fail();
+  if (sha(sha256) !== knowledgeHash(body)) fail();
   return copy;
 }
 /** A terminal control that outgrows its effect revision is a backend capacity failure. */
@@ -406,6 +401,10 @@ function id(value: unknown): string {
     /[\u0000-\u001f\u007f]/u.test(value)
   )
     fail("INVALID_BACKEND_INPUT");
+  return value;
+}
+function sha(value: unknown): string {
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) fail();
   return value;
 }
 function integer(value: unknown, max = Number.MAX_SAFE_INTEGER): number {
@@ -568,45 +567,37 @@ export class AgentBackendStorage {
     if (max?.revision !== r.revision) fail();
     return r;
   }
+  private get<T extends AgentBackendRecord>(
+    ws: string,
+    kind: BackendJournalKind,
+    eid: string,
+    revisionId?: string,
+  ): T | undefined {
+    if (!revisionId) return this.head<T>(ws, kind, eid);
+    const r = this.read<T>(ws, id(revisionId), kind);
+    if (r.entityId !== eid) fail();
+    return r;
+  }
   getBackend(
     ws: string,
     backendId: string,
     revisionId?: string,
   ): AgentBackendRevision | undefined {
-    if (revisionId) {
-      const r = this.read<AgentBackendRevision>(ws, id(revisionId), "backend");
-      if (r.backendId !== backendId) fail();
-      return r;
-    }
-    return this.head(ws, "backend", backendId);
+    return this.get(ws, "backend", backendId, revisionId);
   }
   private getConnection(
     ws: string,
     connectionId: string,
     revisionId?: string,
   ): BackendConnectionRevision | undefined {
-    if (revisionId) {
-      const r = this.read<BackendConnectionRevision>(
-        ws,
-        id(revisionId),
-        "connection",
-      );
-      if (r.connectionId !== connectionId) fail();
-      return r;
-    }
-    return this.head(ws, "connection", connectionId);
+    return this.get(ws, "connection", connectionId, revisionId);
   }
   getRequest(
     ws: string,
     remoteRequestId: string,
     revisionId?: string,
   ): BackendRemoteRequest | undefined {
-    if (revisionId) {
-      const r = this.read<BackendRemoteRequest>(ws, id(revisionId), "request");
-      if (r.remoteRequestId !== remoteRequestId) fail();
-      return r;
-    }
-    return this.head(ws, "request", remoteRequestId);
+    return this.get(ws, "request", remoteRequestId, revisionId);
   }
   /** Historical rows are evidence; only the fresh Original target grants dispatch. */
   assertSessionLoadSource(
@@ -1353,7 +1344,7 @@ export class AgentBackendStorage {
         !("result" in frame.message)
       )
         fail("BACKEND_FRAME_NOT_RECORDED");
-      const request = originalTurn as import("../ports.js").TurnRequest;
+      const request = originalTurn as TurnRequest;
       const effects = before.proof.executionMode === "engine-client-effects";
       const b = this.required(this.getBackend(x.workspaceId, before.backendId));
       const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
@@ -2092,9 +2083,6 @@ function bodyOf<T extends AgentBackendRecord>(
   } = record;
   return body as Omit<T, keyof BackendRevisionBase>;
 }
-function rawSha(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
 function readPrimary(
   db: DatabaseSync,
   table:
@@ -2277,8 +2265,7 @@ function validateSessionLoadBody(r: BackendConnectionRevision): void {
     load.replayBytes > 32768
   )
     fail("BACKEND_LOAD_REPLAY_LIMIT");
-  for (const sha of load.replayHashes)
-    if (typeof sha !== "string" || !/^[a-f0-9]{64}$/.test(sha)) fail();
+  for (const hash of load.replayHashes) sha(hash);
   const message = validateAcpV1Message(load.message);
   if (
     !("method" in message) ||
@@ -2343,7 +2330,7 @@ function validateTurnSql(db: DatabaseSync, p: BackendTurnProof): void {
     "catalogueSha256",
     "rootBindingSha256",
   ] as const)
-    if (!/^[a-f0-9]{64}$/.test(p[key])) fail();
+    sha(p[key]);
   const session = readPrimary(db, "sessions", p.sessionId),
     run = readPrimary(db, "runs", p.runId),
     turn = readPrimary(db, "session_turns", p.turnId),
@@ -2754,7 +2741,7 @@ function validateClientEffectSql(
     tool.runId !== p.runId ||
     tool.state !== p.state ||
     knowledgeHash(tool.input) !== p.inputSha256 ||
-    rawSha(typeof tool.output === "string" ? tool.output : "") !==
+    sha256Hex(typeof tool.output === "string" ? tool.output : "") !==
       p.outputSha256 ||
     Buffer.byteLength(typeof tool.output === "string" ? tool.output : "") !==
       p.outputBytes
@@ -3045,7 +3032,7 @@ function validateBody(r: AgentBackendRecord): void {
     ] as const)
       id(r.proof[key]);
     for (const key of ["backendSha256", "launchSha256", "ownerSha256"] as const)
-      if (!/^[a-f0-9]{64}$/.test(r.proof[key])) fail();
+      sha(r.proof[key]);
     if (
       r.connectionId !== r.entityId ||
       r.proof.connectionId !== r.connectionId ||
@@ -3232,20 +3219,13 @@ function validateBody(r: AgentBackendRecord): void {
     const frame = validateAcpV1Message(r.frame.message);
     if (!("method" in frame) || !("id" in frame) || frame.id !== r.rpcId)
       fail();
-    validateEffectInput(
-      frame,
-      r.input,
-      (frame.params as JsonObject)?.sessionId as string,
-    );
+    const sessionId = (frame.params as JsonObject)?.sessionId as string;
+    validateEffectInput(frame, r.input, sessionId);
     if (r.executionFrame) {
       digest(r.executionFrame);
       if (!r.permission?.allowed || !("method" in r.executionFrame.message))
         fail();
-      validateEffectInput(
-        r.executionFrame.message,
-        r.input,
-        (frame.params as JsonObject)?.sessionId as string,
-      );
+      validateEffectInput(r.executionFrame.message, r.input, sessionId);
     }
     if (r.controls) {
       if (r.controls.length > 32) fail();
@@ -3258,11 +3238,7 @@ function validateBody(r: AgentBackendRecord): void {
         ]);
         if (identities.has(key) || released) fail("BACKEND_TERMINAL_STALE");
         identities.add(key);
-        validateTerminalControl(
-          r,
-          control,
-          (frame.params as JsonObject)?.sessionId as string,
-        );
+        validateTerminalControl(r, control, sessionId);
         released =
           "method" in control.frame.message &&
           control.frame.message.method === "terminal/release";
@@ -3786,12 +3762,7 @@ export function validateAgentBackendDatabase(
           (r.kind === "client-effect"
             ? (r.completion?.toolCallId ?? null)
             : null) ||
-        h.connection_id !==
-          (r.kind === "connection"
-            ? r.connectionId
-            : r.kind === "request" || r.kind === "client-effect"
-              ? r.connectionId
-              : null) ||
+        h.connection_id !== (r.kind === "backend" ? null : r.connectionId) ||
         h.owner_epoch !== (o?.ownerEpoch ?? null)
       )
         fail();
@@ -4063,12 +4034,7 @@ function appendAdministrative(
   )
     fail("BACKEND_LIMIT");
   const o = ownerOf(after),
-    cid =
-      after.kind === "connection"
-        ? after.connectionId
-        : after.kind === "request" || after.kind === "client-effect"
-          ? after.connectionId
-          : null,
+    cid = after.kind === "backend" ? null : after.connectionId,
     tool =
       after.kind === "client-effect"
         ? (after.completion?.toolCallId ?? null)
@@ -4172,7 +4138,7 @@ export function markImportedAgentBackendsPaused(
   archiveSha: string,
   workspaceId?: string,
 ): void {
-  if (!/^[a-f0-9]{64}$/.test(archiveSha)) fail();
+  sha(archiveSha);
   validateAgentBackendDatabase(db);
   const at = backendClock(db, Date.now());
   for (const r of currentBodies(db, workspaceId))

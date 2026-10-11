@@ -1,5 +1,3 @@
-
-import { knowledgeHash } from "../knowledge/validation.js";
 import { rejectDuplicateJsonKeys } from "../code-mode/source-json.js";
 import type {
   AcpV1Id,
@@ -25,6 +23,7 @@ import {
   agentBackendInteger,
   agentBackendJson,
   agentBackendObject,
+  agentBackendSigned,
   agentBackendText,
 } from "./validation.js";
 
@@ -197,7 +196,7 @@ export function negotiateAcpV1Capabilities(
       local.loadSession === true &&
       result.agentCapabilities.loadSession === true,
   };
-  return agentBackendJson({ ...body, sha256: knowledgeHash(body) });
+  return agentBackendSigned(body, AGENT_BACKEND_LIMITS.frameBytes);
 }
 function validateAcpV1NewSessionParams(input: unknown): AcpV1NewSessionParams {
   const value = agentBackendObject(input, ["cwd", "mcpServers"], ["_meta"]);

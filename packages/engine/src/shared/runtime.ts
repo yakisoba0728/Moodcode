@@ -77,10 +77,10 @@ export async function cleanupGroup(pid: number, closed: () => boolean = () => tr
 
 /**
  * Settles like `promise` unless `signal` aborts first, then rejects with the module's coded `onAbort()` error.
- * `propagateReason` rejects with the signal's own reason instead, which may carry private caller context.
+ * `propagateReason` rejects with the signal's own reason instead, which may carry private caller context; a nullish reason still gets `onAbort()`.
  */
 export function raceAbort<T>(promise: Promise<T>, signal: AbortSignal, onAbort: () => EngineError, { propagateReason = false }: { propagateReason?: boolean } = {}): Promise<T> {
-  const reason = (): unknown => propagateReason ? signal.reason : onAbort();
+  const reason = (): unknown => propagateReason ? signal.reason ?? onAbort() : onAbort();
   if (signal.aborted) {
     void promise.catch(() => {});
     return Promise.reject(reason());

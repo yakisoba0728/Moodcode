@@ -1,14 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import {
-  closeSync,
-  constants,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-  type BigIntStats,
-} from "node:fs";
+import { randomUUID } from "node:crypto";
+import { lstatSync, realpathSync, type BigIntStats } from "node:fs";
 import { types } from "node:util";
 import type { RunConfig, JsonObject } from "@moodcode/contracts";
 import { EngineError } from "@moodcode/contracts";
@@ -21,6 +12,7 @@ import type { TurnRequest } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
+import { readStableFile } from "../shared/fs.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import type {
   AgentBackendCredentialReference,
@@ -29,9 +21,11 @@ import type {
   AgentBackendTargetPin,
 } from "./types.js";
 import {
+  AGENT_BACKEND_LIMITS,
   agentBackendJson,
   agentBackendObject,
   agentBackendIdentifier,
+  agentBackendSigned,
   validateAgentBackendLaunch,
   validateAgentBackendSpec,
   validateAgentBackendTarget,
@@ -98,7 +92,7 @@ function fail(code: string): never {
   );
 }
 function signed<T extends object>(body: T): T & { sha256: string } {
-  return agentBackendJson({ ...body, sha256: knowledgeHash(body) });
+  return agentBackendSigned(body, AGENT_BACKEND_LIMITS.frameBytes);
 }
 function sameFile(pin: FilePin, info: BigIntStats): boolean {
   return (
@@ -111,46 +105,22 @@ function sameFile(pin: FilePin, info: BigIntStats): boolean {
   );
 }
 function captureFile(path: string, cap: number): FilePin {
-  const before = lstatSync(path, { bigint: true });
-  if (
-    !before.isFile() ||
-    before.size > BigInt(cap) ||
-    realpathSync(path) !== path
-  )
-    fail("BACKEND_LAUNCH_SOURCE_INVALID");
-  const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-  try {
-    const start = fstatSync(fd, { bigint: true });
-    const pin = {
-      path,
-      bytes: Number(before.size),
-      dev: String(before.dev),
-      ino: String(before.ino),
-      mtimeNs: String(before.mtimeNs),
-      ctimeNs: String(before.ctimeNs),
-      sha256: "",
-    };
-    if (!sameFile(pin, start)) fail("BACKEND_LAUNCH_SOURCE_STALE");
-    const hash = createHash("sha256"),
-      bytes = Buffer.allocUnsafe(65536);
-    let position = 0;
-    for (;;) {
-      const count = readSync(fd, bytes, 0, bytes.length, position);
-      if (!count) break;
-      position += count;
-      if (position > cap) fail("BACKEND_LAUNCH_SOURCE_LIMIT");
-      hash.update(bytes.subarray(0, count));
-    }
-    if (
-      position !== pin.bytes ||
-      !sameFile(pin, fstatSync(fd, { bigint: true })) ||
-      !sameFile(pin, lstatSync(path, { bigint: true }))
-    )
-      fail("BACKEND_LAUNCH_SOURCE_STALE");
-    return { ...pin, sha256: hash.digest("hex") };
-  } finally {
-    closeSync(fd);
-  }
+  const { stats, bytes, sha256 } = readStableFile(path, {
+    maxBytes: cap,
+    stable: ["size", "mtime", "ctime"],
+    onUnsafe: () => fail("BACKEND_LAUNCH_SOURCE_INVALID"),
+    onChanged: () => fail("BACKEND_LAUNCH_SOURCE_STALE"),
+    onLimit: () => fail("BACKEND_LAUNCH_SOURCE_LIMIT"),
+  });
+  return {
+    path,
+    bytes,
+    dev: String(stats.dev),
+    ino: String(stats.ino),
+    mtimeNs: String(stats.mtimeNs),
+    ctimeNs: String(stats.ctimeNs),
+    sha256,
+  };
 }
 
 /** Only this actual Engine can bind launch/configuration data to a provider Attempt. */

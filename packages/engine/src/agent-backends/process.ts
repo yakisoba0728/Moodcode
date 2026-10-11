@@ -13,6 +13,7 @@ import {
   createCommandEnvironment,
 } from "../tools/command/process-control.js";
 import { supervisorExecArgv } from "../tools/command/index.js";
+import { raceAbort } from "../shared/runtime.js";
 import type { TurnRequest } from "../ports.js";
 import type { AcpV1Message, AgentBackendSpec } from "./types.js";
 import {
@@ -21,6 +22,7 @@ import {
   validateAcpV1Request,
   validateAcpV1Result,
 } from "./protocol.js";
+import { agentBackendSigned as signed } from "./validation.js";
 
 /** Root authenticates the native Attempt and pins actual launch files and credentials. */
 export interface BackendLaunchProof {
@@ -172,33 +174,13 @@ interface ProcessState {
   };
   removeAbort(): void;
 }
-function signed<T extends object>(body: T): T & { sha256: string } {
-  return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
-}
-async function abortable<T>(
-  operation: Promise<T>,
-  signal: AbortSignal,
-): Promise<T> {
-  if (signal.aborted)
-    throw (
-      signal.reason ??
-      new EngineError("CANCELLED", "Backend operation cancelled")
-    );
-  let abort!: () => void;
-  const cancelled = new Promise<never>((_resolve, reject) => {
-    abort = () =>
-      reject(
-        signal.reason ??
-          new EngineError("CANCELLED", "Backend operation cancelled"),
-      );
-    signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) abort();
-  });
-  try {
-    return await Promise.race([operation, cancelled]);
-  } finally {
-    signal.removeEventListener("abort", abort);
-  }
+function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
+  return raceAbort(
+    operation,
+    signal,
+    () => new EngineError("CANCELLED", "Backend operation cancelled"),
+    { propagateReason: true },
+  );
 }
 
 /** Owned IPC supervisor; only Root's original launch producer can authorize spawn. */
@@ -486,8 +468,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
       );
       this.launches.assertLaunchCurrent(launch);
-      const { sha256: _placeholder, ...birth } = proof;
-      state.proof = signed({ ...birth, processId: pid });
+      state.proof = signed({ ...proof, processId: pid });
       if (state.disposing || signal.aborted || this.closed)
         throw new EngineError(
           "BACKEND_CLOSED",

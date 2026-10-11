@@ -44,6 +44,9 @@ test('raceAbort keeps the promise outcome and rejects an abort with the coded er
     controller.abort(reason);
     await assert.rejects(pending, error => propagateReason ? error === reason : (error as EngineError).code === 'CANCELLED');
   }
+  const nullish = new AbortController();
+  nullish.abort(null);
+  await assert.rejects(raceAbort(new Promise<never>(() => {}), nullish.signal, cancelled, { propagateReason: true }), { code: 'CANCELLED' });
   const aborted = new AbortController();
   aborted.abort();
   let late!: (error: Error) => void;
