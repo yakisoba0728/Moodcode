@@ -1,6 +1,4 @@
-import {
-  validateKnowledgeGenerationArchiveRow,
-} from "./generation-validation.js";
+import { validateKnowledgeGenerationArchiveRow } from "./generation-validation.js";
 import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,
@@ -63,14 +61,13 @@ export function readKnowledgePublicationHistory(
   const plan = validateGenerationPlan(
     ports.getPlan(workspaceId, candidate.planId),
   );
-  const original = immutableKnowledgeJson(
-    ports.getGeneration(workspaceId, candidate.generationOwnerId),
-  );
   const generation = validateKnowledgeGenerationArchiveRow({
     table: "knowledge_generations",
     key: candidate.generationOwnerId,
     workspaceId,
-    data: original,
+    data: immutableKnowledgeJson(
+      ports.getGeneration(workspaceId, candidate.generationOwnerId),
+    ),
   }).data as KnowledgeGenerationRecord;
   if (generation.attemptId === null)
     fail(code, "Publication requires the actual completed native attempt");

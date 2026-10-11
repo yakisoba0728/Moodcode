@@ -344,7 +344,6 @@ export class KnowledgePublicationStorage {
       sha256: current?.bodySha256 ?? null,
     });
   }
-  /** Receipt lookup is by the host's exact requestId, rather than the random receipt row ID. */
   getReceipt(
     workspaceId: string,
     requestId: string,
@@ -829,7 +828,7 @@ export class KnowledgePublicationStorage {
           "KNOWLEDGE_PUBLICATION_LIMIT",
           "Interrupted publication recovery reached its bounded sweep",
         );
-      const count = this.write(() => {
+      cancelled += this.write(() => {
         let changed = 0;
         for (const id of ids) {
           const old = this.getPublication(id.workspace_id, id.id);
@@ -850,7 +849,6 @@ export class KnowledgePublicationStorage {
         }
         return changed;
       });
-      cancelled += count;
     }
     return { cancelled };
   }

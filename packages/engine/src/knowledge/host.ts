@@ -496,28 +496,15 @@ export class KnowledgeHostAdapter {
         pins.push(observed.pin);
         contentBytes += Buffer.byteLength(observed.entry.content);
       } else {
-        const observed = this.file(
+        const { content, ...observed } = this.file(
           binding,
           item.path,
           Math.min(remaining, KNOWLEDGE_HOST_LIMITS.fileBytes),
           signal,
         );
-        entries.push(
-          Object.freeze({
-            kind: "file",
-            path: item.path,
-            content: observed.content,
-          }),
-        );
+        entries.push(Object.freeze({ kind: "file", path: item.path, content }));
         pins.push(
-          Object.freeze({
-            kind: "file",
-            path: item.path,
-            sha256: observed.sha256,
-            bytes: observed.bytes,
-            device: observed.device,
-            inode: observed.inode,
-          }),
+          Object.freeze({ kind: "file", path: item.path, ...observed }),
         );
         contentBytes += observed.bytes;
       }
@@ -756,18 +743,14 @@ export class KnowledgeHostAdapter {
   ): void {
     const binding = validateBinding(inputBinding),
       target = validateTarget(inputTarget);
-    if (target.kind === "workspace-document") {
-      this.read(() =>
+    this.read(() => {
+      if (target.kind === "workspace-document")
         equal(
           this.documentTarget(binding, target.key),
           target,
           "KNOWLEDGE_TARGET_CHANGED",
-        ),
-      );
-      return;
-    }
-    this.read(() => {
-      if (target.revision === 0) {
+        );
+      else if (target.revision === 0) {
         if (!this.absent(binding, target.path))
           knowledgeError(
             "KNOWLEDGE_TARGET_CHANGED",

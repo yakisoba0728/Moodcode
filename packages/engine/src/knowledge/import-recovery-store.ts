@@ -120,6 +120,7 @@ const KNOWLEDGE_IMPORT_RECOVERY_LIMITS = Object.freeze({
   previewMs: 90_000,
   uncertaintyPins: 256,
 });
+const OPERATIONS = ["acknowledge", "resume", "activate", "deactivate"];
 type ObjectData = Record<string, unknown>;
 type BeforeRead = (table: KnowledgeImportRecoveryTable, id: string) => void;
 function fail(
@@ -371,12 +372,7 @@ export function validateKnowledgeImportRecoveryArchiveRow(
         })
       )
         fail("KNOWLEDGE_IMPORT_RECOVERY_HASH_MISMATCH");
-      if (
-        !["acknowledge", "resume", "activate", "deactivate"].includes(
-          value.operation as string,
-        )
-      )
-        fail();
+      if (!OPERATIONS.includes(value.operation as string)) fail();
       if (value.operation === "activate" || value.operation === "deactivate") {
         proof(value.documentProof, String(value.workspaceId));
         id(value.activationId);
@@ -553,6 +549,30 @@ function read<T extends KnowledgeImportRecoveryData>(
       fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   return value as T;
 }
+function frontierRow(
+  db: DatabaseSync,
+  key: string,
+  ws: string,
+  beforeRead?: BeforeRead,
+): KnowledgeImportFrontier | undefined {
+  return read(db, "knowledge_import_frontiers", key, ws, beforeRead);
+}
+function decisionRow(
+  db: DatabaseSync,
+  key: string,
+  ws: string,
+  beforeRead?: BeforeRead,
+): KnowledgeImportRecoveryDecision | undefined {
+  return read(db, "knowledge_import_recovery_decisions", key, ws, beforeRead);
+}
+function activationRow(
+  db: DatabaseSync,
+  key: string,
+  ws: string,
+  beforeRead?: BeforeRead,
+): ImportedKnowledgeDocumentActivation | undefined {
+  return read(db, "knowledge_import_document_activations", key, ws, beforeRead);
+}
 function pause(
   db: DatabaseSync,
   ws: string,
@@ -580,13 +600,7 @@ function frontier(
     beforeRead,
   );
   if (!head) return undefined;
-  const f = read<KnowledgeImportFrontier>(
-    db,
-    "knowledge_import_frontiers",
-    head.frontierId,
-    ws,
-    beforeRead,
-  );
+  const f = frontierRow(db, head.frontierId, ws, beforeRead);
   if (!f || f.sha256 !== head.frontierSha256)
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   const p = pause(db, ws);
@@ -594,30 +608,35 @@ function frontier(
     fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
   return Object.freeze({ frontier: f, head });
 }
-/** The head's acknowledgment, which must bind this exact frontier, pause and uncertainty pins. */
+/** A head decision, which must bind this exact frontier, pause and uncertainty pins. */
+function headDecision(
+  db: DatabaseSync,
+  view: KnowledgeImportFrontierView,
+  key: string,
+  operation: "acknowledge" | "resume",
+  beforeRead?: BeforeRead,
+): KnowledgeImportRecoveryDecision {
+  const d = decisionRow(db, key, view.frontier.workspaceId, beforeRead);
+  if (
+    !d ||
+    d.operation !== operation ||
+    d.frontierId !== view.frontier.id ||
+    d.frontierSha256 !== view.frontier.sha256 ||
+    d.pauseSha256 !== view.frontier.pauseSha256 ||
+    d.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
+  )
+    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
+  return d;
+}
 function acknowledgment(
   db: DatabaseSync,
   view: KnowledgeImportFrontierView,
   beforeRead?: BeforeRead,
 ): KnowledgeImportRecoveryDecision | undefined {
-  if (!view.head.acknowledgeDecisionId) return undefined;
-  const ack = read<KnowledgeImportRecoveryDecision>(
-    db,
-    "knowledge_import_recovery_decisions",
-    view.head.acknowledgeDecisionId,
-    view.frontier.workspaceId,
-    beforeRead,
-  );
-  if (
-    !ack ||
-    ack.operation !== "acknowledge" ||
-    ack.frontierId !== view.frontier.id ||
-    ack.frontierSha256 !== view.frontier.sha256 ||
-    ack.pauseSha256 !== view.frontier.pauseSha256 ||
-    ack.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
-  )
-    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-  return ack;
+  const key = view.head.acknowledgeDecisionId;
+  return key
+    ? headDecision(db, view, key, "acknowledge", beforeRead)
+    : undefined;
 }
 function resumeDecision(
   db: DatabaseSync,
@@ -626,31 +645,19 @@ function resumeDecision(
 ): KnowledgeImportRecoveryDecision | undefined {
   if (view.head.state !== "resumed" || !view.head.resumeDecisionId)
     return undefined;
-  const d = read<KnowledgeImportRecoveryDecision>(
+  const d = headDecision(
     db,
-    "knowledge_import_recovery_decisions",
+    view,
     view.head.resumeDecisionId,
-    view.frontier.workspaceId,
+    "resume",
     beforeRead,
   );
-  if (
-    !d ||
-    d.operation !== "resume" ||
-    d.frontierId !== view.frontier.id ||
-    d.frontierSha256 !== view.frontier.sha256 ||
-    d.pauseSha256 !== view.frontier.pauseSha256 ||
-    d.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
-  )
-    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   if (view.frontier.uncertainties.length && !view.head.acknowledgeDecisionId)
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   const ack = acknowledgment(db, view, beforeRead);
   if (ack && (!same(ack.binding, d.binding) || ack.createdAt > d.createdAt))
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   return d;
-}
-function activationHeadId(ws: string, key: string): string {
-  return workspaceDocumentHeadId(ws, key);
 }
 function currentActivation(
   db: DatabaseSync,
@@ -661,18 +668,12 @@ function currentActivation(
   const head = read<ImportedKnowledgeDocumentActivationHead>(
     db,
     "knowledge_import_document_activation_heads",
-    activationHeadId(ws, key),
+    workspaceDocumentHeadId(ws, key),
     ws,
     beforeRead,
   );
   if (!head) return undefined;
-  const value = read<ImportedKnowledgeDocumentActivation>(
-    db,
-    "knowledge_import_document_activations",
-    head.activationId,
-    ws,
-    beforeRead,
-  );
+  const value = activationRow(db, head.activationId, ws, beforeRead);
   if (
     !value ||
     value.documentKey !== key ||
@@ -714,13 +715,7 @@ export function readActiveKnowledgeImportActivation(
     !same(active.binding, resumed.binding)
   )
     return undefined;
-  const decision = read<KnowledgeImportRecoveryDecision>(
-    db,
-    "knowledge_import_recovery_decisions",
-    active.decisionId,
-    workspaceId,
-    beforeRead,
-  );
+  const decision = decisionRow(db, active.decisionId, workspaceId, beforeRead);
   if (
     !decision ||
     decision.operation !== "activate" ||
@@ -765,10 +760,7 @@ function acknowledgedImportPins(
     ? view.frontier.uncertainties
     : undefined;
 }
-/**
- * Only unchanged originally imported uncertainty is resolved; later owners are never covered.
- * The import frontier is read on first use and each pin is checked at most once per resolver.
- */
+/** Resolves only unchanged originally imported uncertainty, never later owners; the frontier is read on first use and each pin checked once. */
 export function importedUncertaintyResolver(
   db: DatabaseSync,
   workspaceId: string,
@@ -1023,20 +1015,10 @@ function result(
   const view = frontier(db, decision.workspaceId);
   if (!view) fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   const activation = decision.activationId
-    ? read<ImportedKnowledgeDocumentActivation>(
-        db,
-        "knowledge_import_document_activations",
-        decision.activationId,
-        decision.workspaceId,
-      )
+    ? (activationRow(db, decision.activationId, decision.workspaceId) ??
+      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT"))
     : null;
-  if (decision.activationId && !activation)
-    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-  return Object.freeze({
-    decision,
-    activation: activation ?? null,
-    frontier: view,
-  });
+  return Object.freeze({ decision, activation, frontier: view });
 }
 /** One native primary-database owner. No Run, producer dispatch or historical cleanup record is manufactured. */
 export class KnowledgeImportRecoveryStorage {
@@ -1114,9 +1096,8 @@ export class KnowledgeImportRecoveryStorage {
         )
         .get(request.importId);
       if (existing) {
-        const old = read<KnowledgeImportFrontier>(
+        const old = frontierRow(
           this.#db,
-          "knowledge_import_frontiers",
           String(existing.id),
           String(existing.workspace_id),
         );
@@ -1214,14 +1195,7 @@ export class KnowledgeImportRecoveryStorage {
         "SELECT id FROM knowledge_import_recovery_decisions WHERE workspace_id=? AND request_id=?",
       )
       .get(workspaceId, requestId);
-    return row
-      ? read<KnowledgeImportRecoveryDecision>(
-          this.#db,
-          "knowledge_import_recovery_decisions",
-          String(row.id),
-          workspaceId,
-        )
-      : undefined;
+    return row ? decisionRow(this.#db, String(row.id), workspaceId) : undefined;
   }
   preview(
     input: PrepareKnowledgeImportRecoveryPreview,
@@ -1243,12 +1217,7 @@ export class KnowledgeImportRecoveryStorage {
     ];
     const request = object(input, keys);
     const ws = id(request.workspaceId);
-    if (
-      !["acknowledge", "resume", "activate", "deactivate"].includes(
-        request.operation as string,
-      )
-    )
-      fail();
+    if (!OPERATIONS.includes(request.operation as string)) fail();
     date(request.expiresAt);
     if (this.#live.size >= KNOWLEDGE_IMPORT_RECOVERY_LIMITS.handles)
       fail("KNOWLEDGE_IMPORT_RECOVERY_LIMIT");
@@ -1362,8 +1331,7 @@ export class KnowledgeImportRecoveryStorage {
       );
       if (raced) return raced;
       this.assertFresh(preview);
-      const proofResult = this.#ports.assertCommitCurrent(preview);
-      if (proofResult !== undefined)
+      if (this.#ports.assertCommitCurrent(preview) !== undefined)
         fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY_PORTS");
       this.assertFresh(preview);
       const view = this.getFrontier(p.workspaceId)!;
@@ -1477,7 +1445,7 @@ export class KnowledgeImportRecoveryStorage {
             JSON.stringify(activation),
           );
         const head = signed({
-          id: activationHeadId(p.workspaceId, activation.documentKey),
+          id: workspaceDocumentHeadId(p.workspaceId, activation.documentKey),
           workspaceId: p.workspaceId,
           documentKey: activation.documentKey,
           revision: activation.revision,
@@ -1673,12 +1641,7 @@ export function validateKnowledgeImportRecoveryDatabase(
           fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
       } else if (table === "knowledge_import_recovery_decisions") {
         const d = row as KnowledgeImportRecoveryDecision,
-          f = read<KnowledgeImportFrontier>(
-            db,
-            "knowledge_import_frontiers",
-            d.frontierId,
-            ws,
-          );
+          f = frontierRow(db, d.frontierId, ws);
         if (
           !f ||
           f.sha256 !== d.frontierSha256 ||
@@ -1689,12 +1652,7 @@ export function validateKnowledgeImportRecoveryDatabase(
           fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
         if (d.documentProof) {
           graphProof(db, ws, d.documentProof);
-          const a = read<ImportedKnowledgeDocumentActivation>(
-            db,
-            "knowledge_import_document_activations",
-            d.activationId!,
-            ws,
-          );
+          const a = activationRow(db, d.activationId!, ws);
           if (
             !a ||
             a.decisionId !== d.id ||
@@ -1707,18 +1665,8 @@ export function validateKnowledgeImportRecoveryDatabase(
         }
       } else if (table === "knowledge_import_document_activations") {
         const a = row as ImportedKnowledgeDocumentActivation,
-          f = read<KnowledgeImportFrontier>(
-            db,
-            "knowledge_import_frontiers",
-            a.frontierId,
-            ws,
-          ),
-          d = read<KnowledgeImportRecoveryDecision>(
-            db,
-            "knowledge_import_recovery_decisions",
-            a.decisionId,
-            ws,
-          );
+          f = frontierRow(db, a.frontierId, ws),
+          d = decisionRow(db, a.decisionId, ws);
         if (
           !f ||
           f.sha256 !== a.frontierSha256 ||
@@ -1732,12 +1680,7 @@ export function validateKnowledgeImportRecoveryDatabase(
         )
           fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
         if (a.previousId) {
-          const prior = read<ImportedKnowledgeDocumentActivation>(
-            db,
-            "knowledge_import_document_activations",
-            a.previousId,
-            ws,
-          );
+          const prior = activationRow(db, a.previousId, ws);
           if (
             !prior ||
             prior.documentKey !== a.documentKey ||
@@ -1752,19 +1695,14 @@ export function validateKnowledgeImportRecoveryDatabase(
           )
           .all(ws, a.frontierId, a.resumeDecisionSha256);
         if (resume.length !== 1) fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-        const r = read<KnowledgeImportRecoveryDecision>(
-          db,
-          "knowledge_import_recovery_decisions",
-          String(resume[0]!.id),
-          ws,
-        )!;
+        const r = decisionRow(db, String(resume[0]!.id), ws)!;
         if (!same(r.binding, a.binding) || r.createdAt > a.createdAt)
           fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
         graphProof(db, ws, a.proof);
       } else if (table === "knowledge_import_document_activation_heads") {
         const h = row as ImportedKnowledgeDocumentActivationHead;
         const a = currentActivation(db, ws, h.documentKey);
-        if (!a || activationHeadId(ws, h.documentKey) !== h.id)
+        if (!a || workspaceDocumentHeadId(ws, h.documentKey) !== h.id)
           fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
         const later = db
           .prepare(

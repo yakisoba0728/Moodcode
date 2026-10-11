@@ -35,9 +35,8 @@ export function quarantineImportedKnowledge(
   getWorkspace: WorkspaceRead,
 ): void {
   if (origin) {
-    // Imported runtime capabilities are absent. Persist the ordinary native
-    // interrupted-owner transition before pinning recovery; this performs
-    // no provider dispatch, target write, marker removal or source rebinding.
+    // Imported runtime capabilities are absent: settle interrupted owners natively
+    // before pinning recovery, with no dispatch, target write or source rebinding.
     const denied = (): never =>
       paused("Archive quarantine cannot dispatch or approve an effect");
     const base = {
@@ -80,8 +79,7 @@ export function quarantineImportedKnowledge(
     new Date().toISOString(),
   );
   if (!origin) return;
-  // The physical workspace can be absent at import. Preserve an actual
-  // historical root pin when available instead of inventing old inode proof.
+  // The workspace may be absent at import: keep a real historical root pin, never invented inode proof.
   const trustHead = db
     .prepare(
       "SELECT revision_id FROM workspace_trust_heads WHERE workspace_id=?",

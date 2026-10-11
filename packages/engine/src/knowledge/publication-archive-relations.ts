@@ -148,11 +148,10 @@ export function validateKnowledgePublicationDatabase(
       !same(candidate.target, plan.target) ||
       trust.decision !== "allow" ||
       candidate.trustRevision !== trust.revision
-    ) {
+    )
       invalid(
         "Publication provenance differs from the original completed producer and immutable candidate",
       );
-    }
     return candidate;
   }
   function checkPublication(publication: KnowledgePublicationRecord): void {

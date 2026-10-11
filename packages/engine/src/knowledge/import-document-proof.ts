@@ -229,16 +229,13 @@ export function readKnowledgeImportDocumentProof(
     .get(workspaceId);
   let currentTrust: TrustRevision | null = null;
   if (trustHeader) {
-    const rawHead = row("workspace_trust_heads", workspaceId)!;
-    validateKnowledgeArchiveRow({
-      table: "workspace_trust_heads",
-      key: workspaceId,
+    const trustHead = coreRow<{ revisionId: string }>(
+      "workspace_trust_heads",
       workspaceId,
-      data: rawHead,
-    });
+    );
     currentTrust = coreRow<TrustRevision>(
       "workspace_trust_revisions",
-      String(rawHead.revisionId),
+      trustHead.revisionId,
     );
     if (
       trustHeader.id !== workspaceId ||

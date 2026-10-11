@@ -16,6 +16,7 @@ import type {
 } from "./import-recovery-types.js";
 import { readKnowledgePublicationHistory } from "./publication-history.js";
 import { publicationRow } from "./publication-validation.js";
+import type { KnowledgePublicationTable } from "./publication-types.js";
 import type {
   KnowledgeHostBinding,
   KnowledgeSourceManifest,
@@ -216,26 +217,12 @@ export class KnowledgeImportRecoveryService {
       workspaceId,
       candidate.id,
     );
-    const head = publicationRow<typeof raw.head>(
-        "workspace_document_heads",
-        raw.head,
-        workspaceId,
-      ),
-      document = publicationRow<typeof raw.document>(
-        "workspace_document_revisions",
-        raw.document,
-        workspaceId,
-      ),
-      publication = publicationRow<typeof raw.publication>(
-        "knowledge_publications",
-        raw.publication,
-        workspaceId,
-      ),
-      receipt = publicationRow<typeof raw.receipt>(
-        "knowledge_publication_receipts",
-        raw.receipt,
-        workspaceId,
-      );
+    const row = <T>(table: KnowledgePublicationTable, value: T) =>
+      publicationRow<T>(table, value, workspaceId);
+    const head = row("workspace_document_heads", raw.head),
+      document = row("workspace_document_revisions", raw.document),
+      publication = row("knowledge_publications", raw.publication),
+      receipt = row("knowledge_publication_receipts", raw.receipt);
     assertImportedDocumentChain(
       { head, document, publication, receipt, history },
       key,
@@ -327,8 +314,7 @@ export class KnowledgeImportRecoveryService {
         const active = actual ? immutableKnowledgeJson(actual) : undefined;
         if (!active || active.state !== "active")
           fail("KNOWLEDGE_IMPORT_ACTIVATION_UNAVAILABLE");
-        // These are the original activation's historical pins; revocation does
-        // not treat the old trust/expiry as a fresh authority grant.
+        // Historical pins: revocation never treats the old trust/expiry as a fresh grant.
         proof = immutableKnowledgeJson(active.proof);
       } else if (request.documentKey !== undefined)
         fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY");
@@ -409,18 +395,21 @@ export class KnowledgeImportRecoveryService {
       fail("KNOWLEDGE_IMPORT_PREVIEW_INVALID");
     return state;
   }
-  /** Fences a commit: apply() calls it before native commit, and native commit calls it again inside its write transaction. Requires the private original native preview registered in #commits. */
+  /** Commit fence: apply() calls it before the native commit, which calls it again inside its write transaction. */
   assertCommitCurrent(preview: KnowledgeImportRecoveryPreview): void {
     const commit = this.#commits.get(preview);
     if (!commit || commit.state.native !== preview)
       fail("KNOWLEDGE_IMPORT_PREVIEW_INVALID");
     this.owned(commit.state.public);
-    abort(commit.signal);
-    abort(commit.leaseSignal);
-    abort(this.#close.signal);
-    if (this.now() >= Date.parse(preview.expiresAt))
-      fail("KNOWLEDGE_IMPORT_EXPIRED");
-    if (this.now() >= commit.deadline) fail("KNOWLEDGE_IMPORT_DEADLINE");
+    const live = () => {
+      abort(commit.signal);
+      abort(commit.leaseSignal);
+      abort(this.#close.signal);
+      if (this.now() >= Date.parse(preview.expiresAt))
+        fail("KNOWLEDGE_IMPORT_EXPIRED");
+      if (this.now() >= commit.deadline) fail("KNOWLEDGE_IMPORT_DEADLINE");
+    };
+    live();
     const binding = validateBinding(
       this.#ports.checkBinding(preview.workspaceId),
     );
@@ -437,12 +426,7 @@ export class KnowledgeImportRecoveryService {
     }
     if (preview.operation === "resume" || preview.operation === "activate")
       sync(this.#ports.assertNoExecutionUncertainty(preview.workspaceId));
-    abort(commit.signal);
-    abort(commit.leaseSignal);
-    abort(this.#close.signal);
-    if (this.now() >= Date.parse(preview.expiresAt))
-      fail("KNOWLEDGE_IMPORT_EXPIRED");
-    if (this.now() >= commit.deadline) fail("KNOWLEDGE_IMPORT_DEADLINE");
+    live();
   }
   resume(input: WorkspaceKnowledgeImportRecoveryInput) {
     return this.apply("resume", input);

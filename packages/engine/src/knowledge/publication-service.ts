@@ -612,6 +612,11 @@ export class KnowledgePublicationService {
       ...state.preview.pins,
       requestId,
     }) as PrepareKnowledgePublication;
+    const replayed = (id: string) =>
+      Object.freeze({
+        ...this.#ports.native.getCommitted(workspaceId, id),
+        duplicate: true,
+      });
     const prior = this.#ports.native.findRequest(request);
     if (prior) {
       const duplicate = publicationRow<KnowledgePublicationRecord>(
@@ -623,10 +628,7 @@ export class KnowledgePublicationService {
           "KNOWLEDGE_PUBLICATION_NOT_COMPLETED",
           "Original publication request is not a completed historical receipt",
         );
-      return Object.freeze({
-        ...this.#ports.native.getCommitted(workspaceId, duplicate.id),
-        duplicate: true,
-      });
+      return replayed(duplicate.id);
     }
     if (state.used)
       fail(
@@ -699,10 +701,7 @@ export class KnowledgePublicationService {
               "KNOWLEDGE_PUBLICATION_NOT_COMPLETED",
               "Concurrent duplicate did not commit an observed document",
             );
-          return Object.freeze({
-            ...this.#ports.native.getCommitted(workspaceId, prepared.record.id),
-            duplicate: true,
-          });
+          return replayed(prepared.record.id);
         }
         capture = prepared.capture;
         this.#commits.set(prepared.record.id, {
@@ -720,11 +719,7 @@ export class KnowledgePublicationService {
     } catch (error) {
       if (committed) return Object.freeze({ ...committed, duplicate: false });
       const observed = this.#ports.native.findRequest(request);
-      if (observed?.state === "completed")
-        return Object.freeze({
-          ...this.#ports.native.getCommitted(workspaceId, observed.id),
-          duplicate: true,
-        });
+      if (observed?.state === "completed") return replayed(observed.id);
       if (capture)
         try {
           this.#ports.native.cancel(
