@@ -4,6 +4,10 @@ import type { DatabaseSync } from "node:sqlite";
 import type { JsonObject, Workspace } from "@moodcode/contracts";
 import type { WorkflowSpec, WorkflowSpecInput } from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import {
+  readBoundedBody,
+  readBoundedHeader,
+} from "../storage/evidence-read.js";
 import { sealRecord, sha256Hex, verifySealed } from "../shared/canonical.js";
 import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import {
@@ -210,6 +214,29 @@ function date(value: unknown): void {
   )
     workflowError("WORKFLOW_DATABASE_INVALID");
 }
+/** One row's data under `cap`; a missing, oversized or resized row fails with `code`. */
+function boundedData(
+  db: DatabaseSync,
+  table: string,
+  where: string,
+  params: readonly string[],
+  cap: number,
+  code: string,
+): string {
+  const invalid = () => workflowError(code),
+    header =
+      readBoundedHeader(
+        db,
+        `SELECT length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE ${where}`,
+        params,
+        cap,
+        invalid,
+      ) ?? invalid();
+  return (
+    readBoundedBody(db, { table, where, params }, header.bytes, invalid) ??
+    invalid()
+  );
+}
 function stageData(
   stage: WorkflowStageState,
 ): Omit<WorkflowStageState, "id" | "revision"> {
@@ -336,25 +363,16 @@ export class WorkflowStorage {
   }
   private ownerSQL(owner: WorkflowOwnerProof): void {
     ownerProof(owner);
-    const row = this.db
-      .prepare(
-        "SELECT session_id,workspace_id,length(CAST(data AS BLOB)) AS bytes FROM runs WHERE id=?",
-      )
-      .get(owner.runId);
-    if (
-      !row ||
-      row.session_id !== owner.sessionId ||
-      row.workspace_id !== owner.workspaceId ||
-      Number(row.bytes) > 262144
-    )
-      workflowError("WORKFLOW_OWNER_INVALID");
-    const raw = this.db
-      .prepare(
-        "SELECT data FROM runs WHERE id=? AND session_id=? AND workspace_id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(owner.runId, owner.sessionId, owner.workspaceId, Number(row.bytes));
-    if (!raw) workflowError("WORKFLOW_OWNER_INVALID");
-    const run = JSON.parse(String(raw.data)) as {
+    const run = JSON.parse(
+      boundedData(
+        this.db,
+        "runs",
+        "id=? AND session_id=? AND workspace_id=?",
+        [owner.runId, owner.sessionId, owner.workspaceId],
+        262144,
+        "WORKFLOW_OWNER_INVALID",
+      ),
+    ) as {
       id: string;
       sessionId: string;
       workspaceId: string;
@@ -568,21 +586,28 @@ export class WorkflowStorage {
     return value;
   }
   private row(id: string, workspaceId: string): NativeRow | undefined {
-    const header = this.db
-      .prepare(
+    const invalid = () => workflowError("WORKFLOW_DATABASE_INVALID"),
+      params = [id, workspaceId],
+      header = readBoundedHeader(
+        this.db,
         "SELECT id,workspace_id,kind,entity_id,revision,previous_id,root_session_id,root_run_id,owner_sha256,request_scope,request_id,request_sha256,sha256,length(CAST(data AS BLOB)) AS bytes FROM workflow_revisions WHERE id=? AND workspace_id=?",
-      )
-      .get(id, workspaceId) as unknown as NativeRow | undefined;
+        params,
+        WORKFLOW_STORAGE_LIMITS.rowBytes,
+        invalid,
+      ) as unknown as Omit<NativeRow, "data"> | undefined;
     if (!header) return;
-    if (Number(header.bytes) > WORKFLOW_STORAGE_LIMITS.rowBytes)
-      workflowError("WORKFLOW_DATABASE_INVALID");
-    const raw = this.db
-      .prepare(
-        "SELECT data FROM workflow_revisions WHERE id=? AND workspace_id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(id, workspaceId, Number(header.bytes));
-    if (!raw) workflowError("WORKFLOW_DATABASE_INVALID");
-    return { ...header, data: String(raw.data) };
+    const data =
+      readBoundedBody(
+        this.db,
+        {
+          table: "workflow_revisions",
+          where: "id=? AND workspace_id=?",
+          params,
+        },
+        header.bytes,
+        invalid,
+      ) ?? invalid();
+    return { ...header, data };
   }
   private revision(id: string, workspaceId: string, kind?: Kind): RecordBody {
     const row = this.row(
@@ -1292,27 +1317,19 @@ export class WorkflowStorage {
     task: Record<string, unknown>;
     storage: ReturnType<typeof validateChildStorageRecord>;
   } {
-    const storageHeader = this.db
-      .prepare(
-        "SELECT length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind=?",
-      )
-      .get(instance.owner.sessionId, childStorageKind(proof.taskId));
-    if (!storageHeader || Number(storageHeader.bytes) > 32768)
-      workflowError("WORKFLOW_CHILD_INVALID");
-    const storage = validateChildStorageRecord(
+    const document = (kind: string, cap: number) =>
       JSON.parse(
-        String(
-          this.db
-            .prepare(
-              "SELECT data FROM session_documents WHERE session_id=? AND kind=? AND length(CAST(data AS BLOB))=?",
-            )
-            .get(
-              instance.owner.sessionId,
-              childStorageKind(proof.taskId),
-              Number(storageHeader.bytes),
-            )!.data,
+        boundedData(
+          this.db,
+          "session_documents",
+          "session_id=? AND kind=?",
+          [instance.owner.sessionId, kind],
+          cap,
+          "WORKFLOW_CHILD_INVALID",
         ),
-      ),
+      ) as unknown;
+    const storage = validateChildStorageRecord(
+      document(childStorageKind(proof.taskId), 32768),
     );
     if (
       storage.sha256 !== proof.storageSha256 ||
@@ -1338,22 +1355,10 @@ export class WorkflowStorage {
       )
     )
       workflowError("WORKFLOW_CHILD_INVALID");
-    const header = this.db
-      .prepare(
-        "SELECT length(CAST(data AS BLOB)) AS bytes FROM session_documents WHERE session_id=? AND kind='engine.child_tasks'",
-      )
-      .get(instance.owner.sessionId);
-    if (!header || Number(header.bytes) > 262144)
-      workflowError("WORKFLOW_CHILD_INVALID");
-    const journal = JSON.parse(
-      String(
-        this.db
-          .prepare(
-            "SELECT data FROM session_documents WHERE session_id=? AND kind='engine.child_tasks' AND length(CAST(data AS BLOB))=?",
-          )
-          .get(instance.owner.sessionId, Number(header.bytes))!.data,
-      ),
-    ) as { schemaVersion: number; tasks: Record<string, unknown>[] };
+    const journal = document("engine.child_tasks", 262144) as {
+      schemaVersion: number;
+      tasks: Record<string, unknown>[];
+    };
     if (
       journal.schemaVersion !== 1 ||
       !Array.isArray(journal.tasks) ||

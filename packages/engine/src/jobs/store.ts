@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { types as nodeTypes } from "node:util";
 import type { DatabaseSync } from "node:sqlite";
 import {
@@ -9,6 +8,13 @@ import {
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { requestIdentity } from "../storage/native-schema.js";
+import { readBoundedBody } from "../storage/evidence-read.js";
+import {
+  assertRevisionLink,
+  createRevisionJournal,
+  type RevisionJournal,
+  type RevisionJournalProfile,
+} from "../storage/revision-journal.js";
 import { validateQueueTarget } from "../runner/queue-target.js";
 import type {
   JobAcceptedInputProof,
@@ -208,28 +214,6 @@ export interface DispatchJobDeliveryInput extends MutateJobDeliveryInput {
 export interface AbandonJobDeliveryInput extends MutateJobDeliveryInput {
   readonly operation: "cancelled" | "uncertain";
   readonly errorCode: string;
-}
-type Body = JobRecord | JobTransitionReceipt;
-interface Row {
-  id: string;
-  workspace_id: string;
-  kind: string;
-  entity_id: string;
-  job_id: string;
-  created_at: string;
-  revision: number;
-  previous_id: string | null;
-  session_id: string;
-  terminal_id: string;
-  source_sha256: string;
-  owner_epoch: string;
-  input_id: string | null;
-  request_scope: string;
-  request_id: string;
-  request_sha256: string;
-  sha256: string;
-  bytes: number;
-  data?: string;
 }
 function fail(code = "JOB_DATABASE_INVALID"): never {
   throw new EngineError(
@@ -507,14 +491,20 @@ function anchor(
     .all(sessionId, type, discriminator as string);
   if (hs.length > 8192) fail("JOB_LIMIT");
   for (const h of hs) {
-    if (integer(Number(h.bytes)) > 65536) fail("JOB_LIMIT");
-    const row = db
-      .prepare(
-        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(sessionId, h.seq!, h.bytes!);
-    if (!row) fail();
-    const e = json(JSON.parse(String(row.data))) as unknown as {
+    const bytes = integer(Number(h.bytes));
+    if (bytes > 65536) fail("JOB_LIMIT");
+    const raw =
+      readBoundedBody(
+        db,
+        {
+          table: "session_events",
+          where: "session_id=? AND seq=?",
+          params: [sessionId, h.seq!],
+        },
+        bytes,
+        fail,
+      ) ?? fail();
+    const e = json(JSON.parse(raw)) as unknown as {
       sessionId: string;
       type: string;
       payload: Record<string, unknown>;
@@ -560,13 +550,14 @@ function acceptedSql(db: DatabaseSync, r: JobDelivery): void {
     Number(h.bytes) > JOB_STORAGE_LIMITS.inputBytes
   )
     fail("JOB_INPUT_INVALID");
-  const row = db
-    .prepare(
-      "SELECT data FROM session_inputs WHERE id=? AND length(CAST(data AS BLOB))=?",
-    )
-    .get(a.inputId, h.bytes!);
-  if (!row) fail();
-  const b = JSON.parse(String(row.data)) as Record<string, unknown>;
+  const raw =
+    readBoundedBody(
+      db,
+      { table: "session_inputs", where: "id=?", params: [a.inputId] },
+      Number(h.bytes),
+      fail,
+    ) ?? fail();
+  const b = JSON.parse(raw) as Record<string, unknown>;
   const normalized = normalizeAcceptInput({
     sessionId: r.sessionId,
     requestId: r.inputRequestId!,
@@ -595,13 +586,18 @@ function acceptedSql(db: DatabaseSync, r: JobDelivery): void {
     eh[0]!.seq !== a.admittedSeq
   )
     fail("JOB_INPUT_INVALID");
-  const er = db
-    .prepare(
-      "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-    )
-    .get(r.sessionId, eh[0]!.seq!, eh[0]!.bytes!);
-  if (!er) fail();
-  const event = JSON.parse(String(er.data)) as {
+  const er =
+    readBoundedBody(
+      db,
+      {
+        table: "session_events",
+        where: "session_id=? AND seq=?",
+        params: [r.sessionId, eh[0]!.seq!],
+      },
+      Number(eh[0]!.bytes),
+      fail,
+    ) ?? fail();
+  const event = JSON.parse(er) as {
     inputId: string;
     sessionId: string;
     payload: { input: Record<string, unknown> };
@@ -793,92 +789,78 @@ function semantic(
   }
 }
 
+const JOB_JOURNAL: RevisionJournalProfile<JobJournalKind, JobRecord> = {
+  revisions: "job_revisions",
+  heads: "job_heads",
+  columns: [
+    "job_id",
+    "created_at",
+    "session_id",
+    "terminal_id",
+    "source_sha256",
+    "owner_epoch",
+    "input_id",
+  ],
+  limits: {
+    rowBytes: JOB_STORAGE_LIMITS.rowBytes,
+    rows: JOB_STORAGE_LIMITS.rows,
+    bytes: JOB_STORAGE_LIMITS.bytes,
+    kinds: {
+      job: JOB_STORAGE_LIMITS.jobs,
+      output: JOB_STORAGE_LIMITS.outputs,
+      delivery: JOB_STORAGE_LIMITS.deliveries,
+    },
+  },
+  index: (r) => ({
+    job_id: r.jobId,
+    created_at: r.createdAt,
+    session_id: r.sessionId,
+    terminal_id: r.terminalId,
+    source_sha256: r.sourceSha256,
+    owner_epoch: r.ownerEpoch,
+    input_id: r.kind === "delivery" ? (r.accepted?.inputId ?? null) : null,
+  }),
+  scope(kind, entityId, operation) {
+    const record = `${kind}:${entityId}:${operation}`;
+    return { record, receipt: `receipt:${record}` };
+  },
+  receiptPrevious: (before) => before?.id ?? null,
+  identifier: id,
+  sealed: digest,
+  verify(record, db) {
+    validateRecord(record);
+    proofSql(db, record);
+  },
+  fail,
+  codes: {
+    limit: "JOB_LIMIT",
+    revisionConflict: "JOB_REVISION_CONFLICT",
+    requestConflict: "JOB_REQUEST_CONFLICT",
+  },
+};
+type JobJournal = RevisionJournal<
+  JobJournalKind,
+  JobRecord,
+  JobTransitionReceipt
+>;
+
 /** Durable history is descriptive. All physical observations must be produced from ORIGINAL Root handles. */
 export class JobStorage {
+  private readonly journal: JobJournal;
   constructor(
     readonly db: DatabaseSync,
     private readonly ports: JobStoragePorts,
-  ) {}
+  ) {
+    this.journal = createRevisionJournal<
+      JobJournalKind,
+      JobRecord,
+      JobTransitionReceipt
+    >(db, JOB_JOURNAL);
+  }
   private time(): string {
     return new Date(
       integer(this.ports.now?.() ?? Date.now(), 8640000000000000),
     ).toISOString();
-  }
-  private read<T extends Body>(ws: string, rid: string, kind?: string): T {
-    const h = this.db
-      .prepare(
-        "SELECT id,workspace_id,kind,entity_id,job_id,created_at,revision,previous_id,session_id,terminal_id,source_sha256,owner_epoch,input_id,request_scope,request_id,request_sha256,sha256,length(CAST(data AS BLOB)) bytes FROM job_revisions WHERE workspace_id=? AND id=?",
-      )
-      .get(id(ws), id(rid)) as unknown as Row | undefined;
-    if (!h || (kind && h.kind !== kind)) fail();
-    if (integer(h.bytes) > JOB_STORAGE_LIMITS.rowBytes) fail("JOB_LIMIT");
-    const row = this.db
-      .prepare(
-        "SELECT data FROM job_revisions WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(ws, rid, h.bytes);
-    if (!row) fail();
-    const r = digest(JSON.parse(String(row.data))) as Body;
-    if (
-      r.id !== h.id ||
-      r.workspaceId !== h.workspace_id ||
-      r.entityId !== h.entity_id ||
-      r.sha256 !== h.sha256
-    )
-      fail();
-    if (h.kind === "transition") {
-      const t = r as JobTransitionReceipt;
-      if (
-        t.requestId !== h.request_id ||
-        t.requestSha256 !== h.request_sha256 ||
-        knowledgeHash(t.requestInput) !== t.requestSha256
-      )
-        fail();
-    } else {
-      const b = r as JobRecord;
-      validateRecord(b);
-      if (
-        b.kind !== h.kind ||
-        b.jobId !== h.job_id ||
-        b.createdAt !== h.created_at ||
-        b.revision !== h.revision ||
-        b.previousId !== h.previous_id ||
-        b.sessionId !== h.session_id ||
-        b.terminalId !== h.terminal_id ||
-        b.sourceSha256 !== h.source_sha256 ||
-        b.ownerEpoch !== h.owner_epoch ||
-        h.input_id !==
-          (b.kind === "delivery" ? (b.accepted?.inputId ?? null) : null)
-      )
-        fail();
-      proofSql(this.db, b);
-    }
-    return r as T;
-  }
-  private head<T extends JobRecord>(
-    ws: string,
-    kind: JobJournalKind,
-    eid: string,
-  ): T | undefined {
-    const h = this.db
-      .prepare(
-        "SELECT revision_id,revision,sha256 FROM job_heads WHERE workspace_id=? AND kind=? AND entity_id=?",
-      )
-      .get(id(ws), kind, id(eid));
-    if (!h) return;
-    const r = this.read<T>(ws, String(h.revision_id), kind);
-    if (
-      r.entityId !== eid ||
-      r.revision !== h.revision ||
-      r.sha256 !== h.sha256 ||
-      this.db
-        .prepare(
-          "SELECT max(revision) n FROM job_revisions WHERE workspace_id=? AND kind=? AND entity_id=?",
-        )
-        .get(ws, kind, eid)?.n !== r.revision
-    )
-      fail();
-    return r;
   }
   getJob(
     ws: string,
@@ -886,25 +868,17 @@ export class JobStorage {
     revisionId?: string,
   ): CommandJob | undefined {
     if (revisionId) {
-      const r = this.read<CommandJob>(ws, revisionId, "job");
+      const r = this.journal.read<CommandJob>(ws, revisionId, "job");
       if (r.jobId !== jobId) fail();
       return r;
     }
-    return this.head(ws, "job", jobId);
+    return this.journal.head(ws, "job", jobId);
   }
   getDelivery(ws: string, deliveryId: string): JobDelivery | undefined {
-    return this.head(ws, "delivery", deliveryId);
+    return this.journal.head(ws, "delivery", deliveryId);
   }
   inspectJobs(ws: string): CommandJob[] {
-    const hs = this.db
-      .prepare(
-        "SELECT entity_id FROM job_heads WHERE workspace_id=? AND kind='job' ORDER BY entity_id LIMIT 129",
-      )
-      .all(id(ws));
-    if (hs.length > JOB_STORAGE_LIMITS.jobs) fail("JOB_LIMIT");
-    return hs.map((h) =>
-      this.head<CommandJob>(ws, "job", String(h.entity_id))!,
-    );
+    return this.journal.list(ws, "job", JOB_STORAGE_LIMITS.jobs);
   }
   readOutputs(
     ws: string,
@@ -922,17 +896,11 @@ export class JobStorage {
       )
       .all(id(ws), jobId, limit, afterRevision);
     return hs.map((h) =>
-      this.read<JobOutputRevision>(ws, String(h.id), "output"),
+      this.journal.read<JobOutputRevision>(ws, String(h.id), "output"),
     );
   }
   inspectDeliveries(ws: string): JobDelivery[] {
-    const hs = this.db
-      .prepare(
-        "SELECT entity_id FROM job_heads WHERE workspace_id=? AND kind='delivery' ORDER BY entity_id LIMIT 129",
-      )
-      .all(id(ws));
-    if (hs.length > JOB_STORAGE_LIMITS.deliveries) fail("JOB_LIMIT");
-    return hs.map((h) => this.getDelivery(ws, String(h.entity_id))!);
+    return this.journal.list(ws, "delivery", JOB_STORAGE_LIMITS.deliveries);
   }
   /** Lookups describe exact historical admission; they never grant a fresh queue accept. */
   findDeliveryForInput(value: {
@@ -996,23 +964,8 @@ export class JobStorage {
     op: string,
     x: JobMutationInput,
   ): JobRequestResult<T> | undefined {
-    const h = this.db
-      .prepare(
-        "SELECT id,request_sha256 FROM job_revisions WHERE workspace_id=? AND kind='transition' AND request_scope=? AND request_id=?",
-      )
-      .get(ws, `receipt:${kind}:${eid}:${op}`, x.requestId);
-    if (!h) return;
-    if (h.request_sha256 !== knowledgeHash(x)) fail("JOB_REQUEST_CONFLICT");
-    const receipt = this.read<JobTransitionReceipt>(
-      ws,
-      String(h.id),
-      "transition",
-    );
-    return json({
-      record: this.read<T>(ws, receipt.afterRevisionId, kind),
-      receipt,
-      duplicate: true,
-    });
+    const pair = this.journal.replay<T>(ws, kind, eid, op, x);
+    return pair && json({ ...pair, duplicate: true });
   }
   private append<T extends JobRecord>(
     kind: JobJournalKind,
@@ -1022,132 +975,48 @@ export class JobStorage {
     before: T | undefined,
     body: object,
   ): JobRequestResult<T> {
-    if ((before?.revision ?? 0) !== x.expectedRevision)
-      fail("JOB_REVISION_CONFLICT");
-    const max =
-      kind === "job"
-        ? JOB_STORAGE_LIMITS.jobs
-        : kind === "output"
-          ? JOB_STORAGE_LIMITS.outputs
-          : JOB_STORAGE_LIMITS.deliveries;
-    if (
-      !before &&
-      Number(
-        this.db
-          .prepare("SELECT count(*) n FROM job_heads WHERE kind=?")
-          .get(kind)?.n,
-      ) >= max
-    )
-      fail("JOB_LIMIT");
-    const total = this.db
-      .prepare(
-        "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM job_revisions",
-      )
-      .get()!;
-    if (Number(total.n) + 2 > JOB_STORAGE_LIMITS.rows) fail("JOB_LIMIT");
-    const rid = randomUUID(),
-      receiptId = randomUUID(),
-      at = this.time(),
-      r = signed({
-        ...body,
-        id: rid,
-        kind,
-        entityId: eid,
-        workspaceId: x.workspaceId,
-        revision: (before?.revision ?? 0) + 1,
-        previousId: before?.id ?? null,
-        lastReceiptId: receiptId,
-        createdAt: at,
-        ...(!before && kind === "job" ? { sourceRevisionId: rid } : {}),
-      }) as unknown as T;
-    validateRecord(r);
-    semantic(before, r, op);
-    proofSql(this.db, r);
-    const receipt = signed({
-      id: receiptId,
-      workspaceId: x.workspaceId,
+    const pair = this.journal.append<T>({
       kind,
-      entityId: eid,
-      operation: op,
-      beforeRevisionId: before?.id ?? null,
-      afterRevisionId: rid,
-      afterSha256: r.sha256,
-      requestId: x.requestId,
-      requestSha256: knowledgeHash(x),
-      requestInput: x as unknown as JsonObject,
-      createdAt: at,
+      before,
+      expectedRevision: x.expectedRevision,
+      build: (rid, receiptId) => {
+        const at = this.time(),
+          r = signed({
+            ...body,
+            id: rid,
+            kind,
+            entityId: eid,
+            workspaceId: x.workspaceId,
+            revision: (before?.revision ?? 0) + 1,
+            previousId: before?.id ?? null,
+            lastReceiptId: receiptId,
+            createdAt: at,
+            ...(!before && kind === "job" ? { sourceRevisionId: rid } : {}),
+          }) as unknown as T;
+        validateRecord(r);
+        semantic(before, r, op);
+        proofSql(this.db, r);
+        const receipt = signed({
+          id: receiptId,
+          workspaceId: x.workspaceId,
+          kind,
+          entityId: eid,
+          operation: op,
+          beforeRevisionId: before?.id ?? null,
+          afterRevisionId: rid,
+          afterSha256: r.sha256,
+          requestId: x.requestId,
+          requestSha256: knowledgeHash(x),
+          requestInput: x as unknown as JsonObject,
+          createdAt: at,
+        });
+        return { record: r, receipt };
+      },
+      ...(RESERVED_OPERATIONS.has(op)
+        ? {}
+        : { reserve: (r: T) => this.reserve(r) }),
     });
-    const reserve = RESERVED_OPERATIONS.has(op)
-      ? { rows: 0, bytes: 0 }
-      : this.reserve(r);
-    if (
-      Number(total.n) + 2 + reserve.rows > JOB_STORAGE_LIMITS.rows ||
-      Number(total.bytes) +
-        Buffer.byteLength(JSON.stringify(r)) +
-        Buffer.byteLength(JSON.stringify(receipt)) +
-        reserve.bytes >
-        JOB_STORAGE_LIMITS.bytes
-    )
-      fail("JOB_LIMIT");
-    const insert = this.db.prepare(
-        "INSERT INTO job_revisions(id,workspace_id,kind,entity_id,job_id,created_at,revision,previous_id,session_id,terminal_id,source_sha256,owner_epoch,input_id,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-      ),
-      scope = `${kind}:${eid}:${op}`,
-      inputId = r.kind === "delivery" ? (r.accepted?.inputId ?? null) : null;
-    insert.run(
-      rid,
-      x.workspaceId,
-      kind,
-      eid,
-      r.jobId,
-      r.createdAt,
-      r.revision,
-      r.previousId,
-      r.sessionId,
-      r.terminalId,
-      r.sourceSha256,
-      r.ownerEpoch,
-      inputId,
-      scope,
-      x.requestId,
-      receipt.requestSha256,
-      r.sha256,
-      JSON.stringify(r),
-    );
-    insert.run(
-      receiptId,
-      x.workspaceId,
-      "transition",
-      eid,
-      r.jobId,
-      r.createdAt,
-      r.revision,
-      before?.id ?? null,
-      r.sessionId,
-      r.terminalId,
-      r.sourceSha256,
-      r.ownerEpoch,
-      inputId,
-      `receipt:${scope}`,
-      x.requestId,
-      receipt.requestSha256,
-      receipt.sha256,
-      JSON.stringify(receipt),
-    );
-    if (before) {
-      const changed = this.db
-        .prepare(
-          "UPDATE job_heads SET revision_id=?,revision=?,sha256=? WHERE workspace_id=? AND kind=? AND entity_id=? AND revision_id=?",
-        )
-        .run(rid, r.revision, r.sha256, x.workspaceId, kind, eid, before.id);
-      if (changed.changes !== 1) fail("JOB_REVISION_CONFLICT");
-    } else
-      this.db
-        .prepare(
-          "INSERT INTO job_heads(workspace_id,kind,entity_id,revision_id,revision,sha256) VALUES(?,?,?,?,?,?)",
-        )
-        .run(x.workspaceId, kind, eid, rid, r.revision, r.sha256);
-    return json({ record: r, receipt, duplicate: false });
+    return json({ ...pair, duplicate: false });
   }
   /** Rows and bytes every job and delivery head still needs once `after` is its entity's head. */
   private reserve(after: JobRecord): { rows: number; bytes: number } {
@@ -1262,7 +1131,7 @@ export class JobStorage {
       if (
         before.revision !== x.expectedRevision ||
         before.state !== "attached" ||
-        this.head(x.workspaceId, "output", x.outputId)
+        this.journal.head(x.workspaceId, "output", x.outputId)
       )
         fail("JOB_REVISION_CONFLICT");
       const p = validateJobOutputPage(this.ports.readOutput(original));
@@ -1388,23 +1257,23 @@ export class JobStorage {
       !record.previousId
     )
       fail("JOB_REQUEST_CONFLICT");
-    const intent = this.read<JobDelivery>(
+    const intent = this.journal.read<JobDelivery>(
       x.workspaceId,
       record.previousId,
       "delivery",
     );
     if (!intent.previousId) fail();
-    const prepared = this.read<JobDelivery>(
+    const prepared = this.journal.read<JobDelivery>(
       x.workspaceId,
       intent.previousId,
       "delivery",
     );
-    const prepareReceipt = this.read<JobTransitionReceipt>(
+    const prepareReceipt = this.journal.read<JobTransitionReceipt>(
       x.workspaceId,
       prepared.lastReceiptId,
       "transition",
     );
-    const intentReceipt = this.read<JobTransitionReceipt>(
+    const intentReceipt = this.journal.read<JobTransitionReceipt>(
       x.workspaceId,
       intent.lastReceiptId,
       "transition",
@@ -1439,7 +1308,7 @@ export class JobStorage {
         .all(x.workspaceId, x.jobId, x.requestId);
       if (hs.length > 1) fail("JOB_REQUEST_CONFLICT");
       if (hs.length) {
-        const receipt = this.read<JobTransitionReceipt>(
+        const receipt = this.journal.read<JobTransitionReceipt>(
           x.workspaceId,
           String(hs[0]!.id),
           "transition",
@@ -1449,7 +1318,7 @@ export class JobStorage {
           knowledgeHash(receipt.requestInput.atomicRequest) !== knowledgeHash(x)
         )
           fail("JOB_REQUEST_CONFLICT");
-        const record = this.read<JobDelivery>(
+        const record = this.journal.read<JobDelivery>(
           x.workspaceId,
           receipt.afterRevisionId,
           "delivery",
@@ -1713,71 +1582,12 @@ export class JobStorage {
     });
   }
   validateGraph(): void {
-    const totals = this.db
-      .prepare(
-        "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM job_revisions",
-      )
-      .get()!;
-    if (
-      Number(totals.n) > JOB_STORAGE_LIMITS.rows ||
-      Number(totals.bytes) > JOB_STORAGE_LIMITS.bytes
-    )
-      fail("JOB_LIMIT");
-    for (const [kind, max] of [
-      ["job", JOB_STORAGE_LIMITS.jobs],
-      ["output", JOB_STORAGE_LIMITS.outputs],
-      ["delivery", JOB_STORAGE_LIMITS.deliveries],
-    ] as const)
-      if (
-        Number(
-          this.db
-            .prepare("SELECT count(*) n FROM job_heads WHERE kind=?")
-            .get(kind)?.n,
-        ) > max
-      )
-        fail("JOB_LIMIT");
-    const hs = this.db
-      .prepare(
-        "SELECT workspace_id,id,kind,entity_id,revision,request_scope FROM job_revisions ORDER BY workspace_id,kind,entity_id,revision,id LIMIT 8193",
-      )
-      .all();
-    const records = new Map<string, JobRecord>(),
-      receipts = new Map<string, JobTransitionReceipt>();
-    for (const h of hs) {
-      const r = this.read<Body>(
-        String(h.workspace_id),
-        String(h.id),
-        String(h.kind),
-      );
-      if (h.kind === "transition")
-        receipts.set(r.id, r as JobTransitionReceipt);
-      else records.set(r.id, r as JobRecord);
-    }
+    const graph = this.journal.scan(),
+      records = graph.records;
     for (const r of records.values()) {
-      const t = receipts.get(r.lastReceiptId);
-      if (
-        !t ||
-        t.kind !== r.kind ||
-        t.entityId !== r.entityId ||
-        t.workspaceId !== r.workspaceId ||
-        t.beforeRevisionId !== r.previousId ||
-        t.afterRevisionId !== r.id ||
-        t.afterSha256 !== r.sha256 ||
-        t.createdAt !== r.createdAt
-      )
-        fail();
-      const before =
-        r.previousId === null ? undefined : records.get(r.previousId);
-      if (
-        (r.previousId && !before) ||
-        (before &&
-          (before.kind !== r.kind ||
-            before.entityId !== r.entityId ||
-            before.workspaceId !== r.workspaceId ||
-            before.revision + 1 !== r.revision)) ||
-        (!before && r.revision !== 1)
-      )
-        fail();
+      const t = this.journal.receiptOf(r, graph),
+        before = this.journal.previousOf(r, graph);
+      if (before) assertRevisionLink(before, r, fail);
       semantic(before, r, t.operation);
       if (Object.hasOwn(t.requestInput, "atomicRequest")) {
         if (r.kind !== "delivery") fail();
@@ -1788,12 +1598,6 @@ export class JobStorage {
         );
         this.assertAtomicHistory(r, t, request);
       }
-      if (
-        t.requestInput.workspaceId !== r.workspaceId ||
-        t.requestInput.requestId !== t.requestId ||
-        t.requestInput.expectedRevision !== (before?.revision ?? 0)
-      )
-        fail();
       if (!["recover", "pause-import"].includes(t.operation)) {
         if (r.kind === "job" && t.requestInput.jobId !== r.jobId) fail();
         if (
@@ -1810,35 +1614,6 @@ export class JobStorage {
         )
           fail();
       }
-      const h = this.db
-        .prepare(
-          "SELECT request_id,request_sha256,request_scope,session_id,terminal_id,source_sha256,owner_epoch,input_id,job_id,created_at FROM job_revisions WHERE id=?",
-        )
-        .get(r.id)!;
-      const th = this.db
-        .prepare(
-          "SELECT request_id,request_sha256,request_scope,session_id,terminal_id,source_sha256,owner_epoch,input_id,job_id,created_at FROM job_revisions WHERE id=?",
-        )
-        .get(t.id)!;
-      if (
-        h.request_scope !== `${r.kind}:${r.entityId}:${t.operation}` ||
-        th.request_scope !== `receipt:${h.request_scope}` ||
-        h.request_id !== t.requestId ||
-        h.request_sha256 !== t.requestSha256
-      )
-        fail();
-      for (const k of [
-        "request_id",
-        "request_sha256",
-        "session_id",
-        "terminal_id",
-        "source_sha256",
-        "owner_epoch",
-        "input_id",
-        "job_id",
-        "created_at",
-      ] as const)
-        if (h[k] !== th[k]) fail();
       if (r.kind === "job") {
         const admission = records.get(r.sourceRevisionId);
         if (
@@ -1903,32 +1678,13 @@ export class JobStorage {
         )
           fail("JOB_INPUT_INVALID");
       }
-      receipts.delete(t.id);
     }
-    if (receipts.size) fail();
-    const heads = this.db
-      .prepare("SELECT workspace_id,kind,entity_id FROM job_heads LIMIT 4353")
-      .all();
-    const latest = new Map<string, JobRecord>();
-    for (const r of records.values()) {
-      const key = knowledgeHash([r.workspaceId, r.kind, r.entityId]),
-        prior = latest.get(key);
-      if (!prior || prior.revision < r.revision) latest.set(key, r);
-    }
-    for (const h of heads) {
-      this.head(
-        String(h.workspace_id),
-        String(h.kind) as JobJournalKind,
-        String(h.entity_id),
-      );
-      latest.delete(knowledgeHash([h.workspace_id, h.kind, h.entity_id]));
-    }
-    if (latest.size) fail();
+    this.journal.assertHeads(graph);
     const grouped = new Map<string, number>();
     let live = 0;
-    for (const h of heads) {
+    for (const h of graph.heads) {
       if (h.kind !== "job") continue;
-      const j = this.getJob(String(h.workspace_id), String(h.entity_id))!;
+      const j = records.get(h.revision_id) as CommandJob;
       if (j.state === "attached") {
         live++;
         grouped.set(j.sessionId, (grouped.get(j.sessionId) ?? 0) + 1);
@@ -1958,7 +1714,7 @@ export class JobStorage {
     for (const h of hs) {
       if (workspaceId !== undefined && h.workspace_id !== workspaceId) continue;
       const kind = String(h.kind) as "job" | "delivery",
-        before = this.head<JobRecord>(
+        before = this.journal.head<JobRecord>(
           String(h.workspace_id),
           kind,
           String(h.entity_id),

@@ -78,7 +78,7 @@ export interface JournalAdmission<K extends string, R extends JournalRecord<K>, 
   readonly expectedRevision: number;
   /** Signs the next revision and its receipt under fresh IDs; validation precedes signing. */
   build(revisionId: string, receiptId: string): JournalPair<B, T>;
-  /** Headroom later administrative writes need once `record` heads its entity. Administrative writes omit it and meet the row bound before they are built. */
+  /** Headroom that writes without `reserve` may later spend once `record` heads its entity; those writes meet the row bound before they are built. */
   reserve?(record: B): JournalBudget;
 }
 /** Every row of a journal, decoded in kind, workspace, entity and revision order. */
@@ -115,6 +115,7 @@ export function createRevisionJournal<K extends string, R extends JournalRecord<
     const record = body as R;
     if (record.kind !== row.kind || record.revision !== row.revision || record.previousId !== row.previous_id) fail();
     profile.verify(record, db);
+    if (!indexed(row, record, false)) fail();
     return record;
   }
   function totals(): JournalBudget {
@@ -203,7 +204,6 @@ export function createRevisionJournal<K extends string, R extends JournalRecord<
       check?.();
       const body = decode(row, load(row, 'id=?', [row.id]));
       if (row.kind === 'transition') receipts.set(row.id, body as T);
-      else if (!indexed(row, body as R, false)) fail();
       else records.set(row.id, body as R);
     }
     return { heads: hs, records, receipts, rows: new Map(all.map(row => [row.id, row])) };

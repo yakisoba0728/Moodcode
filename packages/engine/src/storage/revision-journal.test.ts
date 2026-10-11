@@ -71,7 +71,7 @@ test('journal pairs carry their scopes, index columns and receipt link, move hea
   assert.deepEqual(journal.current('ws'), [second.record]);
 });
 
-test('journal bounds refuse writes before building them and its graph rejects drifted columns and heads', t => {
+test('journal bounds refuse writes before building them and its reads and graph reject drifted columns and heads', t => {
   const { db, journal, entry, builds } = fixture(t);
   const input = (requestId: string, expectedRevision = 0): Input => ({ workspaceId: 'ws', requestId, expectedRevision, value: 1 });
   const a = journal.append(entry('a', 'create', input('a'), undefined));
@@ -83,6 +83,7 @@ test('journal bounds refuse writes before building them and its graph rejects dr
   assert.throws(() => journal.append(entry('a', 'update', input('a4', 3), journal.head('ws', 'toy', 'a'), true)), code('TOY_LIMIT'));
   assert.equal(builds(), built);
   db.prepare("UPDATE toy_revisions SET owner='drifted' WHERE id=?").run(a.record.id);
+  assert.throws(() => journal.read('ws', a.record.id, 'toy'), code('TOY_INVALID'));
   assert.throws(() => journal.scan(), code('TOY_INVALID'));
   db.prepare("UPDATE toy_revisions SET owner='owner-1' WHERE id=?").run(a.record.id);
   db.prepare("UPDATE toy_heads SET revision_id=?,revision=1,sha256=? WHERE entity_id='a'").run(a.record.id, a.record.sha256);
