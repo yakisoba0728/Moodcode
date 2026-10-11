@@ -1,5 +1,6 @@
 import { EngineError, type EngineBudgets, type RunConfig } from '@moodcode/contracts';
 import { normalizeEngineBudgets, normalizeSubmitInput } from '@moodcode/contracts/validation';
+import { profilePin } from '../agents/index.js';
 import type { EngineRuntime } from '../engine-runtime.js';
 import type { KnowledgeHostBinding } from '../knowledge/types.js';
 import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
@@ -102,12 +103,12 @@ export function describeQueueTarget(engine: QueueTargetRuntime, readBinding: (wo
   if (!capabilities.providerIds.includes(config.providerId)) changed('provider');
   const profile = engine.profiles.forRun(sessionId, config);
   if (profile && !engine.profiles.list().some(item => item.id === profile.id && item.revision === profile.revision)) changed('profile');
-  const profilePin = profile ? { id: profile.id, revision: profile.revision } : null;
+  const profileIdentity = profilePin(profile);
   const tools = capabilities.tools.map(tool => tool.name);
-  const catalogue = engine.toolRuntime.catalogue('engine', config.mode, profile?.tools ? tools.filter(name => profile.tools!.includes(name)) : tools, profilePin ?? undefined);
+  const catalogue = engine.toolRuntime.catalogue('engine', config.mode, profile?.tools ? tools.filter(name => profile.tools!.includes(name)) : tools, profileIdentity ?? undefined);
   const pin = validateQueueTarget({
     workspaceId, sessionId, workspaceBindingSha256: knowledgeHash(binding), capabilitiesSha256: knowledgeHash(capabilities), catalogueSha256: knowledgeHash(catalogue),
-    profile: profilePin, config, runConfigSha256: knowledgeHash(config), tools: catalogue.tools.map(tool => tool.name).sort(), delivery: 'queue',
+    profile: profileIdentity, config, runConfigSha256: knowledgeHash(config), tools: catalogue.tools.map(tool => tool.name).sort(), delivery: 'queue',
     allocation: { maxTurns: config.limits.maxTurns, maxToolCalls: config.limits.maxToolCalls, maxOutputBytes: config.limits.maxOutputBytes, maxDurationMs: config.limits.maxDurationMs },
   });
   return { pin, binding, catalogue };

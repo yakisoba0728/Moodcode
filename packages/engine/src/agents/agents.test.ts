@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DEFAULT_LIMITS, type RunConfig } from '@moodcode/contracts';
 import { SqliteStore } from '../storage/index.js';
-import { AgentProfiles } from './index.js';
+import { AgentProfiles, profilePin } from './index.js';
 
 test('profile model, instructions, tools and allowance have an immutable revision independent of mode', t => {
   const store = new SqliteStore(':memory:'); t.after(() => store.close()); const createdAt = new Date().toISOString();
@@ -50,4 +50,14 @@ test('profile model accepts only provider, model and reasoning, so Plan mode and
   const selected = profiles.apply('s', { providerId: 'scripted', modelId: 'local', mode: 'plan', limits: { ...DEFAULT_LIMITS, maxToolCalls: 5 }, agentProfileId: 'review' });
   assert.equal(selected.mode, 'plan'); assert.equal(selected.limits.maxToolCalls, 5);
   assert.equal(selected.providerId, 'fixture'); assert.equal(selected.modelId, 'review-model'); assert.equal(selected.reasoningEffort, 'high');
+});
+
+test('a run pins exactly its profile id and revision, or null without a profile', t => {
+  const store = new SqliteStore(':memory:'); t.after(() => store.close()); const createdAt = new Date().toISOString();
+  store.putWorkspace({ id: 'w', root: process.cwd(), gitRoot: process.cwd(), branch: null, createdAt }); store.createSession({ id: 's', workspaceId: 'w', title: 'profiles', createdAt });
+  const profiles = new AgentProfiles(store, [{ id: 'review', description: 'Read changes', instructions: 'Check current files.', tools: ['read_file'] }]);
+  const config: RunConfig = { providerId: 'scripted', modelId: 'local', mode: 'build', limits: { ...DEFAULT_LIMITS } };
+  const selected = profiles.apply('s', { ...config, agentProfileId: 'review' });
+  assert.equal(JSON.stringify(profiles.pinForRun('s', selected)), JSON.stringify({ id: 'review', revision: selected.agentProfileRevision }));
+  assert.equal(profiles.pinForRun('s', config), null); assert.equal(profilePin(undefined), null);
 });

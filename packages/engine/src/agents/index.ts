@@ -10,6 +10,8 @@ export interface AgentProfileSpec {
   turnAllowance?: number;
 }
 export interface AgentProfile extends AgentProfileSpec { revision: string }
+/** The profile identity that tool catalogues bind and owner proofs hash. */
+export function profilePin(profile: AgentProfile | undefined): Pick<AgentProfile, 'id' | 'revision'> | null { return profile ? { id: profile.id, revision: profile.revision } : null; }
 const MODEL_KEYS: readonly string[] = ['providerId', 'modelId', 'reasoningEffort'];
 const key = (id: string, revision: string) => `profile.${createHash('sha256').update(JSON.stringify([id, revision])).digest('hex').slice(0, 32)}`;
 /** A profile supplies execution configuration; Plan/Build remains an independent safety mode. */
@@ -58,4 +60,5 @@ export class AgentProfiles {
     if (createHash('sha256').update(JSON.stringify(definition)).digest('hex') !== revision) throw new EngineError('AGENT_PROFILE_BINDING', 'Persisted profile configuration changed');
     return structuredClone(profile);
   }
+  pinForRun(sessionId: string, config: RunConfig): Pick<AgentProfile, 'id' | 'revision'> | null { return profilePin(this.forRun(sessionId, config)); }
 }

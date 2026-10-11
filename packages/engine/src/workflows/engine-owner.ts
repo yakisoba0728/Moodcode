@@ -11,6 +11,7 @@ import {
 import { join } from "node:path";
 import { types } from "node:util";
 import type { Run } from "@moodcode/contracts";
+import { profilePin } from "../agents/index.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -33,9 +34,6 @@ import {
 
 /** Every tool some stage role may be granted. */
 const STAGE_TOOLS = [...new Set(Object.values(WORKFLOW_ROLE_TOOLS).flat())];
-const profilePin = (
-  profile: { readonly id: string; readonly revision: string } | undefined,
-) => (profile ? { id: profile.id, revision: profile.revision } : null);
 
 interface PhysicalFile {
   readonly path: string;
@@ -163,7 +161,7 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
       workflowError("WORKFLOW_OWNER_STALE");
   }
   private profile(run: Run) {
-    return profilePin(this.engine.profiles.forRun(run.sessionId, run.config));
+    return this.engine.profiles.pinForRun(run.sessionId, run.config);
   }
   private run(owner: CapturedOwner, dispatch: boolean): Run {
     this.binding(owner);

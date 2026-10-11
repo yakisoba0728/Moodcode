@@ -12,6 +12,7 @@ import type { EngineRuntime } from "../engine-runtime.js";
 import type { TurnRequest } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { profilePin } from "../agents/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { readStableFile } from "../shared/fs.js";
 import { ownedCommandJobId } from "../jobs/owned-command-records.js";
@@ -255,9 +256,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         )
     )
       fail("BACKEND_PROFILE_STALE");
-    const profilePin = profile
-      ? { id: profile.id, revision: profile.revision }
-      : null;
+    const profileIdentity = profilePin(profile);
     const exposed = this.engine
         .getCapabilities()
         .tools.map((tool) => tool.name),
@@ -268,7 +267,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       "engine",
       config.mode,
       allowed,
-      profilePin ?? undefined,
+      profileIdentity ?? undefined,
     );
     const pin = validateAgentBackendTarget({
       workspaceId,
@@ -278,7 +277,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         this.capabilitiesManifest(config.providerId),
       ),
       catalogueSha256: knowledgeHash(catalogue),
-      profile: profilePin,
+      profile: profileIdentity,
       config,
       runConfigSha256: knowledgeHash(config),
       tools: catalogue.tools.map((tool) => tool.name).sort(),

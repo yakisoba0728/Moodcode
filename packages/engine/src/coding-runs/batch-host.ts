@@ -9,6 +9,7 @@ import type { WorkflowChildEvidence } from "../workflows/effect-evidence.js";
 import type { WorkflowStartPreview } from "../workflows/host.js";
 import { workflowAbort, workflowHostRecord } from "../workflows/host.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { profilePin } from "../agents/index.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { CodingBatchStorage } from "./groups.js";
 import {
@@ -190,7 +191,7 @@ export class CodingBatchHost {
           run.sessionId,
           run.config.mode,
           profile?.tools,
-          profile ? { id: profile.id, revision: profile.revision } : undefined,
+          profilePin(profile) ?? undefined,
         ),
         sources = caseSources(
           this.engine.store.getWorkspace(run.workspaceId).root,

@@ -114,7 +114,7 @@ import { createArtifactReadTool } from './tools/session/artifact.js';
 import { ArtifactStore } from './artifacts/store.js';
 import { EnginePluginManager, type EnginePlugin, type ActivePlugin } from './plugins/index.js';
 import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
-import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
+import { AgentProfiles, profilePin, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
 import type { EngineRuntime } from './engine-runtime.js';
@@ -854,7 +854,7 @@ export class MoodcodeEngine implements EngineRuntime {
       this.verificationPlans = new VerificationPlanService(this.store, this.verificationChecks);
       this.verificationReceipts = new VerificationReceiptService(this.verificationPlans);
       this.verificationHost = new VerificationHostService(this.store, this.verificationPlans, this.repository);
-      const profileIdentity = (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; };
+      const profileIdentity = (run: Run) => this.profiles.pinForRun(run.sessionId, run.config);
       const observeRun = (run: Run, signal: AbortSignal, workspace = this.store.getWorkspace(run.workspaceId)) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace }, signal);
       const evaluateVerification = (run: Run, boundary: VerificationControllerInput['boundary'], source: VerificationControllerInput['source'], signal: AbortSignal) => {
         const verification = this.verificationPlans.get(run.sessionId, run.id);
@@ -868,9 +868,7 @@ export class MoodcodeEngine implements EngineRuntime {
         readExecutionBlocker: run => {
           if (this.store.hasDeniedVerificationTool(run.id)) return 'verification_denied';
           const profile = this.profiles.forRun(run.sessionId, run.config);
-          const profileTools = profile?.tools;
-          const allowed = this.hostAllowedTools ? (profileTools ? profileTools.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profileTools;
-          const catalogue = this.toolRuntime.catalogue('engine', run.config.mode, allowed, profile ? { id: profile.id, revision: profile.revision } : undefined);
+          const catalogue = this.toolRuntime.catalogue('engine', run.config.mode, this.allowedTools(profile?.tools), profilePin(profile) ?? undefined);
           if (!catalogue.tools.some(tool => tool.name === 'verify_changes') || !catalogue.tools.some(tool => tool.name === 'run_command')) return 'verification_denied';
           const checks = this.verificationPlans.get(run.sessionId, run.id)?.plans.at(-1)?.checks ?? [];
           if (!checks.length) for (const id of this.verificationHost.configuration(run.sessionId)?.checkIds ?? []) {
@@ -1323,23 +1321,12 @@ export class MoodcodeEngine implements EngineRuntime {
         },
         releaseContext: (sessionId, runId) =>
           this.context.releaseContext(sessionId, runId),
-        getToolProfile: (run) => {
-          const profile = this.profiles.forRun(run.sessionId, run.config);
-          return profile
-            ? { id: profile.id, revision: profile.revision }
-            : undefined;
-        },
-        getAllowedTools: (run) => {
-          const profile = this.profiles.forRun(
-            run.sessionId,
-            run.config,
-          )?.tools;
-          return this.hostAllowedTools
-            ? profile
-              ? profile.filter((name) => this.hostAllowedTools!.includes(name))
-              : this.hostAllowedTools
-            : profile;
-        },
+        getToolProfile: (run) =>
+          this.profiles.pinForRun(run.sessionId, run.config) ?? undefined,
+        getAllowedTools: (run) =>
+          this.allowedTools(
+            this.profiles.forRun(run.sessionId, run.config)?.tools,
+          ),
         recoverContextOverflow: (request, provider) =>
           this.context.recoverOverflow(request, provider),
         toolRuntime: this.toolRuntime,
@@ -1481,6 +1468,10 @@ export class MoodcodeEngine implements EngineRuntime {
 
   private rejecting<T>(operation: () => Promise<T>): Promise<T> {
     try { return operation(); } catch (error) { return Promise.reject(error); }
+  }
+
+  private allowedTools(profileTools: readonly string[] | undefined): readonly string[] | undefined {
+    return this.hostAllowedTools ? (profileTools ? profileTools.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profileTools;
   }
 
   private hostSignal(signal?: AbortSignal): AbortSignal {
