@@ -27,8 +27,7 @@ function parse(data: unknown): Record<string, unknown> {
   if (typeof data !== "string" || Buffer.byteLength(data) > CHILD_ROW_BYTES)
     invalid();
   try {
-    // JSON.parse creates ordinary data; row metadata has already bounded the
-    // native body. Knowledge-row cloning would incorrectly impose its 64 KiB cap.
+    // Row metadata already bounds the body; knowledge-row cloning would wrongly impose its 64 KiB cap.
     const value: unknown = JSON.parse(data);
     if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
     return value as Record<string, unknown>;

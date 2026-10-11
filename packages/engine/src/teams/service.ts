@@ -275,13 +275,7 @@ export class TeamService {
     return this.task(input, true);
   }
   private taskDuplicate(
-    data: {
-      workspaceId: string;
-      teamId: string;
-      memberId: string;
-      generation: number;
-      requestId: string;
-    },
+    data: TeamTaskMutationInput,
     sha: string,
   ): TeamRequestResult<TeamTaskRevision> | undefined {
     const duplicate = this.ports.native.findOperationRequest(

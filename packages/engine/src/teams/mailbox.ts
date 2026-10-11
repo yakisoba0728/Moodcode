@@ -264,26 +264,19 @@ export function readMailbox(
     return page;
   });
 }
-function ownedPage(
-  s: TeamStorage,
-  page: TeamMailboxPage,
-  expiredOk = false,
-) {
+type MemberKey = Pick<
+  TeamMailboxPage,
+  "workspaceId" | "teamId" | "memberId" | "generation"
+>;
+const cursorOf = (s: TeamStorage, x: MemberKey) =>
+  s.cursor(x.workspaceId, x.teamId, x.memberId, x.generation);
+const memberOf = (s: TeamStorage, original: object, x: MemberKey) =>
+  s.activeMember(original, x.workspaceId, x.teamId, x.memberId, x.generation);
+function ownedPage(s: TeamStorage, page: TeamMailboxPage, expiredOk = false) {
   const own = s.pages.get(page);
   if (!own || own.used) teamError("TEAM_PAGE_REQUIRED");
-  const actual = s.activeMember(
-      own.original,
-      page.workspaceId,
-      page.teamId,
-      page.memberId,
-      page.generation,
-    ),
-    cursor = s.cursor(
-      page.workspaceId,
-      page.teamId,
-      page.memberId,
-      page.generation,
-    );
+  const actual = memberOf(s, own.original, page),
+    cursor = cursorOf(s, page);
   if (
     actual.id !== page.memberRevisionId ||
     actual.sha256 !== page.memberSha256 ||
@@ -504,19 +497,8 @@ export function dispatchDelivery(s: TeamStorage, c: TeamDeliveryCapture) {
   return s.tx(() => {
     const { own, record } = ownedDelivery(s, c);
     if (record.state !== "prepared") teamError("TEAM_STALE");
-    const member = s.activeMember(
-        own.original,
-        record.workspaceId,
-        record.teamId,
-        record.memberId,
-        record.generation,
-      ),
-      cursor = s.cursor(
-        record.workspaceId,
-        record.teamId,
-        record.memberId,
-        record.generation,
-      );
+    const member = memberOf(s, own.original, record),
+      cursor = cursorOf(s, record);
     if (
       member.sha256 !== record.memberSha256 ||
       cursor.pendingDeliveryId !== record.id
@@ -537,12 +519,7 @@ export function completeDelivery(
       s.ports.readAcceptedInput(c, originalInput),
     );
     if (!deliveryInputMatches(record, input)) teamError("TEAM_INPUT_SCOPE");
-    const cursor = s.cursor(
-      record.workspaceId,
-      record.teamId,
-      record.memberId,
-      record.generation,
-    );
+    const cursor = cursorOf(s, record);
     if (
       cursor.pendingDeliveryId !== record.id ||
       cursor.claimedSeq !== record.page.cursor.claimedSeq
@@ -591,12 +568,7 @@ function settleDelivery(
     errorCode,
   });
   if (record.state === "prepared") {
-    const cursor = s.cursor(
-      record.workspaceId,
-      record.teamId,
-      record.memberId,
-      record.generation,
-    );
+    const cursor = cursorOf(s, record);
     if (cursor.pendingDeliveryId === record.id)
       s.updateCursor(cursor, { pendingDeliveryId: null });
   }

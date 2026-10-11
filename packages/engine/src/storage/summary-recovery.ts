@@ -406,8 +406,7 @@ export class SummaryRecoveryStorage {
   }
   hasUnacknowledged(workspaceId: string): boolean {
     try { return this.read(() => {
-      // The overwhelmingly common first unresolved candidate needs neither text
-      // nor current context. No forged or incomplete coverage ever becomes clear.
+      // An unacknowledged candidate short-circuits without reading evidence; forged or incomplete coverage never clears.
       try {
         if (!this.db.prepare("SELECT 1 FROM summary_attempts WHERE workspace_id=? AND state='uncertain' LIMIT 1").get(workspaceId)) return false;
         const scope = this.scope(workspaceId);

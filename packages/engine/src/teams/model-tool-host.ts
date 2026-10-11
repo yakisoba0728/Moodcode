@@ -229,9 +229,7 @@ function actorSnapshot(
   });
 }
 
-/** Fixed tool definitions use port(); bindings select one exact member per actual execution.
- * Descriptions and stored IDs cannot select another actor or reopen an old owner.
- */
+/** Fixed tool definitions use port(); bindings select one exact member per actual execution, never by description or stored ID. */
 export class EngineTeamModelToolHost {
   private readonly bindings = new WeakMap<object, Binding>();
   private readonly selected = new Map<string, Binding>();
@@ -525,11 +523,7 @@ export class EngineTeamModelToolHost {
           ? this.ports.board.read(binding.member, parsed)
           : this.ports.board.prepare(binding.member, operation, parsed);
     } else if (operation === "send_agent_message") {
-      const send = parsed as {
-        requestId: string;
-        recipient: string;
-        text: string;
-      };
+      const send = parsed as { recipient: string };
       if (!binding.selection.recipientAliases?.includes(send.recipient))
         fail("TEAM_MODEL_RECIPIENT_DENIED");
       const selected = this.ports.getMember(
@@ -596,11 +590,7 @@ export class EngineTeamModelToolHost {
         hasMore: page.hasMore,
       };
     } else {
-      const mutation = parsed as {
-        requestId: string;
-        taskId: string;
-        expectedRevision: number;
-      };
+      const mutation = parsed as { taskId: string; expectedRevision: number };
       task = this.ports.getTask(
         binding.workspaceId,
         binding.member.teamId,
@@ -849,23 +839,22 @@ export class EngineTeamModelToolHost {
       capture: (context, operation, input) => {
         this.open();
         contextShape(context);
-        const binding = this.selected.get(
-          executionKey({
-            workspaceId: context.workspace.id,
-            sessionId: context.sessionId,
-            runId: context.runId,
-          }),
-        );
-        const selectedBinding =
-          binding ??
+        const binding =
+          this.selected.get(
+            executionKey({
+              workspaceId: context.workspace.id,
+              sessionId: context.sessionId,
+              runId: context.runId,
+            }),
+          ) ??
           [...this.selected.values()].find(
             (x) =>
               x.member.owner.kind === "child" &&
               x.member.owner.sessionId === context.sessionId &&
               x.member.owner.workspaceId === context.workspace.id,
           );
-        if (!selectedBinding) fail("TEAM_MODEL_BINDING_REQUIRED");
-        return this.capture(selectedBinding, context, operation, input);
+        if (!binding) fail("TEAM_MODEL_BINDING_REQUIRED");
+        return this.capture(binding, context, operation, input);
       },
       read: (original) => this.invocation(original).snapshot,
       assertCurrent: (original, context, phase, expected) => {

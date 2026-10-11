@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
+import { guardedWrite } from "../storage/transaction.js";
 import type {
   AgentMessage,
   CreateTeamInput,
@@ -74,21 +75,11 @@ export class TeamStorage {
     return new Date(this.now()).toISOString();
   }
   tx<T>(op: () => T): T {
-    let entries = 0;
-    const result = this.ports.writeTx(() => {
-      if (++entries !== 1 || !this.db.isTransaction)
-        teamError("TEAM_TRANSACTION_REQUIRED");
-      const v = op();
-      if (v && typeof v === "object" && "then" in v)
-        teamError("TEAM_TRANSACTION_REQUIRED");
-      return v;
+    return guardedWrite(this.db, this.ports, op, {
+      join: false,
+      innerAsyncCheck: true,
+      required: () => teamError("TEAM_TRANSACTION_REQUIRED"),
     });
-    if (
-      entries !== 1 ||
-      (result && typeof result === "object" && "then" in result)
-    )
-      teamError("TEAM_TRANSACTION_REQUIRED");
-    return result;
   }
   expiry(value: string, ceiling?: string): string {
     const expires = teamDate(value),
@@ -662,10 +653,7 @@ export class TeamStorage {
       (receipt && !deliveryReceiptMatches(record, receipt))
     )
       teamError("TEAM_SCOPE_MISMATCH");
-    return Object.freeze({
-      record,
-      receipt,
-    });
+    return Object.freeze({ record, receipt });
   }
   readMailbox(original: object, input: Parameters<typeof readMailbox>[2]) {
     return readMailbox(this, original, input);

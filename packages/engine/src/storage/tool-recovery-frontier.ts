@@ -79,8 +79,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
           WHERE json_extract(data,'$.type')='tool' AND json_extract(data,'$.toolCallId')=? LIMIT 2`).all(String(selected.id));
         if (!partRows.length && !db.prepare('SELECT 1 FROM session_turns WHERE run_id=? LIMIT 1').get(String(selected.run_id))) {
           const {run,tool} = owner(db,selected,header);
-          // Older v1 rows have no authoritative native execution owner. Record
-          // the observation's missing coverage; never fabricate a Turn or proof.
+          // Legacy rows have no native execution owner: record missing coverage, never fabricate a Turn or proof.
           const payload: JsonObject = { coverage:'unchecked-no-native-execution',toolCallId:tool.id,originalToolState:'running',toolRecordSha256:digest(tool),originalToolOrdinal:cursor,effectOutcome:'unknown' };
           audits.push({run,type:'tool.recovery_frontier.unchecked',payload});
           continue;
@@ -113,9 +112,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
           if (receipt.transportCleanupConfirmed === true && (receipt.state === 'not-dispatched' || receipt.state === 'response-terminal')) continue;
         }
         if (turn.state === 'uncertain') continue; // Preserve its existing independent blocker.
-        // ACP client effects execute while their genuine provider Attempt is open.
-        // These two independent native anchors identify that exact exception;
-        // a generic streaming proposal alone cannot establish callback ownership.
+        // ACP client effects run while their Attempt is open; only both native anchors prove that exception, not a streaming proposal.
         let sameAttemptClientEffect=false;
         if(turn.state==='streaming'&&['dispatched','streaming'].includes(attempt.state)&&attempt.providerId.startsWith('acp:')&&part.state==='open'){
           const anchors=(type:string)=>{
@@ -142,8 +139,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
         const previous = result.get(turn.id) ?? []; previous.push(frontier); result.set(turn.id,previous);
       }
     }
-    // Selecting later tools can reuse owner bodies before journal writes.
-    // Journal owner checks after writes still consume this same read budget.
+    // Journal after selection so later tools reuse owner bodies before writes; post-write owner checks share this read budget.
     for (const audit of audits) {
       native.appendEvent(audit.run.sessionId,audit.type,audit.payload,{runId:audit.run.id,...(audit.turnId ? {turnId:audit.turnId,attemptId:audit.attemptId} : {})});
       options.appendLegacy(audit.run,audit.type,audit.payload);

@@ -69,10 +69,8 @@ export interface TeamModelExpectation {
   readonly input: TeamModelInput;
   readonly fingerprint?: string;
 }
-/** The host authenticates the actual native tool owner and exact approved write.
- * Descriptive IDs in read() never grant actor authority. Invocation success means
- * a complete bounded native observation or an already durable native receipt.
- */
+/** The host authenticates the actual native tool owner and exact approved write; read() IDs grant no actor authority.
+ * Invocation success means a complete bounded native observation or an already durable native receipt. */
 export interface TeamModelToolHost {
   capture(
     context: ToolContext,
@@ -230,6 +228,13 @@ function safeJson<T>(value: T, maximum: number, code: string): T {
   const invalid = () => fail(code);
   return boundedTeamJson(value, maximum, invalid, invalid);
 }
+function snapshot<T>(value: T): T {
+  return safeJson(
+    value,
+    TEAM_MODEL_LIMITS.snapshotBytes,
+    "TEAM_MODEL_OWNER_STALE",
+  );
+}
 function jsonObject(value: unknown): asserts value is JsonObject {
   if (!value || typeof value !== "object" || Array.isArray(value))
     fail("TEAM_MODEL_OWNER_STALE");
@@ -259,40 +264,25 @@ function binding(context: ToolContext): JsonObject {
   )
     fail("TEAM_MODEL_OWNER_STALE");
   if (context.signal.aborted) fail("CANCELLED");
-  const limits = safeJson(
-    context.limits,
-    TEAM_MODEL_LIMITS.snapshotBytes,
-    "TEAM_MODEL_OWNER_STALE",
-  );
-  if (!limits || typeof limits !== "object" || Array.isArray(limits))
-    fail("TEAM_MODEL_OWNER_STALE");
+  const limits = snapshot(context.limits);
+  jsonObject(limits);
   const outputBytes = limits.maxOutputBytes;
   if (
     !Number.isSafeInteger(outputBytes) ||
     outputBytes < TEAM_MODEL_LIMITS.minimumOutputBytes
   )
     fail("TEAM_MODEL_OUTPUT_LIMIT");
-  return safeJson(
-    {
-      workspace: {
-        ...safeJson(
-          context.workspace,
-          TEAM_MODEL_LIMITS.snapshotBytes,
-          "TEAM_MODEL_OWNER_STALE",
-        ),
-      },
-      sessionId: id(context.sessionId, 256),
-      runId: id(context.runId, 256),
-      toolCallId: id(context.toolCallId, 256),
-      turnId: id(context.turnId, 256),
-      attemptId: id(context.attemptId, 256),
-      artifactDir: context.artifactDir,
-      executionLockPath: context.executionLockPath ?? null,
-      limits: { ...limits },
-    },
-    TEAM_MODEL_LIMITS.snapshotBytes,
-    "TEAM_MODEL_OWNER_STALE",
-  );
+  return snapshot({
+    workspace: { ...snapshot(context.workspace) },
+    sessionId: id(context.sessionId, 256),
+    runId: id(context.runId, 256),
+    toolCallId: id(context.toolCallId, 256),
+    turnId: id(context.turnId, 256),
+    attemptId: id(context.attemptId, 256),
+    artifactDir: context.artifactDir,
+    executionLockPath: context.executionLockPath ?? null,
+    limits: { ...limits },
+  });
 }
 const str = (maxLength: number) => ({ type: "string", maxLength });
 const taskSchema = (
@@ -395,8 +385,7 @@ function result(
   if (Buffer.byteLength(content) <= limit)
     return { content, data: observation };
   if (isTeamModelRead(operation)) fail("TEAM_MODEL_OUTPUT_LIMIT");
-  // The native write already returned a durable receipt. Preserve that fact if a
-  // host result cannot fit instead of making the saved operation appear absent.
+  // The write already has a durable receipt; report it saved rather than absent when details cannot fit.
   const summary: JsonObject = {
     operation,
     authority: "native-team-receipt",
@@ -429,11 +418,7 @@ export function createTeamModelTools(
             types.isProxy(original)
           )
             fail("TEAM_MODEL_OWNER_STALE");
-          const actor = safeJson(
-            host.read(original),
-            TEAM_MODEL_LIMITS.snapshotBytes,
-            "TEAM_MODEL_OWNER_STALE",
-          );
+          const actor = snapshot(host.read(original));
           object(actor, ["actor", "resources"]);
           jsonObject(actor.actor);
           jsonObject(actor.resources);
@@ -449,13 +434,8 @@ export function createTeamModelTools(
             fingerprint,
           });
           if (
-            knowledgeHash(
-              safeJson(
-                host.read(original),
-                TEAM_MODEL_LIMITS.snapshotBytes,
-                "TEAM_MODEL_OWNER_STALE",
-              ),
-            ) !== knowledgeHash(actor)
+            knowledgeHash(snapshot(host.read(original))) !==
+            knowledgeHash(actor)
           )
             fail("TEAM_MODEL_OWNER_STALE");
           const preview: JsonObject = {
@@ -514,13 +494,8 @@ export function createTeamModelTools(
             fingerprint: capture.fingerprint,
           });
           if (
-            knowledgeHash(
-              safeJson(
-                host.read(capture.original),
-                TEAM_MODEL_LIMITS.snapshotBytes,
-                "TEAM_MODEL_OWNER_STALE",
-              ),
-            ) !== knowledgeHash(capture.actor)
+            knowledgeHash(snapshot(host.read(capture.original))) !==
+            knowledgeHash(capture.actor)
           )
             fail("TEAM_MODEL_OWNER_STALE");
           if (context.signal.aborted) fail("CANCELLED");

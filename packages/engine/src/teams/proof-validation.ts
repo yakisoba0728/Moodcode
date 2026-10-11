@@ -327,16 +327,11 @@ export function validateTeamRelations(s: TeamStorage, check: () => void): void {
         ("teamId" in record ? record.teamId : record.id) !== receipt.teamId
       )
         teamError("TEAM_RECEIPT_INVALID");
-      if (receipt.operation === "create") {
+      if (receipt.operation === "create" || receipt.operation === "member") {
         if (
-          "teamId" in record ||
-          receipt.actorId !== "host" ||
-          receipt.actorGeneration !== 0
-        )
-          teamError("TEAM_RECEIPT_INVALID");
-      } else if (receipt.operation === "member") {
-        if (
-          !("memberId" in record) ||
+          (receipt.operation === "create"
+            ? "teamId" in record
+            : !("memberId" in record)) ||
           receipt.actorId !== "host" ||
           receipt.actorGeneration !== 0
         )

@@ -129,6 +129,16 @@ export class TeamHostService {
       throw error;
     }
   }
+  private captureMemberOwner(member: TeamMemberRevision): object {
+    return this.captureOwner({
+      workspaceId: member.workspaceId,
+      rootSessionId: member.owner.rootSessionId,
+      rootRunId: member.owner.rootRunId,
+      ...(member.owner.childTaskId === null
+        ? {}
+        : { childTaskId: member.owner.childTaskId }),
+    });
+  }
   private owned(original: object): Owner {
     if (!original || types.isProxy(original)) teamHostError("TEAM_OWNER_STALE");
     const state = this.owners.get(original);
@@ -146,8 +156,7 @@ export class TeamHostService {
     this.open();
     const state = this.owned(original);
     this.ports.owner.assertCurrent(state.original, member);
-    // Retirement can observe confirmed/unknown cleanup of the same actual owner.
-    // Native activeMember separately requires the original complete SHA and live cleanup.
+    // Identity only: retirement may see confirmed/unknown cleanup; native activeMember requires the full SHA and live cleanup.
     if (
       teamOwnerIdentity(this.readMemberOwner(original)) !==
       teamOwnerIdentity(member.owner)
@@ -162,14 +171,7 @@ export class TeamHostService {
     this.ports.owner.release(state.original);
   }
   assertRecipientCurrent(member: TeamMemberRevision): void {
-    const original = this.captureOwner({
-      workspaceId: member.workspaceId,
-      rootSessionId: member.owner.rootSessionId,
-      rootRunId: member.owner.rootRunId,
-      ...(member.owner.childTaskId === null
-        ? {}
-        : { childTaskId: member.owner.childTaskId }),
-    });
+    const original = this.captureMemberOwner(member);
     try {
       const current = this.readMemberOwner(original);
       if (current.cleanup !== "live" || current.sha256 !== member.owner.sha256)
@@ -370,14 +372,7 @@ export class TeamHostService {
     );
     if (!member || member.generation !== input.generation)
       teamHostError("TEAM_MEMBER_STALE");
-    const owner = this.captureOwner({
-      workspaceId: member.workspaceId,
-      rootSessionId: member.owner.rootSessionId,
-      rootRunId: member.owner.rootRunId,
-      ...(member.owner.childTaskId === null
-        ? {}
-        : { childTaskId: member.owner.childTaskId }),
-    });
+    const owner = this.captureMemberOwner(member);
     try {
       return this.ports.native.retireMember(owner, nativeInput);
     } finally {
