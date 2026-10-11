@@ -1,7 +1,9 @@
-import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type Run } from '@moodcode/contracts';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
+import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
 import { validateTrajectoryOptions, type JournalProjection, type TrajectoryEvent, type TrajectoryOptions } from './trajectory.js';
+import { ownData } from './validation.js';
 
 export interface CodingSourceIdentity {
   /** The host must obtain this from its own frozen source observation. No filesystem is scanned here. */
@@ -44,26 +46,16 @@ const LIMIT_KEYS = ['maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs'
 const BUDGET_KEYS = ['turnAllowance', 'maxToolCallsPerTurn', 'maxPendingInputs', 'maxPendingBytes', 'maxSteerBatch', 'maxReadConcurrency', 'maxProviderAttempts', 'providerRequestTimeoutMs', 'providerInactivityTimeoutMs', 'retryBaseDelayMs', 'maxSummaryCalls', 'maxSummaryBytes', 'maxArtifactBytes', 'maxProducerBytes'];
 const RUN_STATES = ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted'];
 function fail(message: string): never { throw new EngineError('INVALID_CODING_EVIDENCE', message); }
-function data(value: unknown, key: string): unknown {
-  if (!value || typeof value !== 'object' || types.isProxy(value)) return undefined;
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
-}
 function identifier(value: unknown): string {
-  if (typeof value !== 'string' || value.length === 0 || Buffer.byteLength(value) > 256 || /[\u0000-\u001f\u007f]/u.test(value)) return fail('Identity must be a bounded string');
+  if (!isBoundedId(value)) return fail('Identity must be a bounded string');
   return value;
 }
-function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }
 function digest(value: unknown): string {
-  if (typeof value !== 'string' || !/^[a-f0-9]{64}$/u.test(value)) return fail('Digest must be a lowercase SHA-256');
+  if (!isSha256(value)) return fail('Digest must be a lowercase SHA-256');
   return value;
 }
 function plain(value: unknown, keys: string[]): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('Coding evidence options require plain data');
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
-    if (typeof key !== 'string' || !keys.includes(key) || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) fail('Coding evidence options reject unknown fields, accessors and symbols');
-  }
+  plainRecord(value, [], keys, fault => fail(fault === 'shape' ? 'Coding evidence options require plain data' : 'Coding evidence options reject unknown fields, accessors and symbols'));
 }
 /** Validate before the host wrapper destructures or spreads its optional page/source selection. */
 export function validateCodingEvidenceOptions(options: CodingEvidenceOptions): void {
@@ -71,13 +63,13 @@ export function validateCodingEvidenceOptions(options: CodingEvidenceOptions): v
   const { source, ...page } = options;
   validateTrajectoryOptions({ ...page, sessionId: 'validation-only' });
   if (source !== undefined) {
-    plain(source, ['sha256', 'revision']); digest(data(source, 'sha256')); identifier(data(source, 'revision'));
+    plain(source, ['sha256', 'revision']); digest(ownData(source, 'sha256')); identifier(ownData(source, 'revision'));
   }
 }
 function numericRecord(value: unknown, keys: string[]): Record<string, number> {
   const result: Record<string, number> = {};
   for (const key of keys) {
-    const found = data(value, key);
+    const found = ownData(value, key);
     if (typeof found !== 'number' || !Number.isSafeInteger(found) || found < 0) return fail('Run limits and budgets must be nonnegative safe integers');
     result[key] = found;
   }
@@ -115,34 +107,34 @@ function latestAttempts(events: readonly TrajectoryEvent[], runId: string): Codi
 
 /** A coding Run can contain many provider Attempts. This report grants no retry, replay or completion authority. */
 export function createCodingEvidenceManifest(run: Run, trajectory: JournalProjection, source?: CodingSourceIdentity): CodingEvidenceManifest {
-  const runId = identifier(data(run, 'id')), sessionId = identifier(data(run, 'sessionId')), workspaceId = identifier(data(run, 'workspaceId')), inputId = identifier(data(run, 'inputId'));
+  const runId = identifier(ownData(run, 'id')), sessionId = identifier(ownData(run, 'sessionId')), workspaceId = identifier(ownData(run, 'workspaceId')), inputId = identifier(ownData(run, 'inputId'));
   validatePlainTree(trajectory);
   if (Buffer.byteLength(JSON.stringify(trajectory)) > 262_144 || trajectory.schemaVersion !== 1 || trajectory.projection !== 'engine-diagnostic-trajectory-v1' || trajectory.stream !== 'session-v2' || trajectory.sessionId !== sessionId || trajectory.workspaceId !== workspaceId || trajectory.runId !== null && trajectory.runId !== runId || !Array.isArray(trajectory.events) || trajectory.events.length > 100) return fail('Trajectory and Run have incompatible scope or projection');
   const { projectionSha256: journalHash, ...journalProjection } = trajectory;
-  if (digest(journalHash) !== hash(JSON.stringify(journalProjection))) return fail('Journal projection changed after it was frozen');
-  const rawConfig = data(run, 'config');
-  const providerId = identifier(data(rawConfig, 'providerId')), modelId = identifier(data(rawConfig, 'modelId')), mode = data(rawConfig, 'mode');
+  if (digest(journalHash) !== jsonTextSha256(journalProjection)) return fail('Journal projection changed after it was frozen');
+  const rawConfig = ownData(run, 'config');
+  const providerId = identifier(ownData(rawConfig, 'providerId')), modelId = identifier(ownData(rawConfig, 'modelId')), mode = ownData(rawConfig, 'mode');
   if (mode !== 'plan' && mode !== 'build') return fail('Run mode is invalid');
-  const reasoning = data(rawConfig, 'reasoningEffort');
+  const reasoning = ownData(rawConfig, 'reasoningEffort');
   if (reasoning !== undefined && (typeof reasoning !== 'string' || !['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'].includes(reasoning))) return fail('Reasoning effort is invalid');
-  const configuration = { providerId, modelId, mode: mode as 'plan' | 'build', reasoningEffort: reasoning === undefined ? null : String(reasoning), agentProfileId: data(rawConfig, 'agentProfileId') === undefined ? null : identifier(data(rawConfig, 'agentProfileId')), agentProfileRevision: data(rawConfig, 'agentProfileRevision') === undefined ? null : identifier(data(rawConfig, 'agentProfileRevision')), limits: numericRecord(data(rawConfig, 'limits'), LIMIT_KEYS), budgets: data(rawConfig, 'budgets') === undefined ? null : numericRecord(data(rawConfig, 'budgets'), BUDGET_KEYS) };
-  const prompt = data(run, 'prompt');
+  const configuration = { providerId, modelId, mode: mode as 'plan' | 'build', reasoningEffort: reasoning === undefined ? null : String(reasoning), agentProfileId: ownData(rawConfig, 'agentProfileId') === undefined ? null : identifier(ownData(rawConfig, 'agentProfileId')), agentProfileRevision: ownData(rawConfig, 'agentProfileRevision') === undefined ? null : identifier(ownData(rawConfig, 'agentProfileRevision')), limits: numericRecord(ownData(rawConfig, 'limits'), LIMIT_KEYS), budgets: ownData(rawConfig, 'budgets') === undefined ? null : numericRecord(ownData(rawConfig, 'budgets'), BUDGET_KEYS) };
+  const prompt = ownData(run, 'prompt');
   if (typeof prompt !== 'string' || Buffer.byteLength(prompt) > 1_048_576) return fail('Run prompt exceeds the coding evidence read bound');
-  const state = data(run, 'state'), updatedAt = data(run, 'updatedAt');
+  const state = ownData(run, 'state'), updatedAt = ownData(run, 'updatedAt');
   if (typeof state !== 'string' || !RUN_STATES.includes(state) || typeof updatedAt !== 'string' || updatedAt.length !== 24 || !Number.isFinite(Date.parse(updatedAt))) return fail('Run state or observation timestamp is invalid');
   let sourceIdentity: CodingEvidenceManifest['source'] = { kind: 'not-observed', sha256: null, revision: null, filesystemVerified: false };
-  if (source !== undefined) sourceIdentity = { kind: 'host-declared', sha256: digest(data(source, 'sha256')), revision: identifier(data(source, 'revision')), filesystemVerified: false };
-  const configHash = hash(JSON.stringify(configuration));
-  const promptIdentity = { sha256: hash(prompt), bytes: Buffer.byteLength(prompt), rawText: 'not-exported' as const };
+  if (source !== undefined) sourceIdentity = { kind: 'host-declared', sha256: digest(ownData(source, 'sha256')), revision: identifier(ownData(source, 'revision')), filesystemVerified: false };
+  const configHash = jsonTextSha256(configuration);
+  const promptIdentity = { sha256: sha256Hex(prompt), bytes: Buffer.byteLength(prompt), rawText: 'not-exported' as const };
   const identity = { runId, sessionId, workspaceId, inputId, prompt: promptIdentity, configurationSha256: configHash, source: sourceIdentity };
-  const error = data(data(run, 'error'), 'code');
+  const error = ownData(ownData(run, 'error'), 'code');
   const errorCode = typeof error === 'string' && /^[A-Z][A-Z0-9_]{0,95}$/u.test(error) ? error : null;
   const runObservation = { state: state as Run['state'], updatedAt, errorCode };
   const manifest: CodingEvidenceManifest = {
-    schemaVersion: 1, projection: 'coding-evidence-manifest-v1', kind: 'coding-run-observation', codingRunId: runId, sessionId, workspaceId, inputId, identitySha256: hash(JSON.stringify(identity)),
+    schemaVersion: 1, projection: 'coding-evidence-manifest-v1', kind: 'coding-run-observation', codingRunId: runId, sessionId, workspaceId, inputId, identitySha256: jsonTextSha256(identity),
     prompt: promptIdentity, source: sourceIdentity, configuration: { ...configuration, sha256: configHash, credentials: 'not-read', providerRequest: 'not-exported' },
     journal: { stream: 'session-v2', afterSeq: trajectory.range.afterSeq, throughSeq: trajectory.range.frozenThroughSeq, inspectedThroughSeq: trajectory.range.inspectedThroughSeq, projectionSha256: journalHash, rawJournalSha256: null, sessionFrontier: 'unknown', truncated: trajectory.coverage.truncated },
-    runObservation: { ...runObservation, runProjectionSha256: hash(JSON.stringify({ identity, observation: runObservation })), rawRunSha256: null },
+    runObservation: { ...runObservation, runProjectionSha256: jsonTextSha256({ identity, observation: runObservation }), rawRunSha256: null },
     providerAttempts: latestAttempts(trajectory.events, runId),
     outputs: trajectory.events.filter(event => event.runId === runId && event.output !== null).map(event => ({ partId: event.record?.id ?? null, ...event.output!, sourceSeq: event.seq })),
     outcome: { execution: state as Run['state'], verification: 'not-observed', taskSuccess: 'not-established', billedTokens: null },
@@ -150,6 +142,6 @@ export function createCodingEvidenceManifest(run: Run, trajectory: JournalProjec
     manifestSha256: '0'.repeat(64),
   };
   const { manifestSha256: _omitted, ...projection } = manifest;
-  manifest.manifestSha256 = hash(JSON.stringify(projection));
+  manifest.manifestSha256 = jsonTextSha256(projection);
   return manifest;
 }

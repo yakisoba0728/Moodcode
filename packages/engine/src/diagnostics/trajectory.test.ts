@@ -108,6 +108,11 @@ test('journal owner, stream, order, count and options are validated without cons
   for (const options of [{ sessionId: session.id, afterSeq: -1 }, { sessionId: session.id, afterSeq: 3, throughSeq: 2 }, { sessionId: session.id, limit: 101 }, { sessionId: session.id, maxBytes: 1 }, { sessionId: session.id, unknown: true }]) assert.throws(() => exportTrajectory(reader([]), options), code('INVALID_TRAJECTORY_OPTIONS'));
 });
 
+test('trajectory options reject a hidden selection field like every other diagnostics option record', () => {
+  const options = Object.defineProperty({ sessionId: session.id }, 'limit', { value: 1, enumerable: false });
+  assert.throws(() => exportTrajectory(reader([event(1), event(2)]), options), code('INVALID_TRAJECTORY_OPTIONS'));
+});
+
 test('unknown usage is null, zero remains an observation and inclusive subsets are validated without summing revisions', () => {
   const rows = [event(1, { observation: { revision: 1, usage: { inputTokens: 0, outputTokens: -1, cachedInputTokens: 2 } } }, { type: 'provider.attempt.usage' }), event(2, { observation: { revision: 2, usage: { inputTokens: 5, outputTokens: 7 } } }, { type: 'provider.attempt.usage' })];
   const report = exportTrajectory(reader(rows), { sessionId: session.id });

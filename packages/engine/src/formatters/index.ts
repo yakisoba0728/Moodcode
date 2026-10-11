@@ -3,6 +3,7 @@ import { createPatchAdapter } from "../tools/file-actions/adapter.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import type { ToolDefinition } from "../ports.js";
 import type { LspManager } from "../lsp/index.js";
+import { raceAbort, settleWithin } from "../shared/runtime.js";
 export { applyTextEdits, positionOffset } from "./edits.js";
 export type { TextEdit, TextRange, TextPosition } from "./edits.js";
 export type FormatterPort = (request: {
@@ -45,15 +46,15 @@ export class FormatterRegistry {
       );
     const before = await readExactText(workspace, path, signal);
     const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
     const abort = () => controller.abort();
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
+    const cancelled = () =>
+      new EngineError("CANCELLED", "Formatting cancelled");
     try {
-      const content = await Promise.race([
+      const formatting = raceAbort(
         Promise.resolve().then(() => {
-          if (controller.signal.aborted)
-            throw new EngineError("CANCELLED", "Formatting cancelled");
+          if (controller.signal.aborted) throw cancelled();
           return formatter({
             workspace: structuredClone(workspace),
             path,
@@ -61,25 +62,17 @@ export class FormatterRegistry {
             signal: controller.signal,
           });
         }),
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(() => {
-            reject(
-              new EngineError(
-                "FORMATTER_TIMEOUT",
-                "Formatter exceeded its five second deadline",
-              ),
-            );
-            controller.abort();
-          }, 5000);
-          controller.signal.addEventListener(
-            "abort",
-            () => reject(new EngineError("CANCELLED", "Formatting cancelled")),
-            { once: true },
-          );
-          if (controller.signal.aborted)
-            reject(new EngineError("CANCELLED", "Formatting cancelled"));
-        }),
-      ]);
+        controller.signal,
+        cancelled,
+      );
+      if (!(await settleWithin(formatting, 5000))) {
+        controller.abort();
+        throw new EngineError(
+          "FORMATTER_TIMEOUT",
+          "Formatter exceeded its five second deadline",
+        );
+      }
+      const content = await formatting;
       if (
         typeof content !== "string" ||
         Buffer.byteLength(content) > 1024 * 1024 ||
@@ -101,7 +94,6 @@ export class FormatterRegistry {
         );
       return { path, content, expectedHash: before.hash };
     } finally {
-      clearTimeout(timer!);
       signal.removeEventListener("abort", abort);
     }
   }

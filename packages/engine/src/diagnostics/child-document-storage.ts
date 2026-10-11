@@ -4,6 +4,8 @@ import { EngineError } from '@moodcode/contracts';
 import type { ChildStorageSelectionReport } from '../child-tasks/storage-binding.js';
 import { CHILD_DOCUMENT_READ_LIMITS, readChildDocumentIndex, type ChildDocumentReadFrame, type ChildDocumentReadLimits, type ChildDocumentReadStats } from '../storage/child-document-reader.js';
 import type { InputDocumentIndexReport } from '../storage/input-document-index.js';
+import { isBoundedId, plainRecord } from '../shared/data.js';
+import { denseValues } from './validation.js';
 
 export interface ChildDocumentStorageLimits extends ChildDocumentReadLimits { maxReportBytes: number }
 export const DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS: Readonly<ChildDocumentStorageLimits> = Object.freeze({ ...CHILD_DOCUMENT_READ_LIMITS,maxChildren:8,maxReportBytes:32_768 });
@@ -25,18 +27,12 @@ export interface ChildDocumentStorageReport {
     snapshot:'separate-bounded-index-snapshots-with-physical-rechecks';deadline:'cooperative-at-filesystem-and-sql-boundaries';physicalReadBytes:null;physicalAllocatedBytes:null;rows:'charged-header-rows-and-index-body-records'};
 }
 function invalid():never {throw new EngineError('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS','Child document storage inspection requires exact bounded host options.');}
-function plain(value:unknown,allowed:readonly string[]):Record<string,unknown>{
-  if(types.isProxy(value)||!value||typeof value!=='object'||Array.isArray(value)||![Object.prototype,null].includes(Object.getPrototypeOf(value)))invalid();
-  const descriptors=Object.getOwnPropertyDescriptors(value);
-  if(Reflect.ownKeys(value).some(key=>typeof key!=='string'||!allowed.includes(key)||!descriptors[key]?.enumerable||!Object.hasOwn(descriptors[key]!,'value')))invalid();
-  return value as Record<string,unknown>;
-}
-function id(value:unknown):value is string{return typeof value==='string'&&Buffer.byteLength(value)>0&&Buffer.byteLength(value)<=256&&!/[\u0000-\u001f\u007f]/u.test(value);}
+function plain(value:unknown,allowed:readonly string[]):Record<string,unknown>{return plainRecord(value,[],allowed,invalid);}
 export function validateChildDocumentStorageRequest(value:unknown):ValidatedChildDocumentStorageRequest{
   const options=plain(value,['sessionId','sourceRunId','taskIds','signal','limits']);
-  if(!id(options.sessionId)||!id(options.sourceRunId)||types.isProxy(options.taskIds)||!Array.isArray(options.taskIds)||Object.getPrototypeOf(options.taskIds)!==Array.prototype||options.taskIds.length>32||Reflect.ownKeys(options.taskIds).length!==options.taskIds.length+1)invalid();
+  if(!isBoundedId(options.sessionId)||!isBoundedId(options.sourceRunId))invalid();
   const taskIds:string[]=[];
-  for(let index=0;index<options.taskIds.length;index++){const descriptor=Object.getOwnPropertyDescriptor(options.taskIds,String(index));if(!descriptor?.enumerable||!Object.hasOwn(descriptor,'value')||typeof descriptor.value!=='string'||!/^child_[a-f0-9]{32}$/u.test(descriptor.value)||taskIds.includes(descriptor.value))invalid();taskIds.push(descriptor.value);}
+  for(const value of denseValues(options.taskIds,32,invalid)){if(typeof value!=='string'||!/^child_[a-f0-9]{32}$/u.test(value)||taskIds.includes(value))invalid();taskIds.push(value);}
   if(types.isProxy(options.signal)||options.signal!==undefined&&!(options.signal instanceof AbortSignal))invalid();
   const limits=options.limits===undefined?{}:plain(options.limits,Object.keys(DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS));
   const selected={...DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS,...limits};

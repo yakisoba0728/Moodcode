@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto';
 import { EngineError, type InputImageAttachment, type Message, type SessionSnapshot } from '@moodcode/contracts';
 import type { ProviderMessage } from '../ports.js';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
+import { isBoundedId } from '../shared/data.js';
 import { entryBytes } from './memory.js';
 import { attachments, DEFAULT_IMAGE_LIMITS, sameAttachment } from '../media/validation.js';
 
@@ -55,11 +56,9 @@ export interface MediaHistoryProjection {
   requiredExchangeMessageIds: string[];
   diagnostics: MediaHistoryDiagnostics;
 }
-const hash = (value: string): string => createHash('sha256').update(value).digest('hex');
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function checkAbort(signal?: AbortSignal): void { if (signal?.aborted) fail('CANCELLED', 'Image history projection was cancelled'); }
 function plain(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype; }
-function identifier(value: unknown): value is string { return typeof value === 'string' && !!value && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
 function dataRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))
     && Reflect.ownKeys(value).every(key => typeof key === 'string' && Object.getOwnPropertyDescriptor(value, key)?.enumerable && 'value' in Object.getOwnPropertyDescriptor(value, key)!);
@@ -130,9 +129,9 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     metadataTokenEstimate: { tokens: 0, source: 'utf8-byte-upper-bound', estimated: true }, imageTokens: null, summarized: false, activeCutoffCreated: false });
   if (options.policy === undefined) return { snapshot: structuredClone(source), requiredNotice: null, provenance: [], requiredTextMessageIds: [], requiredExchangeMessageIds: [], diagnostics: empty() };
   const policy = validateMediaHistoryPolicy(options.policy);
-  if (!dataRecord(source) || !dataRecord(source.session) || !identifier(source.session.id) || !Array.isArray(source.messages) || source.messages.length > MEDIA_HISTORY_LIMITS.maxSourceMessages
+  if (!dataRecord(source) || !dataRecord(source.session) || !isBoundedId(source.session.id) || !Array.isArray(source.messages) || source.messages.length > MEDIA_HISTORY_LIMITS.maxSourceMessages
       || Reflect.ownKeys(source.messages).length !== source.messages.length + 1) fail('IMAGE_HISTORY_SOURCE_LIMIT', 'Image history requires a bounded dense source snapshot');
-  if (options.activeRunId !== undefined && !identifier(options.activeRunId)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history owner identifiers must be bounded');
+  if (options.activeRunId !== undefined && !isBoundedId(options.activeRunId)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history owner identifiers must be bounded');
   const imageRefs = new Map<string, InputImageAttachment[]>(), identities = new Map<string, InputImageAttachment>(), messageIds = new Set<string>();
   let sourceOccurrences = 0;
   for (let index = 0; index < source.messages.length; index++) {
@@ -140,7 +139,7 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     const descriptor = Object.getOwnPropertyDescriptor(source.messages, String(index));
     if (!descriptor || !('value' in descriptor)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history cannot contain sparse messages or accessors');
     const message: Message = descriptor.value;
-    if (!dataRecord(message) || !identifier(message.id) || !identifier(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messageIds.has(message.id)
+    if (!dataRecord(message) || !isBoundedId(message.id) || !isBoundedId(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messageIds.has(message.id)
         || message.toolCalls !== undefined && !Array.isArray(message.toolCalls)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history messages must have exact same-session identities');
     messageIds.add(message.id);
     if (message.providerReplay !== undefined) inspectReplay(message.providerReplay, signal);
@@ -164,12 +163,12 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     // Keep the exact text, identity, chronology and surrounding replay/tool pairs.
     delete message.attachments;
     provenance.push({ version: 1, sessionId: source.session.id, runId: message.runId, messageId: message.id, sourceOrdinal: index + 1,
-      sourceContentSha256: hash(message.content), attachments: structuredClone(refs), pixels: 'unavailable-in-this-request',
+      sourceContentSha256: sha256Hex(message.content), attachments: structuredClone(refs), pixels: 'unavailable-in-this-request',
       reason: refs.every(ref => retained.has(ref.id)) ? 'older-exact-reference' : 'host-reference-only-history', summarized: false, currentFileEvidence: false });
   }
   const requiredExchangeMessageIds = latestCompleteExchange(source.messages, options.activeRunId);
-  const policySha256 = hash(JSON.stringify(policy));
-  const sourceSha256 = hash(JSON.stringify(source.messages.map((message, index) => ({ messageId: message.id, runId: message.runId, sessionId: message.sessionId, ordinal: index + 1, contentSha256: hash(message.content), attachments: imageRefs.get(message.id) ?? [] }))));
+  const policySha256 = jsonTextSha256(policy);
+  const sourceSha256 = jsonTextSha256(source.messages.map((message, index) => ({ messageId: message.id, runId: message.runId, sessionId: message.sessionId, ordinal: index + 1, contentSha256: sha256Hex(message.content), attachments: imageRefs.get(message.id) ?? [] })));
   const requiredNotice: ProviderMessage | null = provenance.length ? { role: 'assistant', content: MEDIA_HISTORY_NOTICE_PREFIX + JSON.stringify({
     version: 1, observationKind: 'quoted-image-provenance', pixelScope: 'historical-message-occurrence',
     pixels: 'pixels unavailable in this request for the listed historical message occurrences; an identical reference may have pixels in a separately retained latest or host-pinned message',

@@ -202,6 +202,26 @@ test('buildContext does not pair a tool result across an intervening user messag
   assertCompleteToolGroups(messages);
 });
 
+test('buildContext drops a call block whose tool input is not plain JSON without reading accessors', async (t) => {
+  let reads = 0;
+  const accessor = Object.defineProperty({}, 'path', { enumerable: true, get() { reads += 1; return 'src/main.ts'; } });
+  const hidden = Object.defineProperty({ path: 'src/main.ts' }, 'secret', { value: 'hidden', enumerable: false });
+  const symbolKeyed = { path: 'src/main.ts', [Symbol('extra')]: true };
+  const request = await fixture(t, []);
+  for (const input of [accessor, hidden, symbolKeyed]) {
+    request.snapshot.messages = [
+      history('user', 'Read the file'),
+      history('assistant', 'Damaged tool input', { toolCalls: [call('damaged', input as unknown as ProviderToolCall['input'])] }),
+      history('tool', 'Result for damaged input', { toolCallId: 'damaged' }),
+    ];
+    assert.deepEqual(await buildContext(request), [
+      { role: 'user', content: 'Read the file' },
+      { role: 'assistant', content: 'Damaged tool input' },
+    ]);
+  }
+  assert.equal(reads, 0);
+});
+
 test('buildContext does not pair an adjacent result from another run even when its call ID is reused', async (t) => {
   const request = await fixture(t, [
     history('user', 'Previous run request', { runId: 'previous-run' }),

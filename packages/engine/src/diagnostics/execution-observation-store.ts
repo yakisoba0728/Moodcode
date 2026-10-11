@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
@@ -6,6 +6,9 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { jsonTextSha256 } from "../shared/canonical.js";
+import { recordGuards, type RecordFault } from "../shared/data.js";
+import { guardedWrite } from "../storage/transaction.js";
 import type {
   DiagnosticEffectEpoch,
   DiagnosticExecutionArchiveRow,
@@ -58,55 +61,37 @@ function json<T>(value: T): T {
     );
   }
 }
+const RECORD_FAULTS: Record<RecordFault, string> = {
+  id: "Expected bounded native identity",
+  integer: "Observation counter exceeds its bounded integer range",
+  sha: "Expected exact SHA-256",
+  stamp: "Observation timestamp must be canonical UTC",
+  exact: "Observation fields differ from the native contract",
+  hash: "Observation hash or scope changed",
+};
+const {
+  id: identifier,
+  integer,
+  sha: digest,
+  stamp: timestamp,
+  exact,
+} = recordGuards({
+  json,
+  fail: (fault) =>
+    fail(
+      fault === "hash"
+        ? "EXECUTION_OBSERVATION_HASH_MISMATCH"
+        : "INVALID_EXECUTION_OBSERVATION",
+      RECORD_FAULTS[fault],
+    ),
+});
 function fields(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    Array.isArray(value) ||
-    required.some((k) => !Object.hasOwn(value, k)) ||
-    Object.keys(value).some(
-      (k) => !required.includes(k) && !optional.includes(k),
-    )
-  )
-    fail(
-      "INVALID_EXECUTION_OBSERVATION",
-      "Observation fields differ from the native contract",
-    );
+  exact(value, required, optional);
 }
-function identifier(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail("INVALID_EXECUTION_OBSERVATION", "Expected bounded native identity");
-  return value;
-}
-function integer(value: unknown, max = Number.MAX_SAFE_INTEGER): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < 0 ||
-    value > max
-  )
-    fail(
-      "INVALID_EXECUTION_OBSERVATION",
-      "Observation counter exceeds its bounded integer range",
-    );
-  return value;
-}
-function digest(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value))
-    fail("INVALID_EXECUTION_OBSERVATION", "Expected exact SHA-256");
-  return value;
-}
-const hash = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const signed = <T extends object>(value: T): T & { readonly sha256: string } =>
   json({ ...value, sha256: knowledgeHash(value) });
 const IDENTITY_FIELDS = [
@@ -174,18 +159,6 @@ function metadata(input: unknown): DiagnosticExecutionRuntimeMetadata {
       "Actual result retention must be explicit",
     );
   return v as unknown as DiagnosticExecutionRuntimeMetadata;
-}
-function timestamp(value: unknown): void {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    fail(
-      "INVALID_EXECUTION_OBSERVATION",
-      "Observation timestamp must be canonical UTC",
-    );
 }
 export function validateDiagnosticExecutionObservationArchiveRow(
   input: DiagnosticExecutionArchiveRow,
@@ -506,7 +479,7 @@ function nativeTool(
     parsedPart.turnId !== owner.turnId ||
     parsedPart.toolCallId !== owner.toolCallId ||
     parsedPart.name !== body.name ||
-    hash(parsedPart.input) !== hash(body.input)
+    jsonTextSha256(parsedPart.input) !== jsonTextSha256(body.input)
   )
     fail(
       "EXECUTION_OBSERVATION_OWNER_INVALID",
@@ -559,23 +532,20 @@ export class DiagnosticExecutionObservationStorage {
     ).toISOString();
   }
   private write<T>(op: () => T): T {
-    if (this.#db.isTransaction) return op();
-    let entered = false;
-    const result = this.#ports.writeTx(() => {
-      if (entered || !this.#db.isTransaction)
+    return guardedWrite(this.#db, this.#ports, op, {
+      join: true,
+      innerAsyncCheck: false,
+      required: () =>
         fail(
           "EXECUTION_OBSERVATION_TRANSACTION_REQUIRED",
           "Observation must use exactly one primary transaction",
-        );
-      entered = true;
-      return op();
+        ),
+      detached: () =>
+        fail(
+          "EXECUTION_OBSERVATION_TRANSACTION_REQUIRED",
+          "Observation transaction cannot detach",
+        ),
     });
-    if (!entered || (result && typeof result === "object" && "then" in result))
-      fail(
-        "EXECUTION_OBSERVATION_TRANSACTION_REQUIRED",
-        "Observation transaction cannot detach",
-      );
-    return result;
   }
   getEpoch(workspaceId: string): DiagnosticEffectEpoch | undefined {
     identifier(workspaceId);
@@ -680,7 +650,7 @@ export class DiagnosticExecutionObservationStorage {
           "Original source handle belongs to another execution",
         );
       const current = nativeTool(this.#db, owner, true);
-      if (hash(current) !== hash(tool))
+      if (jsonTextSha256(current) !== jsonTextSha256(tool))
         fail(
           "EXECUTION_OBSERVATION_STALE",
           "Native tool changed during source validation",
@@ -711,9 +681,9 @@ export class DiagnosticExecutionObservationStorage {
         state: "dispatched" as const,
         toolName: String(tool.name),
         effectClass: observed.effectClass,
-        inputSha256: hash(tool.input),
+        inputSha256: jsonTextSha256(tool.input),
         effectiveInputSha256: observed.effectiveInputSha256,
-        dispatchToolSha256: hash(tool),
+        dispatchToolSha256: jsonTextSha256(tool),
         settledToolSha256: null,
         resultSha256: null,
         resultComplete: false,
@@ -838,7 +808,7 @@ export class DiagnosticExecutionObservationStorage {
           "Actual tool result is not durably terminal",
         );
       if (
-        hash(tool.input) !== previous.inputSha256 ||
+        jsonTextSha256(tool.input) !== previous.inputSha256 ||
         tool.name !== previous.toolName
       )
         fail(
@@ -858,7 +828,7 @@ export class DiagnosticExecutionObservationStorage {
           "Post source handle changed original execution metadata",
         );
       const after = nativeTool(this.#db, previous, false);
-      if (hash(after) !== hash(tool))
+      if (jsonTextSha256(after) !== jsonTextSha256(tool))
         fail(
           "EXECUTION_OBSERVATION_STALE",
           "Actual terminal tool changed during post-source validation",
@@ -866,14 +836,18 @@ export class DiagnosticExecutionObservationStorage {
       const outcome = tool.state as "completed" | "failed" | "interrupted",
         outputObserved = typeof tool.output === "string",
         resultSha256 = outputObserved
-          ? hash({ outcome, output: tool.output, error: tool.error ?? null })
+          ? jsonTextSha256({
+              outcome,
+              output: tool.output,
+              error: tool.error ?? null,
+            })
           : null,
         { sha256: ignored, ...base } = previous,
         next: DiagnosticExecutionObservation = signed({
           ...base,
           revision: previous.revision + 1,
           state: "settled" as const,
-          settledToolSha256: hash(tool),
+          settledToolSha256: jsonTextSha256(tool),
           resultSha256,
           resultComplete:
             outcome === "completed" &&
@@ -1112,7 +1086,7 @@ export function validateDiagnosticExecutionObservationDatabase(
       tool = nativeTool(db, record, false);
     if (
       record.toolName !== tool.name ||
-      record.inputSha256 !== hash(tool.input)
+      record.inputSha256 !== jsonTextSha256(tool.input)
     )
       fail(
         "EXECUTION_OBSERVATION_CORRUPT",
@@ -1158,10 +1132,10 @@ export function validateDiagnosticExecutionObservationDatabase(
     if (
       record.state === "settled" &&
       (record.outcome !== tool.state ||
-        record.settledToolSha256 !== hash(tool) ||
+        record.settledToolSha256 !== jsonTextSha256(tool) ||
         record.resultSha256 !==
           (typeof tool.output === "string"
-            ? hash({
+            ? jsonTextSha256({
                 outcome: tool.state,
                 output: tool.output,
                 error: tool.error ?? null,
@@ -1177,7 +1151,7 @@ export function validateDiagnosticExecutionObservationDatabase(
     if (
       record.state === "dispatched" &&
       tool.state === "running" &&
-      record.dispatchToolSha256 !== hash(tool)
+      record.dispatchToolSha256 !== jsonTextSha256(tool)
     )
       fail(
         "EXECUTION_OBSERVATION_CORRUPT",

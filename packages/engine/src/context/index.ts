@@ -36,34 +36,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-// Reject cyclic, non-JSON, and excessively deep tool metadata before serialization.
-// The clone also prevents a provider from changing the stored history through aliases.
-function copyJson(value: unknown, ancestors = new Set<object>(), depth = 0): JsonValue | undefined {
-  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
-  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
-  if (typeof value !== 'object' || depth > 64 || ancestors.has(value)) return undefined;
-  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return undefined;
-  ancestors.add(value);
-  try {
-    if (Array.isArray(value)) {
-      const result: JsonValue[] = [];
-      for (const child of value) {
-        const copied = copyJson(child, ancestors, depth + 1);
-        if (copied === undefined) return undefined;
-        result.push(copied);
-      }
-      return result;
-    }
-    const result: { [key: string]: JsonValue } = {};
-    for (const [key, child] of Object.entries(value)) {
-      const copied = copyJson(child, ancestors, depth + 1);
-      if (copied === undefined) return undefined;
-      Object.defineProperty(result, key, { value: copied, enumerable: true, writable: true, configurable: true });
-    }
-    return result;
-  } finally {
-    ancestors.delete(value);
-  }
+// Tool input that is not plain JSON damages its call block. The clone also
+// prevents a provider from changing the stored history through aliases.
+function copyJson(value: unknown): JsonValue | undefined {
+  try { return replayJson(value); } catch { return undefined; }
 }
 
 function copyCalls(value: unknown): ProviderToolCall[] | undefined {

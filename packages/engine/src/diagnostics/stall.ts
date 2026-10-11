@@ -1,5 +1,6 @@
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
 import type { JournalProjection } from './trajectory.js';
 import type { DiagnosticExecutionObservation } from './execution-observation-types.js';
 
@@ -36,17 +37,12 @@ export interface StallObservation {
 }
 function invalid(message: string): never { throw new EngineError('INVALID_STALL_OBSERVATION', message); }
 function plain(value: unknown, keys: string[]): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid('Stall observations require plain data');
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
-    if (typeof key !== 'string' || !keys.includes(key) || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) invalid('Stall observations reject unknown fields, accessors and symbols');
-  }
+  plainRecord(value, [], keys, fault => invalid(fault === 'shape' ? 'Stall observations require plain data' : 'Stall observations reject unknown fields, accessors and symbols'));
 }
-function id(value: unknown): boolean { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
-function digest(value: unknown): boolean { return value === null || typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value); }
+function digest(value: unknown): boolean { return value === null || isSha256(value); }
 function validSample(value: StallSample): void {
   plain(value, ['runId', 'toolCallId', 'seq', 'inputSha256', 'resultSha256', 'sourceSha256', 'effectEpoch', 'effectClass', 'outcome', 'resultComplete', 'legitimateRepeat']);
-  if (!id(value.runId) || !id(value.toolCallId) || !Number.isSafeInteger(value.seq) || value.seq < 1 || ![value.inputSha256, value.resultSha256, value.sourceSha256].every(digest) || value.effectEpoch !== null && (!Number.isSafeInteger(value.effectEpoch) || value.effectEpoch < 0) || !['read', 'state', 'write', 'execute', 'network', 'unknown'].includes(value.effectClass) || !['completed', 'failed', 'interrupted', 'unknown'].includes(value.outcome) || typeof value.resultComplete !== 'boolean' || value.legitimateRepeat !== undefined && typeof value.legitimateRepeat !== 'boolean') invalid('Stall sample is invalid');
+  if (!isBoundedId(value.runId) || !isBoundedId(value.toolCallId) || !Number.isSafeInteger(value.seq) || value.seq < 1 || ![value.inputSha256, value.resultSha256, value.sourceSha256].every(digest) || value.effectEpoch !== null && (!Number.isSafeInteger(value.effectEpoch) || value.effectEpoch < 0) || !['read', 'state', 'write', 'execute', 'network', 'unknown'].includes(value.effectClass) || !['completed', 'failed', 'interrupted', 'unknown'].includes(value.outcome) || typeof value.resultComplete !== 'boolean' || value.legitimateRepeat !== undefined && typeof value.legitimateRepeat !== 'boolean') invalid('Stall sample is invalid');
 }
 
 /** A repeated read can be valid. This observation never denies tools, replays effects or cancels a Run. */

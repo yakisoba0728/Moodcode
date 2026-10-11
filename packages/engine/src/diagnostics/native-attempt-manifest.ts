@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type Run } from "@moodcode/contracts";
+import { jsonTextSha256 } from "../shared/canonical.js";
+import { deepFreeze, isBoundedId, plainRecord } from "../shared/data.js";
 import {
   createCodingEvidenceManifest,
   type CodingEvidenceManifest,
@@ -108,34 +109,18 @@ export interface NativeCodingEvidenceManifest {
 function fail(message: string): never {
   throw new EngineError("INVALID_NATIVE_CODING_EVIDENCE", message);
 }
-function hash(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
 function plain(
   value: unknown,
   allowed: readonly string[],
   required: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail("Native evidence options require ordinary data");
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        !allowed.includes(key) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    fail("Native evidence rejects unknown fields, symbols and accessors");
+  plainRecord(value, required, allowed, (fault) =>
+    fail(
+      fault === "shape"
+        ? "Native evidence options require ordinary data"
+        : "Native evidence rejects unknown fields, symbols and accessors",
+    ),
+  );
 }
 function integer(
   value: unknown,
@@ -150,12 +135,7 @@ function integer(
     fail("Native evidence page bound is invalid");
 }
 function identifier(value: unknown): asserts value is string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
+  if (!isBoundedId(value))
     fail("Native evidence requires a bounded owner identity");
 }
 /** Validates before readNativeCodingEvidence destructures options. */
@@ -234,13 +214,6 @@ function summary(
     externalGeneration: "not-implemented",
     taskSuccess: "not-established",
   };
-}
-function freeze<T>(value: T): T {
-  if (value && typeof value === "object") {
-    for (const child of Object.values(value)) freeze(child);
-    Object.freeze(value);
-  }
-  return value;
 }
 function checkedPage(
   page: DiagnosticExecutionPage,
@@ -393,7 +366,7 @@ export function readNativeCodingEvidence(
       coding,
       execution: {
         items,
-        sourcePageSha256: hash(page),
+        sourcePageSha256: jsonTextSha256(page),
         afterOrdinal: selected.afterOrdinal ?? 0,
         throughOrdinal: page.throughOrdinal,
         next: page.next,
@@ -432,13 +405,13 @@ export function readNativeCodingEvidence(
     };
     const seal = () => {
       const { manifestSha256: _codingHash, ...codingBody } = coding;
-      coding.manifestSha256 = hash(codingBody);
+      coding.manifestSha256 = jsonTextSha256(codingBody);
       output.execution.returnedRecords = items.length;
       output.execution.omittedSelectedRecords =
         page.items.length - items.length;
       output.summary = includeSummary ? summary(coding, items) : null;
       const { manifestSha256: _hash, ...body } = output;
-      output.manifestSha256 = hash(body);
+      output.manifestSha256 = jsonTextSha256(body);
     };
     for (;;) {
       seal();
@@ -464,7 +437,7 @@ export function readNativeCodingEvidence(
           "Whole native evidence identity and metadata exceed 64KiB",
         );
     }
-    result = freeze(output);
+    result = deepFreeze(output);
     return result;
   });
   if (!called || returned !== result || types.isPromise(returned))

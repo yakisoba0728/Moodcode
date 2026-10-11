@@ -1,5 +1,6 @@
 import { EngineError } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
+import { raceAbort, settleWithin } from '../shared/runtime.js';
 import type { SqliteStore } from '../storage/index.js';
 
 export interface SummaryUsageSnapshot {
@@ -9,7 +10,8 @@ export type SummaryLifecycleStore = Pick<SqliteStore, 'dispatchSummaryAttempt' |
 export function summaryFailureCode(error: unknown): string {
   return error instanceof EngineError ? error.code : error instanceof Error && error.name === 'AbortError' ? 'CANCELLED' : 'SUMMARY_FAILED';
 }
-function cancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Summary was cancelled'); }
+const cancellation = () => new EngineError('CANCELLED', 'Summary was cancelled');
+function cancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? cancellation(); }
 
 /** A failed derived result never activates; unresolved cleanup or durable settlement is fatal. */
 export function settleSummaryFailure(store: SummaryLifecycleStore, id: string, error: unknown, cleanupConfirmed: boolean, interrupted = false): void {
@@ -40,11 +42,7 @@ export async function streamSummary(options: {
     store.dispatchSummaryAttempt(id); cancelled(combined); providerInvoked = true;
     iterator = provider.streamTurn(turnRequest, combined)[Symbol.asyncIterator](); progress();
     for (;;) {
-      const next = await new Promise<IteratorResult<ProviderEvent>>((resolve, reject) => {
-        const abort = () => reject(combined.reason); combined.addEventListener('abort', abort, { once: true });
-        Promise.resolve().then(() => iterator!.next()).then(resolve, reject).finally(() => combined.removeEventListener('abort', abort));
-        if (combined.aborted) abort();
-      });
+      const next = await raceAbort(Promise.resolve().then(() => iterator!.next()), combined, cancellation, { propagateReason: true });
       cancelled(combined);
       if (next.done === true) { streamDone = true; cleanupConfirmed = true; break; }
       progress();
@@ -89,10 +87,8 @@ export async function streamSummary(options: {
       let close: AsyncIterator<ProviderEvent>['return'];
       try { close = iterator?.return; } catch { cleanupConfirmed = false; }
       if (typeof close === 'function') {
-        let cleanup: ReturnType<typeof setTimeout> | undefined;
-        cleanupConfirmed = await Promise.race([Promise.resolve().then(() => close!.call(iterator)).then(result => result?.done === true).catch(() => false),
-          new Promise<boolean>(resolve => { cleanup = setTimeout(() => resolve(false), 1000); })]);
-        clearTimeout(cleanup);
+        const closed = Promise.resolve().then(() => close!.call(iterator)).then(result => result?.done === true).catch(() => false);
+        cleanupConfirmed = await settleWithin(closed, 1000) && await closed;
       } else cleanupConfirmed = !providerInvoked;
       if (!cleanupConfirmed) failure = new EngineError('CLEANUP_UNCERTAIN', 'Summary provider cleanup could not be confirmed', { summaryAttemptId: id });
     }

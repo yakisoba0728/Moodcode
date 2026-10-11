@@ -3,6 +3,7 @@ import { constants, type Stats } from 'node:fs';
 import { lstat, mkdir, open, opendir, realpath, rename, rmdir, unlink, type FileHandle } from 'node:fs/promises';
 import { join, parse, resolve, sep } from 'node:path';
 import { EngineError, type ArtifactIdentity, type ArtifactReference, type JsonObject } from '@moodcode/contracts';
+import { raceAbort } from '../shared/runtime.js';
 import { artifactLimits, DEFAULT_ARTIFACT_RETENTION_MS, type ArtifactLimits } from './limits.js';
 import { ARTIFACT_ID, artifactId, boundedJson, fail, identity, JsonBudgetError, number, positive, reference, sameIdentity, textPrefix } from './validation.js';
 
@@ -351,12 +352,5 @@ export class ArtifactStore {
 async function nextChunk(iterator: AsyncIterator<string | Uint8Array>, signal?: AbortSignal): Promise<IteratorResult<string | Uint8Array>> {
   abort(signal);
   if (!signal) return iterator.next();
-  let listener: (() => void) | undefined;
-  const interrupted = new Promise<never>((_resolve, reject) => {
-    listener = () => reject(new EngineError('ARTIFACT_CANCELLED', 'Artifact producer was interrupted'));
-    signal.addEventListener('abort', listener, { once: true });
-    if (signal.aborted) listener();
-  });
-  try { return await Promise.race([iterator.next(), interrupted]); }
-  finally { if (listener) signal.removeEventListener('abort', listener); }
+  return raceAbort(Promise.resolve(iterator.next()), signal, () => new EngineError('ARTIFACT_CANCELLED', 'Artifact producer was interrupted'));
 }

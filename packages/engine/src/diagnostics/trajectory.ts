@@ -1,6 +1,8 @@
-import { createHash } from 'node:crypto';
 import { types } from 'node:util';
 import { EngineError, type Session, type SessionEventV2 } from '@moodcode/contracts';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
+import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
+import { ownData } from './validation.js';
 
 export const TRAJECTORY_LIMITS = Object.freeze({ defaultEvents: 50, maxEvents: 100, defaultBytes: 65_536, minBytes: 2_048, maxBytes: 262_144 });
 export interface TrajectoryReader {
@@ -64,20 +66,12 @@ export interface JournalProjection {
 }
 
 function invalid(message: string): never { throw new EngineError('INVALID_TRAJECTORY_OPTIONS', message); }
-function data(value: unknown, key: string): unknown {
-  if (value === null || typeof value !== 'object' || types.isProxy(value)) return undefined;
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  return descriptor && Object.hasOwn(descriptor, 'value') ? descriptor.value : undefined;
-}
-function id(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value) ? value : null;
-}
+function id(value: unknown): string | null { return isBoundedId(value) ? value : null; }
 function number(value: unknown): number | null { return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : null; }
-function digest(value: unknown): string | null { return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value) ? value : null; }
+function digest(value: unknown): string | null { return isSha256(value) ? value : null; }
 function state(value: unknown): string | null {
   return typeof value === 'string' && ['created', 'pending', 'promoted', 'cancelled', 'prepared', 'dispatched', 'streaming', 'awaiting_tools', 'open', 'completed', 'failed', 'interrupted', 'uncertain', 'confirmed', 'not-dispatched', 'running', 'allowed', 'denied'].includes(value) ? value : null;
 }
-function hash(value: string): string { return createHash('sha256').update(value).digest('hex'); }
 function jsonDigest(value: unknown): string | null {
   let nodes = 8_192, bytes = 0;
   const parents = new Set<object>();
@@ -97,14 +91,14 @@ function jsonDigest(value: unknown): string | null {
   };
   if (!valid(value, 0)) return null;
   const encoded = JSON.stringify(value);
-  return Buffer.byteLength(encoded) <= 1_048_576 ? hash(encoded) : null;
+  return Buffer.byteLength(encoded) <= 1_048_576 ? sha256Hex(encoded) : null;
 }
 
 /** Typed errors are diagnostic observations. Retry and recovery eligibility stay in their original owners. */
 export function classifyDiagnosticError(value: unknown): DiagnosticError {
-  const raw = typeof value === 'string' ? value : data(value, 'code');
+  const raw = typeof value === 'string' ? value : ownData(value, 'code');
   const code = typeof raw === 'string' && /^[A-Z][A-Z0-9_]{0,95}$/u.test(raw) ? raw : null;
-  const httpStatus = number(data(data(value, 'details'), 'status'));
+  const httpStatus = number(ownData(ownData(value, 'details'), 'status'));
   let category: DiagnosticErrorClass = 'unknown';
   if (code === 'CLEANUP_UNCERTAIN') category = 'cleanup-uncertain';
   else if (['RUN_CANCELLED', 'ENGINE_CLOSED', 'RUN_TIME_LIMIT'].includes(code ?? '')) category = 'cancelled';
@@ -119,59 +113,56 @@ export function classifyDiagnosticError(value: unknown): DiagnosticError {
 }
 
 function projectUsage(observation: unknown): TrajectoryUsage {
-  const source = data(observation, 'usage');
+  const source = ownData(observation, 'usage');
   const usage = source === undefined ? observation : source;
   const invalidFields: string[] = [];
   const token = (key: 'inputTokens' | 'outputTokens' | 'cachedInputTokens' | 'reasoningOutputTokens'): number | null => {
-    const raw = data(usage, key), parsed = number(raw);
+    const raw = ownData(usage, key), parsed = number(raw);
     if (raw !== undefined && raw !== null && parsed === null) invalidFields.push(key);
     return parsed;
   };
-  const result: TrajectoryUsage = { source: 'journal-usage-observation', revision: number(data(observation, 'revision')), inputTokens: token('inputTokens'), outputTokens: token('outputTokens'), cachedInputTokens: token('cachedInputTokens'), reasoningOutputTokens: token('reasoningOutputTokens'), invalidFields, inclusiveTotals: true, billedTokens: null };
+  const result: TrajectoryUsage = { source: 'journal-usage-observation', revision: number(ownData(observation, 'revision')), inputTokens: token('inputTokens'), outputTokens: token('outputTokens'), cachedInputTokens: token('cachedInputTokens'), reasoningOutputTokens: token('reasoningOutputTokens'), invalidFields, inclusiveTotals: true, billedTokens: null };
   if (result.cachedInputTokens !== null && result.inputTokens !== null && result.cachedInputTokens > result.inputTokens) { result.cachedInputTokens = null; invalidFields.push('cachedInputTokens'); }
   if (result.reasoningOutputTokens !== null && result.outputTokens !== null && result.reasoningOutputTokens > result.outputTokens) { result.reasoningOutputTokens = null; invalidFields.push('reasoningOutputTokens'); }
   return result;
 }
 
 function projectEvent(event: SessionEventV2): TrajectoryEvent {
-  const payload = data(event, 'payload');
-  const type = String(data(event, 'type'));
+  const payload = ownData(event, 'payload');
+  const type = String(ownData(event, 'type'));
   const result: TrajectoryEvent = {
-    eventId: id(data(event, 'eventId'))!, seq: number(data(event, 'seq'))!, timestamp: String(data(event, 'timestamp')), type,
-    runId: id(data(event, 'runId')), turnId: id(data(event, 'turnId')), attemptId: id(data(event, 'attemptId')), inputId: id(data(event, 'inputId')),
+    eventId: id(ownData(event, 'eventId'))!, seq: number(ownData(event, 'seq'))!, timestamp: String(ownData(event, 'timestamp')), type,
+    runId: id(ownData(event, 'runId')), turnId: id(ownData(event, 'turnId')), attemptId: id(ownData(event, 'attemptId')), inputId: id(ownData(event, 'inputId')),
     record: null, output: null, tool: null, request: null, usage: null, error: null,
   };
   for (const kind of ['turn', 'attempt', 'part', 'context', 'input', 'observation', 'cleanup'] as const) {
-    const record = data(payload, kind);
+    const record = ownData(payload, kind);
     if (!record || typeof record !== 'object' || types.isProxy(record)) continue;
-    result.record = { kind, id: id(data(record, 'id')) ?? id(data(record, 'attemptId')), state: state(data(record, 'state')), revision: number(data(record, 'revision')), contextRevisionId: id(data(record, 'contextRevisionId')), sourceSha256: digest(data(record, 'sha256')) };
-    if (kind === 'part' && (data(record, 'type') === 'text' || data(record, 'type') === 'reasoning')) {
-      const text = data(record, 'text');
-      if (typeof text === 'string') result.output = { kind: data(record, 'type') as 'text' | 'reasoning', bytes: Buffer.byteLength(text), sha256: hash(text), partial: state(data(record, 'state')) !== 'completed' };
+    result.record = { kind, id: id(ownData(record, 'id')) ?? id(ownData(record, 'attemptId')), state: state(ownData(record, 'state')), revision: number(ownData(record, 'revision')), contextRevisionId: id(ownData(record, 'contextRevisionId')), sourceSha256: digest(ownData(record, 'sha256')) };
+    if (kind === 'part' && (ownData(record, 'type') === 'text' || ownData(record, 'type') === 'reasoning')) {
+      const text = ownData(record, 'text');
+      if (typeof text === 'string') result.output = { kind: ownData(record, 'type') as 'text' | 'reasoning', bytes: Buffer.byteLength(text), sha256: sha256Hex(text), partial: state(ownData(record, 'state')) !== 'completed' };
     }
-    if (kind === 'part' && data(record, 'type') === 'tool') result.tool = { toolCallId: id(data(record, 'toolCallId')), name: id(data(record, 'name')), inputSha256: jsonDigest(data(record, 'input')), resultSha256: jsonDigest(data(record, 'result')), state: state(data(record, 'state')), resultObserved: data(record, 'result') !== undefined };
-    if (data(record, 'requestProjection') === 'engine-turn-request-v1' && digest(data(record, 'requestSha256'))) {
-      const confirmed = data(record, 'cleanupConfirmed');
-      result.request = { projection: 'engine-turn-request-v1', sha256: digest(data(record, 'requestSha256'))!, bytes: number(data(record, 'requestBytes')), cleanupState: state(data(record, 'state')), cleanupConfirmed: typeof confirmed === 'boolean' ? confirmed : null };
+    if (kind === 'part' && ownData(record, 'type') === 'tool') result.tool = { toolCallId: id(ownData(record, 'toolCallId')), name: id(ownData(record, 'name')), inputSha256: jsonDigest(ownData(record, 'input')), resultSha256: jsonDigest(ownData(record, 'result')), state: state(ownData(record, 'state')), resultObserved: ownData(record, 'result') !== undefined };
+    if (ownData(record, 'requestProjection') === 'engine-turn-request-v1' && digest(ownData(record, 'requestSha256'))) {
+      const confirmed = ownData(record, 'cleanupConfirmed');
+      result.request = { projection: 'engine-turn-request-v1', sha256: digest(ownData(record, 'requestSha256'))!, bytes: number(ownData(record, 'requestBytes')), cleanupState: state(ownData(record, 'state')), cleanupConfirmed: typeof confirmed === 'boolean' ? confirmed : null };
     }
-    const errorCode = data(record, 'errorCode');
+    const errorCode = ownData(record, 'errorCode');
     if (errorCode !== undefined) result.error = classifyDiagnosticError(errorCode);
     if (kind === 'observation' && type === 'provider.attempt.usage') result.usage = projectUsage(record);
     break;
   }
-  const directError = data(payload, 'error');
+  const directError = ownData(payload, 'error');
   if (directError !== undefined) result.error = classifyDiagnosticError(directError);
-  else if (data(payload, 'errorCode') !== undefined) result.error = classifyDiagnosticError(data(payload, 'errorCode'));
+  else if (ownData(payload, 'errorCode') !== undefined) result.error = classifyDiagnosticError(ownData(payload, 'errorCode'));
   return result;
 }
 
 /** Host wrappers call this before reading any selection property. */
 export function validateTrajectoryOptions(options: TrajectoryOptions): void {
-  if (!options || typeof options !== 'object' || types.isProxy(options) || Array.isArray(options) || ![Object.prototype, null].includes(Object.getPrototypeOf(options))) return invalid('Trajectory options must be plain data');
-  for (const key of Reflect.ownKeys(options)) {
-    if (typeof key !== 'string' || !['sessionId', 'afterSeq', 'throughSeq', 'limit', 'maxBytes', 'runId'].includes(key) || !Object.hasOwn(Object.getOwnPropertyDescriptor(options, key)!, 'value')) return invalid('Trajectory options reject unknown fields and accessors');
-  }
-  if (!id(data(options, 'sessionId')) || options.runId !== undefined && !id(options.runId)) return invalid('Session and Run identities must be bounded strings');
+  plainRecord(options, [], ['sessionId', 'afterSeq', 'throughSeq', 'limit', 'maxBytes', 'runId'], fault => invalid(fault === 'shape' ? 'Trajectory options must be plain data' : 'Trajectory options reject unknown fields and accessors'));
+  if (!id(ownData(options, 'sessionId')) || options.runId !== undefined && !id(options.runId)) return invalid('Session and Run identities must be bounded strings');
   const afterSeq = options.afterSeq ?? 0, throughSeq = options.throughSeq, limit = options.limit ?? TRAJECTORY_LIMITS.defaultEvents, maxBytes = options.maxBytes ?? TRAJECTORY_LIMITS.defaultBytes;
   if (number(afterSeq) === null || throughSeq !== undefined && (number(throughSeq) === null || throughSeq < afterSeq)) return invalid('Journal boundaries must be ordered nonnegative safe integers');
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > TRAJECTORY_LIMITS.maxEvents || !Number.isSafeInteger(maxBytes) || maxBytes < TRAJECTORY_LIMITS.minBytes || maxBytes > TRAJECTORY_LIMITS.maxBytes) return invalid('Event count or export byte budget is invalid');
@@ -190,7 +181,7 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
   if (!Array.isArray(raw) || raw.length > readLimit) throw new EngineError('TRAJECTORY_SOURCE_INVALID', 'Journal reader exceeded its bounded contract');
   let previous = afterSeq;
   for (const event of raw) {
-    if (data(event, 'sessionId') !== session.id || data(event, 'schemaVersion') !== 2 || data(event, 'stream') !== 'session-v2' || number(data(event, 'seq')) === null || Number(data(event, 'seq')) <= previous || !id(data(event, 'eventId')) || typeof data(event, 'type') !== 'string' || !/^[a-z][a-z0-9_.-]{0,127}$/u.test(String(data(event, 'type'))) || typeof data(event, 'timestamp') !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(String(data(event, 'timestamp'))) || !Number.isFinite(Date.parse(String(data(event, 'timestamp'))))) throw new EngineError('TRAJECTORY_SOURCE_INVALID', 'Journal page has invalid ownership, identity or ordering');
+    if (ownData(event, 'sessionId') !== session.id || ownData(event, 'schemaVersion') !== 2 || ownData(event, 'stream') !== 'session-v2' || number(ownData(event, 'seq')) === null || Number(ownData(event, 'seq')) <= previous || !id(ownData(event, 'eventId')) || typeof ownData(event, 'type') !== 'string' || !/^[a-z][a-z0-9_.-]{0,127}$/u.test(String(ownData(event, 'type'))) || typeof ownData(event, 'timestamp') !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u.test(String(ownData(event, 'timestamp'))) || !Number.isFinite(Date.parse(String(ownData(event, 'timestamp'))))) throw new EngineError('TRAJECTORY_SOURCE_INVALID', 'Journal page has invalid ownership, identity or ordering');
     previous = event.seq;
   }
   const observedEnd = raw.at(-1)?.seq ?? afterSeq;
@@ -206,7 +197,7 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
   for (const event of raw) {
     if (event.seq > boundary) { report.coverage.stopReason = 'requested-boundary'; report.coverage.completeRequestedRange = true; break; }
     if (report.coverage.inspectedEvents >= limit) { report.coverage.truncated = true; report.coverage.stopReason = 'event-limit'; break; }
-    const selected = options.runId === undefined || data(event, 'runId') === options.runId;
+    const selected = options.runId === undefined || ownData(event, 'runId') === options.runId;
     if (selected) report.events.push(projectEvent(event));
     const lastInspected = report.range.inspectedThroughSeq;
     report.range.inspectedThroughSeq = event.seq; report.coverage.inspectedEvents++;
@@ -220,7 +211,7 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
       report.coverage.truncated = true; report.coverage.stopReason = 'byte-limit'; break;
     }
   }
-  const notExported = raw.filter(event => event.seq <= boundary && event.seq > report.range.inspectedThroughSeq && (options.runId === undefined || data(event, 'runId') === options.runId)).length;
+  const notExported = raw.filter(event => event.seq <= boundary && event.seq > report.range.inspectedThroughSeq && (options.runId === undefined || ownData(event, 'runId') === options.runId)).length;
   report.coverage.omittedSelectedEvents = notExported;
   if (throughSeq !== undefined && report.range.inspectedThroughSeq >= throughSeq) { report.coverage.completeRequestedRange = true; if (!report.coverage.truncated) report.coverage.stopReason = 'requested-boundary'; }
   else if (throughSeq !== undefined && report.coverage.truncated) report.coverage.completeRequestedRange = false;
@@ -229,6 +220,6 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
   report.nextCursor = report.coverage.completeRequestedRange === true ? null : { sessionId: session.id, afterSeq: report.range.inspectedThroughSeq, throughSeq: throughSeq ?? null };
   if (Buffer.byteLength(JSON.stringify(report)) > maxBytes) throw new EngineError('TRAJECTORY_EXPORT_LIMIT', 'Trajectory metadata exceeds the byte budget');
   const { projectionSha256: _omitted, ...projection } = report;
-  report.projectionSha256 = hash(JSON.stringify(projection));
+  report.projectionSha256 = jsonTextSha256(projection);
   return report;
 }

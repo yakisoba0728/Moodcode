@@ -1,10 +1,11 @@
-import { createHash } from 'node:crypto';
 import { isAbsolute } from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
 import { positionOffset, type TextRange } from '../formatters/edits.js';
 import { entriesBytes, entryBytes } from './memory.js';
 import { repositoryQuery, REPOSITORY_CONTEXT_LIMITS, type RepositoryIndexPort, type RepositoryQuery, type RepositorySnapshot, type RepositorySourceManifest } from '../repository/index.js';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
+import { raceAbort, settleWithin } from '../shared/runtime.js';
 import { exactPath, readExactText } from '../tools/file-actions/text.js';
 import { excludedWorkspacePaths } from '../workspace/ignore.js';
 
@@ -110,8 +111,6 @@ interface State {
   workspace: Workspace; query: RepositoryQuery; fingerprint: string;
   snapshot: RepositorySnapshot; observedSources: { path: string; hash: string }[]; signal: AbortSignal;
 }
-const sha = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const textSha = (text: string) => createHash('sha256').update(text).digest('hex');
 const HASH = /^[a-f0-9]{64}$/;
 const fail = (code: string, message: string): never => { throw new EngineError(code, message); };
 function check(signal: AbortSignal): void {
@@ -182,7 +181,7 @@ function snapshot(value: RepositorySnapshot, workspace: Workspace, query: Reposi
   if (!result || typeof result !== 'object' || Array.isArray(result)) return invalid();
   if (result.schemaVersion !== 1 || result.authority !== 'read-only' || result.evidence !== 'observed-file-snapshot'
     || result.selectionReason !== 'explicit-query-paths-and-lsp-relations' || !HASH.test(result.generation)
-    || result.generation !== sha({ ...result, generation: '' }) || JSON.stringify(result.query) !== JSON.stringify(query)
+    || result.generation !== jsonTextSha256({ ...result, generation: '' }) || JSON.stringify(result.query) !== JSON.stringify(query)
     || !result.manifest || result.manifest.workspaceId !== workspace.id || result.manifest.root !== workspace.root
     || !HASH.test(result.manifest.effectiveIgnoreDigest) || !Array.isArray(result.manifest.files)
     || result.manifest.files.length !== query.paths.length || !Array.isArray(result.manifest.bindings)
@@ -254,24 +253,15 @@ export class RepositoryContextSource implements ContextSourcePort {
     this.active++;
     const controller = new AbortController();
     const active = AbortSignal.any([signal, controller.signal]);
-    let abort!: () => void;
-    let timedOut = false;
-    let timer: ReturnType<typeof setTimeout>;
-    const interruption = new Promise<never>((_, reject) => {
-      abort = () => reject(new EngineError('REPOSITORY_CONTEXT_CANCELLED', 'Repository context preparation was cancelled'));
-      signal.addEventListener('abort', abort, { once: true });
-      if (signal.aborted) abort();
-      timer = setTimeout(() => { timedOut = true; controller.abort(); reject(new EngineError('REPOSITORY_CONTEXT_TIMEOUT', 'Repository context exceeded its complete deadline')); }, this.timeoutMs);
-    });
     // A peer that ignores cancellation still holds its capacity lease until it settles.
     const pending = Promise.resolve().then(() => { check(active); return operation(active); }).finally(() => { this.active--; });
-    try { const result = await Promise.race([pending, interruption]); check(active); return result; }
-    catch (error) {
-      if (signal.aborted) return fail('REPOSITORY_CONTEXT_CANCELLED', 'Repository context preparation was cancelled');
-      if (timedOut) return fail('REPOSITORY_CONTEXT_TIMEOUT', 'Repository context exceeded its complete deadline');
-      throw error;
-    }
-    finally { clearTimeout(timer!); signal.removeEventListener('abort', abort); }
+    const interruptible = raceAbort(pending, signal, () => new EngineError('REPOSITORY_CONTEXT_CANCELLED', 'Repository context preparation was cancelled'));
+    try {
+      if (await settleWithin(interruptible, this.timeoutMs)) { const result = await interruptible; check(active); return result; }
+    } catch (error) { check(signal); throw error; }
+    controller.abort();
+    check(signal);
+    return fail('REPOSITORY_CONTEXT_TIMEOUT', 'Repository context exceeded its complete deadline');
   }
   private async verifySources(workspace: Workspace, sources: readonly { path: string; hash: string }[], signal: AbortSignal): Promise<void> {
     check(signal);
@@ -290,7 +280,7 @@ export class RepositoryContextSource implements ContextSourcePort {
       // The query binds its manifest with its own leading and trailing previews; a separate preview
       // immediately before it would repeat the same observation.
       const observed = snapshot(await this.repository.query(frozen.workspace, frozen.query, signal), frozen.workspace, frozen.query); check(signal);
-      const fingerprint = sha({ manifest: observed.manifest, query: observed.query });
+      const fingerprint = jsonTextSha256({ manifest: observed.manifest, query: observed.query });
       const omissions: RepositoryContributionOmissions = { unsupportedPaths: [...observed.unsupportedPaths], repositoryObservations: observed.omittedObservations,
         lsp: { outsideWorkspace: 0, unavailable: 0, ignored: 0, limits: 0 }, duplicateRanges: 0, emptyRanges: 0,
         snippetBytes: 0, selectionLimits: 0, contextBudget: 0, message: false };
@@ -307,7 +297,7 @@ export class RepositoryContextSource implements ContextSourcePort {
       const seen = new Set<string>();
       let sourceBytes = 0;
       for (const candidate of candidates) {
-        const key = sha({ path: candidate.path, range: candidate.range });
+        const key = jsonTextSha256({ path: candidate.path, range: candidate.range });
         if (seen.has(key)) { omissions.duplicateRanges++; continue; }
         seen.add(key);
         if (snippets.length >= REPOSITORY_CONTRIBUTION_LIMITS.snippets || !files.has(candidate.path) && files.size >= REPOSITORY_CONTRIBUTION_LIMITS.files) { omissions.selectionLimits++; continue; }
@@ -326,7 +316,7 @@ export class RepositoryContextSource implements ContextSourcePort {
         const text = file.content.slice(start, end);
         if (!text.length) { omissions.emptyRanges++; continue; }
         if (Buffer.byteLength(text) > REPOSITORY_CONTRIBUTION_LIMITS.snippetBytes) { omissions.snippetBytes++; continue; }
-        snippets.push({ ...candidate, text, snippetHash: textSha(text), trust: 'untrusted-repository-data' });
+        snippets.push({ ...candidate, text, snippetHash: sha256Hex(text), trust: 'untrusted-repository-data' });
       }
       const observedSources = [...files].map(([path, file]) => ({ path, hash: file.hash }));
       await this.verifySources(frozen.workspace, observedSources, signal);
@@ -346,7 +336,7 @@ export class RepositoryContextSource implements ContextSourcePort {
         query: observed.query, generation: observed.generation, sourceManifest: observed.manifest, observedSources, snippets, omissions, complete: complete(), messages,
         reservations: { envelopeBytes, outputTokens: frozen.budget.outputTokens, slotBytes: frozen.budget.slotBytes, availableBytes: frozen.availableBytes },
         inputEstimate: { tokens: null, utf8ByteUpperBound: envelopeBytes, estimated: true, source: 'utf8-byte-upper-bound', contextWindow: frozen.budget.contextWindow } };
-      data.id = sha(data);
+      data.id = jsonTextSha256(data);
       check(signal);
       return { value: freeze(data), state: { workspace: frozen.workspace, query: frozen.query, fingerprint,
         snapshot: observed, observedSources, signal: originalSignal } satisfies State };

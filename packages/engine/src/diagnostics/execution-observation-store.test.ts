@@ -422,6 +422,34 @@ test("dispatch SQL rollback preserves epoch and releases no execution capability
     1,
   );
 });
+test("dispatch refuses a host transaction port that skips or detaches the primary transaction", (t) => {
+  const f = fixture(t),
+    tool = f.tool("write"),
+    refused = (message: string) => (e: unknown) =>
+      code("EXECUTION_OBSERVATION_TRANSACTION_REQUIRED")(e) &&
+      (e as Error).message === message;
+  const outside = new DiagnosticExecutionObservationStorage(f.db, {
+    ...f.ports,
+    writeTx: (op) => op(),
+  });
+  assert.throws(
+    () => outside.dispatch(tool.owner, tool.handle),
+    refused("Observation must use exactly one primary transaction"),
+  );
+  const detached = new DiagnosticExecutionObservationStorage(f.db, {
+    ...f.ports,
+    writeTx: <T>() => undefined as T,
+  });
+  assert.throws(
+    () => detached.dispatch(tool.owner, tool.handle),
+    refused("Observation transaction cannot detach"),
+  );
+  assert.equal(f.native.getEpoch("workspace"), undefined);
+  assert.equal(
+    f.native.getObservation("workspace", tool.owner.toolCallId),
+    undefined,
+  );
+});
 test("settlement rollback retains original dispatched observation until actual terminal evidence can settle", (t) => {
   const f = fixture(t),
     tool = f.tool(),

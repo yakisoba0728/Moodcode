@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import {
   EngineError,
   type JsonObject,
@@ -12,6 +11,7 @@ import type {
   LspNavigationSnapshot,
   LspProjectSourceSnapshot,
 } from "../lsp/index.js";
+import { jsonTextSha256 } from "../shared/canonical.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import { excludedWorkspacePaths } from "../workspace/ignore.js";
 import { runGit, readBranch } from "../workspace/git.js";
@@ -71,8 +71,6 @@ export interface RepositoryIndexPort {
     expectedPreview?: string,
   ): Promise<RepositorySnapshot>;
 }
-const hash = (value: unknown) =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
 export function repositoryQuery(value: unknown): RepositoryQuery {
   let input: JsonObject;
   try {
@@ -193,7 +191,7 @@ export class RepositoryContextService implements RepositoryIndexPort {
       workspaceId: workspace.id,
       root: workspace.root,
       ...(await gitIdentity(workspace, signal)),
-      effectiveIgnoreDigest: hash(
+      effectiveIgnoreDigest: jsonTextSha256(
         query.paths.map((path) => ({ path, ignored: excluded.has(path) })),
       ),
       files: [],
@@ -230,7 +228,11 @@ export class RepositoryContextService implements RepositoryIndexPort {
       if (source)
         (manifest.projectSources ??= []).push({ serverId, ...source });
     }
-    return { fingerprint: hash({ manifest, query }), manifest, query };
+    return {
+      fingerprint: jsonTextSha256({ manifest, query }),
+      manifest,
+      query,
+    };
   }
   async query(
     workspace: Workspace,
@@ -261,7 +263,7 @@ export class RepositoryContextService implements RepositoryIndexPort {
           "REPOSITORY_SOURCE_STALE",
           "Prepared repository sources or host bindings changed",
         );
-      const key = hash({
+      const key = jsonTextSha256({
         workspaceId: workspace.id,
         root: workspace.root,
         query: before.query,
@@ -371,7 +373,7 @@ export class RepositoryContextService implements RepositoryIndexPort {
             "REPOSITORY_SOURCE_STALE",
             "A selected target or its effective ignore result changed",
           );
-      result.generation = hash(result);
+      result.generation = jsonTextSha256(result);
       if (
         Buffer.byteLength(JSON.stringify(result)) >
         REPOSITORY_CONTEXT_LIMITS.resultBytes

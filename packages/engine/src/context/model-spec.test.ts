@@ -44,6 +44,27 @@ test('file capability metadata rejects unsupported/sparse/accessor/proxy arrays 
   assert.equal(calls, 0);
 });
 
+test('media capability metadata rejects malformed values as INVALID_MODEL_SPEC before evaluating getters or traps', () => {
+  const registry = new ModelRegistry(), baseline = unknownModelSpec('fixture', 'model');
+  const caps = { audioInput: true, videoFrames: false, audioOutput: false };
+  let calls = 0;
+  const getterField = Object.defineProperty({ audioInput: true, videoFrames: false }, 'audioOutput', { enumerable: true, get() { calls++; return false; } });
+  const hiddenField = Object.defineProperty({ audioInput: true, videoFrames: false }, 'audioOutput', { value: false, enumerable: false });
+  const proxy = new Proxy({ ...caps }, { ownKeys(target) { calls++; return Reflect.ownKeys(target); }, getPrototypeOf() { calls++; return Object.prototype; } });
+  const getter = Object.defineProperty({ ...baseline }, 'mediaCapabilities', { enumerable: true, get() { calls++; return caps; } });
+  const invalid = (error: unknown) => !!error && typeof error === 'object' && 'code' in error && error.code === 'INVALID_MODEL_SPEC';
+  for (const value of [{ ...caps, extra: true }, { audioInput: true, videoFrames: false }, { ...caps, audioOutput: 'yes' }, [true, false, false], true,
+    Object.assign(Object.create({}), caps), getterField, hiddenField, proxy, { ...caps, [Symbol('extra')]: true }]) {
+    assert.throws(() => registry.put({ ...baseline, mediaCapabilities: value } as unknown as ModelSpec), invalid);
+  }
+  assert.throws(() => registry.put(getter), invalid);
+  assert.equal(calls, 0);
+  assert.deepEqual(registry.put({ ...baseline, mediaCapabilities: caps }).mediaCapabilities, caps);
+  caps.audioInput = false;
+  assert.equal(registry.get('fixture', 'model').mediaCapabilities?.audioInput, true);
+  assert.equal(registry.put({ ...baseline, mediaCapabilities: null }).mediaCapabilities, null);
+});
+
 test('metadata is scoped to provider/model and isolated from caller mutation', () => {
   const registry = new ModelRegistry();
   const spec = { ...unknownModelSpec('fixture', 'model'), contextWindow: 1000, tools: true };

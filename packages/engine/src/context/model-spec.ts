@@ -1,6 +1,6 @@
 import { EngineError } from '@moodcode/contracts';
-import { jobJson } from '../jobs/validation.js';
 import { types } from 'node:util';
+import { plainRecord } from '../shared/data.js';
 
 export interface ModelSpec {
   providerId: string;
@@ -50,16 +50,26 @@ function fileTypes(spec: ModelSpec): readonly 'application/pdf'[] | null {
   return ['application/pdf'];
 }
 
+const MEDIA_CAPABILITIES = ['audioInput', 'videoFrames', 'audioOutput'];
+/** undefined when the spec has no mediaCapabilities property; null when it is explicitly unknown. */
+function mediaCapabilities(spec: ModelSpec): ModelSpec['mediaCapabilities'] | undefined {
+  const property = Object.getOwnPropertyDescriptor(spec, 'mediaCapabilities');
+  if (!property) return undefined;
+  if (!property.enumerable || !('value' in property)) throw new EngineError('INVALID_MODEL_SPEC', 'Media metadata must be data');
+  const value: unknown = property.value;
+  if (value === undefined || value === null) return null;
+  const invalid = (): never => { throw new EngineError('INVALID_MODEL_SPEC', 'Explicit media capability fields are invalid'); };
+  const caps = plainRecord(value, MEDIA_CAPABILITIES, [], invalid);
+  if (MEDIA_CAPABILITIES.some(key => typeof caps[key] !== 'boolean')) invalid();
+  return { audioInput: caps.audioInput as boolean, videoFrames: caps.videoFrames as boolean, audioOutput: caps.audioOutput as boolean };
+}
+
 /** Metadata is supplied by a catalog/host; missing limits stay unknown. */
 export class ModelRegistry {
   private readonly specs = new Map<string, ModelSpec>();
   private key(providerId: string, modelId: string): string { return JSON.stringify([providerId, modelId]); }
   put(spec: ModelSpec): ModelSpec {
-    const inputFileTypes = fileTypes(spec);
-    const capDescriptor=Object.getOwnPropertyDescriptor(spec,'mediaCapabilities');
-    if(capDescriptor&&(!capDescriptor.enumerable||!Object.hasOwn(capDescriptor,'value')))throw new EngineError('INVALID_MODEL_SPEC','Media metadata must be data');
-    const rawCaps=capDescriptor?.value, mediaCapabilities=rawCaps===undefined||rawCaps===null?null:jobJson(rawCaps,4096);
-    if(mediaCapabilities!==null&&(typeof mediaCapabilities!=='object'||Array.isArray(mediaCapabilities)||Object.keys(mediaCapabilities).length!==3||['audioInput','videoFrames','audioOutput'].some(k=>typeof (mediaCapabilities as Record<string,unknown>)[k]!=='boolean')))throw new EngineError('INVALID_MODEL_SPEC','Explicit media capability fields are invalid');
+    const inputFileTypes = fileTypes(spec), media = mediaCapabilities(spec);
     identifier(spec.providerId); identifier(spec.modelId);
     count(spec.contextWindow); count(spec.maxOutputTokens);
     for (const value of [spec.tools, spec.reasoning, spec.nativeReplay]) if (value !== null && typeof value !== 'boolean') {
@@ -73,7 +83,7 @@ export class ModelRegistry {
     }
     const key = this.key(spec.providerId, spec.modelId);
     if (!this.specs.has(key) && this.specs.size >= 256) throw new EngineError('MODEL_CATALOG_LIMIT', 'Model metadata catalog is full');
-    const copy:ModelSpec = { ...structuredClone(spec), inputFileTypes, ...(capDescriptor ? {mediaCapabilities:mediaCapabilities as ModelSpec['mediaCapabilities']} : {}) };
+    const copy: ModelSpec = { ...structuredClone(spec), inputFileTypes, ...(media === undefined ? {} : { mediaCapabilities: media }) };
     this.specs.set(key, copy);
     return structuredClone(copy);
   }

@@ -4,6 +4,7 @@ import { lstat, open, opendir, realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, posix, resolve, win32 } from "node:path";
 import { types } from "node:util";
 import { EngineError, type Workspace } from "@moodcode/contracts";
+import { jsonTextSha256 } from "../shared/canonical.js";
 import { runGit } from "../workspace/git.js";
 
 /** Entire physical workspace outside .git metadata; ignored files are also charged. */
@@ -130,9 +131,6 @@ function identity(info: BigIntStats): string {
     info.ctimeNs,
     info.nlink,
   ].join(":");
-}
-function digest(input: unknown): string {
-  return createHash("sha256").update(JSON.stringify(input)).digest("hex");
 }
 
 /** Observation only: invokes no tool producer, prepared revalidation, provider, or model callback. */
@@ -501,7 +499,7 @@ export class WorkspaceExecutionSource {
               throw error;
           }
         }
-        return digest({
+        return jsonTextSha256({
           top,
           gitDirectory,
           root: [info.dev.toString(), info.ino.toString()],
@@ -604,7 +602,7 @@ export class WorkspaceExecutionSource {
         )
           fail("EXECUTION_SOURCE_STALE");
       }
-      if (digest(await exclusionPins()) !== digest(exclusions))
+      if (jsonTextSha256(await exclusionPins()) !== jsonTextSha256(exclusions))
         fail("EXECUTION_SOURCE_STALE");
       check();
       if (
@@ -615,7 +613,7 @@ export class WorkspaceExecutionSource {
       metadata = Object.freeze({
         schemaVersion: 1,
         completeness: "full",
-        sha256: digest({
+        sha256: jsonTextSha256({
           scope: "workspace-files-except-git-metadata-v1",
           root: workspace.root,
           physicalRoot: [root.dev.toString(), root.ino.toString()],

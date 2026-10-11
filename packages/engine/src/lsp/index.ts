@@ -9,6 +9,7 @@ import {
 } from "@moodcode/contracts";
 import { usesNativeBOMProjection } from "./native-bom.js";
 import { boundedJson } from "../artifacts/validation.js";
+import { raceAbort, settleWithin } from "../shared/runtime.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import {
   applyTextEdits,
@@ -89,45 +90,20 @@ interface Entry {
   closedAt?: number;
   projectSourceSha256?: string;
 }
-function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) {
-    // The producer may already have observed the same abort and rejected.
-    promise.catch(() => {});
-    return Promise.reject(
-      new EngineError("CANCELLED", "LSP operation cancelled"),
-    );
-  }
-  return new Promise((resolve, reject) => {
-    const abort = () =>
-      reject(new EngineError("CANCELLED", "LSP operation cancelled"));
-    signal.addEventListener("abort", abort, { once: true });
-    promise
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener("abort", abort))
-      .catch(() => {});
-  });
+function cancelled(): EngineError {
+  return new EngineError("CANCELLED", "LSP operation cancelled");
 }
 async function bounded<T>(
   promise: Promise<T>,
   ms: number,
   code = "LSP_CLEANUP_UNCERTAIN",
 ): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () =>
-          reject(
-            new EngineError(
-              code,
-              "LSP operation did not settle before its deadline",
-            ),
-          ),
-        ms,
-      );
-    }),
-  ]).finally(() => clearTimeout(timer!));
+  if (!(await settleWithin(promise, ms)))
+    throw new EngineError(
+      code,
+      "LSP operation did not settle before its deadline",
+    );
+  return promise;
 }
 function endPosition(text: string): { line: number; character: number } {
   const lines = text.split(/\r\n|\r|\n/);
@@ -190,7 +166,7 @@ export class LspManager {
   ): Promise<JsonValue> {
     try {
       return await bounded(
-        abortable(
+        raceAbort(
           entry.connection!.request(
             method,
             params,
@@ -198,6 +174,7 @@ export class LspManager {
             this.requestTimeout,
           ),
           signal,
+          cancelled,
         ),
         this.requestTimeout,
         "LSP_TIMEOUT",
@@ -293,7 +270,7 @@ export class LspManager {
       .finally(() => this.pendingProjectSources.delete(pending))
       .catch(() => {});
     const data = boundedJson(
-      await abortable(pending, sourceSignal),
+      await raceAbort(pending, sourceSignal, cancelled),
       1024,
     ) as unknown as LspProjectSourceSnapshot;
     if (
@@ -353,7 +330,7 @@ export class LspManager {
           this.projectQueues.delete(key);
       })
       .catch(() => {});
-    await abortable(operation, signal);
+    await raceAbort(operation, signal, cancelled);
   }
   private async entry(
     workspace: Workspace,
@@ -408,7 +385,7 @@ export class LspManager {
       });
       entry.ready.catch(() => {});
     }
-    await abortable(entry.ready, signal);
+    await raceAbort(entry.ready, signal, cancelled);
     if (entry.closed)
       throw new EngineError("LSP_DISCONNECTED", "LSP registration is closed");
     return entry;
@@ -606,7 +583,7 @@ export class LspManager {
       result = { version: doc.version, hash: doc.hash };
     });
     entry.queue = operation.catch(() => {});
-    await abortable(operation, signal);
+    await raceAbort(operation, signal, cancelled);
     return result;
   }
   private receiveDiagnostics(entry: Entry, params: JsonValue): void {
@@ -907,7 +884,7 @@ export class LspManager {
       entry.documents.delete(path);
     });
     entry.queue = operation.catch(() => {});
-    await abortable(operation, signal);
+    await raceAbort(operation, signal, cancelled);
   }
   async close(): Promise<void> {
     this.closing = true;
