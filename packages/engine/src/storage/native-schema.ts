@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
 import { SESSION_SCHEMA_VERSION, type AcceptInput, type InputRecord, type Run, type SessionEventV2 } from '@moodcode/contracts';
+import { canonicalJson } from '../shared/canonical.js';
 
 /** Independent v2 identities and sequence; the existing Run-owned v1 journal is unchanged. */
 const NATIVE_SESSION_SCHEMA = `
@@ -24,12 +25,7 @@ const NATIVE_SESSION_SCHEMA = `
 export const NATIVE_SESSION_TABLES = ['session_sequences', 'session_controls', 'session_inputs', 'session_turns', 'provider_attempts', 'message_parts', 'context_revisions', 'session_documents', 'session_events'] as const;
 
 export function requestIdentity(input: AcceptInput): string {
-  return canonical(input);
-}
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
-  if (value !== null && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical((value as Record<string, unknown>)[key])).join(',') + '}';
-  return JSON.stringify(value)!;
+  return canonicalJson(input);
 }
 
 /** Backfill request bindings only. Original v1 JSON, ordinals and event cursors are never rewritten. */

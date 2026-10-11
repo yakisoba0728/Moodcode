@@ -12,9 +12,9 @@ import { validateResidentTeamDatabase, validateResidentChildHistory } from '../t
 import { HOST_COMMAND_TABLES, validateHostCommandDatabase } from '../jobs/host-command-records.js';
 import { validateGitCommitDatabase } from '../git/commit-receipts.js';
 import { validateConversationForkDatabase } from '../sessions/fork-native.js';
-import { createHash, randomUUID } from 'node:crypto';
-import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync, writeSync, type Stats } from 'node:fs';
-import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { closeSync, constants, fstatSync, fsyncSync, lstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmSync, writeFileSync, type Stats } from 'node:fs';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
@@ -54,6 +54,8 @@ import { validateOwnedCommandJobDatabase } from '../jobs/owned-command-records.j
 import { validateOwnedCommandDeliveryDatabase } from '../jobs/owned-command-delivery-records.js';
 import { validateTeamChildInputRelations } from '../teams/child-input-proof.js';
 import { knowledgeHash } from '../knowledge/validation.js';
+import { sha256Hex } from '../shared/canonical.js';
+import { streamStableFile, symlinkFreeDirectorySync, syncDirectory, within } from '../shared/fs.js';
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
@@ -93,7 +95,6 @@ export interface ValidateEngineArchiveOptions extends ArchiveDocumentBudgetOptio
 export interface ImportEngineArchiveOptions extends ValidateEngineArchiveOptions { destination: string }
 export interface EngineArchiveResult { directory: string; manifest: EngineArchiveManifest; manifestSha256: string }
 export interface ImportedEngineArchive extends EngineArchiveResult { dbPath: string; artifactDir: string; migratedFromVersion: number; schemaVersion: number; sessionsPaused: number; worktreesRelocated: number; childSessionsPaused: number; documentAuditCoverage: 'complete' | 'partial' | 'unchecked'; artifactPathMapping: { from: string; to: string }; executionResumed: false }
-const digest = (data: string | Buffer) => createHash('sha256').update(data).digest('hex');
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function archiveDocumentBudget(options: unknown): number {
   if (
@@ -124,15 +125,7 @@ function archiveDocumentBudget(options: unknown): number {
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARCHIVE_ABORTED', 'Engine archive operation was cancelled'); }
 function checkedDirectory(input: string): string {
   if (typeof input !== 'string' || !isAbsolute(input) || !input || input.includes('\0')) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive paths must be absolute paths without symlinks');
-  let current = parse(input).root;
-  for (const component of input.slice(current.length).split(sep).filter(Boolean)) {
-    if (component === '.') continue;
-    if (component === '..') { current = dirname(current); continue; }
-    current = join(current, component);
-    const info = lstatSync(current);
-    if (!info.isDirectory() || info.isSymbolicLink()) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive directory components must be real directories');
-  }
-  return resolve(input);
+  return symlinkFreeDirectorySync(input, { onUnsafe: () => fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive directory components must be real directories') });
 }
 function destinationPath(input: string): string {
   if (typeof input !== 'string' || !isAbsolute(input) || input.includes('\0') || basename(input) === '.' || basename(input) === '..') fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive destination must be a new absolute directory');
@@ -141,7 +134,6 @@ function destinationPath(input: string): string {
   if (lstatSync(destination, { throwIfNoEntry: false })) fail('ARCHIVE_DESTINATION_EXISTS', 'Archive destination already exists');
   return destination;
 }
-function inside(parent: string, child: string): boolean { const path = relative(parent, child); return !path || path !== '..' && !path.startsWith(`..${sep}`) && !isAbsolute(path); }
 function fileName(value: unknown): string {
   if (typeof value !== 'string' || !value || value.includes('\0') || value.includes('\\') || value.length > 4096 || isAbsolute(value) || value.split('/').some(item => !item || item === '.' || item === '..')) fail('ARCHIVE_MANIFEST_INVALID', 'Archive member path is invalid');
   return value;
@@ -153,25 +145,12 @@ function fileInfo(file: string): Stats {
 }
 /** Streaming reads bind both the open descriptor and the pathname to one stable original file. */
 function stableFile(file: string, check: () => void, destination?: string): ArchiveFile {
-  check(); const before = fileInfo(file), fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-  let out: number | undefined;
-  try {
-    if (!sameIdentity(before, fstatSync(fd))) fail('ARCHIVE_SOURCE_CHANGED', 'Archive member identity changed');
-    if (destination) out = openSync(destination, constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0), 0o600);
-    const hash = createHash('sha256'), buffer = Buffer.allocUnsafe(262_144); let position = 0;
-    for (;;) {
-      check(); const bytes = readSync(fd, buffer, 0, buffer.length, position);
-      if (!bytes) break;
-      position += bytes;
-      if (position > ENGINE_ARCHIVE_LIMITS.maxFileBytes) fail('ARCHIVE_FILE_LIMIT', 'Archive member exceeded its byte limit');
-      hash.update(buffer.subarray(0, bytes));
-      if (out !== undefined) for (let written = 0; written < bytes;) written += writeSync(out, buffer, written, bytes - written);
-    }
-    const after = fstatSync(fd), current = fileInfo(file);
-    if (!sameIdentity(before, after) || !sameIdentity(before, current) || before.size !== position || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs || before.mtimeMs !== current.mtimeMs || before.ctimeMs !== current.ctimeMs) fail('ARCHIVE_SOURCE_CHANGED', 'Archive member changed during capture');
-    if (out !== undefined) fsyncSync(out);
-    return { file, bytes: position, sha256: hash.digest('hex') };
-  } finally { if (out !== undefined) closeSync(out); closeSync(fd); }
+  check();
+  const { bytes, sha256 } = streamStableFile(file, fileInfo(file), {
+    maxBytes: ENGINE_ARCHIVE_LIMITS.maxFileBytes, stable: ['size', 'mtime', 'ctime'], check, requireSingleLink: true, copyTo: destination, fsyncCopy: true,
+    onChanged: () => fail('ARCHIVE_SOURCE_CHANGED', 'Archive member changed during capture'), onLimit: () => fail('ARCHIVE_FILE_LIMIT', 'Archive member exceeded its byte limit'),
+  });
+  return { file, bytes, sha256 };
 }
 function artifactFiles(root: string): string[] {
   const files: string[] = []; let total = 0, entries = 0;
@@ -190,12 +169,11 @@ function artifactFiles(root: string): string[] {
   };
   walk(root); return files;
 }
-function directorySync(path: string): void { const fd = openSync(path, constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0)); try { fsyncSync(fd); } finally { closeSync(fd); } }
 function publish(staging: string, destination: string): void {
   if (lstatSync(destination, { throwIfNoEntry: false })) fail('ARCHIVE_DESTINATION_EXISTS', 'Archive destination already exists');
   // Reserve a private container exclusively, then atomically publish its complete payload.
   mkdirSync(destination, { mode: 0o700 }); const identity = lstatSync(destination);
-  try { renameSync(staging, join(destination, 'data')); directorySync(destination); directorySync(dirname(destination)); }
+  try { renameSync(staging, join(destination, 'data')); syncDirectory(destination); syncDirectory(dirname(destination)); }
   catch (error) { if (sameIdentity(identity, lstatSync(destination, { throwIfNoEntry: false }))) rmSync(destination, { recursive: true, force: true }); throw error; }
 }
 function manifestRoot(directory: string): string { return checkedDirectory(join(checkedDirectory(directory), 'data')); }
@@ -449,7 +427,7 @@ function selectArchiveChildren(primary: DatabaseSync, hostIdentity: ChildStorage
       check();
       if (['starting','running','cancelling'].includes(group.states.get(item.taskId)!)) fail('ARCHIVE_CHILD_ACTIVE','Archive requires every managed child task to be stopped');
       if (item.status==='legacy') { unchecked.push({taskId:item.taskId,reason:'legacy-unbound'}); continue; }
-      if (item.record && canonical(item.record.binding.hostIdentity)===canonical(hostIdentity) && (item.status==='archive-unsupported' || item.status==='relocated' && item.record.binding.childrenDirectory!==childrenDirectory && !inside(hostIdentity.artifacts.path,item.record.binding.childrenDirectory))) { unchecked.push({taskId:item.taskId,reason:'external-child-storage'}); continue; }
+      if (item.record && canonical(item.record.binding.hostIdentity)===canonical(hostIdentity) && (item.status==='archive-unsupported' || item.status==='relocated' && item.record.binding.childrenDirectory!==childrenDirectory && !within(hostIdentity.artifacts.path,item.record.binding.childrenDirectory))) { unchecked.push({taskId:item.taskId,reason:'external-child-storage'}); continue; }
       if (!item.record || item.status!==(mode==='source'?'eligible':'historical')) fail('ARCHIVE_CHILD_INVALID','Managed child storage has no exact stopped ownership proof');
       if (mode==='archive-historical' && canonical(item.record.binding.hostIdentity)!==canonical(hostIdentity)) fail('ARCHIVE_CHILD_INVALID','Historical child storage has a different root owner');
       records.push(item.record);
@@ -523,7 +501,7 @@ function parseManifest(file: string): { manifest: EngineArchiveManifest; manifes
     const identity = value.source.binding[name];
     if (!identity || !Number.isSafeInteger(identity.dev) || !Number.isSafeInteger(identity.ino) || identity.dev < 0 || identity.ino < 0) fail('ARCHIVE_MANIFEST_INVALID', 'Archive source binding is invalid');
   }
-  if (digest(canonical(value.source.binding)) !== value.source.bindingScope) fail('ARCHIVE_MANIFEST_INVALID', 'Archive source binding hash does not match');
+  if (sha256Hex(canonical(value.source.binding)) !== value.source.bindingScope) fail('ARCHIVE_MANIFEST_INVALID', 'Archive source binding hash does not match');
   if (!Array.isArray(value.databases) || !Array.isArray(value.artifacts) || value.databases.length < 2 || value.databases.length > 4 || value.artifacts.length > ENGINE_ARCHIVE_LIMITS.maxFiles) fail('ARCHIVE_MANIFEST_INVALID', 'Archive file lists are invalid');
   const names = new Set<string>(), roles = new Set<string>(); let bytes = 0;
   for (const item of [...value.databases, ...value.artifacts]) {
@@ -538,7 +516,7 @@ function parseManifest(file: string): { manifest: EngineArchiveManifest; manifes
   }
   if (!roles.has('primary') || !roles.has('review') || bytes > ENGINE_ARCHIVE_LIMITS.maxTotalBytes || value.artifacts.some(item => !item.file.startsWith('artifacts/'))) fail('ARCHIVE_MANIFEST_INVALID', 'Archive does not contain the required bounded engine data');
   assertAuditManifest(value);
-  return { manifest: value, manifestSha256: digest(raw) };
+  return { manifest: value, manifestSha256: sha256Hex(raw) };
 }
 /** With `staging`, members are copied there while hashed and every later check reads those private copies. */
 function validateParsedArchive(root:string,parsed:ReturnType<typeof parseManifest>,check:()=>void,frame:DocumentFrame|(()=>DocumentFrame),collect?:ChildIndexCollector,staging?:string):void {
@@ -650,7 +628,7 @@ export async function inspectArchivedChildDocumentStorage(value:ArchivedChildDoc
 export async function exportEngineArchive(options: ExportEngineArchiveOptions): Promise<EngineArchiveResult> {
   const archiveDocumentBudgetMs = archiveDocumentBudget(options);
   abort(options.signal); const paths = recoveryPaths(options), destination = destinationPath(options.destination);
-  if (inside(paths.artifacts, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive destination must be outside the source artifact tree');
+  if (within(paths.artifacts, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Archive destination must be outside the source artifact tree');
   if (!regular(paths.db) || !regular(paths.review)) fail('ARCHIVE_DATABASE_MISSING', 'Archive requires primary and review databases');
   const leases: ReturnType<typeof acquireRecoveryLease>[] = [];
   const childReaders: ReturnType<typeof openChildDocumentReader>[]=[];
@@ -736,8 +714,8 @@ export async function exportEngineArchive(options: ExportEngineArchiveOptions): 
     if (Buffer.byteLength(raw) > ENGINE_ARCHIVE_LIMITS.maxManifestBytes || [...databases, ...artifacts].reduce((sum, item) => sum + item.bytes, 0) > ENGINE_ARCHIVE_LIMITS.maxTotalBytes) fail('ARCHIVE_FILE_LIMIT', 'Archive exceeds its total manifest or byte budget');
     writeFileSync(join(staging, 'manifest.json'), raw, { flag: 'wx', mode: 0o600 });
     const fd = openSync(join(staging, 'manifest.json'), constants.O_RDONLY); try { fsyncSync(fd); } finally { closeSync(fd); }
-    directorySync(staging); check(); publish(staging, destination); staging = undefined;
-    return { directory: destination, manifest, manifestSha256: digest(raw) };
+    syncDirectory(staging); check(); publish(staging, destination); staging = undefined;
+    return { directory: destination, manifest, manifestSha256: sha256Hex(raw) };
   } finally {
     const failures: unknown[] = [];
     for(const reader of childReaders.reverse())try{reader.close();}catch(error){failures.push(error);}
@@ -753,7 +731,7 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
   const sourceRoot = manifestRoot(options.directory), check = () => abort(options.signal);
   check(); const parsed = parseManifest(join(sourceRoot, 'manifest.json'));
   const archive = { directory: checkedDirectory(options.directory), ...parsed }, destination = destinationPath(options.destination);
-  if (inside(archive.directory, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Import destination must be outside the archive');
+  if (within(archive.directory, destination)) fail('ARCHIVE_PATH_UNSUPPORTED', 'Import destination must be outside the archive');
   let staging: string | undefined;
   try {
     staging = mkdtempSync(join(dirname(destination), '.moodcode-import-'));
@@ -791,7 +769,7 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     const documentAuditCoverage=archive.manifest.documentAudit?.coverage??'unchecked';
     const receipt = { archiveId: archive.manifest.archiveId, archiveManifestSha256: archive.manifestSha256, source: archive.manifest.source, recoveryAcknowledgmentsRebound: false, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, worktreesRelocated,childSessionsPaused,documentAuditCoverage, executionResumed: false };
     writeFileSync(join(staging, 'import.json'), JSON.stringify(receipt, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
-    directorySync(staging); check(); publish(staging, destination); staging = undefined;
+    syncDirectory(staging); check(); publish(staging, destination); staging = undefined;
     return { ...archive, directory: destination, dbPath: join(destination, 'data', databaseFiles.primary), artifactDir, migratedFromVersion: primary.schemaVersion, schemaVersion: DB_VERSION, sessionsPaused, worktreesRelocated,childSessionsPaused,documentAuditCoverage, artifactPathMapping: { from: archive.manifest.source.artifactDir, to: artifactDir }, executionResumed: false };
   } finally { if (staging) rmSync(staging, { recursive: true, force: true }); }
 }

@@ -21,6 +21,13 @@ test('canonical and JSON-text digests keep the bytes persisted before the shared
   assert.equal(canonicalKnowledge, canonicalJson); assert.equal(knowledgeHash, canonicalSha256); assert.equal(sha256, sha256Hex);
 });
 
+test('an onUndefined callback rejects non-JSON values at any depth without changing other bytes', () => {
+  const rejected = () => { throw new Error('not json'); };
+  assert.equal(canonicalJson(nested, rejected), canonicalJson(nested));
+  assert.equal(canonicalJson([[1, 'two'], { b: [null] }], rejected), '[[1,"two"],{"b":[null]}]');
+  for (const value of [undefined, [1, undefined], { a: { b: undefined } }, [{ c: () => 1 }], Symbol('s')]) assert.throws(() => canonicalJson(value, rejected), /not json/u);
+});
+
 test('sealing replaces a stale digest and verification rejects any other body', () => {
   const first = sealRecord({ id: 'record', revision: 1 }), next = sealRecord({ ...first, revision: 2 }, sealed => Object.freeze(sealed));
   assert.equal(first.sha256, canonicalSha256({ id: 'record', revision: 1 }));

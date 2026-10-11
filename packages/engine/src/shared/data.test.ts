@@ -6,7 +6,7 @@ import { jobJson, jobObject } from '../jobs/validation.js';
 import { filePublicationJson } from '../knowledge/file-publication-validation.js';
 import { assertKnowledgeSignal, immutableKnowledgeJson, knowledgeHash, knowledgeHostRecord, resealKnowledge, withKnowledgeHash } from '../knowledge/validation.js';
 import { canonicalSha256 } from './canonical.js';
-import { assertNativeSignal, deepFreeze, exactKeys, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
+import { assertNativeSignal, deepFreeze, exactKeys, isBoundedId, isSha256, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
 
 const hasCode = (code: string, message?: string) => (error: unknown) => error instanceof EngineError && error.code === code && (message === undefined || error.message === message);
 const reported = (fault: string) => (error: unknown) => error instanceof Error && error.message === fault;
@@ -155,6 +155,14 @@ test('record guards bind one module code set and seal through the module walker'
   assert.equal(guards.verify(sealed), sealed);
   assert.throws(() => guards.verify({ ...sealed, id: 'y' }), reported('hash'));
   assert.throws(() => guards.verify({ id: 'x', sha256: 'stale' }), reported('sha'));
+});
+
+test('stored identifier and digest predicates keep the storage bounds', () => {
+  assert.ok(isBoundedId('a') && isBoundedId('é'.repeat(128)) && isBoundedId('x'.repeat(256)));
+  for (const value of ['', 'x'.repeat(257), 'é'.repeat(129), 'a\u001f', 'a\u007f', 1, null]) assert.ok(!isBoundedId(value));
+  assert.deepEqual(['a', 'b'].filter(isBoundedId), ['a', 'b']);
+  assert.ok(isSha256('a'.repeat(64)));
+  for (const value of ['A'.repeat(64), 'a'.repeat(63), 'g'.repeat(64), 64]) assert.ok(!isSha256(value));
 });
 
 test('native signals must be unmodified AbortSignal instances', () => {

@@ -60,6 +60,10 @@ function statField(info: FileStats, field: StableField): number | bigint {
 export function stableStat<T extends FileStats>(a: T, b: T | undefined, fields: readonly StableField[] = []): boolean {
   return b !== undefined && a.dev === b.dev && a.ino === b.ino && fields.every(field => statField(a, field) === statField(b, field));
 }
+/** actual is still the expected regular file: same identity, size, times and link count. */
+export function sameRegularFile<T extends FileStats>(expected: T, actual: T | undefined): boolean {
+  return Boolean(actual?.isFile()) && stableStat(expected, actual, ['size', 'mtime', 'ctime', 'nlink']);
+}
 
 export interface StableFileOptions {
   readonly maxBytes: number;

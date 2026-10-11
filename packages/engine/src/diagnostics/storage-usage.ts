@@ -3,6 +3,7 @@ import { lstat, open, opendir, type FileHandle } from 'node:fs/promises';
 import { isAbsolute, join, parse, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { EngineError } from '@moodcode/contracts';
+import { errnoCode, sameRegularFile, stableStat } from '../shared/fs.js';
 
 export type StorageUsageGroup = 'managed' | 'input-media' | 'input-documents' | 'children' | 'terminals' | 'other' | 'database';
 export type StorageStopReason = 'aborted' | 'time_limit' | 'entry_limit' | 'directory_limit' | 'depth_limit' | 'operation_limit'
@@ -88,11 +89,6 @@ function validate(input: StorageUsageOptions): StorageUsageOptions & { limits: S
   }
   return { ...input, limits };
 }
-function sameInode(a: BigIntStats, b: BigIntStats): boolean { return a.dev === b.dev && a.ino === b.ino; }
-function stableFile(a: BigIntStats, b: BigIntStats): boolean {
-  return b.isFile() && !b.isSymbolicLink() && sameInode(a, b) && a.size === b.size && a.mtimeNs === b.mtimeNs && a.ctimeNs === b.ctimeNs && a.nlink === b.nlink;
-}
-function errno(error: unknown, code: string): boolean { return error instanceof Error && 'code' in error && error.code === code; }
 function blankGroup(): StorageGroupUsage { return { entries: 0, directories: 0, regularFiles: 0, stableFiles: 0, logicalPathBytes: 0, symlinks: 0, hardlinkedFiles: 0, specialFiles: 0, changedEntries: 0, errors: 0 }; }
 function safeSample(value: string, maxBytes: number): { path: string; pathTruncated: boolean } {
   if (Buffer.byteLength(value) <= maxBytes) return { path: value, pathTruncated: false };
@@ -173,7 +169,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
   const changed = (root: StorageUsageSample['root'], relativePath: string, group: StorageUsageGroup): void => { report.groups[group].changedEntries++; fail('changed_entry'); sample(root, relativePath, group, 'changed'); };
   const guard = async (chain: readonly PinnedDirectory[]): Promise<boolean> => {
     for (const item of chain) {
-      try { const current = await operation(() => lstat(item.path, { bigint: true })); if (!current.isDirectory() || current.isSymbolicLink() || !sameInode(item.stat, current)) return false; }
+      try { const current = await operation(() => lstat(item.path, { bigint: true })); if (!current.isDirectory() || current.isSymbolicLink() || !stableStat(item.stat, current)) return false; }
       catch (error) { if (error instanceof StopScan) throw error; return false; }
     }
     return true;
@@ -194,7 +190,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     await hook('before_file_recheck', relativePath);
     try {
       const after = await operation(() => lstat(path, { bigint: true }));
-      if (!stableFile(info, after) || !(await guard(chain))) { changed(root, relativePath, group); return; }
+      if (!sameRegularFile(info, after) || !(await guard(chain))) { changed(root, relativePath, group); return; }
     } catch (error) { if (error instanceof StopScan) throw error; changed(root, relativePath, group); return; }
     if (info.size < 0n || info.size > BigInt(Number.MAX_SAFE_INTEGER) || BigInt(report.logicalPathBytes) + info.size > BigInt(Number.MAX_SAFE_INTEGER)) { fail('unsafe_byte_count'); stats.errors++; sample(root, relativePath, group, 'error'); return; }
     const bytes = Number(info.size), identity = `${info.dev}:${info.ino}`;
@@ -242,7 +238,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
       // Pin the observed inode without following the last component. Path-based enumeration remains non-atomic.
       handle = await operation(() => open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_DIRECTORY ?? 0)), false); check();
       const opened = await operation(() => handle!.stat({ bigint: true }));
-      if (!opened.isDirectory() || !sameInode(info, opened)) { changed(root, relativePath, group); return; }
+      if (!opened.isDirectory() || !stableStat(info, opened)) { changed(root, relativePath, group); return; }
       directory = await operation(() => opendir(path, { bufferSize: 1 }), false); check();
       if (!(await guard(nextChain))) { changed(root, relativePath, group); return; }
       while (true) {
@@ -254,10 +250,10 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
       }
       await hook('before_directory_recheck', relativePath);
       const pinned = await operation(() => handle!.stat({ bigint: true }));
-      if (!sameInode(info, pinned) || info.mtimeNs !== pinned.mtimeNs || info.ctimeNs !== pinned.ctimeNs || !(await guard(nextChain))) changed(root, relativePath, group);
+      if (!stableStat(info, pinned, ['mtime', 'ctime']) || !(await guard(nextChain))) changed(root, relativePath, group);
     } catch (error) {
       if (error instanceof StopScan) throw error;
-      if (errno(error, 'ELOOP') || errno(error, 'ENOTDIR') || errno(error, 'ENOENT')) changed(root, relativePath, group);
+      if (['ELOOP', 'ENOTDIR', 'ENOENT'].includes(errnoCode(error) ?? '')) changed(root, relativePath, group);
       else { stats.errors++; fail('io_error'); sample(root, relativePath, group, 'error'); }
     } finally {
       // Never race a read with a timer-driven close. Every acquired handle is joined before returning.
@@ -270,7 +266,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     try { chain = await ancestors(selected.artifactDir); }
     catch (error) {
       if (error instanceof StopScan) throw error;
-      report.roots.artifacts = errno(error, 'ENOENT') ? 'missing' : 'unsafe'; fail(errno(error, 'ENOENT') ? 'root_missing' : 'io_error'); chain = null;
+      report.roots.artifacts = errnoCode(error) === 'ENOENT' ? 'missing' : 'unsafe'; fail(errnoCode(error) === 'ENOENT' ? 'root_missing' : 'io_error'); chain = null;
     }
     if (chain === null) { if (report.roots.artifacts === 'not_visited') { report.roots.artifacts = 'unsafe'; fail('unsafe_path'); } }
     else { report.roots.artifacts = 'observed'; await visit(selected.artifactDir, '.', 'artifacts', 0, chain.slice(0, -1), chain.at(-1)!.stat); }
@@ -280,8 +276,8 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
       try { info = await operation(() => lstat(path, { bigint: true })); }
       catch (error) {
         if (error instanceof StopScan) throw error;
-        if (errno(error, 'ENOENT') && path !== selected.dbPath) continue;
-        databaseStatus(errno(error, 'ENOENT') ? 'missing' : 'unsafe'); fail(errno(error, 'ENOENT') ? 'root_missing' : 'io_error'); continue;
+        if (errnoCode(error) === 'ENOENT' && path !== selected.dbPath) continue;
+        databaseStatus(errnoCode(error) === 'ENOENT' ? 'missing' : 'unsafe'); fail(errnoCode(error) === 'ENOENT' ? 'root_missing' : 'io_error'); continue;
       }
       let parents: PinnedDirectory[] | null;
       try { parents = await ancestors(resolve(path, '..')); }

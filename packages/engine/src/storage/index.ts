@@ -34,6 +34,7 @@ import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
 import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
+import { isSqliteBusy } from './transaction.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, reclaimOwnedCommandJobs, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
 import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedCommandDelivery, findOwnedCommandDeliveryForInput, validateOwnedCommandDeliveryDatabase, pauseImportedOwnedCommandDeliveries, type OwnedCommandDeliveryInput, type OwnedCommandDeliveryPorts } from '../jobs/owned-command-delivery-records.js';
@@ -77,6 +78,7 @@ import { readKnowledgeImportDocumentProof } from '../knowledge/import-document-p
 import { KnowledgeImportRecoveryStorage } from '../knowledge/import-recovery-store.js';
 import type { KnowledgeImportRecoveryStoragePorts } from '../knowledge/import-recovery-types.js';
 import { knowledgeHash, validateBinding } from '../knowledge/validation.js';
+import { canonicalJson } from '../shared/canonical.js';
 import { ProposalStorage, pauseImportedProposals } from '../proposals/store.js';
 import { ProposalBlobStorage } from '../proposals/blob-store.js';
 import type { ProposalStoragePorts } from '../proposals/types.js';
@@ -119,15 +121,8 @@ const TRANSITIONS: Record<RunState, readonly RunState[]> = {
 
 function encode(value: unknown): string { return JSON.stringify(value); }
 function decode<T>(row: DataRow): T { return JSON.parse(row.data) as T; }
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical((value as Record<string, unknown>)[key])}`).join(',')}}`;
-  }
-  const result = JSON.stringify(value);
-  if (result === undefined) throw new EngineError('INVALID_RECORD', 'Records must contain JSON values');
-  return result;
-}
+function notJson(): never { throw new EngineError('INVALID_RECORD', 'Records must contain JSON values'); }
+function canonical(value: unknown): string { return canonicalJson(value, notJson); }
 function requireMatch(actual: unknown, expected: unknown, description: string): void {
   if (canonical(actual) !== canonical(expected)) throw new EngineError('RECORD_CONFLICT', description);
 }
@@ -153,10 +148,6 @@ function canonicalPath(path: string): string {
   }
   // Resolve parent aliases before the database exists, so both owners share the same lock.
   return join(realpathSync(dirname(absolute)), basename(absolute));
-}
-function isBusy(error: unknown): boolean {
-  const code = (error as { errcode?: number }).errcode;
-  return code !== undefined && ((code & 0xff) === 5 || (code & 0xff) === 6);
 }
 
 /** SQLite records and journal. File-backed stores own one OS-released SQLite lock. */
@@ -199,6 +190,11 @@ export class SqliteStore implements SessionEngineStore {
     this.rejectClose = rejectClose;
   });
   private closed = false;
+  /** Joins the caller's open transaction instead of nesting BEGIN. */
+  private readonly nestedTx = <T>(operation: () => T): T => this.db.isTransaction ? operation() : this.transaction(operation);
+  private readonly putDocument = (sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument => this.executionRecords.putSessionDocument(sessionId, kind, expectedRevision, data);
+  private readonly appendNative: NativeSessionStorage['appendEvent'] = (sessionId, type, payload, refs) => this.native.appendEvent(sessionId, type, payload, refs);
+  private readonly appendWithInput = (sessionId: string, type: string, payload: JsonObject, inputId?: string): void => { this.native.appendEvent(sessionId, type, payload, inputId ? { inputId } : {}); };
 
   constructor(dbPath: string, hostBudgets?: EngineBudgets) {
     // Legacy synchronous close may fail before any closeAsync caller attaches a handler.
@@ -219,7 +215,7 @@ export class SqliteStore implements SessionEngineStore {
           // WAL would weaken BEGIN EXCLUSIVE to a reserved writer lock; keep DELETE mode.
           ownership.exec('PRAGMA busy_timeout=0; PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE');
         } catch (error) {
-          if (isBusy(error)) throw new EngineError('DB_LOCKED', 'Another engine already owns this database');
+          if (isSqliteBusy(error)) throw new EngineError('DB_LOCKED', 'Another engine already owns this database');
           throw error;
         }
       }
@@ -296,6 +292,7 @@ export class SqliteStore implements SessionEngineStore {
     if (this.db.isTransaction) return withEvidenceRead(this.db, operation);
     return this.transaction(() => withEvidenceRead(this.db, operation), false);
   }
+  private recordPorts() { return { writeTx: this.nestedTx, writeDocument: this.putDocument, appendEvent: this.appendNative }; }
   private recoveryBlocked(operation: () => boolean): boolean {
     try { return this.evidenceRead(operation); }
     catch (error) {
@@ -349,23 +346,19 @@ export class SqliteStore implements SessionEngineStore {
   assertConversationForkSource(source: FrozenHistoryManifest, fresh: boolean): void { this.evidenceRead(() => assertForkSourceCurrent(this.db,source,fresh)); }
   getConversationFork(sessionId: string) { return this.evidenceRead(() => readConversationFork(this.db,sessionId)); }
   importPausedConversationFork(preview: ForkImportPreview, requestId: string) { return this.transaction(()=>importPausedFork(this.db,preview,requestId,{
-    createSession:s=>this.createSession(s),putDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),
-    appendEvent:(s,t,d)=>this.native.appendEvent(s,t,d),pause:s=>this.setSessionPaused(s,true,'recovery_required')})); }
+    createSession:s=>this.createSession(s),putDocument:this.putDocument,appendEvent:this.appendNative,pause:s=>this.setSessionPaused(s,true,'recovery_required')})); }
   validateConversationForks(): void { this.evidenceRead(() => validateConversationForkDatabase(this.db)); }
   materializeConversationFork(original: object, requestId: string, fingerprint: string, ports: Omit<ForkNativePorts,'putDocument'|'appendEvent'>) {
-    return this.transaction(() => materializeConversationFork(this.db,original,requestId,fingerprint,{...ports,
-      putDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
-      appendEvent:(sessionId,type,payload,refs)=>this.native.appendEvent(sessionId,type,payload,refs)}));
+    return this.transaction(() => materializeConversationFork(this.db,original,requestId,fingerprint,{...ports,putDocument:this.putDocument,appendEvent:this.appendNative}));
   }
   createSession(session: Session): Session {
-    const create = (): Session => {
+    return this.nestedTx(() => {
       this.getWorkspace(session.workspaceId);
       const existing = this.row('SELECT data FROM sessions WHERE id=?', session.id);
-      if (existing) { requireMatch(decode(existing), session, 'Session ID already exists'); return decode(existing); }
+      if (existing) { requireMatch(decode(existing), session, 'Session ID already exists'); return decode<Session>(existing); }
       this.db.prepare('INSERT INTO sessions(id,workspace_id,data) VALUES(?,?,?)').run(session.id, session.workspaceId, encode(session));
       return JSON.parse(encode(session)) as Session;
-    };
-    return this.db.isTransaction ? create() : this.transaction(create);
+    });
   }
   getSession(id: string): Session {
     this.assertOpen();
@@ -524,7 +517,7 @@ export class SqliteStore implements SessionEngineStore {
   hasUncertainMcpExecutions(workspaceId: string): boolean { this.assertOpen(); return hasMcpExecutionUncertainty(this.db,workspaceId); }
   getSummaryOverflowDependency(summaryAttemptId: string, turnId: string, failedAttemptId: string) { return this.evidenceRead(() => summaryOverflowDependency(this.db, this, summaryAttemptId, turnId, failedAttemptId)); }
   createHostCommandStorage(): HostCommandStorage {
-    return new HostCommandStorage(this.db, { transaction: operation => this.db.isTransaction ? operation() : this.transaction(operation), appendEvent: (sessionId,type,payload) => { this.native.appendEvent(sessionId,type,payload); } });
+    return new HostCommandStorage(this.db, { transaction: this.nestedTx, appendEvent: this.appendNative });
   }
   validateHostCommands(): void { this.evidenceRead(() => validateHostCommandDatabase(this.db)); }
   hasUncertainExecution(workspaceId: string): boolean {
@@ -619,7 +612,7 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   putCommandLifetime(record:CommandLifetimeRecord,expectedRevision:number):void{
-    const write=()=>{
+    this.nestedTx(()=>{
       const r=validateCommandLifetimeRecord(record),kind=lifetimeKind(r.jobId);
       const stats=this.db.prepare("SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_events WHERE type='command.lifetime.revision'").get()!;
       const ordinary=['admit','started','transfer','input-intent','input-ack'].includes(r.operation.kind);
@@ -629,7 +622,7 @@ export class SqliteStore implements SessionEngineStore {
       this.executionRecords.putSessionDocument(r.sessionId,kind,expectedRevision,r as unknown as JsonObject);
       this.native.appendEvent(r.sessionId,'command.lifetime.revision',{record:r as unknown as JsonObject});
       validateCommandLifetimeDatabase(this.db);
-    };if(this.db.isTransaction)write();else this.transaction(write);
+    });
   }
   inspectCommandLifetimes(workspaceId?:string):CommandLifetimeRecord[]{return this.evidenceRead(()=>{validateCommandLifetimeDatabase(this.db);return readCommandLifetimes(this.db,workspaceId);});}
   findCommandLifetimeRequest(workspaceId:string,requestId:string):{record:CommandLifetimeRecord;requestSha256:string}|undefined{
@@ -659,7 +652,7 @@ export class SqliteStore implements SessionEngineStore {
   createKnowledgeFilePublicationStorage(ports: Omit<KnowledgeFilePublicationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeFilePublicationStorage {
     this.assertOpen();
     if (this.knowledgeFilePublicationRecords) throw new EngineError('KNOWLEDGE_FILE_ALREADY_CONFIGURED', 'Native physical publication storage already has a host owner');
-    return this.knowledgeFilePublicationRecords = new KnowledgeFilePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.knowledgeFilePublicationRecords = new KnowledgeFilePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createKnowledgeFileExecutionGuards(ports: Omit<ConstructorParameters<typeof KnowledgeFileExecutionGuards>[1], 'writeTx'>): KnowledgeFileExecutionGuards {
     return new KnowledgeFileExecutionGuards(this.db, { ...ports, writeTx: operation => this.transaction(operation) });
@@ -671,28 +664,26 @@ export class SqliteStore implements SessionEngineStore {
   createKnowledgeImportRecoveryStorage(ports: Omit<KnowledgeImportRecoveryStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeImportRecoveryStorage {
     this.assertOpen();
     if (this.knowledgeImportRecoveryRecords) throw new EngineError('KNOWLEDGE_IMPORT_ALREADY_CONFIGURED', 'Native imported knowledge already has an original host recovery owner');
-    return this.knowledgeImportRecoveryRecords = new KnowledgeImportRecoveryStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.knowledgeImportRecoveryRecords = new KnowledgeImportRecoveryStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createDiagnosticExecutionObservationStorage(ports: Omit<DiagnosticExecutionObservationPorts, 'writeTx'>): DiagnosticExecutionObservationStorage {
     this.assertOpen();
     if (this.executionObservationRecords) throw new EngineError('EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner');
-    return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: this.nestedTx });
   }
   createProposalStorage(ports: Omit<ProposalStoragePorts, 'writeTx' | 'getWorkspace' | 'blobs'>): ProposalStorage {
     this.assertOpen();
     if (this.proposalRecords) throw new EngineError('PROPOSALS_ALREADY_CONFIGURED', 'Native proposals already have an original host owner');
     return this.proposalRecords = new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
-      getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+      getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createProposalApplyStorage(ports: Omit<ProposalApplyStoragePorts, 'writeTx'>): ProposalApplyStorage {
     this.assertOpen();
     if (this.proposalApplyRecords) throw new EngineError('PROPOSAL_APPLY_ALREADY_CONFIGURED', 'Native proposal application already has an original host owner');
-    return this.proposalApplyRecords = new ProposalApplyStorage(this.db, { ...ports,
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.proposalApplyRecords = new ProposalApplyStorage(this.db, { ...ports, writeTx: this.nestedTx });
   }
   createProposalApplyExecutionGuards(ports: Omit<ConstructorParameters<typeof ProposalApplyExecutionGuards>[1], 'writeTx'>): ProposalApplyExecutionGuards {
-    this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports,
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports, writeTx: this.nestedTx });
   }
   commitTeamWorkflow(sessionId:string,kind:string,revision:number,data:JsonObject,effect:()=>void):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'board');effect();this.executionRecords.putSessionDocument(sessionId,kind,revision,data);this.native.appendEvent(sessionId,'team.workflow.committed',{kind,revision:revision+1,dataSha256:knowledgeHash(data)});});}
   assertResidentAdmissionCapacity():void{this.evidenceRead(()=>assertResidentHistoryCapacity(this.db,'resident'));}
@@ -701,58 +692,41 @@ export class SqliteStore implements SessionEngineStore {
   createTeamStorage(ports: Omit<TeamStoragePorts, 'writeTx' | 'getWorkspace'>): TeamStorage {
     this.assertOpen();
     if (this.teamRecords) throw new EngineError('TEAMS_ALREADY_CONFIGURED', 'Native team storage already has an original host owner');
-    return this.teamRecords = new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.teamRecords = new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   readWorkflowEffect(sessionId:string,instanceId:string,stageId:string){return this.evidenceRead(()=>readWorkflowEffect(this.db,sessionId,instanceId,stageId));}
   readWorkflowDelivery(sessionId:string,instanceId:string){return this.evidenceRead(()=>readWorkflowDelivery(this.db,sessionId,instanceId));}
-  withWorkflowEffectsTransaction<T>(operation:()=>T):T {return this.db.isTransaction?operation():this.transaction(operation);}
+  withWorkflowEffectsTransaction<T>(operation:()=>T):T {return this.nestedTx(operation);}
 
-createCodingBatchStorage(): CodingBatchStorage {
-    return new CodingBatchStorage(this.db, {
-      transaction: (op) => this.withWorkflowEffectsTransaction(op),
-      put: (s, k, r, d) => {
-        this.executionRecords.putSessionDocument(s, k, r, d);
-      },
-      event: (s, t, d) => {
-        this.native.appendEvent(s, t, d);
-      },
-    });
+  createCodingBatchStorage(): CodingBatchStorage {
+    return new CodingBatchStorage(this.db, { transaction: this.nestedTx, put: this.putDocument, event: this.appendNative });
   }
-createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
+  createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
     this.assertOpen();if(this.workflowEffectRecords)throw new EngineError('WORKFLOW_EFFECTS_ALREADY_BOUND','Workflow effects have one actual Root producer');
-    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:operation=>this.withWorkflowEffectsTransaction(operation),putDocument:(s,k,r,d)=>{this.executionRecords.putSessionDocument(s,k,r,d);},appendEvent:(s,t,d,inputId)=>{this.native.appendEvent(s,t,d,inputId?{inputId}:{});}});
+    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:this.nestedTx,putDocument:this.putDocument,appendEvent:this.appendWithInput});
   }
   createWorkflowStorage(ports: Omit<WorkflowStoragePorts, 'writeTx' | 'getWorkspace'>): WorkflowStorage {
     this.assertOpen();
     if (this.workflowRecords) throw new EngineError('WORKFLOWS_ALREADY_CONFIGURED', 'Native workflows already have an original host owner');
-    return this.workflowRecords = new WorkflowStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.workflowRecords = new WorkflowStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createScheduleStorage(ports: Omit<ScheduleStoragePorts, 'writeTx' | 'getWorkspace'>): ScheduleStorage {
     this.assertOpen();
     if (this.scheduleRecords) throw new EngineError('SCHEDULES_ALREADY_CONFIGURED', 'Native schedules already have an original root owner');
-    return this.scheduleRecords = new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.scheduleRecords = new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createAgentBackendStorage(ports: Omit<AgentBackendStoragePorts, 'writeTx' | 'getWorkspace'>): AgentBackendStorage {
     this.assertOpen();
     if (this.backendRecords) throw new EngineError('AGENT_BACKENDS_ALREADY_CONFIGURED', 'Native agent backends already have an original root owner');
-    return this.backendRecords = new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.backendRecords = new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
   createJobStorage(ports: Omit<JobStoragePorts, 'writeTx' | 'getWorkspace'>): JobStorage {
     this.assertOpen();
     if (this.jobRecords) throw new EngineError('JOBS_ALREADY_CONFIGURED', 'Native jobs already have an original root owner');
-    return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id),
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation) });
+    return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
   }
-  createPrFeedbackStorage(): PrFeedbackStorage { return new PrFeedbackStorage(this.db, {
-    writeTx:operation=>this.db.isTransaction?operation():this.transaction(operation),
-    writeDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
-    appendEvent:(sessionId,type,payload,refs)=>this.native.appendEvent(sessionId,type,payload,refs),
-  }); }
-  private effectBatchWritePorts(): EffectBatchWritePorts { return {putDocument:(sessionId,kind,revision,data)=>this.executionRecords.putSessionDocument(sessionId,kind,revision,data),appendEvent:(sessionId,type,payload)=>this.native.appendEvent(sessionId,type,payload)}; }
+  createPrFeedbackStorage(): PrFeedbackStorage { return new PrFeedbackStorage(this.db, this.recordPorts()); }
+  private effectBatchWritePorts(): EffectBatchWritePorts { return {putDocument:this.putDocument,appendEvent:this.appendNative}; }
   recordEffectBatchMember(record:EffectBatchRecord,index:number):void {this.transaction(()=>{const member=record.members[index];if(!member||this.getToolCall(member.toolCallId!).runId!==record.runId)throw new EngineError('EFFECT_BATCH_MEMBER_INVALID','Actual native member required');this.native.appendEvent(record.sessionId,'effect.batch.member_settled',{batchId:record.id,runId:record.runId,turnId:record.turnId,attemptId:record.attemptId,member:member as unknown as JsonObject});});}
   writeEffectBatch(record:EffectBatchRecord):void {this.transaction(()=>writeEffectBatch(this.db,record,this.effectBatchWritePorts()));}
   inspectEffectBatches(workspaceId:string,sessionId?:string):EffectBatchRecord[]{return this.evidenceRead(()=>listEffectBatches(this.db,workspaceId,sessionId));}
@@ -762,20 +736,13 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   recoverEffectBatches():number{return this.transaction(()=>pauseEffectBatches(this.db,this.effectBatchWritePorts()));}
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
   validatePrVerificationEvidence(evidence:import('../git/commit-receipts.js').VerificationEvidencePin):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence));}
-  createCodeModeStorage(assertOriginal:import('../code-mode/records.js').CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,writeTx:operation=>this.db.isTransaction?operation():this.transaction(operation),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
-  createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
+  createCodeModeStorage(assertOriginal:import('../code-mode/records.js').CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,...this.recordPorts()});}
+  createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,this.recordPorts());}
   validateSandboxes():void {this.evidenceRead(()=>validateSandboxDatabase(this.db));}
-  pauseSandboxImports(workspaceId:string):void {pauseImportedSandboxes(this.db,workspaceId,{writeTx:op=>this.db.isTransaction?op():this.transaction(op),writeDocument:(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d),appendEvent:(s,t,p,refs)=>this.native.appendEvent(s,t,p,refs)});}
-  createGitCommitStorage(): GitCommitStorage {
-    return new GitCommitStorage(this.db, {
-      writeTx: operation => this.db.isTransaction ? operation() : this.transaction(operation),
-      writeDocument: (sessionId,kind,revision,data) => this.executionRecords.putSessionDocument(sessionId,kind,revision,data),
-      appendEvent: (sessionId,type,payload) => this.native.appendEvent(sessionId,type,payload),
-    });
-  }
+  pauseSandboxImports(workspaceId:string):void {pauseImportedSandboxes(this.db,workspaceId,this.recordPorts());}
+  createGitCommitStorage(): GitCommitStorage { return new GitCommitStorage(this.db, this.recordPorts()); }
   commitGitCommitObservation(sessionId:string, type:'git.commit.supervisor_admitted'|'git.commit.process_admitted'|'git.commit.closed'|'git.commit.reconciled', payload:JsonObject): SessionEventV2 {
-    const write=()=>this.native.appendEvent(sessionId,type,payload);
-    return this.db.isTransaction?write():this.transaction(write);
+    return this.nestedTx(()=>this.native.appendEvent(sessionId,type,payload));
   }
   hasKnownGitCommitSupervisor(pid:number):boolean {return this.evidenceRead(()=>hasKnownGitCommitSupervisor(this.db,pid));}
   readGitCommitProcessEvidence(sessionId:string,id:string) {return this.evidenceRead(()=>readGitCommitProcessEvidence(this.db,sessionId,id));}
@@ -784,7 +751,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   inspectGitCommitReceipts(workspaceId:string) { return this.evidenceRead(()=>this.createGitCommitStorage().list(workspaceId)); }
   hasUncertainGitCommit(workspaceId:string):boolean { return this.recoveryBlocked(()=>hasUncertainGitCommit(this.db,workspaceId)); }
   putOwnedCommandJob(source: OwnedCommandJobSource, jobId: string, expectedRevision: number, data: JsonObject, retained: ReadonlySet<string> = new Set()): SessionDocument {
-    const write = () => {
+    return this.nestedTx(() => {
       const record = validateOwnedCommandJob(data), run = this.getRun(source.runId), tool = this.getToolCall(source.toolCallId);
       if (isTerminal(run.state) || run.workspaceId !== source.workspaceId || run.sessionId !== source.sessionId || tool.runId !== run.id || tool.name !== 'run_command'
         || record.source.sha256 !== source.sha256 || record.jobId !== jobId || record.revision !== expectedRevision + 1) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command job updates require their actual nonterminal native owner');
@@ -794,27 +761,20 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       if (record.completion && !previous?.data.completion) this.native.appendEvent(source.sessionId, 'command.job.closed_observed', { jobId, sourceSha256: source.sha256, completionSha256: knowledgeHash(record.completion) }, { runId: run.id, turnId: source.turnId, attemptId: source.attemptId });
       const saved = this.executionRecords.putSessionDocument(source.sessionId, kind, expectedRevision, data);
       validateOwnedCommandJobDatabase(this.db); return saved;
-    };
-    return this.db.isTransaction ? write() : this.transaction(write);
+    });
   }
   getOwnedCommandJob(workspaceId: string, jobId: string) { return this.evidenceRead(() => readOwnedCommandJob(this.db, workspaceId, jobId)); }
   inspectOwnedCommandJobs(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandJobs(this.db, workspaceId, sessionId)); }
-  recoverOwnedCommandJobs(): number { return this.transaction(() => recoverInterruptedOwnedCommandJobs(this.db, { writeDocument: (sessionId, kind, expectedRevision, data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) })); }
+  recoverOwnedCommandJobs(): number { return this.transaction(() => recoverInterruptedOwnedCommandJobs(this.db, { writeDocument: this.putDocument })); }
   deliverOwnedCommandResultAtomic(originalTarget: object, input: OwnedCommandDeliveryInput, ports: Pick<OwnedCommandDeliveryPorts,'readTargetOriginal'|'assertTarget'|'acceptAtomic'|'readAccepted'|'releaseAccepted'>) {
-    const write = () => deliverOwnedCommandResultAtomic(this.db, originalTarget, input, {...ports,
-      writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data),
-      appendEvent: (sessionId,type,payload,refs) => this.native.appendEvent(sessionId,type,payload,refs) });
-    return this.db.isTransaction ? write() : this.transaction(write);
+    return this.nestedTx(() => deliverOwnedCommandResultAtomic(this.db, originalTarget, input, {...ports, writeDocument: this.putDocument, appendEvent: this.appendNative }));
   }
   getOwnedCommandJobDelivery(workspaceId: string, deliveryId: string) { return this.evidenceRead(() => readOwnedCommandDelivery(this.db,workspaceId,deliveryId)); }
   inspectOwnedCommandJobDeliveries(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readOwnedCommandDeliveries(this.db,workspaceId,sessionId)); }
   findOwnedCommandDeliveryForInput(input: Parameters<typeof findOwnedCommandDeliveryForInput>[1]) { return this.evidenceRead(() => findOwnedCommandDeliveryForInput(this.db,input)); }
   validateOwnedCommandDeliveries(): void { this.evidenceRead(() => validateOwnedCommandDeliveryDatabase(this.db)); }
   deliverHostCommandResultAtomic(originalTarget: object, input: HostCommandDeliveryInput, ports: Pick<HostCommandDeliveryPorts,'readTargetOriginal'|'assertTarget'|'acceptAtomic'|'readAccepted'|'releaseAccepted'>) {
-    const write = () => deliverHostCommandResultAtomic(this.db, originalTarget, input, {...ports,
-      writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data),
-      appendEvent: (sessionId,type,payload,refs) => this.native.appendEvent(sessionId,type,payload,refs) });
-    return this.db.isTransaction ? write() : this.transaction(write);
+    return this.nestedTx(() => deliverHostCommandResultAtomic(this.db, originalTarget, input, {...ports, writeDocument: this.putDocument, appendEvent: this.appendNative }));
   }
   getHostCommandJobDelivery(workspaceId: string, deliveryId: string) { return this.evidenceRead(() => readHostCommandDelivery(this.db,workspaceId,deliveryId)); }
   inspectHostCommandJobDeliveries(workspaceId: string, sessionId?: string) { return this.evidenceRead(() => readHostCommandDeliveries(this.db,workspaceId,sessionId)); }
@@ -823,8 +783,7 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
   /** Only genuine Root terminal readers publish these session-scoped observations. */
   commitTerminalJobObservation(sessionId: string, type: 'terminal.source_admitted' | 'terminal.output_observed' | 'terminal.source_closed', payload: JsonObject): SessionEventV2 {
     if (!['terminal.source_admitted', 'terminal.output_observed', 'terminal.source_closed'].includes(type)) throw new EngineError('INVALID_SESSION_OBSERVATION', 'Unknown terminal observation type');
-    const append = () => { this.getSession(sessionId); return this.native.appendEvent(sessionId, type, payload); };
-    return this.db.isTransaction ? append() : this.transaction(append);
+    return this.nestedTx(() => { this.getSession(sessionId); return this.native.appendEvent(sessionId, type, payload); });
   }
   /** Archive relocation pauses historical knowledge without rebinding its original physical trust. */
   pauseImportedWorkspaceKnowledge(workspaceId: string, archiveSha256: string, origin?: { readonly importId: string; readonly sourcePrimaryLogicalSha256: string; readonly sourceStorageBindingSha256: string }): void {
@@ -836,28 +795,21 @@ createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);
-      pauseResidentTeamHistories(this.db,workspaceId,(s,k,r,d)=>this.executionRecords.putSessionDocument(s,k,r,d));
+      pauseResidentTeamHistories(this.db,workspaceId,this.putDocument);
       markImportedWorkflowsPaused(this.db, archiveSha256, workspaceId);
       this.createCodingBatchStorage().pauseImport(workspaceId);
-      pauseImportedWorkflowEffects(this.db, workspaceId, {
-        putDocument: (s, k, r, d) => {
-          this.executionRecords.putSessionDocument(s, k, r, d);
-        },
-        appendEvent: (s, t, d, inputId) => {
-          this.native.appendEvent(s, t, d, inputId ? { inputId } : {});
-        },
-      });
+      pauseImportedWorkflowEffects(this.db, workspaceId, { putDocument: this.putDocument, appendEvent: this.appendWithInput });
       markImportedSchedulesDisabled(this.db, archiveSha256, workspaceId);
       markImportedAgentBackendsPaused(this.db, archiveSha256, workspaceId);
       markImportedJobsPaused(this.db, archiveSha256, workspaceId);
       this.pauseSandboxImports(workspaceId);
       pauseEffectBatches(this.db,this.effectBatchWritePorts(),workspaceId);
       this.createCodeModeStorage().pause(workspaceId);
-      pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseImportedOwnedCommandJobs(this.db, workspaceId, archiveSha256, { writeDocument: this.putDocument });
       this.createHostCommandStorage().pauseImport(workspaceId,archiveSha256);
-      pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseImportedOwnedCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: this.putDocument });
       pauseCommandLifetimes(this.db,workspaceId,archiveSha256,r=>this.putCommandLifetime(r,r.revision-1));
-      pauseImportedHostCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: (sessionId,kind,expectedRevision,data) => this.executionRecords.putSessionDocument(sessionId,kind,expectedRevision,data) });
+      pauseImportedHostCommandDeliveries(this.db, workspaceId, archiveSha256, { writeDocument: this.putDocument });
       if (origin) {
         // Imported runtime capabilities are absent. Persist the ordinary native
         // interrupted-owner transition before pinning recovery; this performs

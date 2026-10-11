@@ -1,8 +1,9 @@
-import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type EngineEvent, type JsonObject, type Run, type ToolCallRecord } from '@moodcode/contracts';
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
 import { canonical } from '../recovery/snapshot.js';
+import { sha256Hex } from '../shared/canonical.js';
+import { isBoundedId, parseJsonOr } from '../shared/data.js';
 import { readEvidenceBody, withEvidenceRead, type EvidenceTable } from './evidence-read.js';
 import { toolProposalSha256, type McpExecutionRecord } from './mcp-executions.js';
 import type { NativeSessionStorage } from './native.js';
@@ -21,9 +22,8 @@ interface Options {
   appendLegacy(run: Run, type: string, payload: JsonObject): EngineEvent;
 }
 type Row = Record<string, unknown>;
-const digest = (value: unknown) => createHash('sha256').update(canonical(value)).digest('hex');
+const digest = (value: unknown) => sha256Hex(canonical(value));
 function fail(suffix: string, message: string): never { throw new EngineError('TOOL_RECOVERY_FRONTIER_' + suffix, message); }
-function id(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
 function bytes(value: unknown): number {
   if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > TOOL_RECOVERY_FRONTIER_LIMITS.maxOwnerBytes) fail('LIMIT', 'Selected original tool evidence exceeds its record byte limit');
   return Number(value);
@@ -32,12 +32,12 @@ function object(value: unknown): value is Row { return !!value && typeof value =
 function body(db: DatabaseSync, table: EvidenceTable, key: string, length: unknown): Row {
   const raw = readEvidenceBody(db, { table, key }, { expectedBytes: bytes(length), maxBytes: TOOL_RECOVERY_FRONTIER_LIMITS.maxOwnerBytes });
   if (raw === undefined) fail('SOURCE_CHANGED', 'Selected original tool evidence changed before its bounded body read');
-  let value: unknown; try { value = JSON.parse(raw); } catch { fail('INVALID', 'Original tool evidence is not valid JSON'); }
+  const value = parseJsonOr(raw, () => fail('INVALID', 'Original tool evidence is not valid JSON'));
   if (!object(value)) fail('INVALID', 'Original tool evidence must be an object');
   return value;
 }
 function ownerHeader(db: DatabaseSync, selected: Row): Row {
-  if (!id(selected.id) || !id(selected.session_id) || !id(selected.run_id) || typeof selected.cursor !== 'string' || !/^[1-9][0-9]*$/u.test(selected.cursor)) fail('BINDING_MISMATCH', 'Running tool SQL identity is invalid');
+  if (!isBoundedId(selected.id) || !isBoundedId(selected.session_id) || !isBoundedId(selected.run_id) || typeof selected.cursor !== 'string' || !/^[1-9][0-9]*$/u.test(selected.cursor)) fail('BINDING_MISMATCH', 'Running tool SQL identity is invalid');
   const row = db.prepare(`SELECT r.id,CASE WHEN length(CAST(r.session_id AS BLOB))<=256 THEN r.session_id END AS session_id,
     CASE WHEN length(CAST(r.workspace_id AS BLOB))<=256 THEN r.workspace_id END AS workspace_id,
     CASE WHEN length(CAST(r.input_id AS BLOB))<=256 THEN r.input_id END AS input_id,
@@ -45,7 +45,7 @@ function ownerHeader(db: DatabaseSync, selected: Row): Row {
     CASE WHEN length(CAST(s.workspace_id AS BLOB))<=256 THEN s.workspace_id END AS session_workspace_id,
     length(CAST(s.data AS BLOB)) AS session_bytes,length(CAST(w.data AS BLOB)) AS workspace_bytes
     FROM runs r JOIN sessions s ON s.id=r.session_id JOIN workspaces w ON w.id=r.workspace_id WHERE r.id=?`).get(selected.run_id);
-  if (!row || row.id !== selected.run_id || row.session_id !== selected.session_id || !id(row.workspace_id) || row.session_workspace_id !== row.workspace_id) fail('BINDING_MISMATCH', 'Running tool Run, session and workspace SQL owners disagree');
+  if (!row || row.id !== selected.run_id || row.session_id !== selected.session_id || !isBoundedId(row.workspace_id) || row.session_workspace_id !== row.workspace_id) fail('BINDING_MISMATCH', 'Running tool Run, session and workspace SQL owners disagree');
   for (const key of ['run_bytes','session_bytes','workspace_bytes']) bytes(row[key]); bytes(selected.bytes);
   return row;
 }
@@ -53,10 +53,10 @@ function owner(db: DatabaseSync, selected: Row, row: Row) {
   const run = body(db,'runs',String(row.id),row.run_bytes), session = body(db,'sessions',String(row.session_id),row.session_bytes), workspace = body(db,'workspaces',String(row.workspace_id),row.workspace_bytes);
   const tool = body(db,'tools',String(selected.id),selected.bytes);
   if (run.id !== row.id || run.sessionId !== row.session_id || run.workspaceId !== row.workspace_id || run.inputId !== row.input_id || run.state !== row.state
-    || !object(run.config) || !id(run.config.providerId) || !id(run.config.modelId)
+    || !object(run.config) || !isBoundedId(run.config.providerId) || !isBoundedId(run.config.modelId)
     || session.id !== row.session_id || session.workspaceId !== row.workspace_id || workspace.id !== row.workspace_id
     || Object.keys(tool).some(key => !['id','runId','sessionId','name','input','state','output','error'].includes(key))
-    || tool.id !== selected.id || tool.sessionId !== selected.session_id || tool.runId !== selected.run_id || tool.state !== 'running' || !id(tool.name)
+    || tool.id !== selected.id || tool.sessionId !== selected.session_id || tool.runId !== selected.run_id || tool.state !== 'running' || !isBoundedId(tool.name)
     || !Object.hasOwn(tool,'input') || tool.output !== undefined && typeof tool.output !== 'string' || tool.error !== undefined && typeof tool.error !== 'string') fail('BINDING_MISMATCH', 'Original running ToolRecord or Run payload disagrees with its SQL owner');
   return { run: run as unknown as Run, tool: tool as unknown as ToolCallRecord };
 }
@@ -94,7 +94,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
           continue;
         }
         const p = partRows[0];
-        if (partRows.length !== 1 || !p || !id(p.id) || !id(p.turn_id) || !id(p.message_id) || p.session_id !== selected.session_id || p.run_id !== selected.run_id) fail('BINDING_MISMATCH', 'Running native tool requires exactly one proposal with the same SQL owner');
+        if (partRows.length !== 1 || !p || !isBoundedId(p.id) || !isBoundedId(p.turn_id) || !isBoundedId(p.message_id) || p.session_id !== selected.session_id || p.run_id !== selected.run_id) fail('BINDING_MISMATCH', 'Running native tool requires exactly one proposal with the same SQL owner');
         const t = db.prepare(`SELECT id,CASE WHEN length(CAST(session_id AS BLOB))<=256 THEN session_id END AS session_id,
           CASE WHEN length(CAST(run_id AS BLOB))<=256 THEN run_id END AS run_id,CAST(turn_index AS TEXT) AS turn_index,
           CASE WHEN length(CAST(state AS BLOB))<=32 THEN state END AS state,length(CAST(data AS BLOB)) AS bytes FROM session_turns WHERE id=?`).get(p.turn_id);
@@ -102,7 +102,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
           CASE WHEN length(CAST(session_id AS BLOB))<=256 THEN session_id END AS session_id,
           CASE WHEN length(CAST(run_id AS BLOB))<=256 THEN run_id END AS run_id,turn_id,CAST(attempt_index AS TEXT) AS attempt_index,
           CASE WHEN length(CAST(state AS BLOB))<=32 THEN state END AS state,length(CAST(data AS BLOB)) AS bytes FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1`).get(p.turn_id);
-        if (!t || !a || !id(a.id) || t.session_id !== selected.session_id || t.run_id !== selected.run_id || a.session_id !== selected.session_id || a.run_id !== selected.run_id || a.turn_id !== t.id) fail('BINDING_MISMATCH', 'Running proposal, Turn and latest Attempt SQL owners disagree');
+        if (!t || !a || !isBoundedId(a.id) || t.session_id !== selected.session_id || t.run_id !== selected.run_id || a.session_id !== selected.session_id || a.run_id !== selected.run_id || a.turn_id !== t.id) fail('BINDING_MISMATCH', 'Running proposal, Turn and latest Attempt SQL owners disagree');
         for (const row of [p,t,a]) bytes(row.bytes);
         for (const [row,key] of [[p,'part_index'],[p,'revision'],[t,'turn_index'],[a,'attempt_index']] as const) if (typeof row[key] !== 'string' || !/^(0|[1-9][0-9]*)$/u.test(String(row[key])) || !Number.isSafeInteger(Number(row[key]))) fail('BINDING_MISMATCH','Native original tool indexes must be safe integers');
         const {run,tool} = owner(db,selected,header);
@@ -145,7 +145,7 @@ export function captureToolRecoveryFrontiers(native: NativeSessionStorage, optio
             const headers=db.prepare("SELECT CASE WHEN length(CAST(event_id AS BLOB))<=256 THEN event_id END AS event_id,seq,session_id,run_id,turn_id,attempt_id,type,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 129").all(run.sessionId,run.id,turn.id,attempt.id,type);
             if(headers.length>128)fail('LIMIT','Client effect source anchors exceed the bounded capture');
             return headers.map(header=>{
-              if(!id(header.event_id)||!Number.isSafeInteger(header.seq)||Number(header.seq)<1||header.session_id!==run.sessionId||header.run_id!==run.id||header.turn_id!==turn.id||header.attempt_id!==attempt.id||header.type!==type)fail('BINDING_MISMATCH','Client effect anchor SQL owner is inconsistent');
+              if(!isBoundedId(header.event_id)||!Number.isSafeInteger(header.seq)||Number(header.seq)<1||header.session_id!==run.sessionId||header.run_id!==run.id||header.turn_id!==turn.id||header.attempt_id!==attempt.id||header.type!==type)fail('BINDING_MISMATCH','Client effect anchor SQL owner is inconsistent');
               const raw=readEvidenceBody(db,{table:'session_events',key:header.event_id},{expectedBytes:bytes(header.bytes),maxBytes:TOOL_RECOVERY_FRONTIER_LIMITS.maxOwnerBytes});
               if(raw===undefined)fail('SOURCE_CHANGED','Original client effect anchor changed');
               const event:unknown=JSON.parse(raw);

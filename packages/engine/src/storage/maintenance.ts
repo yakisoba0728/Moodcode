@@ -1,11 +1,13 @@
 import {
   constants, closeSync, fchmodSync, fsyncSync, fstatSync, linkSync, lstatSync,
-  mkdirSync, mkdtempSync, openSync, rmSync, statSync, unlinkSync,
+  mkdirSync, mkdtempSync, openSync, rmSync, unlinkSync,
   type Stats,
 } from 'node:fs';
 import { basename, dirname, isAbsolute, join, parse, resolve, sep } from 'node:path';
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
+import { sameIdentity } from '../recovery/snapshot.js';
+import { errnoCode, symlinkFreeDirectorySync, syncDirectory } from '../shared/fs.js';
 
 export interface IntegrityCheckResult {
   ok: boolean;
@@ -34,27 +36,15 @@ export function inspectIntegrity(db: DatabaseSync, expectedVersion: number): Int
 
 type PathIdentity = { path: string; dev: number; ino: number };
 const SIDECAR_SUFFIXES = ['-wal', '-shm', '-journal', '.owner.sqlite', '.owner.sqlite-journal'];
-function sameIdentity(actual: Stats, expected: { dev: number; ino: number }): boolean {
-  return actual.dev === expected.dev && actual.ino === expected.ino;
-}
+function unsupportedParent(): never { throw new EngineError('BACKUP_PATH_UNSUPPORTED', 'Backup parents must be directories without symlinks'); }
 function validateDirectory(path: string): Stats {
   const info = lstatSync(path);
-  if (info.isSymbolicLink() || !info.isDirectory()) throw new EngineError('BACKUP_PATH_UNSUPPORTED', 'Backup parents must be directories without symlinks');
+  if (info.isSymbolicLink() || !info.isDirectory()) unsupportedParent();
   return info;
 }
 function validateInputParents(destination: string): void {
-  // Do not let lexical resolve() erase a symlink component followed by "..".
   const input = isAbsolute(destination) ? destination : `${process.cwd()}${sep}${destination}`;
-  const parent = dirname(input);
-  const root = parse(parent).root;
-  let current = root;
-  for (const part of parent.slice(root.length).split(sep).filter(Boolean)) {
-    if (part === '.') continue;
-    if (part === '..') { current = dirname(current); continue; }
-    current = join(current, part);
-    const info = lstatSync(current, { throwIfNoEntry: false });
-    if (info && (info.isSymbolicLink() || !info.isDirectory())) throw new EngineError('BACKUP_PATH_UNSUPPORTED', 'Backup parents must be directories without symlinks');
-  }
+  symlinkFreeDirectorySync(dirname(input), { allowMissing: true, onUnsafe: unsupportedParent });
 }
 function prepareParents(destination: string): PathIdentity[] {
   const parent = dirname(destination);
@@ -67,7 +57,7 @@ function prepareParents(destination: string): PathIdentity[] {
     current = join(current, part);
     if (!lstatSync(current, { throwIfNoEntry: false })) {
       try { mkdirSync(current, { mode: 0o700 }); }
-      catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+      catch (error) { if (errnoCode(error) !== 'EEXIST') throw error; }
     }
     const info = validateDirectory(current);
     identities.push({ path: current, dev: info.dev, ino: info.ino });
@@ -174,8 +164,7 @@ export async function backupDatabase(
     const output = lstatSync(destination);
     if (!sameIdentity(output, fileIdentity) || !output.isFile() || output.nlink !== 1) throw new EngineError('BACKUP_PATH_CHANGED', 'Published backup file identity changed');
     checkCancelled();
-    const parentFd = openSync(dirname(destination), constants.O_RDONLY | (constants.O_DIRECTORY ?? 0) | (constants.O_NOFOLLOW ?? 0));
-    try { fsyncSync(parentFd); } finally { closeSync(parentFd); }
+    syncDirectory(dirname(destination));
     if (!sameIdentity(lstatSync(stagingDirectory), stagingIdentity)) throw new EngineError('BACKUP_PATH_CHANGED', 'Backup staging directory changed');
     rmSync(stagingDirectory, { recursive: true });
     cleaned = true;

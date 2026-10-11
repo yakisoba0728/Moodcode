@@ -8,6 +8,7 @@ import {
 } from '@moodcode/contracts';
 import { normalizeAcceptInput, normalizeEngineBudgets, validateInputRecord, validateSessionEvent } from '@moodcode/contracts/validation';
 import { requestIdentity } from './native-schema.js';
+import { sameCanonical } from '../shared/canonical.js';
 
 export interface NativeStorageHooks {
   assertOpen(): void;
@@ -27,7 +28,7 @@ const PAGE_BYTES = 8_388_608;
 
 export function storedJson(value: unknown): JsonObject { return JSON.parse(JSON.stringify(value)) as JsonObject; }
 export function sameRecord(left: unknown, right: unknown, message: string): void {
-  if (requestIdentity(left as AcceptInput) !== requestIdentity(right as AcceptInput)) throw new EngineError('RECORD_CONFLICT', message);
+  if (!sameCanonical(left, right)) throw new EngineError('RECORD_CONFLICT', message);
 }
 function nonnegative(value: number): void {
   if (!Number.isSafeInteger(value) || value < 0) throw new EngineError('INVALID_CURSOR', 'Cursor must be a nonnegative safe integer');

@@ -1,7 +1,7 @@
-import { types } from 'node:util';
-import { createHash } from 'node:crypto';
 import { EngineError, isTerminal, type EngineEvent, type JsonObject, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
 import { validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
+import { jsonTextSha256 } from '../shared/canonical.js';
+import { isBoundedId, isCanonicalStamp, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
 import { NativeSessionStorage } from './native.js';
 import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
 
@@ -48,27 +48,21 @@ const METHODS: readonly AttemptCleanupMethod[] = ['iterator-next-done','iterator
 const REASONS: readonly AttemptCleanupReason[] = ['natural-done','error','consumer-close','cancel','restart'];
 const now = () => new Date().toISOString();
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
-function identifier(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
-function timestamp(value: unknown): value is string { return typeof value === 'string' && value.length === 24 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString()===value; }
 function plain(value: unknown, keys: readonly string[]): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype,null].includes(Object.getPrototypeOf(value))) fail('INVALID_ATTEMPT_CLEANUP','Cleanup records accept plain data only');
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor=Object.getOwnPropertyDescriptor(value,key)!;
-    if (typeof key !== 'string' || !keys.includes(key) || !descriptor.enumerable || !Object.hasOwn(descriptor,'value')) fail('INVALID_ATTEMPT_CLEANUP','Cleanup records reject accessors and unknown fields');
-  }
+  plainRecord(value,[],keys,fault=>fail('INVALID_ATTEMPT_CLEANUP',fault==='shape'?'Cleanup records accept plain data only':'Cleanup records reject accessors and unknown fields'));
 }
 function identity(value: AttemptCleanupIdentity): AttemptCleanupIdentity {
   plain(value,IDENTITY_KEYS);
-  for (const key of ['attemptId','sessionId','workspaceId','runId','turnId','providerId','modelId'] as const) if (!identifier(value[key])) fail('INVALID_ATTEMPT_CLEANUP','Cleanup identity is invalid');
-  if (value.contextRevisionId !== undefined && !identifier(value.contextRevisionId) || value.requestProjection !== 'engine-turn-request-v1'
-    || typeof value.requestSha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(value.requestSha256) || !Number.isSafeInteger(value.requestBytes)
-    || value.requestBytes < 1 || value.requestBytes > ATTEMPT_CLEANUP_LIMITS.maxRequestBytes || value.createdAt !== undefined && !timestamp(value.createdAt)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup request or context identity is invalid');
+  for (const key of ['attemptId','sessionId','workspaceId','runId','turnId','providerId','modelId'] as const) if (!isBoundedId(value[key])) fail('INVALID_ATTEMPT_CLEANUP','Cleanup identity is invalid');
+  if (value.contextRevisionId !== undefined && !isBoundedId(value.contextRevisionId) || value.requestProjection !== 'engine-turn-request-v1'
+    || !isSha256(value.requestSha256) || !Number.isSafeInteger(value.requestBytes)
+    || value.requestBytes < 1 || value.requestBytes > ATTEMPT_CLEANUP_LIMITS.maxRequestBytes || value.createdAt !== undefined && !isCanonicalStamp(value.createdAt)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup request or context identity is invalid');
   return structuredClone(value);
 }
 function settlement(value: AttemptCleanupSettlement): AttemptCleanupSettlement {
   plain(value,SETTLEMENT_KEYS);
   if (!['confirmed','uncertain','not-dispatched'].includes(value.outcome) || !METHODS.includes(value.method) || !REASONS.includes(value.reason)
-    || value.providerRequestId !== undefined && !identifier(value.providerRequestId) || value.errorCode !== undefined && !identifier(value.errorCode)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup observation is invalid');
+    || value.providerRequestId !== undefined && !isBoundedId(value.providerRequestId) || value.errorCode !== undefined && !isBoundedId(value.errorCode)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup observation is invalid');
   if (value.outcome === 'confirmed' && !['iterator-next-done','iterator-return-done'].includes(value.method)
     || value.outcome === 'not-dispatched' && value.method !== 'no-dispatch'
     || value.outcome === 'uncertain' && ['iterator-next-done','iterator-return-done','no-dispatch'].includes(value.method)
@@ -80,7 +74,7 @@ function record(value: AttemptCleanupRecord): void {
   plain(value,RECORD_KEYS);
   identity(Object.fromEntries(IDENTITY_KEYS.filter(key=>Object.hasOwn(value,key)).map(key=>[key,value[key]])) as unknown as AttemptCleanupIdentity);
   if (value.schemaVersion !== 2 || !Number.isSafeInteger(value.revision) || value.revision < 1 || !['prepared','dispatched','confirmed','uncertain','not-dispatched'].includes(value.state)
-    || !timestamp(value.createdAt) || !timestamp(value.updatedAt) || value.dispatchedAt !== undefined && !timestamp(value.dispatchedAt) || value.settledAt !== undefined && !timestamp(value.settledAt)) fail('INVALID_ATTEMPT_CLEANUP','Stored cleanup state or timestamps are invalid');
+    || !isCanonicalStamp(value.createdAt) || !isCanonicalStamp(value.updatedAt) || value.dispatchedAt !== undefined && !isCanonicalStamp(value.dispatchedAt) || value.settledAt !== undefined && !isCanonicalStamp(value.settledAt)) fail('INVALID_ATTEMPT_CLEANUP','Stored cleanup state or timestamps are invalid');
   if (TERMINAL.has(value.state)) {
     settlement({outcome:value.state as AttemptCleanupSettlement['outcome'],method:value.method!,reason:value.reason!,...(value.providerRequestId===undefined?{}:{providerRequestId:value.providerRequestId}),...(value.errorCode===undefined?{}:{errorCode:value.errorCode})});
     if (!value.settledAt || value.cleanupConfirmed !== (value.state==='confirmed'?true:value.state==='uncertain'?false:null)
@@ -97,12 +91,12 @@ function size(value: unknown, cap: number): number {
   return Number(value);
 }
 function parse(value: unknown): unknown {
-  try { return JSON.parse(String(value)); } catch { return fail('INVALID_ATTEMPT_CLEANUP','Stored cleanup evidence or owner JSON is malformed'); }
+  return parseJsonOr(String(value),()=>fail('INVALID_ATTEMPT_CLEANUP','Stored cleanup evidence or owner JSON is malformed'));
 }
 export function canonicalAttemptCleanupSha256(value:AttemptCleanupRecord):string {
   record(value);
   const normalized=Object.fromEntries(Object.keys(value).sort().filter(key=>value[key as keyof AttemptCleanupRecord]!==undefined).map(key=>[key,value[key as keyof AttemptCleanupRecord]]));
-  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+  return jsonTextSha256(normalized);
 }
 function notDispatched(attempt:ProviderAttempt):boolean { return ['prepared','interrupted'].includes(attempt.state)&&attempt.dispatchedAt===undefined&&attempt.providerRequestId===undefined; }
 
@@ -140,7 +134,7 @@ export class AttemptCleanupStorage {
   }
   private read(id: string,expectedSessionId?: string): {value: AttemptCleanupRecord;run: Run;attempt: ProviderAttempt;turn: TurnRecord} {
     this.native.hooks.assertOpen();
-    if (!identifier(id) || expectedSessionId!==undefined && !identifier(expectedSessionId)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup lookup requires bounded identities');
+    if (!isBoundedId(id) || expectedSessionId!==undefined && !isBoundedId(expectedSessionId)) fail('INVALID_ATTEMPT_CLEANUP','Cleanup lookup requires bounded identities');
     const header=this.db.prepare('SELECT attempt_id,session_id,workspace_id,run_id,turn_id,provider_id,model_id,context_revision_id,request_sha256,request_bytes,state,CAST(revision AS TEXT) AS revision,length(CAST(data AS BLOB)) AS bytes FROM attempt_cleanup WHERE attempt_id=?').get(id);
     if (!header) fail('ATTEMPT_CLEANUP_NOT_FOUND','Cleanup evidence was not recorded for this attempt');
     if (expectedSessionId!==undefined && header.session_id!==expectedSessionId) fail('ATTEMPT_CLEANUP_BINDING_MISMATCH','Cleanup evidence belongs to another session');
@@ -185,7 +179,7 @@ export class AttemptCleanupStorage {
     this.native.hooks.assertOpen();
     // Owner metadata is enough to select the transaction notification; the full
     // validated read happens once inside the transaction.
-    if(!identifier(id))fail('INVALID_ATTEMPT_CLEANUP','Cleanup lookup requires a bounded attempt identity');
+    if(!isBoundedId(id))fail('INVALID_ATTEMPT_CLEANUP','Cleanup lookup requires a bounded attempt identity');
     const header=this.db.prepare('SELECT session_id FROM attempt_cleanup WHERE attempt_id=?').get(id);
     if(!header)fail('ATTEMPT_CLEANUP_NOT_FOUND','Cleanup evidence was not recorded for this attempt');
     return this.native.write(String(header.session_id),()=>{const {value,run,attempt,turn}=this.read(id);return operation(value,run,attempt,turn);});

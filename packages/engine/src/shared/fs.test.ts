@@ -4,7 +4,7 @@ import { appendFileSync, chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
-import { errnoCode, readStableFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, within, type StableField } from './fs.js';
+import { errnoCode, readStableFile, sameRegularFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, within, type StableField } from './fs.js';
 
 const fault = (name: string) => (): never => { throw new Error(name); };
 const reported = (name: string) => (error: unknown) => error instanceof Error && error.message === name;
@@ -60,6 +60,19 @@ test('streamStableFile checks only the stat fields each caller pins', t => {
   assert.equal(stableStat(before, after, ['mode']), false);
   assert.equal(stableStat(lstatSync(source), lstatSync(source), ['mtime', 'ctime']), true);
   assert.equal(stableStat(before, undefined), false);
+});
+
+test('sameRegularFile requires the same regular file with unchanged size, times and links', t => {
+  const source = file(t), pinned = lstatSync(source, { bigint: true });
+  assert.equal(sameRegularFile(pinned, lstatSync(source, { bigint: true })), true);
+  assert.equal(sameRegularFile(pinned, undefined), false);
+  linkSync(source, join(directory(t), 'link'));
+  assert.equal(sameRegularFile(pinned, lstatSync(source, { bigint: true })), false);
+  const grown = file(t), before = lstatSync(grown, { bigint: true });
+  appendFileSync(grown, 'd');
+  assert.equal(sameRegularFile(before, lstatSync(grown, { bigint: true })), false);
+  const folder = directory(t);
+  assert.equal(sameRegularFile(lstatSync(folder, { bigint: true }), lstatSync(folder, { bigint: true })), false);
 });
 
 test('readStableFile pins only canonical regular files within the limit', t => {

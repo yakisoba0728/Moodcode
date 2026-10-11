@@ -1,7 +1,6 @@
 import { knowledgeHash } from '../knowledge/validation.js';
 import { validateResidentRecord } from '../child-tasks/resident.js';
-import { createHash } from 'node:crypto';
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, rmSync, writeSync, type BigIntStats } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, rmSync, type BigIntStats } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, parse, resolve, sep } from 'node:path';
 import { performance } from 'node:perf_hooks';
@@ -10,7 +9,10 @@ import { pathToFileURL } from 'node:url';
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 import { CHILD_STORAGE_MIRROR_KIND, validateChildStorageRecord, type ChildStoragePhysicalIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
+import { errnoCode, sameRegularFile, stableStat, streamStableFile } from '../shared/fs.js';
+import { plainRecord } from '../shared/data.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
+import { isSqliteBusy } from './transaction.js';
 import { DB_VERSION } from './migrations.js';
 
 export const CHILD_DOCUMENT_READ_LIMITS = Object.freeze({ maxMetadataBytes: 8_388_608, maxRefs: 2048, maxRows: 8192, maxChildren: 64, maxDatabaseBytes: 33_554_432, maxMirrorBytes: 268_435_456, maxDurationMs: 2000 });
@@ -33,10 +35,7 @@ export function validateArchiveDocumentBudgetMs(value: unknown): number {
 }
 function fail(code: string): never { throw new EngineError(code, 'Child document inspection could not verify its bounded read-only scope.'); }
 function plain(value: unknown, allowed: readonly string[]): Record<string, unknown> {
-  if (types.isProxy(value) || !value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (Reflect.ownKeys(value).some(key => typeof key !== 'string' || !allowed.includes(key) || !descriptors[key]?.enumerable || !Object.hasOwn(descriptors[key]!, 'value'))) fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS');
-  return value as Record<string, unknown>;
+  return plainRecord(value, [], allowed, () => fail('INVALID_CHILD_DOCUMENT_STORAGE_OPTIONS'));
 }
 export interface ChildDocumentReadStats { selectedMetadataBytes: number; selectedRefs: number; selectedRows: number; openedChildren: number; rawMirrorBytes: number; elapsedMs: number; exhaustedReason: string | null }
 /** One operation-wide budget. Counters are observations, not physical I/O measurements. */
@@ -96,8 +95,6 @@ export type ChildDocumentReaderInput = { mode: 'source'; record: ChildStorageRec
 export interface ChildDocumentReader { db: DatabaseSync; sourceName: 'child'; schemaVersion: number; artifactPath: string; check(): void; readIndex(): InputDocumentIndexReport; close(): void }
 export interface ChildDocumentIndexObservation { status: 'observed' | 'unchecked'; reasons: string[]; index?: InputDocumentIndexReport }
 interface PinnedPath { path: string; stat: BigIntStats }
-function equalIdentity(a: BigIntStats, b: BigIntStats): boolean { return a.dev === b.dev && a.ino === b.ino; }
-function stableFile(a: BigIntStats, b: BigIntStats): boolean { return b.isFile() && !b.isSymbolicLink() && equalIdentity(a,b) && a.size === b.size && a.mtimeNs === b.mtimeNs && a.ctimeNs === b.ctimeNs && a.nlink === b.nlink; }
 function safePath(path: string): PinnedPath[] {
   if (typeof path !== 'string' || !isAbsolute(path) || path !== resolve(path) || path.includes('\0') || Buffer.byteLength(path) > 8192) fail('CHILD_DOCUMENT_STORAGE_UNSAFE_PATH');
   let current = parse(path).root; const pins: PinnedPath[] = [];
@@ -117,17 +114,17 @@ function pinned(path: string, identity: ChildStoragePhysicalIdentity | undefined
   return pins;
 }
 function checkPins(pins: readonly PinnedPath[]): void {
-  for (const pin of pins) { const current = lstatSync(pin.path, { bigint: true }); if (!equalIdentity(pin.stat,current) || current.isSymbolicLink() || pin.stat.isDirectory() && !current.isDirectory()) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED'); }
+  for (const pin of pins) { const current = lstatSync(pin.path, { bigint: true }); if (!stableStat(pin.stat,current) || current.isSymbolicLink() || pin.stat.isDirectory() && !current.isDirectory()) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED'); }
 }
 function noSidecars(path: string): void { for (const suffix of ['-wal','-shm','-journal']) if (lstatSync(path + suffix, { throwIfNoEntry: false })) fail('CHILD_DOCUMENT_STORAGE_HOT_DATABASE'); }
 function header(path: string, expected: BigIntStats, owner: boolean, limit: number): void {
   if (expected.size > BigInt(limit) || !owner && expected.size < 100n) fail('CHILD_DOCUMENT_STORAGE_DATABASE_LIMIT');
   const fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
   try {
-    const opened = fstatSync(fd, { bigint: true }); if (!stableFile(expected,opened)) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED');
+    const opened = fstatSync(fd, { bigint: true }); if (!sameRegularFile(expected,opened)) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED');
     if (owner && opened.size === 0n) return;
     const buffer = Buffer.alloc(100); if (readSync(fd,buffer,0,buffer.length,0) !== 100 || !buffer.subarray(0,16).equals(Buffer.from('SQLite format 3\0')) || ![1,2].includes(buffer[18]!) || buffer[18] !== buffer[19] || owner && buffer[18] !== 1) fail('CHILD_DOCUMENT_STORAGE_INVALID_DATABASE');
-    if (!stableFile(expected,fstatSync(fd,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED');
+    if (!sameRegularFile(expected,fstatSync(fd,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED');
   } finally { closeSync(fd); }
 }
 function archiveFiles(value: ChildDocumentHistoricalFiles): ChildDocumentHistoricalFiles {
@@ -160,8 +157,8 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
   let ownerPins: PinnedPath[] = [];
   const check = (): void => {
     if (closed) fail('CHILD_DOCUMENT_STORAGE_READER_CLOSED'); frame.check(); checkPins([...databasePins,...artifactPins,...ownerPins]); noSidecars(databasePath);
-    if (!stableFile(initial,lstatSync(databasePath,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
-    if (!archive) { noSidecars(binding.physical.owner.path); if (!stableFile(ownerPins.at(-1)!.stat,lstatSync(binding.physical.owner.path,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED'); }
+    if (!sameRegularFile(initial,lstatSync(databasePath,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
+    if (!archive) { noSidecars(binding.physical.owner.path); if (!sameRegularFile(ownerPins.at(-1)!.stat,lstatSync(binding.physical.owner.path,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_IDENTITY_CHANGED'); }
   };
   const close = (): void => {
     if (closed) return; closed = true; const errors: unknown[] = [];
@@ -177,15 +174,9 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     }
     check(); frame.chargeChild(); frame.chargeMirror(Number(initial.size));
     temporary = realpathSync(mkdtempSync(join(tmpdir(),'moodcode-child-document-reader-'))); mkdirSync(join(temporary,'data'),{mode:0o700});
-    const mirror = join(temporary,'data','engine.sqlite'), input = openSync(databasePath,constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)); let output: number | undefined;
-    try {
-      if (!stableFile(initial,fstatSync(input,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
-      output = openSync(mirror,constants.O_CREAT | constants.O_EXCL | constants.O_WRONLY | (constants.O_NOFOLLOW ?? 0),0o600);
-      const buffer = Buffer.allocUnsafe(262_144), hash = createHash('sha256'); let position = 0;
-      while (position < Number(initial.size)) { check(); const count = readSync(input,buffer,0,Math.min(buffer.length,Number(initial.size)-position),position); if (!count) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED'); hash.update(buffer.subarray(0,count)); for (let wrote=0;wrote<count;) { const countWritten = writeSync(output,buffer,wrote,count-wrote); if (!countWritten) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED'); wrote += countWritten; } position += count; }
-      if (!stableFile(initial,fstatSync(input,{bigint:true}))) fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
-      if (archive && (archive.database.bytes !== position || archive.database.sha256 !== hash.digest('hex'))) fail('CHILD_DOCUMENT_STORAGE_ARCHIVE_HASH_MISMATCH');
-    } finally { if (output !== undefined) closeSync(output); closeSync(input); }
+    const mirror = join(temporary,'data','engine.sqlite'), changed = () => fail('CHILD_DOCUMENT_STORAGE_SOURCE_CHANGED');
+    const copied = streamStableFile(databasePath, initial, { maxBytes: Number(initial.size), stable: ['size','mtime','ctime','nlink'], check, requireSingleLink: true, copyTo: mirror, onChanged: changed, onLimit: changed });
+    if (archive && (archive.database.bytes !== copied.bytes || archive.database.sha256 !== copied.sha256)) fail('CHILD_DOCUMENT_STORAGE_ARCHIVE_HASH_MISMATCH');
     check(); db = new DatabaseSync(':memory:',{timeout:0}); db.exec('PRAGMA trusted_schema=OFF; PRAGMA query_only=ON'); const uri = pathToFileURL(mirror); uri.search='?mode=ro&immutable=1'; db.prepare('ATTACH DATABASE ? AS child').run(uri.href); db.exec('BEGIN');
     frame.chargeRows(1);
     const version = Number(db.prepare('PRAGMA child.user_version').get()?.user_version); if (!Number.isSafeInteger(version) || version < 2 || version > DB_VERSION) fail('CHILD_DOCUMENT_STORAGE_UNSUPPORTED_SCHEMA');
@@ -262,13 +253,13 @@ function openReader(value: ChildDocumentReaderInput, frame: ChildDocumentReadFra
     } };
   } catch (error) {
     close(); if (error instanceof EngineError) throw error;
-    const sqlite = (error as {errcode?:number})?.errcode; if (sqlite !== undefined && [5,6].includes(sqlite & 255)) fail('CHILD_DOCUMENT_STORAGE_OWNER_BUSY');
-    const code = (error as NodeJS.ErrnoException)?.code; fail(code === 'ENOENT' ? 'CHILD_DOCUMENT_STORAGE_MISSING' : code === 'EACCES' || code === 'EPERM' ? 'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED' : 'CHILD_DOCUMENT_STORAGE_INVALID_DATABASE');
+    if (isSqliteBusy(error)) fail('CHILD_DOCUMENT_STORAGE_OWNER_BUSY');
+    const code = errnoCode(error); fail(code === 'ENOENT' ? 'CHILD_DOCUMENT_STORAGE_MISSING' : code === 'EACCES' || code === 'EPERM' ? 'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED' : 'CHILD_DOCUMENT_STORAGE_INVALID_DATABASE');
   }
 }
 export function openChildDocumentReader(value: ChildDocumentReaderInput,frame:ChildDocumentReadFrame):ChildDocumentReader {
   try { return openReader(value,frame); }
-  catch(error) { if(error instanceof EngineError)throw error;const code=(error as NodeJS.ErrnoException)?.code;fail(code==='ENOENT'?'CHILD_DOCUMENT_STORAGE_MISSING':code==='EACCES'||code==='EPERM'?'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED':'CHILD_DOCUMENT_STORAGE_INSPECTION_FAILED'); }
+  catch(error) { if(error instanceof EngineError)throw error;const code=errnoCode(error);fail(code==='ENOENT'?'CHILD_DOCUMENT_STORAGE_MISSING':code==='EACCES'||code==='EPERM'?'CHILD_DOCUMENT_STORAGE_PERMISSION_DENIED':'CHILD_DOCUMENT_STORAGE_INSPECTION_FAILED'); }
 }
 export function readChildDocumentIndex(input: ChildDocumentReaderInput,frame:ChildDocumentReadFrame):ChildDocumentIndexObservation {
   let reader: ChildDocumentReader | undefined;

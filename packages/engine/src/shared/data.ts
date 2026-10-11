@@ -141,6 +141,12 @@ export function exactKeys(value: object, required: readonly string[], optional: 
 }
 
 const SHA256 = /^[a-f0-9]{64}$/u;
+function boundedText(value: unknown, maxBytes: number): value is string {
+  return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= maxBytes && !/[\u0000-\u001f\u007f]/u.test(value);
+}
+/** Non-empty text of at most 256 UTF-8 bytes without C0 or DEL controls: the bound of stored record identifiers. */
+export function isBoundedId(value: unknown): value is string { return boundedText(value, 256); }
+export function isSha256(value: unknown): value is string { return typeof value === 'string' && SHA256.test(value); }
 export function isCanonicalStamp(value: unknown): value is string {
   return typeof value === 'string' && value.length === 24 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 }
@@ -154,7 +160,7 @@ export interface RecordGuardOptions {
 /** Record field guards bound once to a module's own codes. */
 export function recordGuards({ fail, json, idBytes = 256 }: RecordGuardOptions) {
   const id = (value: unknown): string => {
-    if (typeof value !== 'string' || !value || Buffer.byteLength(value) > idBytes || /[\u0000-\u001f\u007f]/u.test(value)) fail('id');
+    if (!boundedText(value, idBytes)) fail('id');
     return value as string;
   };
   const integer = (value: unknown, maximum = Number.MAX_SAFE_INTEGER, minimum = 0): number => {
@@ -162,7 +168,7 @@ export function recordGuards({ fail, json, idBytes = 256 }: RecordGuardOptions) 
     return value as number;
   };
   const sha = (value: unknown): string => {
-    if (typeof value !== 'string' || !SHA256.test(value)) fail('sha');
+    if (!isSha256(value)) fail('sha');
     return value as string;
   };
   const stamp = (value: unknown): string => {

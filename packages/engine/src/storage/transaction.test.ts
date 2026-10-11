@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
-import { assertInTransaction, casReplace, guardedWrite, type GuardedWriteOptions, type WriteTransactionPort } from './transaction.js';
+import { assertInTransaction, casReplace, guardedWrite, isSqliteBusy, type GuardedWriteOptions, type WriteTransactionPort } from './transaction.js';
 
 const raise = (name: string) => (): never => { throw new Error(name); };
 function fixture(t: TestContext) {
@@ -45,6 +48,17 @@ test('only joining modules run inline inside a caller transaction', t => {
     assert.doesNotThrow(() => assertInTransaction(db, raise('outside')));
   });
   assert.throws(() => assertInTransaction(db, raise('outside')), /outside/u);
+});
+
+test('SQLite busy detection accepts BUSY and LOCKED with extended codes only', t => {
+  for (const errcode of [5, 6, 261, 517, 262]) assert.equal(isSqliteBusy({ errcode }), true);
+  for (const error of [{ errcode: 1 }, { errcode: '5' }, { code: 'EBUSY' }, null, undefined]) assert.equal(isSqliteBusy(error), false);
+  const directory = mkdtempSync(join(tmpdir(), 'moodcode-busy-')); t.after(() => rmSync(directory, { recursive: true, force: true }));
+  const owner = new DatabaseSync(join(directory, 'db.sqlite'), { timeout: 0 }), contender = new DatabaseSync(join(directory, 'db.sqlite'), { timeout: 0 });
+  t.after(() => { contender.close(); owner.close(); });
+  owner.exec('PRAGMA journal_mode=DELETE; BEGIN EXCLUSIVE');
+  assert.throws(() => contender.exec('BEGIN EXCLUSIVE'), (error: unknown) => isSqliteBusy(error));
+  owner.exec('ROLLBACK');
 });
 
 test('CAS replace keeps each store statement and fails stale on any fence mismatch', t => {

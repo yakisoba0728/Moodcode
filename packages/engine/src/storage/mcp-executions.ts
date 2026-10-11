@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
-import { types } from 'node:util';
 import { EngineError, isTerminal, type ApprovalRecord, type EngineEvent, type JsonObject, type MessagePart, type Run, type ToolCallRecord} from '@moodcode/contracts';
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
 import type { McpCallSettlement, McpDispatchBoundary, McpExecutionReason } from '../mcp/execution-observation.js';
+import { canonicalSha256, sameCanonical } from '../shared/canonical.js';
+import { isBoundedId, isCanonicalStamp, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
 import { NativeSessionStorage } from './native.js';
 import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 
@@ -54,15 +54,8 @@ type Row = Record<string, unknown>;
 const HEADER_TEXT_FIELDS = ['tool_call_id','session_id','workspace_id','run_id','turn_id','attempt_id','approval_id','approval_fingerprint','provider_id','model_id','context_revision_id','tool_name','server_id','connection_id','remote_tool','protocol_version','transport_kind','logical_rpc_id','request_sha256','proposal_part_id','proposal_sha256','approval_sha256','state'] as const;
 const HEADER_PROJECTION = HEADER_TEXT_FIELDS.map(key => `CASE WHEN length(CAST(${key} AS BLOB))<=${key==='logical_rpc_id'?512:256} THEN ${key} ELSE NULL END AS ${key}`).join(',');
 function fail(suffix: string, message: string): never { throw new EngineError(`MCP_EXECUTION_${suffix}`, message); }
-function id(value: unknown): value is string { return typeof value === 'string' && Buffer.byteLength(value) >= 1 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
-function sha(value: unknown): value is string { return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value); }
-function instant(value: unknown): value is string { return typeof value === 'string' && value.length === 24 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value; }
 function plain(value: unknown, keys: readonly string[]): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('INVALID', 'MCP execution records require plain data');
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
-    if (typeof key !== 'string' || !keys.includes(key) || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) fail('INVALID', 'MCP execution records reject accessors and unknown fields');
-  }
+  plainRecord(value, [], keys, fault => fail('INVALID', fault === 'shape' ? 'MCP execution records require plain data' : 'MCP execution records reject accessors and unknown fields'));
 }
 function size(value: unknown, maximum: number): number {
   if (!Number.isSafeInteger(value) || Number(value) < 1 || Number(value) > maximum) fail('LIMIT', 'MCP selected evidence exceeds its bounded read limit');
@@ -70,32 +63,26 @@ function size(value: unknown, maximum: number): number {
 }
 function parse(raw: unknown): unknown {
   if (typeof raw !== 'string') return fail('BINDING_MISMATCH', 'MCP evidence changed between its owner header and body read');
-  try { return JSON.parse(raw); } catch { return fail('INVALID', 'Stored MCP evidence contains invalid JSON'); }
+  return parseJsonOr(raw, () => fail('INVALID', 'Stored MCP evidence contains invalid JSON'));
 }
-function canonical(value: unknown): string {
-  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
-  if (value !== null && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical((value as Row)[key])).join(',') + '}';
-  return JSON.stringify(value)!;
-}
-function digest(value: unknown): string { return createHash('sha256').update(canonical(value)).digest('hex'); }
 function picked(value: McpExecutionIdentity): McpExecutionIdentity { return Object.fromEntries(IDENTITY_KEYS.filter(key => value[key] !== undefined).map(key => [key, value[key]])) as unknown as McpExecutionIdentity; }
 function identity(value: McpExecutionIdentity): McpExecutionIdentity {
   plain(value, IDENTITY_KEYS);
-  for (const key of ['toolCallId','sessionId','workspaceId','runId','turnId','attemptId','providerId','modelId','toolName','approvalId','connectionId'] as const) if (!id(value[key])) fail('INVALID', 'MCP execution owner is invalid');
-  if (value.contextRevisionId !== undefined && !id(value.contextRevisionId) || typeof value.serverId !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/u.test(value.serverId)
-    || typeof value.remoteTool !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/u.test(value.remoteTool) || !sha(value.approvalFingerprint) || !sha(value.requestSha256)
+  for (const key of ['toolCallId','sessionId','workspaceId','runId','turnId','attemptId','providerId','modelId','toolName','approvalId','connectionId'] as const) if (!isBoundedId(value[key])) fail('INVALID', 'MCP execution owner is invalid');
+  if (value.contextRevisionId !== undefined && !isBoundedId(value.contextRevisionId) || typeof value.serverId !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,31}$/u.test(value.serverId)
+    || typeof value.remoteTool !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/u.test(value.remoteTool) || !isSha256(value.approvalFingerprint) || !isSha256(value.requestSha256)
     || !Number.isSafeInteger(value.catalogueRevision) || value.catalogueRevision < 0 || !['2026-07-28','2025-11-25'].includes(value.protocolVersion)
-    || !['http','stdio'].includes(value.transportKind) || !(typeof value.logicalRpcId === 'number' ? Number.isSafeInteger(value.logicalRpcId) && value.logicalRpcId > 0 : id(value.logicalRpcId) && Buffer.byteLength(value.logicalRpcId) <= 128)
+    || !['http','stdio'].includes(value.transportKind) || !(typeof value.logicalRpcId === 'number' ? Number.isSafeInteger(value.logicalRpcId) && value.logicalRpcId > 0 : isBoundedId(value.logicalRpcId) && Buffer.byteLength(value.logicalRpcId) <= 128)
     || value.requestProjection !== 'mcp-jsonrpc-tools-call-v1' || !Number.isSafeInteger(value.requestBytes) || value.requestBytes < 1 || value.requestBytes > MCP_EXECUTION_LIMITS.maxMessageBytes) fail('INVALID', 'MCP request or authorization identity is invalid');
   return structuredClone(value);
 }
 function observation(value: McpExecutionSettlement): McpExecutionSettlement {
   plain(value, OBSERVATION_KEYS);
   if (!['response-terminal','uncertain','not-dispatched'].includes(value.outcome) || !REASONS.includes(value.reason) || typeof value.transportCleanupConfirmed !== 'boolean'
-    || value.errorCode !== undefined && !id(value.errorCode)) fail('INVALID', 'MCP settlement is invalid');
+    || value.errorCode !== undefined && !isBoundedId(value.errorCode)) fail('INVALID', 'MCP settlement is invalid');
   const fields = [value.responseKind,value.responseSha256,value.responseBytes,value.isError];
   const response = fields.some(field => field !== undefined);
-  if (response && (!['tool-result','jsonrpc-error'].includes(value.responseKind!) || !sha(value.responseSha256) || !Number.isSafeInteger(value.responseBytes)
+  if (response && (!['tool-result','jsonrpc-error'].includes(value.responseKind!) || !isSha256(value.responseSha256) || !Number.isSafeInteger(value.responseBytes)
     || value.responseBytes! < 1 || value.responseBytes! > MCP_EXECUTION_LIMITS.maxMessageBytes || value.isError !== undefined && typeof value.isError !== 'boolean'
     || value.responseKind === 'jsonrpc-error' && value.isError === false)) fail('INVALID', 'MCP terminal response requires its exact bounded observation');
   if (value.outcome === 'response-terminal' && (!response || value.reason !== 'response' || !value.transportCleanupConfirmed)
@@ -110,10 +97,10 @@ function flags(state: McpExecutionState, transport: boolean | null, response: bo
 function validateRecord(value: McpExecutionRecord): void {
   plain(value, RECORD_KEYS); identity(picked(value));
   if (value.schemaVersion !== 2 || !Number.isSafeInteger(value.revision) || value.revision < 1 || !['prepared','dispatch-intent','response-terminal','uncertain','not-dispatched'].includes(value.state)
-    || !id(value.proposalPartId) || !sha(value.proposalSha256) || !sha(value.approvalSha256) || !instant(value.createdAt) || !instant(value.updatedAt)
-    || value.dispatchedAt !== undefined && !instant(value.dispatchedAt) || value.settledAt !== undefined && !instant(value.settledAt)) fail('INVALID', 'Stored MCP execution lifecycle is invalid');
+    || !isBoundedId(value.proposalPartId) || !isSha256(value.proposalSha256) || !isSha256(value.approvalSha256) || !isCanonicalStamp(value.createdAt) || !isCanonicalStamp(value.updatedAt)
+    || value.dispatchedAt !== undefined && !isCanonicalStamp(value.dispatchedAt) || value.settledAt !== undefined && !isCanonicalStamp(value.settledAt)) fail('INVALID', 'Stored MCP execution lifecycle is invalid');
   if (TERMINAL.has(value.state)) {
-    if(canonical(observation(toObservation(value)))!==canonical(toObservation(value)))fail('INVALID','Stored MCP terminal response flags are not canonical');
+    if(!sameCanonical(observation(toObservation(value)),toObservation(value)))fail('INVALID','Stored MCP terminal response flags are not canonical');
     if (!value.settledAt || (value.state === 'not-dispatched' ? value.dispatchedAt !== undefined : !value.dispatchedAt)) fail('INVALID', 'Stored MCP execution frontier is inconsistent');
   } else if (value.transportCleanupConfirmed !== null || value.settledAt !== undefined || value.reason !== undefined || value.errorCode !== undefined || value.responseKind !== undefined || value.responseSha256 !== undefined || value.responseBytes !== undefined || value.isError !== undefined) fail('INVALID', 'Pending MCP execution cannot contain terminal observations');
   if ((value.state === 'prepared' || value.state === 'not-dispatched') !== (value.dispatchedAt === undefined) || (!!value.dispatchedAt) !== (value.dispatchBoundary !== undefined)
@@ -128,7 +115,7 @@ function toObservation(value: McpExecutionRecord): McpExecutionSettlement {
   return { outcome: value.state as McpExecutionSettlement['outcome'], reason: value.reason!, transportCleanupConfirmed: value.transportCleanupConfirmed!,
     ...Object.fromEntries(['errorCode','responseKind','responseSha256','responseBytes','isError'].filter(key => value[key as keyof McpExecutionRecord] !== undefined).map(key => [key,value[key as keyof McpExecutionRecord]])) };
 }
-export function toolProposalSha256(part: MessagePart): string { return digest(Object.fromEntries(Object.entries(part).filter(([key]) => !['state','revision','completedAt','result'].includes(key)))); }
+export function toolProposalSha256(part: MessagePart): string { return canonicalSha256(Object.fromEntries(Object.entries(part).filter(([key]) => !['state','revision','completedAt','result'].includes(key)))); }
 
 /** A tools/call receipt records local dispatch intent and a peer-declared outcome, never remote acceptance or abort. */
 export class McpExecutionStorage {
@@ -162,7 +149,7 @@ export class McpExecutionStorage {
       || tool?.id !== input.toolCallId || tool.runId !== input.runId || tool.sessionId !== input.sessionId || tool.name !== input.toolName || tool.state !== row.tool_state
       || approval?.id !== input.approvalId || approval.runId !== input.runId || approval.sessionId !== input.sessionId || approval.toolCallId !== input.toolCallId || approval.toolName !== input.toolName || approval.status !== 'allowed' || approval.fingerprint !== input.approvalFingerprint) fail('BINDING_MISMATCH', 'MCP payload disagrees with its native owner or matching allowed outer approval');
     if (!approval.preview || approval.preview.serverId !== input.serverId || approval.preview.remoteTool !== input.remoteTool || approval.preview.catalogueRevision !== input.catalogueRevision
-      || canonical(approval.preview.arguments) !== canonical(tool.input)) fail('BINDING_MISMATCH','MCP server, remote tool, catalogue and input must match the exact allowed approval preview');
+      || !sameCanonical(approval.preview.arguments, tool.input)) fail('BINDING_MISMATCH','MCP server, remote tool, catalogue and input must match the exact allowed approval preview');
     const latest = this.db.prepare('SELECT id FROM provider_attempts WHERE turn_id=? ORDER BY attempt_index DESC LIMIT 1').get(input.turnId);
     if (latest?.id !== input.attemptId) fail('BINDING_MISMATCH', 'MCP owner must be the latest native provider attempt for its Turn');
     if (input.contextRevisionId) {
@@ -176,11 +163,11 @@ export class McpExecutionStorage {
     if (parts.length !== 1 || !header || header.session_id !== input.sessionId || header.run_id !== input.runId || header.turn_id !== input.turnId) fail('BINDING_MISMATCH', 'MCP tool must have exactly one matching native proposal');
     const part = validateMessagePart(parse(readEvidenceBody(this.db,{table:'message_parts',key:String(header.id),projection:'mcp-proposal-v1'},{expectedBytes:size(header.bytes,MCP_EXECUTION_LIMITS.maxOwnerBytes),maxBytes:MCP_EXECUTION_LIMITS.maxOwnerBytes})));
     if (part.type !== 'tool' || part.id !== header.id || part.sessionId !== input.sessionId || part.runId !== input.runId || part.turnId !== input.turnId || part.messageId !== header.message_id || part.index !== header.part_index || part.revision !== header.revision || part.state !== header.state
-      || part.toolCallId !== input.toolCallId || part.name !== input.toolName || canonical(part.input) !== canonical(tool.input)) fail('BINDING_MISMATCH', 'MCP native proposal and ToolRecord disagree');
-    return { run,turn,attempt,tool,part,proposalPartId:part.id,proposalSha256:toolProposalSha256(part),approvalSha256:digest(approval) };
+      || part.toolCallId !== input.toolCallId || part.name !== input.toolName || !sameCanonical(part.input, tool.input)) fail('BINDING_MISMATCH', 'MCP native proposal and ToolRecord disagree');
+    return { run,turn,attempt,tool,part,proposalPartId:part.id,proposalSha256:toolProposalSha256(part),approvalSha256:canonicalSha256(approval) };
   }
   private read(toolCallId: string, expectedSessionId?: string) {
-    if (!id(toolCallId) || expectedSessionId !== undefined && !id(expectedSessionId)) fail('INVALID','MCP receipt lookup requires bounded identities');
+    if (!isBoundedId(toolCallId) || expectedSessionId !== undefined && !isBoundedId(expectedSessionId)) fail('INVALID','MCP receipt lookup requires bounded identities');
     this.native.hooks.assertOpen();
     const row = this.db.prepare(`SELECT ${HEADER_PROJECTION},context_revision_id IS NOT NULL AND length(CAST(context_revision_id AS BLOB))>256 AS invalid_context,CAST(catalogue_revision AS TEXT) AS catalogue_revision,CAST(request_bytes AS TEXT) AS request_bytes,CAST(revision AS TEXT) AS safe_revision,CAST(transport_cleanup_confirmed AS TEXT) AS transport_cleanup_confirmed,length(CAST(data AS BLOB)) AS bytes FROM mcp_executions WHERE tool_call_id=?`).get(toolCallId);
     if (!row) fail('NOT_FOUND','MCP dispatch receipt was not recorded');
@@ -189,7 +176,7 @@ export class McpExecutionStorage {
   }
   private readHeader(row: Row, toolCallId: string) {
     size(row.bytes,MCP_EXECUTION_LIMITS.maxRecordBytes);
-    if (HEADER_TEXT_FIELDS.some(key => !['context_revision_id','logical_rpc_id'].includes(key) && !id(row[key])) || row.context_revision_id !== null && !id(row.context_revision_id) || row.invalid_context !== 0
+    if (HEADER_TEXT_FIELDS.some(key => !['context_revision_id','logical_rpc_id'].includes(key) && !isBoundedId(row[key])) || row.context_revision_id !== null && !isBoundedId(row.context_revision_id) || row.invalid_context !== 0
       || typeof row.logical_rpc_id !== 'string' || Buffer.byteLength(row.logical_rpc_id)>512
       || !Number.isSafeInteger(Number(row.safe_revision)) || Number(row.safe_revision)<1 || !['prepared','dispatch-intent','response-terminal','uncertain','not-dispatched'].includes(String(row.state))
       || ![null,'0','1'].includes(row.transport_cleanup_confirmed as string|null)) fail('INVALID','Stored MCP receipt metadata is outside its bounded schema');
@@ -197,7 +184,7 @@ export class McpExecutionStorage {
     identity(input); const owner = this.owner(input);
     const value = parse(readEvidenceBody(this.db,{table:'mcp_executions',key:toolCallId},{expectedBytes:Number(row.bytes),maxBytes:MCP_EXECUTION_LIMITS.maxRecordBytes})) as McpExecutionRecord;
     validateRecord(value);
-    if (canonical(picked(value)) !== canonical(input) || value.revision !== Number(row.safe_revision) || value.state !== row.state || value.proposalPartId !== row.proposal_part_id || value.proposalSha256 !== row.proposal_sha256 || value.approvalSha256 !== row.approval_sha256
+    if (!sameCanonical(picked(value), input) || value.revision !== Number(row.safe_revision) || value.state !== row.state || value.proposalPartId !== row.proposal_part_id || value.proposalSha256 !== row.proposal_sha256 || value.approvalSha256 !== row.approval_sha256
       || value.transportCleanupConfirmed !== (row.transport_cleanup_confirmed === null ? null : row.transport_cleanup_confirmed === '1')
       || value.proposalPartId !== owner.proposalPartId || value.proposalSha256 !== owner.proposalSha256 || value.approvalSha256 !== owner.approvalSha256) fail('BINDING_MISMATCH','MCP receipt body, immutable proposal or approval disagrees with its SQL metadata');
     return { value,...owner };
@@ -219,7 +206,7 @@ export class McpExecutionStorage {
     return this.native.write(input.sessionId,() => withEvidenceRead(this.db,() => {
       if (this.db.prepare('SELECT tool_call_id FROM mcp_executions WHERE tool_call_id=?').get(input.toolCallId)) {
         const current = this.read(input.toolCallId,input.sessionId).value;
-        if (canonical(picked(current)) !== canonical(input)) fail('CONFLICT','Tool call already owns a different MCP execution identity');
+        if (!sameCanonical(picked(current), input)) fail('CONFLICT','Tool call already owns a different MCP execution identity');
         return current;
       }
       const owner = this.owner(input); this.requireDispatchable(owner);
@@ -231,7 +218,7 @@ export class McpExecutionStorage {
     if (isTerminal(owner.run.state) || owner.run.state !== 'running' || owner.turn.state !== 'awaiting_tools' || owner.attempt.state !== 'completed' || owner.tool.state !== 'running' || owner.part.state !== 'open') fail('TRANSITION_INVALID','MCP dispatch requires a live Run, settled provider attempt and approved running native proposal');
   }
   private update<T>(toolCallId: string, operation: (owner: ReturnType<McpExecutionStorage['read']>) => T): T {
-    this.native.hooks.assertOpen(); if (!id(toolCallId)) fail('INVALID','MCP update requires a bounded tool call identity');
+    this.native.hooks.assertOpen(); if (!isBoundedId(toolCallId)) fail('INVALID','MCP update requires a bounded tool call identity');
     const row = this.db.prepare('SELECT session_id FROM mcp_executions WHERE tool_call_id=?').get(toolCallId); if (!row) fail('NOT_FOUND','MCP dispatch receipt was not recorded');
     return this.native.write(String(row.session_id),() => withEvidenceRead(this.db,() => operation(this.read(toolCallId))));
   }
@@ -255,7 +242,7 @@ export class McpExecutionStorage {
   private settleInTransaction(owner: ReturnType<McpExecutionStorage['read']>, selected: McpExecutionSettlement): McpExecutionRecord {
     const value = owner.value;
     if (TERMINAL.has(value.state)) {
-      if (canonical(toObservation(value)) !== canonical(selected)) fail('IMMUTABLE','A terminal MCP observation cannot be changed or reactivated');
+      if (!sameCanonical(toObservation(value), selected)) fail('IMMUTABLE','A terminal MCP observation cannot be changed or reactivated');
       return value;
     }
     if (selected.outcome === 'not-dispatched' ? value.state !== 'prepared' : value.state !== 'dispatch-intent') fail('TRANSITION_INVALID','MCP observation disagrees with its durable dispatch frontier');
@@ -290,7 +277,7 @@ export class McpExecutionStorage {
 
 /** Indexed existence only: neither original uncertainty nor a different domain's ACK is waived. */
 export function hasMcpExecutionUncertainty(database: NativeSessionStorage['database'], workspaceId: string): boolean {
-  if (!id(workspaceId)) return true;
+  if (!isBoundedId(workspaceId)) return true;
   try { return database.prepare(`SELECT 1 FROM mcp_executions WHERE workspace_id=? AND (state IN ('dispatch-intent','uncertain') OR transport_cleanup_confirmed=0)
     UNION ALL SELECT 1 FROM runs r JOIN mcp_executions m INDEXED BY mcp_executions_run ON m.run_id=r.id
     WHERE r.workspace_id=? AND (m.state IN ('dispatch-intent','uncertain') OR m.transport_cleanup_confirmed=0) LIMIT 1`).get(workspaceId,workspaceId) !== undefined; }

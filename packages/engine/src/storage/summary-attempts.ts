@@ -1,5 +1,6 @@
 import { types } from 'node:util';
 import { EngineError, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
+import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
 import { NativeSessionStorage } from './native.js';
 import { exceedsInclusiveTotals } from './native-usage.js';
 import { invalidateEvidenceRead, readEvidenceBody } from './evidence-read.js';
@@ -41,27 +42,24 @@ export interface SummaryAttemptPage { attempts: SummaryAttemptRecord[]; nextCurs
 const terminal = new Set<SummaryAttemptState>(['completed', 'failed', 'interrupted', 'uncertain']);
 const keys = ['inputTokens', 'outputTokens', 'cachedInputTokens', 'reasoningOutputTokens'] as const;
 const unknownUsage = (): SummaryUsageSnapshot => ({ inputTokens: null, outputTokens: null, cachedInputTokens: null, reasoningOutputTokens: null });
-const sha = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
 function fail(code: string, message: string): never { throw new EngineError(code, message); }
-function id(value: unknown): value is string { return typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value); }
 function json(value: unknown): JsonObject { return JSON.parse(JSON.stringify(value)) as JsonObject; }
 function plain(value: unknown, allowed: readonly string[]): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('INVALID_SUMMARY_RECORD', 'Summary records must be plain data');
-  for (const key of Reflect.ownKeys(value)) { const descriptor = Object.getOwnPropertyDescriptor(value, key)!; if (typeof key !== 'string' || !allowed.includes(key) || !descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) fail('INVALID_SUMMARY_RECORD', 'Summary records cannot contain unknown fields or accessors'); }
+  plainRecord(value, [], allowed, fault => fail('INVALID_SUMMARY_RECORD', fault === 'shape' ? 'Summary records must be plain data' : 'Summary records cannot contain unknown fields or accessors'));
 }
 function ids(values: unknown, max: number): values is string[] {
   if (!Array.isArray(values) || types.isProxy(values) || Object.getPrototypeOf(values) !== Array.prototype || values.length > max || Reflect.ownKeys(values).length !== values.length + 1) return false;
-  for (let index = 0; index < values.length; index++) { const descriptor = Object.getOwnPropertyDescriptor(values, String(index)); if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value') || !id(descriptor.value)) return false; }
+  for (let index = 0; index < values.length; index++) { const descriptor = Object.getOwnPropertyDescriptor(values, String(index)); if (!descriptor?.enumerable || !Object.hasOwn(descriptor, 'value') || !isBoundedId(descriptor.value)) return false; }
   return new Set(values).size === values.length;
 }
 const identityKeys = ['id', 'scope', 'sessionId', 'workspaceId', 'runId', 'providerId', 'modelId', 'sourceProjection', 'sourceSha256', 'requestSha256', 'requestBytes', 'expectedMemoryRevision', 'manifestSha256', 'policySha256', 'expectedContextHeadRevision', 'priorCheckpointId', 'sourceMessageIds', 'sourceRunIds', 'sourceTurnIds', 'boundaryTurnId', 'boundaryAttemptId', 'currentTurnId', 'failedAttemptId', 'createdAt'];
 function identity(value: SummaryAttemptIdentity): SummaryAttemptIdentity {
   plain(value, identityKeys);
-  for (const key of ['id', 'sessionId', 'workspaceId', 'runId', 'providerId', 'modelId', 'sourceProjection'] as const) if (!id(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary owner and projection require bounded identities');
-  if (!['completed-history', 'active-run-prefix'].includes(value.scope) || !sha(value.sourceSha256) || !sha(value.requestSha256) || !Number.isSafeInteger(value.requestBytes) || value.requestBytes < 1 || value.requestBytes > 1048576
+  for (const key of ['id', 'sessionId', 'workspaceId', 'runId', 'providerId', 'modelId', 'sourceProjection'] as const) if (!isBoundedId(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary owner and projection require bounded identities');
+  if (!['completed-history', 'active-run-prefix'].includes(value.scope) || !isSha256(value.sourceSha256) || !isSha256(value.requestSha256) || !Number.isSafeInteger(value.requestBytes) || value.requestBytes < 1 || value.requestBytes > 1048576
     || !Number.isSafeInteger(value.expectedMemoryRevision) || value.expectedMemoryRevision < 0) fail('INVALID_SUMMARY_RECORD', 'Summary source/request identity is invalid');
-  for (const key of ['manifestSha256', 'policySha256'] as const) if (value[key] !== undefined && !sha(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary digest is invalid');
-  for (const key of ['priorCheckpointId', 'boundaryTurnId', 'boundaryAttemptId', 'currentTurnId', 'failedAttemptId'] as const) if (value[key] !== undefined && !id(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary proof identity is invalid');
+  for (const key of ['manifestSha256', 'policySha256'] as const) if (value[key] !== undefined && !isSha256(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary digest is invalid');
+  for (const key of ['priorCheckpointId', 'boundaryTurnId', 'boundaryAttemptId', 'currentTurnId', 'failedAttemptId'] as const) if (value[key] !== undefined && !isBoundedId(value[key])) fail('INVALID_SUMMARY_RECORD', 'Summary proof identity is invalid');
   if (value.expectedContextHeadRevision !== undefined && (!Number.isSafeInteger(value.expectedContextHeadRevision) || value.expectedContextHeadRevision < 0)) fail('INVALID_SUMMARY_RECORD', 'Summary context baseline is invalid');
   for (const key of ['sourceMessageIds', 'sourceRunIds', 'sourceTurnIds'] as const) {
     const values = value[key]; if (values !== undefined && !ids(values, key === 'sourceMessageIds' ? 512 : 128)) fail('INVALID_SUMMARY_RECORD', 'Summary source identities exceed their bound');
@@ -86,7 +84,7 @@ function validateMetadata(value: SummaryAttemptMetadata, textType: string, textB
     || !Number.isSafeInteger(value.observedOutputBytes) || value.observedOutputBytes < 0 || !Number.isSafeInteger(value.retainedTextBytes) || value.retainedTextBytes < 0 || value.retainedTextBytes > 65536
     || !Number.isSafeInteger(textBytes) || textBytes !== value.retainedTextBytes || value.retainedTextBytes > value.observedOutputBytes) fail('INVALID_SUMMARY_RECORD', 'Stored summary state or retained byte counters are invalid');
   for (const key of ['createdAt','updatedAt','dispatchedAt','firstObservationAt','providerCompletedAt','completedAt'] as const) if ((key === 'createdAt' || key === 'updatedAt' || value[key] !== undefined) && (typeof value[key] !== 'string' || value[key]!.length > 64 || !Number.isFinite(Date.parse(value[key]!)))) fail('INVALID_SUMMARY_RECORD', 'Stored summary timestamp is invalid');
-  for (const key of ['providerRequestId','summaryRevisionId','contextRevisionId','errorCode'] as const) if (value[key] !== undefined && !id(value[key])) fail('INVALID_SUMMARY_RECORD', 'Stored summary metadata is invalid');
+  for (const key of ['providerRequestId','summaryRevisionId','contextRevisionId','errorCode'] as const) if (value[key] !== undefined && !isBoundedId(value[key])) fail('INVALID_SUMMARY_RECORD', 'Stored summary metadata is invalid');
   if (value.finishReason !== undefined && !['stop','length','tool_calls'].includes(value.finishReason)) fail('INVALID_SUMMARY_RECORD', 'Stored summary finish reason is invalid');
   if (value.uncertainty !== undefined) { plain(value.uncertainty, ['kind','requiresRecovery']); if (value.uncertainty.kind !== 'provider_dispatch' || value.uncertainty.requiresRecovery !== true || value.state !== 'uncertain') fail('INVALID_SUMMARY_RECORD', 'Summary uncertainty is inconsistent'); }
   if (terminal.has(value.state) !== !!value.completedAt || value.state === 'completed' && (value.publication !== 'activated' || !value.providerCompletedAt || !value.cleanupConfirmed || !value.summaryRevisionId || value.partialTextTruncated)
@@ -128,7 +126,7 @@ export class SummaryAttemptStorage {
     return this.read(idValue, expectedSessionId).record;
   }
   private read(idValue: string, expectedSessionId?: string): { record: SummaryAttemptRecord; run: Run } {
-    this.native.hooks.assertOpen(); if (!id(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
+    this.native.hooks.assertOpen(); if (!isBoundedId(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
     const row = this.db.prepare('SELECT session_id,workspace_id,run_id,scope,state,CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?').get(idValue);
     if (!row) fail('SUMMARY_ATTEMPT_NOT_FOUND', 'Summary attempt was not found');
     if (expectedSessionId !== undefined && row.session_id !== expectedSessionId) fail('SUMMARY_BINDING_MISMATCH', 'Summary attempt belongs to another session');
@@ -139,7 +137,7 @@ export class SummaryAttemptStorage {
   }
   /** Full identity/status/proof validation, with text type/UTF8 length checked in SQL. */
   private metadata(idValue: string, expectedSessionId?: string): SummaryAttemptMetadata {
-    this.native.hooks.assertOpen(); if (!id(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
+    this.native.hooks.assertOpen(); if (!isBoundedId(idValue)) fail('INVALID_SUMMARY_RECORD', 'Summary attempt ID is invalid');
     const row = this.db.prepare(`SELECT session_id,workspace_id,run_id,scope,state,
       CASE WHEN revision BETWEEN 1 AND 9007199254740991 THEN revision ELSE 0 END AS revision,
       length(CAST(data AS BLOB)) AS bytes FROM summary_attempts WHERE id=?`).get(idValue);
@@ -205,7 +203,7 @@ export class SummaryAttemptStorage {
   }
   observe(idValue: string, supplied: SummaryObservation): SummaryAttemptRecord {
     plain(supplied, ['textDelta', 'usage', 'providerRequestId', 'finishReason']);
-    if (supplied.textDelta !== undefined && typeof supplied.textDelta !== 'string' || supplied.providerRequestId !== undefined && !id(supplied.providerRequestId) || supplied.finishReason !== undefined && !['stop', 'length', 'tool_calls'].includes(supplied.finishReason)) fail('INVALID_SUMMARY_RECORD', 'Summary observation has invalid fields');
+    if (supplied.textDelta !== undefined && typeof supplied.textDelta !== 'string' || supplied.providerRequestId !== undefined && !isBoundedId(supplied.providerRequestId) || supplied.finishReason !== undefined && !['stop', 'length', 'tool_calls'].includes(supplied.finishReason)) fail('INVALID_SUMMARY_RECORD', 'Summary observation has invalid fields');
     return this.update(idValue, record => {
       const priorUsage = this.usageFor(record), usage = supplied.usage === undefined ? priorUsage?.usage ?? unknownUsage() : usageMerge(priorUsage?.usage ?? unknownUsage(), supplied.usage);
       const usageChanged = JSON.stringify(usage) !== JSON.stringify(priorUsage?.usage ?? unknownUsage());
@@ -245,7 +243,7 @@ export class SummaryAttemptStorage {
   }
   settle(idValue: string, supplied: SummarySettlement): SummaryAttemptRecord {
     plain(supplied, ['state', 'errorCode', 'cleanupConfirmed']);
-    if (!['failed', 'interrupted', 'uncertain'].includes(supplied.state) || typeof supplied.cleanupConfirmed !== 'boolean' || supplied.errorCode !== undefined && !id(supplied.errorCode)
+    if (!['failed', 'interrupted', 'uncertain'].includes(supplied.state) || typeof supplied.cleanupConfirmed !== 'boolean' || supplied.errorCode !== undefined && !isBoundedId(supplied.errorCode)
       || supplied.state !== 'uncertain' && !supplied.cleanupConfirmed) fail('INVALID_SUMMARY_RECORD', 'Terminal summary outcome requires honest cleanup proof');
     return this.update(idValue, record => {
       if (terminal.has(record.state)) { if (record.state !== supplied.state || record.cleanupConfirmed !== supplied.cleanupConfirmed || record.errorCode !== supplied.errorCode) fail('SUMMARY_ATTEMPT_IMMUTABLE', 'Terminal summaries are immutable'); return record; }

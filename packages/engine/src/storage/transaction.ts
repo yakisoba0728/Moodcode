@@ -57,6 +57,12 @@ export function assertInTransaction(db: DatabaseSync, fail: () => never): void {
   if (!db.isTransaction) fail();
 }
 
+/** SQLITE_BUSY or SQLITE_LOCKED, including their extended codes. */
+export function isSqliteBusy(error: unknown): boolean {
+  const code = (error as { errcode?: unknown } | null)?.errcode;
+  return typeof code === 'number' && [5, 6].includes(code & 0xff);
+}
+
 /** Write JSON.stringify(next) only while key and fence still match one row; anything else is stale. */
 export function casReplace(db: DatabaseSync, update: CasReplace, next: object, stale: () => never): void {
   const set = [...Object.entries(update.set), ['data', JSON.stringify(next)] as const];

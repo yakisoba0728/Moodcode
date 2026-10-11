@@ -1,24 +1,19 @@
-import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type JsonObject, type Run } from '@moodcode/contracts';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';
+import { canonicalJson, sha256Hex } from '../shared/canonical.js';
+import { isBoundedId } from '../shared/data.js';
 import { exceedsInclusiveTotals } from './native-usage.js';
 
 const DOCUMENT = 'context.active_memory';
 const PROJECTION = 'text-and-complete-tool-observations-v1' as const;
 const METADATA_LIMIT = 1024;
 const METADATA_BYTES = 1_048_576;
-const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 function mismatch(message: string): never { throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', message); }
 function limit(message: string): never { throw new EngineError('ACTIVE_PREFIX_SOURCE_LIMIT', message); }
 const object = (value: unknown): value is JsonObject => !!value && typeof value === 'object' && !Array.isArray(value);
-const string = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
-const ids = (value: unknown, max = 1024): value is string[] => Array.isArray(value) && value.length <= max && value.every(string) && new Set(value).size === value.length;
-function activePrefixCanonical(value: unknown): string {
-  if (Array.isArray(value)) return '[' + value.map(activePrefixCanonical).join(',') + ']';
-  if (value !== null && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + activePrefixCanonical((value as Record<string, unknown>)[key])).join(',') + '}';
-  const encoded = JSON.stringify(value); if (encoded === undefined) mismatch('Active-prefix values must be JSON'); return encoded;
-}
+const ids = (value: unknown, max = 1024): value is string[] => Array.isArray(value) && value.length <= max && value.every(isBoundedId) && new Set(value).size === value.length;
+const activePrefixCanonical = (value: unknown): string => canonicalJson(value, () => mismatch('Active-prefix values must be JSON'));
 type Row = Record<string, unknown>;
 interface MessageHeader { id: string; ordinal: number; role: string; images: boolean; bytes: number; toolCalls: number }
 interface TurnHeader { id: string; index: number; state: string; attemptId: string; attemptState: string; media: boolean }
@@ -28,7 +23,7 @@ function options(value: ActivePrefixSourceOptions): void {
     if (!Number.isSafeInteger(value[name]) || value[name] < min || value[name] > max) mismatch('Active-prefix selection limits are invalid');
   }
   if (value.maxSourceMessages > value.maxCoveredMessages || value.stage !== 'between-turns' && value.stage !== 'overflow-recovery') mismatch('Active-prefix selection stage is invalid');
-  if (value.stage === 'overflow-recovery' && (!string(value.currentTurnId) || !string(value.failedAttemptId) || value.cleanupConfirmed !== true)) mismatch('Overflow source requires an owned failed attempt and confirmed cleanup');
+  if (value.stage === 'overflow-recovery' && (!isBoundedId(value.currentTurnId) || !isBoundedId(value.failedAttemptId) || value.cleanupConfirmed !== true)) mismatch('Overflow source requires an owned failed attempt and confirmed cleanup');
   if (value.stage === 'between-turns' && ('currentTurnId' in value || 'failedAttemptId' in value || 'cleanupConfirmed' in value)) mismatch('Between-turn source cannot borrow an active attempt');
 }
 function owner(row: Row, run: Run): void {
@@ -57,17 +52,17 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
   const memory = document(database, run.sessionId, DOCUMENT), head = document(database, run.sessionId, 'context.head');
   const pendingSteers = database.prepare("SELECT substr(id,1,257) AS id FROM session_inputs WHERE session_id=? AND state='pending' AND delivery='steer' ORDER BY admitted_seq LIMIT 65").all(run.sessionId);
   if (pendingSteers.length > 64) limit('Pending steering frontier exceeds the source manifest bound');
-  if (pendingSteers.some(row => !string(row.id))) mismatch('Pending steering frontier has invalid identifiers');
+  if (pendingSteers.some(row => !isBoundedId(row.id))) mismatch('Pending steering frontier has invalid identifiers');
   let priorId: string | undefined, priorCovered: string[] = [];
   const prior = memory?.data.active;
   if (prior !== undefined && !object(prior)) mismatch('Active-prefix pointer is invalid');
   if (object(prior) && prior.runId === run.id) {
     if (prior.version !== 1 || prior.scope !== 'active-run-prefix' || prior.projection !== PROJECTION || prior.sessionId !== run.sessionId || prior.workspaceId !== run.workspaceId
-      || prior.providerId !== run.config.providerId || prior.modelId !== run.config.modelId || prior.policySha256 !== selection.policySha256 || !string(prior.id) || !string(prior.revisionId)
+      || prior.providerId !== run.config.providerId || prior.modelId !== run.config.modelId || prior.policySha256 !== selection.policySha256 || !isBoundedId(prior.id) || !isBoundedId(prior.revisionId)
       || !ids(prior.coveredMessageIds, selection.maxCoveredMessages) || !ids(prior.protectedMessageIds) || prior.protectedMessageIds.some(id => (prior.coveredMessageIds as string[]).includes(id))) mismatch('Active-prefix predecessor has inconsistent owner or policy');
     const revision = database.prepare("SELECT session_id,run_id,turn_id,json_extract(data,'$.kind') AS kind,json_extract(data,'$.sha256') AS sha FROM context_revisions WHERE id=?").get(prior.revisionId as string);
     if (revision?.session_id !== run.sessionId || revision.run_id !== run.id || revision.turn_id !== null || revision.kind !== 'summary' || revision.sha !== prior.summarySha256) mismatch('Active-prefix predecessor revision is inconsistent');
-    const binding = `active-prefix-checkpoint:${hash(JSON.stringify(prior))}`;
+    const binding = `active-prefix-checkpoint:${sha256Hex(JSON.stringify(prior))}`;
     if (!database.prepare("SELECT 1 FROM context_revisions c,json_each(c.data,'$.sourceIds') source WHERE c.id=? AND source.value=? LIMIT 1").get(prior.revisionId as string, binding)) mismatch('Active-prefix predecessor metadata is not bound to its immutable revision');
     priorId = prior.id as string; priorCovered = [...prior.coveredMessageIds as string[]];
   }
@@ -86,7 +81,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
   const completed: TurnHeader[] = [];
   for (const [index, row] of turnRows.entries()) {
     owner(row, run);
-    if (!string(row.id) || !string(row.attempt_id) || row.payload_id !== row.id || row.payload_session !== run.sessionId || row.payload_run !== run.id || row.turn_index !== index || row.payload_index !== index || row.payload_state !== row.state
+    if (!isBoundedId(row.id) || !isBoundedId(row.attempt_id) || row.payload_id !== row.id || row.payload_session !== run.sessionId || row.payload_run !== run.id || row.turn_index !== index || row.payload_index !== index || row.payload_state !== row.state
       || row.attempt_session !== run.sessionId || row.attempt_run !== run.id || row.turn_id !== row.id || row.attempt_payload_id !== row.attempt_id || row.provider !== run.config.providerId || row.model !== run.config.modelId
       || row.attempt_payload_session !== run.sessionId || row.attempt_payload_run !== run.id || row.attempt_payload_turn !== row.id || row.attempt_payload_state !== row.attempt_state || row.attempt_payload_index !== row.attempt_index) mismatch('Turn and final attempt identity is inconsistent');
     const invalidPart = database.prepare(`SELECT 1 FROM message_parts WHERE turn_id=? AND (session_id IS NOT ? OR run_id IS NOT ?
@@ -116,7 +111,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
   if (messageRows.length > METADATA_LIMIT || Buffer.byteLength(JSON.stringify(messageRows)) > METADATA_BYTES) limit('Run message metadata exceeds the fixed source read bound');
   const messages: MessageHeader[] = messageRows.map(row => {
     owner(row, run);
-    if (!string(row.id) || row.payload_id !== row.id || row.payload_session !== run.sessionId || row.payload_run !== run.id || !['user', 'assistant', 'tool'].includes(String(row.role)) || row.content_type !== 'text' || !Number.isSafeInteger(row.ordinal)) mismatch('Source message has invalid identity or text');
+    if (!isBoundedId(row.id) || row.payload_id !== row.id || row.payload_session !== run.sessionId || row.payload_run !== run.id || !['user', 'assistant', 'tool'].includes(String(row.role)) || row.content_type !== 'text' || !Number.isSafeInteger(row.ordinal)) mismatch('Source message has invalid identity or text');
     return { id: String(row.id), ordinal: Number(row.ordinal), role: String(row.role), images: Number(row.images) > 0, bytes: Number(row.bytes), toolCalls: Number(row.calls) };
   });
   const users = messages.filter(message => message.role === 'user'), assistants = messages.filter(message => message.role === 'assistant');
@@ -176,7 +171,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
       if (matching.length !== 1) mismatch('Tool result has no unique proposal in its own exchange');
       const part = matching[0]!, proposal = JSON.parse(String(part.facts)) as JsonObject;
       owner(part, run);
-      if (part.turn_id !== turn.id || part.message_id !== assistant.id || !['completed', 'failed'].includes(String(part.state)) || !string(proposal.toolCallId) || used.has(proposal.toolCallId)) mismatch('Tool result proposal belongs to another Turn or has not settled');
+      if (part.turn_id !== turn.id || part.message_id !== assistant.id || !['completed', 'failed'].includes(String(part.state)) || !isBoundedId(proposal.toolCallId) || used.has(proposal.toolCallId)) mismatch('Tool result proposal belongs to another Turn or has not settled');
       used.add(proposal.toolCallId);
       const call = (Array.isArray(calls) ? calls : []).find(value => object(value) && value.id === fact.toolCallId);
       if (!object(call) || call.name !== proposal.name || activePrefixCanonical(call.input) !== activePrefixCanonical(proposal.input)) mismatch('Observed tool arguments differ from the assistant proposal');
@@ -213,12 +208,12 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
     sessionId: run.sessionId, workspaceId: run.workspaceId, runId: run.id, providerId: run.config.providerId, modelId: run.config.modelId,
     sourceJson, sourceMessageIds, sourceTurnIds: sourceTurns, coveredMessageIds: messages.filter(message => coveredIds.has(message.id)).map(message => message.id),
     protectedMessageIds: messages.filter(message => protectedIds.has(message.id)).map(message => message.id), boundaryTurnId: boundary.id, boundaryAttemptId: boundary.attemptId, latestUserMessageId: latest.id,
-    factsSha256: hash(sourceJson), manifestSha256: '', policySha256: selection.policySha256, expectedMemoryRevision: memory?.revision ?? 0, expectedContextHeadRevision: head?.revision ?? 0,
+    factsSha256: sha256Hex(sourceJson), manifestSha256: '', policySha256: selection.policySha256, expectedMemoryRevision: memory?.revision ?? 0, expectedContextHeadRevision: head?.revision ?? 0,
     ...(priorId ? { priorCheckpointId: priorId } : {}), stage: selection.stage, pendingSteerIds: pendingSteers.map(row => String(row.id)),
     ...(selection.stage === 'overflow-recovery' ? { currentTurnId: selection.currentTurnId, failedAttemptId: selection.failedAttemptId, cleanupConfirmed: true as const } : {}),
     limits: { maxSourceMessages: selection.maxSourceMessages, maxSourceBytes: selection.maxSourceBytes, keepRecentTurns: selection.keepRecentTurns, maxCoveredMessages: selection.maxCoveredMessages } };
   const { sourceJson: _facts, manifestSha256: _digest, ...manifest } = source;
-  source.manifestSha256 = hash(activePrefixCanonical(manifest));
+  source.manifestSha256 = sha256Hex(activePrefixCanonical(manifest));
   return source;
 }
 function projected(database: DatabaseSync, header: MessageHeader, max: number): JsonObject {
@@ -245,11 +240,11 @@ export function validateActivePrefixPublication(database: DatabaseSync, run: Run
   for (const key of ['version', 'scope', 'projection', 'sessionId', 'workspaceId', 'runId', 'providerId', 'modelId', 'sourceMessageIds', 'sourceTurnIds', 'coveredMessageIds', 'protectedMessageIds', 'boundaryTurnId', 'boundaryAttemptId', 'latestUserMessageId', 'factsSha256', 'manifestSha256', 'policySha256'] as const) {
     if (activePrefixCanonical(checkpoint[key]) !== activePrefixCanonical(source[key])) mismatch('Checkpoint is not bound to its exact prepared source');
   }
-  if (!string(checkpoint.id) || checkpoint.previousCheckpointId !== source.priorCheckpointId || checkpoint.revisionId !== summary.id || checkpoint.summarySha256 !== summary.sha256
-    || summary.kind !== 'summary' || summary.turnId !== undefined || summary.sessionId !== run.sessionId || summary.runId !== run.id || hash(summary.text) !== summary.sha256 || !summary.text.trim()
-    || source.sourceMessageIds.some(id => !summary.sourceIds.includes(id)) || !summary.sourceIds.includes(`active-prefix-checkpoint:${hash(JSON.stringify(checkpoint))}`)
+  if (!isBoundedId(checkpoint.id) || checkpoint.previousCheckpointId !== source.priorCheckpointId || checkpoint.revisionId !== summary.id || checkpoint.summarySha256 !== summary.sha256
+    || summary.kind !== 'summary' || summary.turnId !== undefined || summary.sessionId !== run.sessionId || summary.runId !== run.id || sha256Hex(summary.text) !== summary.sha256 || !summary.text.trim()
+    || source.sourceMessageIds.some(id => !summary.sourceIds.includes(id)) || !summary.sourceIds.includes(`active-prefix-checkpoint:${sha256Hex(JSON.stringify(checkpoint))}`)
     || context.sessionId !== run.sessionId || context.runId !== run.id || context.turnId !== undefined || context.kind === 'summary'
-    || context.revision !== summary.revision + 1 || context.supersedesId !== summary.id || context.sha256 !== hash(context.text) || !context.sourceIds.includes(summary.id)
+    || context.revision !== summary.revision + 1 || context.supersedesId !== summary.id || context.sha256 !== sha256Hex(context.text) || !context.sourceIds.includes(summary.id)
     || contextData.revisionId !== context.id || contextData.contextRevision !== context.revision) mismatch('Summary and provider context revisions have inconsistent bindings');
   if (!checkpoint.usage || Object.values(checkpoint.usage).some(count => count !== null && (!Number.isSafeInteger(count) || count < 0))
     || exceedsInclusiveTotals(checkpoint.usage)) mismatch('Summary usage must be valid inclusive provider observations');
