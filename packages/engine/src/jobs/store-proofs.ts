@@ -22,7 +22,7 @@ import {
   validateJobOutputCursor,
 } from "./validation.js";
 import { JOB_DELIVERY_STATES, JOB_STATES, fail } from "./reducer.js";
-import type { JobDelivery, JobRecord } from "./store.js";
+import type { JobRecord, NativeJobDelivery } from "./store.js";
 export const JOB_STORAGE_LIMITS = Object.freeze({
   jobs: 128,
   live: 16,
@@ -33,6 +33,7 @@ export const JOB_STORAGE_LIMITS = Object.freeze({
   bytes: 33554432,
   rowBytes: 65536,
   inputBytes: 262144,
+  promptBytes: 32768,
 });
 const id = jobIdentifier,
   integer = jobInteger;
@@ -218,7 +219,8 @@ export function validateRecord(r: JobRecord): void {
     if (r.inputRequestId !== null) id(r.inputRequestId);
     if (
       r.prompt !== null &&
-      (typeof r.prompt !== "string" || Buffer.byteLength(r.prompt) > 32768)
+      (typeof r.prompt !== "string" ||
+        Buffer.byteLength(r.prompt) > JOB_STORAGE_LIMITS.promptBytes)
     )
       fail("JOB_LIMIT");
     if (
@@ -304,7 +306,7 @@ function sourceAnchor(db: DatabaseSync, r: JobRecord): void {
     ownerEpoch: r.ownerEpoch,
   });
 }
-function acceptedSql(db: DatabaseSync, r: JobDelivery): void {
+function acceptedSql(db: DatabaseSync, r: NativeJobDelivery): void {
   if (!r.accepted) return;
   const a = r.accepted,
     h = db

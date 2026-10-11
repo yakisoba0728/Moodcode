@@ -12,7 +12,13 @@ import type {
   JobAcceptedInputProof,
   JobDeliveryTargetProof,
 } from "./delivery.js";
-import { formatJobResult } from "./delivery.js";
+import {
+  formatJobResult,
+  isDeliverableJob,
+  jobResultDeliveryId,
+  jobResultInputRequestId,
+  parseJobResultInputRequestId,
+} from "./delivery.js";
 import {
   JOB_LIMITS,
   type JobOwnerProof,
@@ -141,7 +147,7 @@ export interface JobOutputRevision extends Base {
   readonly state: "recorded";
   readonly page: JobOutputPage;
 }
-export interface JobDelivery extends Base {
+export interface NativeJobDelivery extends Base {
   readonly kind: "delivery";
   readonly deliveryId: string;
   readonly jobId: string;
@@ -156,7 +162,7 @@ export interface JobDelivery extends Base {
   readonly accepted: JobAcceptedInputProof | null;
   readonly errorCode: string | null;
 }
-export type JobRecord = CommandJob | JobOutputRevision | JobDelivery;
+export type JobRecord = CommandJob | JobOutputRevision | NativeJobDelivery;
 export interface JobTransitionReceipt {
   readonly id: string;
   readonly workspaceId: string;
@@ -323,7 +329,7 @@ export class JobStorage {
     }
     return this.journal.head(ws, "job", jobId);
   }
-  getDelivery(ws: string, deliveryId: string): JobDelivery | undefined {
+  getDelivery(ws: string, deliveryId: string): NativeJobDelivery | undefined {
     return this.journal.head(ws, "delivery", deliveryId);
   }
   inspectJobs(ws: string): CommandJob[] {
@@ -332,23 +338,23 @@ export class JobStorage {
   readOutputs(
     ws: string,
     jobId: string,
-    afterRevision = 0,
+    offset = 0,
     limit = 32,
   ): JobOutputRevision[] {
     id(jobId);
-    integer(afterRevision);
+    integer(offset);
     integer(limit, 32);
     if (limit < 1) fail("INVALID_JOB_INPUT");
     const hs = this.db
       .prepare(
         "SELECT id FROM job_revisions WHERE workspace_id=? AND kind='output' AND job_id=? ORDER BY json_extract(data,'$.page.nextCursor.eventSeq'),json_extract(data,'$.page.nextCursor.byteOffset'),id LIMIT ? OFFSET ?",
       )
-      .all(id(ws), jobId, limit, afterRevision);
+      .all(id(ws), jobId, limit, offset);
     return hs.map((h) =>
       this.journal.read<JobOutputRevision>(ws, String(h.id), "output"),
     );
   }
-  inspectDeliveries(ws: string): JobDelivery[] {
+  inspectDeliveries(ws: string): NativeJobDelivery[] {
     return this.journal.list(ws, "delivery", JOB_STORAGE_LIMITS.deliveries);
   }
   /** Lookups describe exact historical admission; they never grant a fresh queue accept. */
@@ -357,7 +363,7 @@ export class JobStorage {
     readonly sessionId: string;
     readonly inputId: string;
     readonly requestId: string;
-  }): JobDelivery | null {
+  }): NativeJobDelivery | null {
     const x = json(value);
     if (
       Object.keys(x).length !== 4 ||
@@ -384,37 +390,51 @@ export class JobStorage {
         fail("JOB_INPUT_INVALID");
       return d;
     }
-    if (!x.requestId.startsWith("job-result:")) return null;
-    const match = /^job-result:(.+):([a-f0-9]{64})$/u.exec(x.requestId);
-    if (!match) fail("JOB_INPUT_INVALID");
-    const hs = this.db
-      .prepare(
-        "SELECT entity_id FROM job_heads WHERE workspace_id=? AND kind='delivery' AND entity_id IN (SELECT entity_id FROM job_revisions WHERE workspace_id=? AND kind='delivery' AND job_id=?) LIMIT 129",
-      )
-      .all(x.workspaceId, x.workspaceId, id(match[1]));
+    const request = parseJobResultInputRequestId(x.requestId);
+    if (request === null) return null;
+    if (!request) fail("JOB_INPUT_INVALID");
+    const hs = this.deliveryHeadsForJob(
+      x.workspaceId,
+      id(request.jobId),
+      JOB_STORAGE_LIMITS.deliveries + 1,
+    );
     if (hs.length > JOB_STORAGE_LIMITS.deliveries) fail("JOB_LIMIT");
     const found = hs
-      .map((h) => this.getDelivery(x.workspaceId, String(h.entity_id))!)
+      .map((entityId) => this.getDelivery(x.workspaceId, entityId)!)
       .filter((d) => d.inputRequestId === x.requestId);
     if (found.length !== 1) fail("JOB_INPUT_UNTRACKED");
     const d = found[0]!;
     if (
       d.sessionId !== x.sessionId ||
-      d.settledSha256 !== match[2] ||
+      d.settledSha256 !== request.settledSha256 ||
       (d.accepted && d.accepted.inputId !== x.inputId)
     )
       fail("JOB_INPUT_INVALID");
     return d;
   }
-  private duplicate<T extends JobRecord>(
+  /** Entity IDs of the delivery heads whose head revision belongs to `jobId`. */
+  private deliveryHeadsForJob(
     ws: string,
+    jobId: string,
+    limit: number,
+  ): string[] {
+    return this.db
+      .prepare(
+        "SELECT h.entity_id FROM job_heads h JOIN job_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='delivery' AND r.job_id=? LIMIT ?",
+      )
+      .all(ws, jobId, limit)
+      .map((h) => String(h.entity_id));
+  }
+  /** The pair an earlier identical request wrote, or else the result of `run`. */
+  private once<T extends JobRecord>(
     kind: JobJournalKind,
     eid: string,
     op: string,
     x: JobMutationInput,
-  ): JobRequestResult<T> | undefined {
-    const pair = this.journal.replay<T>(ws, kind, eid, op, x);
-    return pair && json({ ...pair, duplicate: true });
+    run: () => JobRequestResult<T>,
+  ): JobRequestResult<T> {
+    const pair = this.journal.replay<T>(x.workspaceId, kind, eid, op, x);
+    return pair ? json({ ...pair, duplicate: true }) : run();
   }
   private append<T extends JobRecord>(
     kind: JobJournalKind,
@@ -493,6 +513,22 @@ export class JobStorage {
     if (!r) fail("JOB_NOT_FOUND");
     return r;
   }
+  private mustAttached(x: AttachTerminalJobInput): CommandJob {
+    const r = this.mustJob(x.workspaceId, x.jobId);
+    if (r.revision !== x.expectedRevision || r.state !== "attached")
+      fail("JOB_REVISION_CONFLICT");
+    return r;
+  }
+  private mustDelivery(ws: string, deliveryId: string): NativeJobDelivery {
+    const r = this.getDelivery(ws, deliveryId);
+    if (!r) fail("JOB_NOT_FOUND");
+    return r;
+  }
+  private currentTarget(original: object): JobDeliveryTargetProof {
+    const target = targetProof(this.ports.readDeliveryTarget(original));
+    this.ports.assertDeliveryTargetCurrent(original, target);
+    return target;
+  }
   private original(
     original: object,
     source: TerminalJobSourceProof,
@@ -509,173 +545,143 @@ export class JobStorage {
     value: AttachTerminalJobInput,
   ): JobRequestResult<CommandJob> {
     const x = input(value, [...mutationFields, "jobId"]);
-    return this.ports.writeTx(() => {
-      const dup = this.duplicate<CommandJob>(
-        x.workspaceId,
-        "job",
-        x.jobId,
-        "attach",
-        x,
-      );
-      if (dup) return dup;
-      const source = validateTerminalJobSourceProof(
-          this.ports.readSource(original),
-        ),
-        owner = this.original(original, source, "attach");
-      if (source.workspaceId !== x.workspaceId)
-        fail("JOB_SOURCE_OWNER_INVALID");
-      this.ports.getWorkspace(x.workspaceId);
-      if (this.getJob(x.workspaceId, x.jobId)) fail("JOB_REVISION_CONFLICT");
-      const heads = this.db
-        .prepare(
-          "SELECT workspace_id,entity_id FROM job_heads WHERE kind='job' LIMIT 129",
-        )
-        .all();
-      let live = 0,
-        sessionLive = 0;
-      for (const h of heads) {
-        const j = this.getJob(String(h.workspace_id), String(h.entity_id))!;
-        if (j.state === "attached") {
-          live++;
-          if (j.sessionId === source.sessionId) sessionLive++;
+    return this.ports.writeTx(() =>
+      this.once<CommandJob>("job", x.jobId, "attach", x, () => {
+        const source = validateTerminalJobSourceProof(
+            this.ports.readSource(original),
+          ),
+          owner = this.original(original, source, "attach");
+        if (source.workspaceId !== x.workspaceId)
+          fail("JOB_SOURCE_OWNER_INVALID");
+        this.ports.getWorkspace(x.workspaceId);
+        if (this.getJob(x.workspaceId, x.jobId)) fail("JOB_REVISION_CONFLICT");
+        const heads = this.db
+          .prepare(
+            "SELECT workspace_id,entity_id FROM job_heads WHERE kind='job' LIMIT ?",
+          )
+          .all(JOB_STORAGE_LIMITS.jobs + 1);
+        let live = 0,
+          sessionLive = 0;
+        for (const h of heads) {
+          const j = this.getJob(String(h.workspace_id), String(h.entity_id))!;
+          if (j.state === "attached") {
+            live++;
+            if (j.sessionId === source.sessionId) sessionLive++;
+          }
         }
-      }
-      if (
-        live >= JOB_STORAGE_LIMITS.live ||
-        sessionLive >= JOB_STORAGE_LIMITS.sessionLive
-      )
-        fail("JOB_LIMIT");
-      return this.append<CommandJob>("job", x.jobId, "attach", x, undefined, {
-        jobId: x.jobId,
-        jobKind: "user-terminal-watch",
-        sessionId: source.sessionId,
-        terminalId: source.terminalId,
-        sourceSha256: source.sha256,
-        ownerEpoch: owner.ownerEpoch,
-        owner,
-        source,
-        state: "attached",
-        cursor: null,
-        lastOutputId: null,
-        outcome: null,
-        errorCode: null,
-      });
-    });
+        if (
+          live >= JOB_STORAGE_LIMITS.live ||
+          sessionLive >= JOB_STORAGE_LIMITS.sessionLive
+        )
+          fail("JOB_LIMIT");
+        return this.append<CommandJob>("job", x.jobId, "attach", x, undefined, {
+          jobId: x.jobId,
+          jobKind: "user-terminal-watch",
+          sessionId: source.sessionId,
+          terminalId: source.terminalId,
+          sourceSha256: source.sha256,
+          ownerEpoch: owner.ownerEpoch,
+          owner,
+          source,
+          state: "attached",
+          cursor: null,
+          lastOutputId: null,
+          outcome: null,
+          errorCode: null,
+        });
+      }),
+    );
   }
   recordJobOutput(
     original: object,
     value: RecordJobOutputInput,
   ): JobRequestResult<CommandJob> {
     const x = input(value, [...mutationFields, "jobId", "outputId"]);
-    return this.ports.writeTx(() => {
-      const dup = this.duplicate<CommandJob>(
-        x.workspaceId,
-        "job",
-        x.jobId,
-        "output",
-        x,
-      );
-      if (dup) return dup;
-      const before = this.mustJob(x.workspaceId, x.jobId);
-      if (
-        before.revision !== x.expectedRevision ||
-        before.state !== "attached" ||
-        this.journal.head(x.workspaceId, "output", x.outputId)
-      )
-        fail("JOB_REVISION_CONFLICT");
-      const p = validateJobOutputPage(this.ports.readOutput(original));
-      this.original(original, before.source, "observe");
-      if (
-        p.jobId !== before.jobId ||
-        p.jobRevisionId !== before.sourceRevisionId ||
-        p.sourceSha256 !== before.sourceSha256 ||
-        (!p.gap && !p.fragments.length)
-      )
-        fail("JOB_OUTPUT_STALE");
-      assertOutputProgress(before.cursor, p);
-      const ox = { ...x, expectedRevision: 0 };
-      const output = this.append<JobOutputRevision>(
-        "output",
-        x.outputId,
-        "output",
-        ox,
-        undefined,
-        {
-          outputId: x.outputId,
-          jobId: before.jobId,
-          jobRevisionId: before.sourceRevisionId,
-          sessionId: before.sessionId,
-          terminalId: before.terminalId,
-          sourceSha256: before.sourceSha256,
-          ownerEpoch: before.ownerEpoch,
-          owner: before.owner,
-          source: before.source,
-          state: "recorded",
-          page: p,
-        },
-      ).record;
-      const result = this.append("job", x.jobId, "output", x, before, {
-        ...before,
-        cursor: p.nextCursor,
-        lastOutputId: output.outputId,
-      });
-      return json({ ...result, output });
-    });
+    return this.ports.writeTx(() =>
+      this.once<CommandJob>("job", x.jobId, "output", x, () => {
+        const before = this.mustAttached(x);
+        if (this.journal.head(x.workspaceId, "output", x.outputId))
+          fail("JOB_REVISION_CONFLICT");
+        const p = validateJobOutputPage(this.ports.readOutput(original));
+        this.original(original, before.source, "observe");
+        if (
+          p.jobId !== before.jobId ||
+          p.jobRevisionId !== before.sourceRevisionId ||
+          p.sourceSha256 !== before.sourceSha256 ||
+          (!p.gap && !p.fragments.length)
+        )
+          fail("JOB_OUTPUT_STALE");
+        assertOutputProgress(before.cursor, p);
+        const ox = { ...x, expectedRevision: 0 };
+        const output = this.append<JobOutputRevision>(
+          "output",
+          x.outputId,
+          "output",
+          ox,
+          undefined,
+          {
+            outputId: x.outputId,
+            jobId: before.jobId,
+            jobRevisionId: before.sourceRevisionId,
+            sessionId: before.sessionId,
+            terminalId: before.terminalId,
+            sourceSha256: before.sourceSha256,
+            ownerEpoch: before.ownerEpoch,
+            owner: before.owner,
+            source: before.source,
+            state: "recorded",
+            page: p,
+          },
+        ).record;
+        const result = this.append("job", x.jobId, "output", x, before, {
+          ...before,
+          cursor: p.nextCursor,
+          lastOutputId: output.outputId,
+        });
+        return json({ ...result, output });
+      }),
+    );
   }
   settleTerminalJob(
     original: object,
     value: SettleTerminalJobInput,
   ): JobRequestResult<CommandJob> {
     const x = input(value, [...mutationFields, "jobId"]);
-    return this.ports.writeTx(() => {
-      const dup = this.duplicate<CommandJob>(
-        x.workspaceId,
-        "job",
-        x.jobId,
-        "settle",
-        x,
-      );
-      if (dup) return dup;
-      const before = this.mustJob(x.workspaceId, x.jobId);
-      if (before.revision !== x.expectedRevision || before.state !== "attached")
-        fail("JOB_REVISION_CONFLICT");
-      const outcome = validateTerminalClosedOutcomeProof(
-        this.ports.readClosedOutcome(original),
-      );
-      this.original(original, before.source, "observe");
-      if (outcome.sourceSha256 !== before.sourceSha256)
-        fail("JOB_SOURCE_OWNER_INVALID");
-      const s = settledJobState(outcome);
-      return this.append("job", x.jobId, "settle", x, before, {
-        ...before,
-        state: s,
-        outcome,
-        errorCode: s === "uncertain" ? "JOB_CLEANUP_UNCERTAIN" : null,
-      });
-    });
+    return this.ports.writeTx(() =>
+      this.once<CommandJob>("job", x.jobId, "settle", x, () => {
+        const before = this.mustAttached(x);
+        const outcome = validateTerminalClosedOutcomeProof(
+          this.ports.readClosedOutcome(original),
+        );
+        this.original(original, before.source, "observe");
+        if (outcome.sourceSha256 !== before.sourceSha256)
+          fail("JOB_SOURCE_OWNER_INVALID");
+        const s = settledJobState(outcome);
+        return this.append("job", x.jobId, "settle", x, before, {
+          ...before,
+          state: s,
+          outcome,
+          errorCode: s === "uncertain" ? "JOB_CLEANUP_UNCERTAIN" : null,
+        });
+      }),
+    );
   }
   cancelWatch(value: CancelCommandJobWatchInput): JobRequestResult<CommandJob> {
     const x = input(value, [...mutationFields, "jobId"]);
-    return this.ports.writeTx(() => {
-      const dup = this.duplicate<CommandJob>(
-        x.workspaceId,
-        "job",
-        x.jobId,
-        "cancel-watch",
-        x,
-      );
-      if (dup) return dup;
-      const before = this.mustJob(x.workspaceId, x.jobId);
-      return this.append("job", x.jobId, "cancel-watch", x, before, {
-        ...before,
-        state: "cancelled",
-        errorCode: "JOB_WATCH_CANCELLED",
-      });
-    });
+    return this.ports.writeTx(() =>
+      this.once<CommandJob>("job", x.jobId, "cancel-watch", x, () => {
+        const before = this.mustJob(x.workspaceId, x.jobId);
+        return this.append("job", x.jobId, "cancel-watch", x, before, {
+          ...before,
+          state: "cancelled",
+          errorCode: "JOB_WATCH_CANCELLED",
+        });
+      }),
+    );
   }
   /** One primary COMMIT owns preparation, dispatch, actual queued input and its accepted receipt. */
   private assertAtomicHistory(
-    record: JobDelivery,
+    record: NativeJobDelivery,
     receipt: JobTransitionReceipt,
     x: DeliverJobResultAtomicInput,
   ): void {
@@ -685,12 +691,7 @@ export class JobStorage {
       record.revision !== 3 ||
       record.jobId !== x.jobId ||
       record.deliveryId !==
-        knowledgeHash([
-          "job-result-delivery-v1",
-          x.workspaceId,
-          x.jobId,
-          record.settledSha256,
-        ]) ||
+        jobResultDeliveryId(x.workspaceId, x.jobId, record.settledSha256) ||
       record.lastReceiptId !== receipt.id ||
       receipt.operation !== "delivery-accepted" ||
       receipt.requestId !== x.requestId ||
@@ -698,13 +699,13 @@ export class JobStorage {
       !record.previousId
     )
       fail("JOB_REQUEST_CONFLICT");
-    const intent = this.journal.read<JobDelivery>(
+    const intent = this.journal.read<NativeJobDelivery>(
       x.workspaceId,
       record.previousId,
       "delivery",
     );
     if (!intent.previousId) fail();
-    const prepared = this.journal.read<JobDelivery>(
+    const prepared = this.journal.read<NativeJobDelivery>(
       x.workspaceId,
       intent.previousId,
       "delivery",
@@ -738,7 +739,7 @@ export class JobStorage {
   deliverJobResultAtomic(
     originalTarget: object,
     value: DeliverJobResultAtomicInput,
-  ): JobRequestResult<JobDelivery> {
+  ): JobRequestResult<NativeJobDelivery> {
     const x = input(value, [...mutationFields, "jobId"]);
     return this.ports.writeTx(() => {
       // A completed native request is descriptive history, even when its live target was released.
@@ -759,7 +760,7 @@ export class JobStorage {
           knowledgeHash(receipt.requestInput.atomicRequest) !== knowledgeHash(x)
         )
           fail("JOB_REQUEST_CONFLICT");
-        const record = this.journal.read<JobDelivery>(
+        const record = this.journal.read<NativeJobDelivery>(
           x.workspaceId,
           receipt.afterRevisionId,
           "delivery",
@@ -768,21 +769,16 @@ export class JobStorage {
         return json({ record, receipt, duplicate: true });
       }
       // Existing two-phase intents and uncertain gaps must be reconciled, never accepted again.
-      const prior = this.db
-        .prepare(
-          "SELECT h.entity_id FROM job_heads h JOIN job_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='delivery' AND r.job_id=? LIMIT 2",
-        )
-        .all(x.workspaceId, x.jobId);
-      if (prior.length) fail("JOB_DELIVERY_EXISTS");
+      if (this.deliveryHeadsForJob(x.workspaceId, x.jobId, 1).length)
+        fail("JOB_DELIVERY_EXISTS");
       if (!this.ports.acceptAtomicInput || !this.ports.releaseAtomicInput)
         fail("JOB_ATOMIC_DELIVERY_UNSUPPORTED");
       const job = this.mustJob(x.workspaceId, x.jobId);
-      const deliveryId = knowledgeHash([
-        "job-result-delivery-v1",
+      const deliveryId = jobResultDeliveryId(
         x.workspaceId,
         x.jobId,
         job.sha256,
-      ]);
+      );
       const identity = knowledgeHash(x);
       const prepared = this.prepareDelivery(originalTarget, {
         ...x,
@@ -790,7 +786,7 @@ export class JobStorage {
         requestId: `atomic-prepare:${identity}`,
       });
       const prompt = formatJobResult(job, prepared.record.target);
-      const inputRequestId = `job-result:${x.jobId}:${job.sha256}`;
+      const inputRequestId = jobResultInputRequestId(x.jobId, job.sha256);
       const dispatched = this.dispatchDelivery(originalTarget, {
         workspaceId: x.workspaceId,
         deliveryId,
@@ -832,81 +828,75 @@ export class JobStorage {
   prepareJobDelivery(
     original: object,
     value: PrepareJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
+  ): JobRequestResult<NativeJobDelivery> {
     const x = input(value, [...mutationFields, "jobId", "deliveryId"]);
     return this.ports.writeTx(() => this.prepareDelivery(original, x));
   }
   private prepareDelivery(
     original: object,
     x: PrepareJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
-    const dup = this.duplicate<JobDelivery>(
-      x.workspaceId,
+  ): JobRequestResult<NativeJobDelivery> {
+    return this.once<NativeJobDelivery>(
       "delivery",
       x.deliveryId,
       "delivery-prepare",
       x,
-    );
-    if (dup) return dup;
-    const job = this.mustJob(x.workspaceId, x.jobId);
-    if (
-      !["completed", "failed", "cancelled"].includes(job.state) ||
-      !job.outcome?.cleanupConfirmed
-    )
-      fail("JOB_NOT_SETTLED");
-    const target = targetProof(this.ports.readDeliveryTarget(original));
-    this.ports.assertDeliveryTargetCurrent(original, target);
-    if (
-      target.workspaceId !== x.workspaceId ||
-      target.jobId !== job.jobId ||
-      target.jobRevisionId !== job.id ||
-      target.jobSha256 !== job.sha256 ||
-      target.settledSha256 !== job.sha256 ||
-      target.sourceSha256 !== job.sourceSha256 ||
-      target.target.sessionId !== job.sessionId
-    )
-      fail("JOB_DELIVERY_STALE");
-    const existing = this.db
-      .prepare(
-        "SELECT entity_id FROM job_heads WHERE workspace_id=? AND kind='delivery' LIMIT 129",
-      )
-      .all(x.workspaceId);
-    for (const h of existing)
-      if (
-        this.getDelivery(x.workspaceId, String(h.entity_id))!.jobId ===
-        job.jobId
-      )
-        fail("JOB_DELIVERY_EXISTS");
-    return this.append<JobDelivery>(
-      "delivery",
-      x.deliveryId,
-      "delivery-prepare",
-      x,
-      undefined,
-      {
-        deliveryId: x.deliveryId,
-        jobId: job.jobId,
-        settledRevisionId: job.id,
-        settledSha256: job.sha256,
-        sessionId: job.sessionId,
-        terminalId: job.terminalId,
-        sourceSha256: job.sourceSha256,
-        ownerEpoch: job.ownerEpoch,
-        owner: job.owner,
-        source: job.source,
-        target,
-        state: "prepared",
-        inputRequestId: null,
-        prompt: null,
-        accepted: null,
-        errorCode: null,
+      () => {
+        const job = this.mustJob(x.workspaceId, x.jobId);
+        if (!isDeliverableJob(job)) fail("JOB_NOT_SETTLED");
+        const target = this.currentTarget(original);
+        if (
+          target.workspaceId !== x.workspaceId ||
+          target.jobId !== job.jobId ||
+          target.jobRevisionId !== job.id ||
+          target.jobSha256 !== job.sha256 ||
+          target.settledSha256 !== job.sha256 ||
+          target.sourceSha256 !== job.sourceSha256 ||
+          target.target.sessionId !== job.sessionId
+        )
+          fail("JOB_DELIVERY_STALE");
+        const [existing] = this.deliveryHeadsForJob(
+          x.workspaceId,
+          job.jobId,
+          1,
+        );
+        if (
+          existing &&
+          this.getDelivery(x.workspaceId, existing)!.jobId === job.jobId
+        )
+          fail("JOB_DELIVERY_EXISTS");
+        return this.append<NativeJobDelivery>(
+          "delivery",
+          x.deliveryId,
+          "delivery-prepare",
+          x,
+          undefined,
+          {
+            deliveryId: x.deliveryId,
+            jobId: job.jobId,
+            settledRevisionId: job.id,
+            settledSha256: job.sha256,
+            sessionId: job.sessionId,
+            terminalId: job.terminalId,
+            sourceSha256: job.sourceSha256,
+            ownerEpoch: job.ownerEpoch,
+            owner: job.owner,
+            source: job.source,
+            target,
+            state: "prepared",
+            inputRequestId: null,
+            prompt: null,
+            accepted: null,
+            errorCode: null,
+          },
+        );
       },
     );
   }
   dispatchJobDelivery(
     original: object,
     value: DispatchJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
+  ): JobRequestResult<NativeJobDelivery> {
     const x = input(value, [
       ...mutationFields,
       "deliveryId",
@@ -918,69 +908,66 @@ export class JobStorage {
   private dispatchDelivery(
     original: object,
     x: DispatchJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
-    const dup = this.duplicate<JobDelivery>(
-      x.workspaceId,
+  ): JobRequestResult<NativeJobDelivery> {
+    return this.once<NativeJobDelivery>(
       "delivery",
       x.deliveryId,
       "delivery-intent",
       x,
-    );
-    if (dup) return dup;
-    const before = this.getDelivery(x.workspaceId, x.deliveryId);
-    if (!before) fail("JOB_NOT_FOUND");
-    const target = targetProof(this.ports.readDeliveryTarget(original));
-    this.ports.assertDeliveryTargetCurrent(original, target);
-    if (
-      target.sha256 !== before.target.sha256 ||
-      x.inputRequestId !==
-        `job-result:${before.jobId}:${before.settledSha256}` ||
-      x.prompt !==
-        formatJobResult(
-          this.mustJob(x.workspaceId, before.jobId),
-          before.target,
+      () => {
+        const before = this.mustDelivery(x.workspaceId, x.deliveryId);
+        const target = this.currentTarget(original);
+        if (
+          target.sha256 !== before.target.sha256 ||
+          x.inputRequestId !==
+            jobResultInputRequestId(before.jobId, before.settledSha256) ||
+          x.prompt !==
+            formatJobResult(
+              this.mustJob(x.workspaceId, before.jobId),
+              before.target,
+            )
         )
-    )
-      fail("JOB_DELIVERY_STALE");
-    return this.append("delivery", x.deliveryId, "delivery-intent", x, before, {
-      ...before,
-      state: "dispatching",
-      inputRequestId: x.inputRequestId,
-      prompt: x.prompt,
-    });
+          fail("JOB_DELIVERY_STALE");
+        return this.append(
+          "delivery",
+          x.deliveryId,
+          "delivery-intent",
+          x,
+          before,
+          {
+            ...before,
+            state: "dispatching",
+            inputRequestId: x.inputRequestId,
+            prompt: x.prompt,
+          },
+        );
+      },
+    );
   }
   private acceptedDelivery(
     originalTarget: object,
     originalAccepted: object,
     x: MutateJobDeliveryInput,
     op: "delivery-accepted" | "delivery-reconcile",
-  ): JobRequestResult<JobDelivery> {
-    const dup = this.duplicate<JobDelivery>(
-      x.workspaceId,
-      "delivery",
-      x.deliveryId,
-      op,
-      x,
-    );
-    if (dup) return dup;
-    const before = this.getDelivery(x.workspaceId, x.deliveryId);
-    if (!before) fail("JOB_NOT_FOUND");
-    const target = targetProof(this.ports.readDeliveryTarget(originalTarget));
-    this.ports.assertDeliveryTargetCurrent(originalTarget, target);
-    if (target.sha256 !== before.target.sha256) fail("JOB_DELIVERY_STALE");
-    const accepted = acceptedProof(this.ports.readAccepted(originalAccepted));
-    return this.append("delivery", x.deliveryId, op, x, before, {
-      ...before,
-      state: "accepted",
-      accepted,
-      errorCode: null,
+  ): JobRequestResult<NativeJobDelivery> {
+    return this.once<NativeJobDelivery>("delivery", x.deliveryId, op, x, () => {
+      const before = this.mustDelivery(x.workspaceId, x.deliveryId);
+      const target = this.currentTarget(originalTarget);
+      if (target.sha256 !== before.target.sha256) fail("JOB_DELIVERY_STALE");
+      const accepted = acceptedProof(this.ports.readAccepted(originalAccepted));
+      return this.append("delivery", x.deliveryId, op, x, before, {
+        ...before,
+        state: "accepted",
+        accepted,
+        errorCode: null,
+      });
     });
   }
   completeJobDelivery(
     originalTarget: object,
     originalAccepted: object,
     value: MutateJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
+  ): JobRequestResult<NativeJobDelivery> {
     const x = input(value, [...mutationFields, "deliveryId"]);
     return this.ports.writeTx(() =>
       this.acceptedDelivery(
@@ -993,7 +980,7 @@ export class JobStorage {
   }
   abandonJobDelivery(
     value: AbandonJobDeliveryInput,
-  ): JobRequestResult<JobDelivery> {
+  ): JobRequestResult<NativeJobDelivery> {
     const x = input(value, [
       ...mutationFields,
       "deliveryId",
@@ -1002,29 +989,32 @@ export class JobStorage {
     ]);
     return this.ports.writeTx(() => {
       const op =
-          x.operation === "cancelled"
-            ? "delivery-cancel"
-            : "delivery-uncertain",
-        dup = this.duplicate<JobDelivery>(
-          x.workspaceId,
-          "delivery",
-          x.deliveryId,
-          op,
-          x,
-        );
-      if (dup) return dup;
-      const before = this.getDelivery(x.workspaceId, x.deliveryId);
-      if (!before) fail("JOB_NOT_FOUND");
-      return this.append("delivery", x.deliveryId, op, x, before, {
-        ...before,
-        state: x.operation,
-        errorCode: id(x.errorCode),
-      });
+        x.operation === "cancelled" ? "delivery-cancel" : "delivery-uncertain";
+      return this.once<NativeJobDelivery>(
+        "delivery",
+        x.deliveryId,
+        op,
+        x,
+        () => {
+          const before = this.mustDelivery(x.workspaceId, x.deliveryId);
+          return this.append("delivery", x.deliveryId, op, x, before, {
+            ...before,
+            state: x.operation,
+            errorCode: id(x.errorCode),
+          });
+        },
+      );
     });
   }
   validateGraph(): void {
     const graph = this.journal.scan(),
-      records = graph.records;
+      records = graph.records,
+      outputs = new Map<string, JobOutputRevision>();
+    for (const r of records.values())
+      if (r.kind === "output") {
+        const key = JSON.stringify([r.workspaceId, r.outputId]);
+        if (!outputs.has(key)) outputs.set(key, r);
+      }
     for (const r of records.values()) {
       const t = this.journal.receiptOf(r, graph),
         before = this.journal.previousOf(r, graph);
@@ -1068,12 +1058,9 @@ export class JobStorage {
         )
           fail();
         if (t.operation === "output") {
-          const o = [...records.values()].find(
-            (x) =>
-              x.kind === "output" &&
-              x.outputId === r.lastOutputId &&
-              x.workspaceId === r.workspaceId,
-          ) as JobOutputRevision | undefined;
+          const o = outputs.get(
+            JSON.stringify([r.workspaceId, r.lastOutputId]),
+          );
           if (
             !o ||
             o.jobId !== r.jobId ||
@@ -1103,8 +1090,7 @@ export class JobStorage {
           settled.kind !== "job" ||
           settled.jobId !== r.jobId ||
           settled.sha256 !== r.settledSha256 ||
-          !settled.outcome?.cleanupConfirmed ||
-          !["completed", "failed", "cancelled"].includes(settled.state) ||
+          !isDeliverableJob(settled) ||
           settled.owner.sha256 !== r.owner.sha256
         )
           fail();
@@ -1115,7 +1101,7 @@ export class JobStorage {
           fail("JOB_DELIVERY_STALE");
         if (
           r.inputRequestId !== null &&
-          r.inputRequestId !== `job-result:${r.jobId}:${r.settledSha256}`
+          r.inputRequestId !== jobResultInputRequestId(r.jobId, r.settledSha256)
         )
           fail("JOB_INPUT_INVALID");
       }
@@ -1145,12 +1131,13 @@ export class JobStorage {
     this.validateGraph();
     if (archiveSha !== undefined) jobSha256(archiveSha);
     if (workspaceId !== undefined) id(workspaceId);
+    const max = JOB_STORAGE_LIMITS.jobs + JOB_STORAGE_LIMITS.deliveries;
     const hs = this.db
       .prepare(
-        "SELECT workspace_id,kind,entity_id FROM job_heads WHERE kind IN ('job','delivery') ORDER BY workspace_id,kind,entity_id LIMIT 257",
+        "SELECT workspace_id,kind,entity_id FROM job_heads WHERE kind IN ('job','delivery') ORDER BY workspace_id,kind,entity_id LIMIT ?",
       )
-      .all();
-    if (hs.length > 256) fail("JOB_LIMIT");
+      .all(max + 1);
+    if (hs.length > max) fail("JOB_LIMIT");
     let count = 0;
     for (const h of hs) {
       if (workspaceId !== undefined && h.workspace_id !== workspaceId) continue;

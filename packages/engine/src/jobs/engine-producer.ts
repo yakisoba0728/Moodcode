@@ -21,8 +21,12 @@ import {
   type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import type { ActualTerminalJobPort } from "./host.js";
+import { acceptedRequest } from "./command-delivery-input.js";
 import {
   formatJobResult,
+  isDeliverableJob,
+  jobResultDeliveryId,
+  jobResultInputRequestId,
   type ActualJobInputPort,
   type JobAcceptedInputProof,
   type JobDeliveryTargetProof,
@@ -457,12 +461,7 @@ export class EngineJobProducer {
     const data = jobJson(input);
     const binding = this.binding(data.workspaceId),
       job = this.native().getJob(data.workspaceId, data.jobId);
-    if (
-      !job ||
-      !["completed", "failed", "cancelled"].includes(job.state) ||
-      !job.outcome?.cleanupConfirmed ||
-      job.owner.ownerEpoch !== this.epoch
-    )
+    if (!job || !isDeliverableJob(job) || job.owner.ownerEpoch !== this.epoch)
       fail("JOB_NOT_SETTLED");
     const normalized = normalizeAcceptInput({
       sessionId: job.sessionId,
@@ -541,7 +540,7 @@ export class EngineJobProducer {
       job = this.native().getJob(proof.workspaceId, proof.jobId)!;
     if (
       data.inputRequestId !==
-        `job-result:${job.jobId}:${proof.settledSha256}` ||
+        jobResultInputRequestId(job.jobId, proof.settledSha256) ||
       data.prompt !== formatJobResult(job, proof)
     )
       fail("JOB_INPUT_INVALID");
@@ -553,17 +552,6 @@ export class EngineJobProducer {
       delivery: "queue",
     });
     return this.issue(this.inputs, { target, input });
-  }
-  private acceptedRequest(input: InputRecord): AcceptInput {
-    return {
-      sessionId: input.sessionId,
-      requestId: input.requestId,
-      prompt: input.prompt,
-      config: input.config,
-      delivery: input.delivery,
-      ...(input.attachments ? { attachments: input.attachments } : {}),
-      ...(input.documents ? { documents: input.documents } : {}),
-    };
   }
   accept(original: object): object {
     return this.acceptOwnedInput(original, false);
@@ -584,12 +572,11 @@ export class EngineJobProducer {
     this.assertTarget(captured.target);
     if (this.usedInputs.has(original)) fail("JOB_INPUT_ALREADY_USED");
     const proof = captured.target.proof;
-    const deliveryId = knowledgeHash([
-      "job-result-delivery-v1",
+    const deliveryId = jobResultDeliveryId(
       proof.workspaceId,
       proof.jobId,
       proof.settledSha256,
-    ]);
+    );
     const intent = this.native().getDelivery(proof.workspaceId, deliveryId);
     if (
       !intent ||
@@ -613,8 +600,7 @@ export class EngineJobProducer {
     if (
       stored.workspaceId !== proof.workspaceId ||
       stored.admittedSeq !== receipt.admittedSeq ||
-      knowledgeHash(this.acceptedRequest(stored)) !==
-        knowledgeHash(captured.input)
+      knowledgeHash(acceptedRequest(stored)) !== knowledgeHash(captured.input)
     )
       fail("JOB_INPUT_INVALID");
     return this.issue(
@@ -638,7 +624,7 @@ export class EngineJobProducer {
       input.sessionId !== proof.sessionId ||
       input.requestId !== proof.requestId ||
       input.admittedSeq !== proof.admittedSeq ||
-      knowledgeHash(this.acceptedRequest(input)) !== proof.inputSha256
+      knowledgeHash(acceptedRequest(input)) !== proof.inputSha256
     )
       fail("JOB_INPUT_INVALID");
     return structuredClone(proof);

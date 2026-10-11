@@ -14,9 +14,9 @@ import { jobCommand, jobFixture, jobInvoke } from "./fixtures/job.js";
 import type {
   CommandJob,
   DeliverJobResultAtomicInput,
-  JobDelivery,
   JobRequestResult,
   JobStorage,
+  NativeJobDelivery,
 } from "./store.js";
 
 const posix = {
@@ -72,7 +72,7 @@ function counts(path: string) {
     db.close();
   }
 }
-function delivery(path: string): JobDelivery | undefined {
+function delivery(path: string): NativeJobDelivery | undefined {
   const db = new DatabaseSync(path, { readOnly: true });
   try {
     const row = db
@@ -80,7 +80,9 @@ function delivery(path: string): JobDelivery | undefined {
         "SELECT r.data FROM job_heads h JOIN job_revisions r ON r.id=h.revision_id WHERE h.kind='delivery'",
       )
       .get();
-    return row ? (JSON.parse(String(row.data)) as JobDelivery) : undefined;
+    return row
+      ? (JSON.parse(String(row.data)) as NativeJobDelivery)
+      : undefined;
   } finally {
     db.close();
   }
@@ -401,7 +403,7 @@ test(
         },
       );
       try {
-        return jobInvoke<JobRequestResult<JobDelivery>>(
+        return jobInvoke<JobRequestResult<NativeJobDelivery>>(
           f.engine,
           "deliverCommandJobResult",
           {

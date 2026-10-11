@@ -11,7 +11,11 @@ import {
   validateEngineArchive,
 } from "../storage/archive.js";
 import { jobCommand, jobFixture, jobInvoke } from "./fixtures/job.js";
-import type { CommandJob, JobDelivery, JobRequestResult } from "./store.js";
+import type {
+  CommandJob,
+  JobRequestResult,
+  NativeJobDelivery,
+} from "./store.js";
 
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
@@ -51,7 +55,7 @@ async function acceptedResult(f: Fixture) {
     target,
     approved: true,
   };
-  const delivered = jobInvoke<JobRequestResult<JobDelivery>>(
+  const delivered = jobInvoke<JobRequestResult<NativeJobDelivery>>(
     f.engine,
     "deliverCommandJobResult",
     input,
@@ -76,7 +80,7 @@ function rows(
     db.close();
   }
 }
-function delivery(path: string, deliveryId: string): JobDelivery {
+function delivery(path: string, deliveryId: string): NativeJobDelivery {
   const db = new DatabaseSync(path, { readOnly: true });
   try {
     const row = db
@@ -85,7 +89,7 @@ function delivery(path: string, deliveryId: string): JobDelivery {
       )
       .get(deliveryId);
     assert.ok(row);
-    return JSON.parse(String(row.data)) as JobDelivery;
+    return JSON.parse(String(row.data)) as NativeJobDelivery;
   } finally {
     db.close();
   }

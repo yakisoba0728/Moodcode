@@ -5,7 +5,7 @@ import type {
   JobOutputPage,
   TerminalClosedOutcomeProof,
 } from "./types.js";
-import type { CommandJob, JobDelivery, JobRecord } from "./store.js";
+import type { CommandJob, JobRecord, NativeJobDelivery } from "./store.js";
 export const JOB_STATES = [
   "attached",
   "completed",
@@ -189,7 +189,7 @@ export function semantic(
     }
   }
   if (after.kind === "delivery") {
-    const b = before as JobDelivery | undefined;
+    const b = before as NativeJobDelivery | undefined;
     if (!b) {
       if (
         after.inputRequestId !== null ||

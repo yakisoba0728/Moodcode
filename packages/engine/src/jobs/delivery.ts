@@ -8,14 +8,15 @@ import {
   jobInteger,
   jobJson,
 } from "./validation.js";
+import { JOB_STORAGE_LIMITS } from "./store-proofs.js";
 import type {
   AbandonJobDeliveryInput,
   CommandJob,
   DeliverJobResultAtomicInput,
   DispatchJobDeliveryInput,
-  JobDelivery as NativeJobDelivery,
   JobRequestResult,
   MutateJobDeliveryInput,
+  NativeJobDelivery,
   PrepareJobDeliveryInput,
 } from "./store.js";
 
@@ -58,14 +59,53 @@ export interface ActualJobInputPort {
   release(original: object): void;
 }
 
+/** A settled job whose cleanup was confirmed, the only kind whose result may be delivered. */
+export function isDeliverableJob(
+  job: Pick<CommandJob, "state" | "outcome">,
+): boolean {
+  return (
+    ["completed", "failed", "cancelled"].includes(job.state) &&
+    job.outcome?.cleanupConfirmed === true
+  );
+}
+/** Delivery entity ID of one settled job revision's result. */
+export function jobResultDeliveryId(
+  workspaceId: string,
+  jobId: string,
+  settledSha256: string,
+): string {
+  return knowledgeHash([
+    "job-result-delivery-v1",
+    workspaceId,
+    jobId,
+    settledSha256,
+  ]);
+}
+/** Input request ID that queues one settled job revision's result. */
+export function jobResultInputRequestId(
+  jobId: string,
+  settledSha256: string,
+): string {
+  return `job-result:${jobId}:${settledSha256}`;
+}
+/** Parts of a job-result input request ID; null for any other request ID and undefined for a malformed one. */
+export function parseJobResultInputRequestId(
+  requestId: string,
+):
+  | { readonly jobId: string; readonly settledSha256: string }
+  | null
+  | undefined {
+  if (!requestId.startsWith("job-result:")) return null;
+  const match = /^job-result:(.+):([a-f0-9]{64})$/u.exec(requestId);
+  return match ? { jobId: match[1]!, settledSha256: match[2]! } : undefined;
+}
 /** Complete quoted observation DATA; output cursors grant no execution access. */
 export function formatJobResult(
   job: CommandJob,
   target: JobDeliveryTargetProof,
 ): string {
   if (
-    !["completed", "failed", "cancelled"].includes(job.state) ||
-    job.outcome?.cleanupConfirmed !== true ||
+    !isDeliverableJob(job) ||
     job.workspaceId !== target.workspaceId ||
     job.jobId !== target.jobId ||
     job.id !== target.jobRevisionId ||
@@ -90,11 +130,11 @@ export function formatJobResult(
       outcome: job.outcome,
       cursor: job.cursor,
     },
-    32_768,
+    JOB_STORAGE_LIMITS.promptBytes,
   );
   const prompt =
     "[Moodcode user terminal job result v1]\n" + JSON.stringify(data);
-  if (Buffer.byteLength(prompt) > 32_768)
+  if (Buffer.byteLength(prompt) > JOB_STORAGE_LIMITS.promptBytes)
     throw new EngineError(
       "JOB_LIMIT",
       "The whole job result must fit its input budget",
@@ -272,48 +312,51 @@ export class JobDelivery {
         "The exact settled job result was not found",
       );
     const prompt = formatJobResult(job, target),
-      inputRequestId = `job-result:${target.jobId}:${target.settledSha256}`;
+      inputRequestId = jobResultInputRequestId(
+        target.jobId,
+        target.settledSha256,
+      );
     jobIdentifier(inputRequestId);
     const cached: DeliveryRequest = { original: input.target, sha256 };
     this.requests.set(key, cached);
+    const checkpoint = () => {
+      jobHostAbort(input.signal);
+      jobHostAbort(this.signal);
+      this.ports.input.assertTargetCurrent(input.target, target);
+    };
+    const settle = (result: JobRequestResult<NativeJobDelivery>) => {
+      cached.result = structuredClone(result);
+      return structuredClone(result);
+    };
     let delivery: NativeJobDelivery | undefined,
       originalInput: object | undefined,
       accepted: object | undefined,
       intent = false;
     try {
       if (this.ports.native.deliverJobResultAtomic) {
-        jobHostAbort(input.signal);
-        jobHostAbort(this.signal);
-        this.ports.input.assertTargetCurrent(input.target, target);
-        const completed = this.ports.native.deliverJobResultAtomic(
-          input.target,
-          {
+        checkpoint();
+        return settle(
+          this.ports.native.deliverJobResultAtomic(input.target, {
             workspaceId: input.workspaceId,
             jobId: target.jobId,
             requestId: input.requestId,
             expectedRevision: input.expectedRevision,
-          },
+          }),
         );
-        cached.result = structuredClone(completed);
-        return structuredClone(completed);
       }
       const prepared = this.ports.native.prepareJobDelivery(input.target, {
         workspaceId: input.workspaceId,
         jobId: target.jobId,
-        deliveryId: knowledgeHash([
-          "job-result-delivery-v1",
+        deliveryId: jobResultDeliveryId(
           target.workspaceId,
           target.jobId,
           target.settledSha256,
-        ]),
+        ),
         requestId: input.requestId,
         expectedRevision: input.expectedRevision,
       });
       delivery = prepared.record;
-      if (prepared.duplicate) {
-        cached.result = structuredClone(prepared);
-        return structuredClone(prepared);
-      }
+      if (prepared.duplicate) return settle(prepared);
       jobHostAbort(input.signal);
       jobHostAbort(this.signal);
       originalInput = this.ports.input.captureInput(input.target, {
@@ -336,22 +379,16 @@ export class JobDelivery {
           "A historical dispatch intent cannot grant another acceptance",
         );
       intent = true;
-      jobHostAbort(input.signal);
-      jobHostAbort(this.signal);
-      this.ports.input.assertTargetCurrent(input.target, target);
+      checkpoint();
       accepted = this.ports.input.accept(originalInput);
-      const completed = this.ports.native.completeJobDelivery(
-        input.target,
-        accepted,
-        {
+      return settle(
+        this.ports.native.completeJobDelivery(input.target, accepted, {
           workspaceId: input.workspaceId,
           deliveryId: delivery.deliveryId,
           requestId: knowledgeHash(["job-accepted", input.requestId]),
           expectedRevision: delivery.revision,
-        },
+        }),
       );
-      cached.result = structuredClone(completed);
-      return structuredClone(completed);
     } catch (error) {
       cached.error = error;
       if (delivery && ["prepared", "dispatching"].includes(delivery.state)) {

@@ -448,6 +448,13 @@ export function validateJobOutputPage(value: unknown): JobOutputPage {
     invalid("Job page has an inconsistent EOF or progress flag");
   let bytes = 0,
     previous: { seq: number; byteOffset: number; bytes: number } | undefined;
+  const follows = (
+    last: { seq: number; byteOffset: number; bytes: number },
+    seq: number,
+    offset: number,
+  ) =>
+    (seq === last.seq && offset === last.byteOffset + last.bytes) ||
+    (seq === last.seq + 1 && offset === 0);
   for (const value of p.fragments) {
     const f = jobObject(
         value,
@@ -466,28 +473,14 @@ export function validateJobOutputPage(value: unknown): JobOutputPage {
       Buffer.byteLength(f.data) !== size
     )
       invalid("Output fragments must contain exact bounded UTF-8 bytes");
-    if (
-      previous &&
-      !(
-        (seq === previous.seq &&
-          offset === previous.byteOffset + previous.bytes) ||
-        (seq === previous.seq + 1 && offset === 0)
-      )
-    )
+    if (previous && !follows(previous, seq, offset))
       invalid("Output fragment positions are not contiguous");
     bytes += size;
     previous = { seq, byteOffset: offset, bytes: size };
   }
   if (bytes !== jobInteger(p.rawBytes, JOB_LIMITS.pageRawBytes))
     invalid("Output page byte accounting disagrees");
-  if (
-    previous &&
-    !(
-      (next.eventSeq === previous.seq &&
-        next.byteOffset === previous.byteOffset + previous.bytes) ||
-      (next.eventSeq === previous.seq + 1 && next.byteOffset === 0)
-    )
-  )
+  if (previous && !follows(previous, next.eventSeq, next.byteOffset))
     invalid("Output cursor does not follow the last fragment");
   if (p.gap !== null) {
     const gap = jobObject(p.gap, [

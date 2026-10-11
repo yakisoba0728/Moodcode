@@ -5,7 +5,11 @@ import test from "node:test";
 import { EngineError, type Session } from "@moodcode/contracts";
 import { createEngine } from "../engine.js";
 import { jobCommand, jobFixture, jobInvoke, jobUntil } from "./fixtures/job.js";
-import type { CommandJob, JobDelivery, JobRequestResult } from "./store.js";
+import type {
+  CommandJob,
+  JobRequestResult,
+  NativeJobDelivery,
+} from "./store.js";
 import type { JobOutputCursor, JobOutputPage } from "./types.js";
 
 const posix = {
@@ -371,7 +375,7 @@ test(
       nativeError,
     );
     assert.equal(f.rows("session_inputs").length, 0);
-    const delivered = jobInvoke<JobRequestResult<JobDelivery>>(
+    const delivered = jobInvoke<JobRequestResult<NativeJobDelivery>>(
       f.engine,
       "deliverCommandJobResult",
       input,
@@ -379,7 +383,7 @@ test(
     assert.equal(delivered.record.state, "accepted");
     const expected = structuredClone(delivered);
     (delivered.record as unknown as { state: string }).state = "uncertain";
-    const duplicate = jobInvoke<JobRequestResult<JobDelivery>>(
+    const duplicate = jobInvoke<JobRequestResult<NativeJobDelivery>>(
       f.engine,
       "deliverCommandJobResult",
       input,
@@ -425,7 +429,7 @@ test(
         config: f.config,
       },
     );
-    const accepted = jobInvoke<JobRequestResult<JobDelivery>>(
+    const accepted = jobInvoke<JobRequestResult<NativeJobDelivery>>(
       f.engine,
       "deliverCommandJobResult",
       {
