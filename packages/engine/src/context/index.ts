@@ -295,8 +295,9 @@ export async function buildContext(request: ContextRequest, options: { requiredO
     if (!item) throw new EngineError('IMAGE_HISTORY_INVALID_ANCHOR', 'Required image history text or complete exchange is unavailable');
     selected.add(item);
   }
-  // A text projection cannot stand in for omitted pixels. Keep selected history's
-  // image-bearing blocks whole until an explicit media compaction policy exists.
+  // A text projection cannot stand in for omitted pixels or document bytes, so every block that
+  // still carries image, media or document references stays whole. The host media and document
+  // history policies remove older references before planning.
   const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length || message.media?.length));
   for (const item of imageBlocks) selected.add(item);
   const documentBlocks = blocks.filter(item => item.messages.some(message => message.documents?.length));
@@ -308,45 +309,28 @@ export async function buildContext(request: ContextRequest, options: { requiredO
       requiredBytes: arrayBytes(cost, count), maxContextBytes, reservedBytes, availableContextBytes: limit,
     });
   }
-  const mediaNotice = request.mediaHistoryNotice;
-  if (mediaNotice) {
-    if (mediaNotice.role !== 'assistant' || typeof mediaNotice.content !== 'string' || mediaNotice.toolCalls !== undefined
-      || mediaNotice.toolCallId !== undefined || mediaNotice.attachments !== undefined || mediaNotice.documents !== undefined || mediaNotice.media !== undefined || mediaNotice.providerReplay !== undefined
-      || arrayBytes(cost + entryBytes(mediaNotice), count + 1) > limit) {
-      throw new EngineError('IMAGE_HISTORY_METADATA_LIMIT', 'Required image history provenance cannot fit beside the current exchange');
-    }
-    cost += entryBytes(mediaNotice); count++;
-  }
-  const documentNotice = request.documentHistoryNotice;
-  if (documentNotice) {
-    if (documentNotice.role !== 'assistant' || typeof documentNotice.content !== 'string' || documentNotice.toolCalls !== undefined
-      || documentNotice.toolCallId !== undefined || documentNotice.attachments !== undefined || documentNotice.documents !== undefined || documentNotice.media !== undefined || documentNotice.providerReplay !== undefined
-      || arrayBytes(cost + entryBytes(documentNotice), count + 1) > limit) throw new EngineError('DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
-    cost += entryBytes(documentNotice); count++;
-  }
-  const verificationContinuation = request.verificationContinuation;
-  if (verificationContinuation) {
-    if (verificationContinuation.role !== 'user' || typeof verificationContinuation.content !== 'string' || Buffer.byteLength(verificationContinuation.content) > 9216 || Object.keys(verificationContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryBytes(verificationContinuation), count + 1) > limit) throw new EngineError('VERIFICATION_CONTEXT_LIMIT', 'Required verification control data cannot fit within the original context budget');
-    cost += entryBytes(verificationContinuation); count++;
-  }
+  const charge = (message: ProviderMessage | undefined, valid: (message: ProviderMessage) => boolean, code: string, text: string): void => {
+    if (!message) return;
+    if (!valid(message) || arrayBytes(cost + entryBytes(message), count + 1) > limit) throw new EngineError(code, text);
+    cost += entryBytes(message); count++;
+  };
+  const notice = (message: ProviderMessage) => message.role === 'assistant' && typeof message.content === 'string' && message.toolCalls === undefined
+    && message.toolCallId === undefined && message.attachments === undefined && message.documents === undefined && message.media === undefined && message.providerReplay === undefined;
+  const control = (maxBytes: number, prefix = '') => (message: ProviderMessage) => message.role === 'user' && typeof message.content === 'string' && message.content.startsWith(prefix)
+    && Buffer.byteLength(message.content) <= maxBytes && Object.keys(message).every(key => ['role', 'content'].includes(key));
+  const mediaNotice = request.mediaHistoryNotice, documentNotice = request.documentHistoryNotice;
+  const verificationContinuation = request.verificationContinuation, lifecycleContinuation = request.lifecycleContinuation;
   const semantic = request.semanticMemory, prefixMemory = request.activePrefixMemory;
-  const lifecycleContinuation = request.lifecycleContinuation;
-  if (lifecycleContinuation) {
-    if (lifecycleContinuation.role !== 'user' || typeof lifecycleContinuation.content !== 'string' || !lifecycleContinuation.content.startsWith('[Moodcode lifecycle continuation v1]\n')
-      || Buffer.byteLength(lifecycleContinuation.content) > 8192 || Object.keys(lifecycleContinuation).some(key => !['role', 'content'].includes(key)) || arrayBytes(cost + entryBytes(lifecycleContinuation), count + 1) > limit)
-      throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Required lifecycle continuation must fit the original context budget as complete host control data');
-    cost += entryBytes(lifecycleContinuation); count++;
-  }
-  for (const memory of [semantic, prefixMemory]) {
-    if (!memory) continue;
-    if (memory.role !== 'assistant' || typeof memory.content !== 'string' || arrayBytes(cost + entryBytes(memory), count + 1) > limit) {
-      throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Required derived memory cannot fit beside the current exchange');
-    }
-    cost += entryBytes(memory); count++;
-  }
+  const memoryCode = prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT';
+  charge(mediaNotice, notice, 'IMAGE_HISTORY_METADATA_LIMIT', 'Required image history provenance cannot fit beside the current exchange');
+  charge(documentNotice, notice, 'DOCUMENT_HISTORY_METADATA_LIMIT', 'Required document provenance cannot fit beside the current exchange');
+  charge(verificationContinuation, control(9216), 'VERIFICATION_CONTEXT_LIMIT', 'Required verification control data cannot fit within the original context budget');
+  charge(lifecycleContinuation, control(8192, '[Moodcode lifecycle continuation v1]\n'), 'LIFECYCLE_CONTEXT_LIMIT',
+    'Required lifecycle continuation must fit the original context budget as complete host control data');
+  for (const memory of [semantic, prefixMemory])
+    charge(memory, message => message.role === 'assistant' && typeof message.content === 'string', memoryCode, 'Required derived memory cannot fit beside the current exchange');
   const profile = request.agentInstructions ? { role: 'system' as const, content: request.agentInstructions } : undefined;
-  if (profile && (Buffer.byteLength(profile.content) > MAX_INSTRUCTION_BYTES || arrayBytes(cost + entryBytes(profile), count + 1) > limit)) throw new EngineError(prefixMemory ? 'ACTIVE_PREFIX_CONTEXT_LIMIT' : 'CONTEXT_LIMIT', 'Agent profile instructions cannot fit the current exchange');
-  if (profile) { cost += entryBytes(profile); count++; }
+  charge(profile, message => Buffer.byteLength(message.content) <= MAX_INSTRUCTION_BYTES, memoryCode, 'Agent profile instructions cannot fit the current exchange');
   const instructions = await readInstructions(request);
   checkAbort(request.signal);
   const system = instructions ? fitInstructions(instructions, cost, count, limit) : undefined;
@@ -393,5 +377,6 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   }
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
-  return [...(system ? [system] : []), ...(profile ? [profile] : []), ...(includeDefaults ? [defaults] : []), ...(memory ? [memory] : []), ...(prefixMemory ? [prefixMemory] : []), ...(mediaNotice ? [mediaNotice] : []), ...(documentNotice ? [documentNotice] : []), ...messages, ...(verificationContinuation ? [verificationContinuation] : []), ...(lifecycleContinuation ? [lifecycleContinuation] : [])];
+  return [system, profile, includeDefaults ? defaults : undefined, memory, prefixMemory, mediaNotice, documentNotice, ...messages, verificationContinuation, lifecycleContinuation]
+    .filter((message): message is ProviderMessage => !!message);
 }

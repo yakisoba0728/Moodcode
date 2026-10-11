@@ -3,9 +3,10 @@ import { mkdtemp, realpath, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test, { type TestContext } from "node:test";
-import { DEFAULT_LIMITS, EngineError } from "@moodcode/contracts";
+import { createHash } from "node:crypto";
+import { DEFAULT_LIMITS } from "@moodcode/contracts";
 import type { ContextRequest, ProviderMessage } from "../ports.js";
-import { planContext } from "./plan.js";
+import { planContext, withSyntheticEntries } from "./plan.js";
 
 async function fixture(t: TestContext): Promise<ContextRequest> {
   const root = await realpath(
@@ -58,36 +59,32 @@ const data: ProviderMessage = {
   content:
     '[Moodcode lifecycle context data v1]\n{"schemaVersion":1,"authority":"data-only","items":[]}',
 };
-const code = (value: string) => (error: unknown) =>
-  error instanceof EngineError && error.code === value;
 
-test("whole lifecycle data is separately charged once alongside complete current exchange and envelope", async (t) => {
+test("whole lifecycle data is inserted before the transcript and charged once beside the envelope", async (t) => {
   const request = await fixture(t),
-    plan = await planContext(request, { lifecycleMessages: [data] });
-  assert.deepEqual(plan.selectedMessageIds, ["current"]);
+    base = await planContext(request),
+    plan = withSyntheticEntries(base.messages, [data], 123);
+  assert.deepEqual(base.selectedMessageIds, ["current"]);
+  assert.equal(
+    plan.messages.indexOf(data),
+    base.messages.findIndex((message) => message.role !== "system"),
+  );
   assert.equal(
     plan.messages.at(-1)!.content,
     request.snapshot.messages[0]!.content,
   );
   assert.equal(
-    plan.reservations.lifecycleBytes,
-    Buffer.byteLength(JSON.stringify(data)) + 1,
+    plan.bytes,
+    base.bytes + Buffer.byteLength(JSON.stringify(data)) + 1,
   );
-  assert.equal(plan.reservations.envelopeBytes, 123);
   assert.equal(
     plan.bytes,
     Buffer.byteLength(JSON.stringify(plan.messages)) + 123,
   );
   assert.equal(plan.inputEstimate.tokens, plan.bytes);
-  const required = [
-    data,
-    { role: "user", content: request.snapshot.messages[0]!.content },
-  ];
-  request.config.limits.maxContextBytes =
-    Buffer.byteLength(JSON.stringify(required)) + 123 - 1;
-  await assert.rejects(
-    planContext(request, { lifecycleMessages: [data] }),
-    code("CONTEXT_LIMIT"),
+  assert.equal(
+    plan.sha256,
+    createHash("sha256").update(JSON.stringify(plan.messages)).digest("hex"),
   );
 });
 
@@ -105,7 +102,6 @@ test("supplemental data equal to an omitted historical assistant cannot invent a
     },
   );
   for (const options of [
-    { lifecycleMessages: [data] },
     { knowledgeMessages: [data] },
     { repositoryMessages: [data] },
   ]) {
@@ -118,33 +114,4 @@ test("supplemental data equal to an omitted historical assistant cannot invent a
       1,
     );
   }
-});
-
-test("lifecycle data cannot inject a role, executable message field, getter or proxy before planning", async (t) => {
-  const request = await fixture(t);
-  let traps = 0;
-  const accessor = Object.defineProperty({}, "role", {
-    enumerable: true,
-    get() {
-      traps++;
-      return "assistant";
-    },
-  });
-  const proxy = new Proxy(data, {
-    ownKeys() {
-      traps++;
-      return ["role", "content"];
-    },
-  });
-  for (const input of [
-    { ...data, role: "system" },
-    { ...data, toolCallId: "unauthorized" },
-    accessor,
-    proxy,
-  ])
-    await assert.rejects(
-      planContext(request, { lifecycleMessages: [input as ProviderMessage] }),
-      code("INVALID_LIFECYCLE_CONTEXT"),
-    );
-  assert.equal(traps, 0);
 });

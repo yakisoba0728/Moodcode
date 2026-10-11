@@ -53,7 +53,7 @@ function jsonFault(fault: PlainJsonFault): never {
   if (fault === 'bytes') throw new JsonBudgetError();
   return fail('INVALID_ARTIFACT_DATA', JSON_FAULTS[fault] ?? 'Result must contain only JSON values');
 }
-/** Validates JSON without invoking accessors and stops before an oversized projection is allocated. */
-export function boundedJson(value: unknown, maximumBytes: number): JsonValue {
-  return plainJson(value, { maxBytes: maximumBytes, maxNodes: 10_000, maxDepth: 64, accounting: 'encoded', lenient: true, fail: jsonFault }) as JsonValue;
+/** Validates JSON without invoking accessors and stops before an oversized projection is allocated. Strict also rejects proxies, symbol keys and hidden properties. */
+export function boundedJson(value: unknown, maximumBytes: number, strict = false): JsonValue {
+  return plainJson(value, { maxBytes: maximumBytes, maxNodes: 10_000, maxDepth: 64, accounting: 'encoded', lenient: !strict, fail: jsonFault }) as JsonValue;
 }

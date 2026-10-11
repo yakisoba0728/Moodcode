@@ -5,7 +5,7 @@ import type { ContextRequest, ProviderAdapter, ProviderMessage } from '../ports.
 import type { ModelHistoryPage, SqliteStore } from '../storage/index.js';
 import { entriesBytes } from './memory.js';
 import { ModelRegistry } from './model-spec.js';
-import { estimateTokens, planContext, type ContextPlan } from './plan.js';
+import { planContext, withSyntheticEntries, type ContextPlan } from './plan.js';
 import { InstructionSources, instructionPathHints, type InstructionObservation, type InstructionSource } from './sources.js';
 import { SemanticMemoryService } from './semantic-memory.js';
 import { projectToolHistory } from './tool-history.js';
@@ -376,14 +376,10 @@ export class ContextService {
         messageBytes: entriesBytes(lifecycleMessages), hookIds: dispatched.contextData?.items.map(item => item.hookId) ?? [] };
       // Preserve the exact base snapshot accepted by the callbacks. Releasing
       // unused reservation never selects additional unobserved history.
-      const index = plan.messages.findIndex(message => message.role !== 'system');
-      const insertion = index < 0 ? plan.messages.length : index;
-      const messages = [...plan.messages.slice(0, insertion), ...lifecycleMessages, ...plan.messages.slice(insertion)];
-      const text = JSON.stringify(messages), inputEstimate = estimateTokens(messages, originalReservedBytes);
-      const bytes = Buffer.byteLength(text) + originalReservedBytes;
-      if (bytes > plan.byteLimit || plan.tokenLimit !== null && inputEstimate.tokens + plan.reservations.outputTokens > plan.tokenLimit)
+      const next = withSyntheticEntries(plan.messages, lifecycleMessages, originalReservedBytes);
+      if (next.bytes > plan.byteLimit || plan.tokenLimit !== null && next.inputEstimate.tokens + plan.reservations.outputTokens > plan.tokenLimit)
         throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Whole lifecycle data exceeds the original byte or model window reservation');
-      plan = { ...plan, messages, sha256: createHash('sha256').update(text).digest('hex'), bytes, inputEstimate,
+      plan = { ...plan, ...next,
         reservations: { ...plan.reservations, envelopeBytes: originalReservedBytes, ...(lifecycleDiagnostics.messageBytes ? { lifecycleBytes: lifecycleDiagnostics.messageBytes } : {}) } };
       this.lifecycleHooks!.assertCurrent(lifecycle);
     }

@@ -1,6 +1,5 @@
 import { createHash } from 'node:crypto';
-import { types } from 'node:util';
-import { EngineError } from '@moodcode/contracts';
+import { EngineError, type Message } from '@moodcode/contracts';
 import type { ContextRequest, ProviderMessage } from '../ports.js';
 import { buildContext } from './index.js';
 import { entriesBytes } from './memory.js';
@@ -31,113 +30,81 @@ export function estimateTokens(messages: ProviderMessage[], envelopeBytes = 0): 
     ...(messages.some(message => message.documents?.length) ? { documentTokens: null, complete: false } as const : {}) };
 }
 
-function assertKnowledgeData(value: unknown): void {
-  const seen = new Set<object>();
-  let nodes = 0;
-  const visit = (input: unknown, depth: number): void => {
-    if (++nodes > 10_000 || depth > 64) throw new Error('Knowledge data is too deeply nested');
-    if (!input || typeof input !== 'object') return;
-    if (types.isProxy(input) || seen.has(input)) throw new Error('Knowledge data must be detached plain JSON');
-    const array = Array.isArray(input), descriptors = Object.getOwnPropertyDescriptors(input);
-    if (Object.getPrototypeOf(input) !== (array ? Array.prototype : Object.prototype) && Object.getPrototypeOf(input) !== null)
-      throw new Error('Knowledge data must be plain JSON');
-    seen.add(input);
-    try {
-      for (const key of Reflect.ownKeys(descriptors)) {
-        if (typeof key !== 'string') throw new Error('Knowledge data cannot contain symbols');
-        const descriptor = descriptors[key]!;
-        if (!('value' in descriptor) || (!descriptor.enumerable && !(array && key === 'length'))) throw new Error('Knowledge data cannot contain accessors');
-        visit(descriptor.value, depth + 1);
-      }
-    } finally { seen.delete(input); }
-  };
-  visit(value, 0);
+interface SupplementalSource { cap: number; code: string; detached: boolean; prefix?: string; invalid: string; shape: string; oversize: string }
+// Detached sources must also be plain data without proxies, symbol keys or hidden properties.
+const SUPPLEMENTAL = {
+  repository: { cap: REPOSITORY_CONTRIBUTION_LIMITS.messageBytes, code: 'INVALID_REPOSITORY_CONTEXT', detached: false, invalid: 'Repository context messages must be bounded JSON evidence',
+    shape: 'Repository context accepts only a bounded plain assistant evidence entry', oversize: 'Repository evidence exceeds the additional message reservation cap' },
+  knowledge: { cap: 16_384, code: 'INVALID_KNOWLEDGE_CONTEXT', detached: true, invalid: 'Knowledge context messages must be bounded JSON evidence',
+    shape: 'Knowledge context accepts one bounded assistant data entry', oversize: 'Whole knowledge evidence exceeds its additional message reservation cap' },
+  proposal: { cap: 32_768, code: 'INVALID_PROPOSAL_CONTEXT', detached: true, prefix: '[Moodcode pending proposal overlay v1]\n', invalid: 'Proposal overlay requires bounded detached JSON data',
+    shape: 'Proposal overlay accepts one plain pending data entry', oversize: 'Whole proposal overlay exceeds its message reservation cap' },
+} satisfies Record<string, SupplementalSource>;
+
+function supplemental(source: SupplementalSource, value: readonly ProviderMessage[] | undefined): { messages: ProviderMessage[]; bytes: number } {
+  let messages: ProviderMessage[] = [];
+  if (value !== undefined) {
+    try { messages = boundedJson(value, source.cap + 1, source.detached) as unknown as ProviderMessage[]; }
+    catch { throw new EngineError(source.code, source.invalid); }
+    if (!Array.isArray(messages) || messages.length > 1 || messages.some(message => !message || message.role !== 'assistant' || typeof message.content !== 'string'
+      || source.prefix !== undefined && !message.content.startsWith(source.prefix) || Object.keys(message).sort().join(',') !== 'content,role'))
+      throw new EngineError(source.code, source.shape);
+  }
+  const bytes = entriesBytes(messages);
+  if (bytes > source.cap) throw new EngineError(source.code, source.oversize);
+  return { messages, bytes };
 }
 
-export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; proposalMessages?: readonly ProviderMessage[]; lifecycleMessages?: readonly ProviderMessage[]; forkMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
+/** Synthetic entries precede the first transcript message, so they never split a tool exchange. */
+export function withSyntheticEntries(messages: readonly ProviderMessage[], entries: readonly ProviderMessage[], envelopeBytes: number): Pick<ContextPlan, 'messages' | 'sha256' | 'bytes' | 'inputEstimate'> {
+  const first = messages.findIndex(message => message.role !== 'system'), index = first < 0 ? messages.length : first;
+  const next = [...messages.slice(0, index), ...entries, ...messages.slice(index)], serialized = JSON.stringify(next);
+  return { messages: next, sha256: createHash('sha256').update(serialized).digest('hex'), bytes: Buffer.byteLength(serialized) + envelopeBytes, inputEstimate: estimateTokens(next, envelopeBytes) };
+}
+
+export async function planContext(request: ContextRequest, options: { model?: ModelSpec; outputTokens?: number; repositoryMessages?: readonly ProviderMessage[]; knowledgeMessages?: readonly ProviderMessage[]; proposalMessages?: readonly ProviderMessage[]; forkMessages?: readonly ProviderMessage[]; requiredOnly?: boolean } = {}): Promise<ContextPlan> {
   const envelopeBytes = request.reservedBytes ?? 0;
   const forkMessages = options.forkMessages ? boundedJson(options.forkMessages,65537) as unknown as ProviderMessage[] : [];
   const forkBytes = entriesBytes(forkMessages);
   if (forkBytes>65536) throw new EngineError('FORK_CONTEXT_LIMIT','Whole frozen transcript exceeds its reservation');
-  let lifecycleMessages: ProviderMessage[] = [];
-  if (options.lifecycleMessages !== undefined) {
-    try { assertKnowledgeData(options.lifecycleMessages); lifecycleMessages = boundedJson(options.lifecycleMessages, 16_385) as unknown as ProviderMessage[]; }
-    catch { throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context requires bounded detached JSON data'); }
-    if (!Array.isArray(lifecycleMessages) || lifecycleMessages.length > 1 || lifecycleMessages.some(message => !message || message.role !== 'assistant'
-      || typeof message.content !== 'string' || !message.content.startsWith('[Moodcode lifecycle context data v1]\n') || Object.keys(message).sort().join(',') !== 'content,role'))
-      throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context accepts one plain assistant data entry');
-  }
-  const lifecycleBytes = entriesBytes(lifecycleMessages);
-  if (lifecycleBytes > 16_384) throw new EngineError('LIFECYCLE_CONTEXT_LIMIT', 'Lifecycle context exceeds the complete entry cap');
-  let repositoryMessages: ProviderMessage[] = [];
-  if (options.repositoryMessages !== undefined) {
-    try { repositoryMessages = boundedJson(options.repositoryMessages, REPOSITORY_CONTRIBUTION_LIMITS.messageBytes + 1) as unknown as ProviderMessage[]; }
-    catch { throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository context messages must be bounded JSON evidence'); }
-    if (!Array.isArray(repositoryMessages) || repositoryMessages.length > 1 || repositoryMessages.some(message => !message || message.role !== 'assistant'
-      || typeof message.content !== 'string' || Object.keys(message).sort().join(',') !== 'content,role'))
-      throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository context accepts only a bounded plain assistant evidence entry');
-  }
-  const repositoryBytes = entriesBytes(repositoryMessages);
-  if (repositoryBytes > REPOSITORY_CONTRIBUTION_LIMITS.messageBytes) throw new EngineError('INVALID_REPOSITORY_CONTEXT', 'Repository evidence exceeds the additional message reservation cap');
-  let knowledgeMessages: ProviderMessage[] = [];
-  if (options.knowledgeMessages !== undefined) {
-    try { assertKnowledgeData(options.knowledgeMessages); knowledgeMessages = boundedJson(options.knowledgeMessages, 16_385) as unknown as ProviderMessage[]; }
-    catch { throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Knowledge context messages must be bounded JSON evidence'); }
-    if (!Array.isArray(knowledgeMessages) || knowledgeMessages.length > 1 || knowledgeMessages.some(message => !message || message.role !== 'assistant'
-      || typeof message.content !== 'string' || Object.keys(message).sort().join(',') !== 'content,role'))
-      throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Knowledge context accepts one bounded assistant data entry');
-  }
-  const knowledgeBytes = entriesBytes(knowledgeMessages);
-  if (knowledgeBytes > 16_384) throw new EngineError('INVALID_KNOWLEDGE_CONTEXT', 'Whole knowledge evidence exceeds its additional message reservation cap');
-  let proposalMessages: ProviderMessage[] = [];
-  if (options.proposalMessages !== undefined) {
-    try { assertKnowledgeData(options.proposalMessages); proposalMessages = boundedJson(options.proposalMessages, 32_769) as unknown as ProviderMessage[]; }
-    catch { throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Proposal overlay requires bounded detached JSON data'); }
-    if (!Array.isArray(proposalMessages) || proposalMessages.length > 1 || proposalMessages.some(message => !message || message.role !== 'assistant'
-      || typeof message.content !== 'string' || !message.content.startsWith('[Moodcode pending proposal overlay v1]\n') || Object.keys(message).sort().join(',') !== 'content,role'))
-      throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Proposal overlay accepts one plain pending data entry');
-  }
-  const proposalBytes = entriesBytes(proposalMessages);
-  if (proposalBytes > 32_768) throw new EngineError('INVALID_PROPOSAL_CONTEXT', 'Whole proposal overlay exceeds its message reservation cap');
+  const repository = supplemental(SUPPLEMENTAL.repository, options.repositoryMessages);
+  const knowledge = supplemental(SUPPLEMENTAL.knowledge, options.knowledgeMessages);
+  const proposal = supplemental(SUPPLEMENTAL.proposal, options.proposalMessages);
+  const repositoryBytes = repository.bytes, knowledgeBytes = knowledge.bytes, proposalBytes = proposal.bytes;
   const model = options.model;
   if (model && (model.providerId !== request.config.providerId || model.modelId !== request.config.modelId)) throw new EngineError('MODEL_BINDING_MISMATCH', 'Context metadata belongs to a different provider/model');
   const outputTokens = options.outputTokens ?? 0;
   if (!Number.isSafeInteger(outputTokens) || outputTokens < 0 || outputTokens > 100_000_000) throw new EngineError('INVALID_OUTPUT_RESERVE', 'Output token reserve must be a bounded nonnegative integer');
   if (model?.maxOutputTokens !== null && model?.maxOutputTokens !== undefined && outputTokens > model.maxOutputTokens) throw new EngineError('MODEL_OUTPUT_LIMIT', 'Output reserve exceeds the known model limit');
   const effectiveByteLimit = model?.contextWindow == null ? request.config.limits.maxContextBytes : Math.min(request.config.limits.maxContextBytes, model.contextWindow - outputTokens);
-  let messages: ProviderMessage[];
-  try { messages = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes + proposalBytes + lifecycleBytes + forkBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
+  let transcript: ProviderMessage[];
+  try { transcript = await buildContext({ ...request, reservedBytes: envelopeBytes + repositoryBytes + knowledgeBytes + proposalBytes + forkBytes, config: { ...request.config, limits: { ...request.config.limits, maxContextBytes: effectiveByteLimit } } }, { requiredOnly: options.requiredOnly }); }
   catch (error) { if (error instanceof EngineError && error.code === 'CONTEXT_LIMIT' && effectiveByteLimit < request.config.limits.maxContextBytes) throw new EngineError('CONTEXT_TOKEN_LIMIT', 'The required current exchange exceeds the conservative model window and output reserve', { tokenLimit: model!.contextWindow, outputTokens, estimateSource: 'utf8-byte-upper-bound' }); throw error; }
-  // Synthetic evidence precedes the first transcript message and never splits a tool exchange.
-  if (repositoryMessages.length || knowledgeMessages.length || proposalMessages.length || lifecycleMessages.length || forkMessages.length) {
-    const firstTranscript = messages.findIndex(message => message.role !== 'system');
-    const index = firstTranscript < 0 ? messages.length : firstTranscript;
-    messages = [...messages.slice(0, index), ...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages, ...forkMessages, ...messages.slice(index)];
-  }
-  const serialized = JSON.stringify(messages);
-  const bytes = Buffer.byteLength(serialized) + envelopeBytes;
+  const entries = [...repository.messages, ...knowledge.messages, ...proposal.messages, ...forkMessages];
+  const { messages, sha256, bytes, inputEstimate } = withSyntheticEntries(transcript, entries, envelopeBytes);
   if(forkBytes && bytes>effectiveByteLimit)throw new EngineError('CONTEXT_LIMIT','Whole context including frozen fork history exceeds the exact byte cap');
-  const inputEstimate = estimateTokens(messages, envelopeBytes);
   const tokenLimit = model?.contextWindow ?? null;
   if (tokenLimit !== null && inputEstimate.tokens + outputTokens > tokenLimit) throw new EngineError('CONTEXT_TOKEN_LIMIT', 'Conservative input estimate and output reserve exceed the model context window', {
     estimatedInputTokens: inputEstimate.tokens, outputTokens, tokenLimit, estimateSource: inputEstimate.source,
   });
   const selectedMessageIds: string[] = [];
-  const supplemental = new Set([...repositoryMessages, ...knowledgeMessages, ...proposalMessages, ...lifecycleMessages, ...forkMessages]);
+  const synthetic = new Set(entries), stored = request.snapshot.messages;
+  const same = (message: Message, selected: ProviderMessage) => message.role === selected.role
+    && message.content === selected.content && message.toolCallId === selected.toolCallId
+    && JSON.stringify(message.attachments) === JSON.stringify(selected.attachments)
+    && JSON.stringify(message.media) === JSON.stringify(selected.media) && JSON.stringify(message.documents) === JSON.stringify(selected.documents);
   // Duplicate text is matched in chronological order, rather than selecting every equal message.
-  let previous = request.snapshot.messages.length - 1;
+  let previous = stored.length - 1;
   for (const selected of [...messages].reverse()) {
-    if (selected.role === 'system' || supplemental.has(selected)) continue;
-    const index = request.snapshot.messages.findLastIndex((message, position) => position <= previous && message.role === selected.role
-      && message.content === selected.content && message.toolCallId === selected.toolCallId
-      && JSON.stringify(message.attachments) === JSON.stringify(selected.attachments)
-      && JSON.stringify(message.media) === JSON.stringify(selected.media) && JSON.stringify(message.documents) === JSON.stringify(selected.documents));
-    if (index >= 0) { selectedMessageIds.unshift(request.snapshot.messages[index]!.id); previous = index - 1; }
+    if (selected.role === 'system' || synthetic.has(selected)) continue;
+    let index = previous;
+    while (index >= 0 && !same(stored[index]!, selected)) index--;
+    if (index >= 0) { selectedMessageIds.unshift(stored[index]!.id); previous = index - 1; }
   }
   return {
-    messages, sha256: createHash('sha256').update(serialized).digest('hex'), selectedMessageIds,
+    messages, sha256, selectedMessageIds,
     omittedMessageCount: Math.max(0, request.snapshot.messages.length - selectedMessageIds.length),
-    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}), ...(proposalBytes ? { proposalBytes } : {}), ...(lifecycleBytes ? { lifecycleBytes } : {}), ...(forkBytes ? { forkBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
+    reservations: { envelopeBytes, outputTokens, ...(repositoryBytes ? { repositoryBytes } : {}), ...(knowledgeBytes ? { knowledgeBytes } : {}), ...(proposalBytes ? { proposalBytes } : {}), ...(forkBytes ? { forkBytes } : {}) }, bytes, byteLimit: effectiveByteLimit,
     inputEstimate, tokenLimit, model: { providerId: request.config.providerId, modelId: request.config.modelId, source: model?.source ?? null },
     warnings: [...(tokenLimit === null ? ['Model context window is unknown; only the byte hard cap is enforced.'] : ['Token count is a conservative UTF-8 estimate, not measured usage.']),
       ...(inputEstimate.imageTokens === null ? ['Image token cost is unknown; the UTF-8 estimate covers text and reference metadata only. Image byte caps are enforced separately; the complete model token window is not verified.'] : []),
