@@ -187,6 +187,15 @@ function assertSyncVoid(result: unknown, message: string): void {
   void Promise.resolve(result).catch(() => {});
   throw new EngineError("INVALID_CHILD_ADMISSION_HOOK", message);
 }
+function owned(tasks: ChildTaskRecord[], id: string): ChildTaskRecord {
+  const task = tasks.find((t) => t.id === id);
+  if (!task)
+    throw new EngineError(
+      "CHILD_TASK_NOT_FOUND",
+      "Child task does not belong to this session",
+    );
+  return task;
+}
 function cancelled(): EngineError {
   return new EngineError("CANCELLED", "Child task was cancelled");
 }
@@ -312,12 +321,7 @@ export class ChildTaskManager {
     change: Partial<ChildTaskRecord>,
   ): ChildTaskRecord {
     const journal = this.journal(sessionId);
-    const task = journal.tasks.find((t) => t.id === id);
-    if (!task)
-      throw new EngineError(
-        "CHILD_TASK_NOT_FOUND",
-        "Child task does not belong to this session",
-      );
+    const task = owned(journal.tasks, id);
     Object.assign(task, clone(change), {
       updatedAt: new Date(this.now()).toISOString(),
     });
@@ -355,8 +359,7 @@ export class ChildTaskManager {
     stored.updatedAt = new Date(this.now()).toISOString();
     this.commit(task.sessionId, journal);
     try {
-      // A failed ownership claim may already belong to somebody else. Never
-      // release another task's owner when recording a known pre-dispatch failure.
+      // A failed ownership claim may belong to another task; release only this task's own claim.
       if (
         this.options.worktrees.get(task.sessionId, task.worktreeId).ownerId ===
         task.id
@@ -383,13 +386,7 @@ export class ChildTaskManager {
     return this.journal(sessionId).tasks;
   }
   get(sessionId: string, id: string): ChildTaskRecord {
-    const task = this.list(sessionId).find((t) => t.id === id);
-    if (!task)
-      throw new EngineError(
-        "CHILD_TASK_NOT_FOUND",
-        "Child task does not belong to this session",
-      );
-    return task;
+    return owned(this.list(sessionId), id);
   }
   async start(
     input: ChildStart,

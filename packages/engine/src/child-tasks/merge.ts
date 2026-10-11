@@ -2,6 +2,7 @@ import { lstat } from "node:fs/promises";
 import { join } from "node:path";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolDefinition } from "../ports.js";
+import { errnoCode } from "../shared/fs.js";
 import { runGit } from "../workspace/git.js";
 import {
   createPatchAdapter,
@@ -121,8 +122,7 @@ export function createChildMergeTool(
               "UNSUPPORTED_CHILD_MERGE",
               "Merge supports ordinary non-executable UTF-8 text files only",
             );
-          // Parent attributes, not the child's, choose the checkout conversion;
-          // filter drivers stay off.
+          // Parent attributes, not the child's, choose the checkout conversion; filter drivers stay off.
           const blob = await runGit(
             worktree.baseRoot,
             [
@@ -155,12 +155,7 @@ export function createChildMergeTool(
             );
           content = current.content;
         } catch (error) {
-          if (!(
-            error instanceof Error &&
-            "code" in error &&
-            error.code === "ENOENT"
-          ))
-            throw error;
+          if (errnoCode(error) !== "ENOENT") throw error;
           try {
             await lstat(join(child.root, path));
             throw new EngineError(
@@ -168,12 +163,7 @@ export function createChildMergeTool(
               "Child path changed during observation",
             );
           } catch (probe) {
-            if (!(
-              probe instanceof Error &&
-              "code" in probe &&
-              probe.code === "ENOENT"
-            ))
-              throw probe;
+            if (errnoCode(probe) !== "ENOENT") throw probe;
           }
           content = null;
         }

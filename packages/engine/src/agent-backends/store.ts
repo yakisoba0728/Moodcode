@@ -390,9 +390,14 @@ export class AgentBackendStorage {
     integer(v.expectedRevision);
     return v;
   }
-  private required<T>(value: T | undefined): T {
-    if (!value) fail("BACKEND_NOT_FOUND");
-    return value;
+  private head<K extends BackendJournalKind>(
+    ws: string,
+    kind: K,
+    eid: string,
+  ): RecordOf<K> {
+    const record = this.journal.head<RecordOf<K>>(ws, kind, eid);
+    if (!record) fail("BACKEND_NOT_FOUND");
+    return record;
   }
   /** Checks input before the transaction; inside it an identical earlier request replays before `run` reads anything. */
   private mutate<K extends BackendJournalKind, I extends BackendMutationInput>(
@@ -459,9 +464,7 @@ export class AgentBackendStorage {
       ["backendId"],
       (x) => x.backendId,
       (x, commit) => {
-        const before = this.required(
-          this.getBackend(x.workspaceId, x.backendId),
-        );
+        const before = this.head(x.workspaceId, "backend", x.backendId);
         return commit(before, {
           backendId: before.backendId,
           enabled: false,
@@ -482,7 +485,7 @@ export class AgentBackendStorage {
       ["backendId", "connectionId"],
       (x) => x.connectionId,
       (x, commit) => {
-        const b = this.required(this.getBackend(x.workspaceId, x.backendId));
+        const b = this.head(x.workspaceId, "backend", x.backendId);
         if (!b.enabled) fail("BACKEND_DISABLED");
         const p = digest(this.ports.readConnection(originalProcess));
         sync(this.ports.assertConnectionCurrent(originalProcess));
@@ -523,9 +526,7 @@ export class AgentBackendStorage {
       ["connectionId", "state", "remoteSessionId"],
       (x) => x.connectionId,
       (x, commit) => {
-        const before = this.required(
-            this.getConnection(x.workspaceId, x.connectionId),
-          ),
+        const before = this.head(x.workspaceId, "connection", x.connectionId),
           p = this.frame(originalFrame, before);
         if (p.receiveOrdinal !== before.receiveOrdinal + 1)
           fail("BACKEND_RECEIVE_GAP");
@@ -600,12 +601,8 @@ export class AgentBackendStorage {
       ["connectionId", "message"],
       (x) => x.connectionId,
       (x, commit) => {
-        const before = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        );
-        const b = this.required(
-          this.getBackend(x.workspaceId, before.backendId),
-        );
+        const before = this.head(x.workspaceId, "connection", x.connectionId);
+        const b = this.head(x.workspaceId, "backend", before.backendId);
         const owner = this.owner(originalTurn);
         const message = validateAcpV1Message(x.message);
         if (
@@ -655,9 +652,7 @@ export class AgentBackendStorage {
       ["connectionId"],
       (x) => x.connectionId,
       (x, commit) => {
-        const before = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        );
+        const before = this.head(x.workspaceId, "connection", x.connectionId);
         const load = before.sessionLoad;
         const frame = this.frame(originalFrame, before),
           write = digest(this.ports.readWrite(originalWrite));
@@ -711,10 +706,8 @@ export class AgentBackendStorage {
       ],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const c = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        );
-        const b = this.required(this.getBackend(x.workspaceId, c.backendId));
+        const c = this.head(x.workspaceId, "connection", x.connectionId);
+        const b = this.head(x.workspaceId, "backend", c.backendId);
         if (
           !b.enabled ||
           c.state !== "session-ready" ||
@@ -781,9 +774,7 @@ export class AgentBackendStorage {
       ["remoteRequestId"],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const before = this.required(
-            this.getRequest(x.workspaceId, x.remoteRequestId),
-          ),
+        const before = this.head(x.workspaceId, "request", x.remoteRequestId),
           p = this.owner(originalTurn);
         if (p.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
         this.liveConnection(before);
@@ -802,17 +793,9 @@ export class AgentBackendStorage {
       ["remoteRequestId"],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const before = this.required(
-            this.getRequest(x.workspaceId, x.remoteRequestId),
-          ),
+        const before = this.head(x.workspaceId, "request", x.remoteRequestId),
           p = digest(this.ports.readWrite(originalWrite));
-        this.writeMatches(
-          p,
-          before.connectionId,
-          before.epoch,
-          x.workspaceId,
-          before.wireSha256,
-        );
+        this.writeMatches(p, before, x.workspaceId, before.wireSha256);
         return commit(before, {
           ...bodyOf(before),
           state: "dispatched",
@@ -833,9 +816,7 @@ export class AgentBackendStorage {
       ["connectionId"],
       (x) => x.connectionId,
       (x, commit) => {
-        const before = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        );
+        const before = this.head(x.workspaceId, "connection", x.connectionId);
         if (before.state !== "initialized" || before.capabilities)
           fail("BACKEND_CONNECTION_STALE");
         const owner = this.owner(originalTurn);
@@ -849,9 +830,7 @@ export class AgentBackendStorage {
           fail("BACKEND_FRAME_NOT_RECORDED");
         const request = originalTurn as TurnRequest;
         const effects = before.proof.executionMode === "engine-client-effects";
-        const b = this.required(
-          this.getBackend(x.workspaceId, before.backendId),
-        );
+        const b = this.head(x.workspaceId, "backend", before.backendId);
         const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
           readTextFile: request.tools.some((t) => t.name === "read_file"),
           writeTextFile:
@@ -880,9 +859,7 @@ export class AgentBackendStorage {
       ["remoteRequestId", "message"],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const before = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        );
+        const before = this.head(x.workspaceId, "request", x.remoteRequestId);
         if (
           before.cancellation ||
           before.state === "paused-import" ||
@@ -898,13 +875,7 @@ export class AgentBackendStorage {
         )
           fail("BACKEND_REMOTE_SESSION_INVALID");
         const write = digest(this.ports.readWrite(originalWrite));
-        this.writeMatches(
-          write,
-          before.connectionId,
-          before.epoch,
-          x.workspaceId,
-          knowledgeHash(message),
-        );
+        this.writeMatches(write, before, x.workspaceId, knowledgeHash(message));
         return commit(before, {
           ...bodyOf(before),
           cancellation: { message, write },
@@ -924,9 +895,7 @@ export class AgentBackendStorage {
       ["effectId", "remoteRequestId", "input"],
       (x) => x.effectId,
       (x, commit) => {
-        const r = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        );
+        const r = this.head(x.workspaceId, "request", x.remoteRequestId);
         if (r.state !== "dispatched") fail("BACKEND_REQUEST_STALE");
         const owner = this.owner(originalTurn);
         if (owner.sha256 !== r.owner.sha256) fail("BACKEND_OWNER_INVALID");
@@ -984,9 +953,7 @@ export class AgentBackendStorage {
       ["effectId"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-            this.getClientEffect(x.workspaceId, x.effectId),
-          ),
+        const before = this.head(x.workspaceId, "client-effect", x.effectId),
           p = digest(this.ports.readClientEffect(originalCompletion));
         validateClientEffectSql(this.db, before, p);
         return commit(before, {
@@ -1013,9 +980,7 @@ export class AgentBackendStorage {
       ["effectId", "input"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        );
+        const before = this.head(x.workspaceId, "client-effect", x.effectId);
         if (
           before.state !== "prepared" ||
           !before.permission?.allowed ||
@@ -1025,8 +990,10 @@ export class AgentBackendStorage {
           fail("BACKEND_EFFECT_STALE");
         const owner = this.owner(originalTurn);
         if (owner.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
-        const request = this.required(
-            this.getRequest(x.workspaceId, before.remoteRequestId),
+        const request = this.head(
+            x.workspaceId,
+            "request",
+            before.remoteRequestId,
           ),
           connection = this.liveConnection(request),
           frame = this.frame(originalFrame, connection);
@@ -1108,9 +1075,7 @@ export class AgentBackendStorage {
     before: BackendClientEffectRevision;
     body: Omit<BackendClientEffectRevision, keyof BackendRevisionBase>;
   } {
-    const before = this.required(
-      this.getClientEffect(x.workspaceId, x.effectId),
-    );
+    const before = this.head(x.workspaceId, "client-effect", x.effectId);
     if (
       !("method" in before.input) ||
       before.input.method !== "terminal/create" ||
@@ -1124,9 +1089,7 @@ export class AgentBackendStorage {
       fail("BACKEND_LIMIT");
     if (this.owner(originalTurn).sha256 !== before.owner.sha256)
       fail("BACKEND_OWNER_INVALID");
-    const parent = this.required(
-        this.getRequest(x.workspaceId, before.remoteRequestId),
-      ),
+    const parent = this.head(x.workspaceId, "request", before.remoteRequestId),
       connection = this.liveConnection(parent),
       frame = this.frame(originalFrame, connection);
     if (frame.receiveOrdinal > connection.receiveOrdinal)
@@ -1142,13 +1105,7 @@ export class AgentBackendStorage {
           frameSha256: knowledgeHash(x.message),
           writtenBytes: Number.MAX_SAFE_INTEGER,
         });
-    this.writeMatches(
-      write,
-      before.connectionId,
-      before.epoch,
-      x.workspaceId,
-      knowledgeHash(x.message),
-    );
+    this.writeMatches(write, before, x.workspaceId, knowledgeHash(x.message));
     validateTerminalControl(
       before,
       { frame, write, message: x.message },
@@ -1182,9 +1139,7 @@ export class AgentBackendStorage {
       ["effectId", "errorCode"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        );
+        const before = this.head(x.workspaceId, "client-effect", x.effectId);
         return commit(before, {
           ...bodyOf(before),
           state: "uncertain",
@@ -1205,9 +1160,7 @@ export class AgentBackendStorage {
       ["effectId", "message"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        );
+        const before = this.head(x.workspaceId, "client-effect", x.effectId);
         if (
           before.state !== "prepared" ||
           before.permission ||
@@ -1223,8 +1176,7 @@ export class AgentBackendStorage {
         const write = digest(this.ports.readWrite(originalWrite));
         this.writeMatches(
           write,
-          before.connectionId,
-          before.epoch,
+          before,
           x.workspaceId,
           knowledgeHash(x.message),
         );
@@ -1248,9 +1200,7 @@ export class AgentBackendStorage {
       ["effectId", "message"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        );
+        const before = this.head(x.workspaceId, "client-effect", x.effectId);
         if (
           before.state !== "prepared" ||
           before.delivery ||
@@ -1273,13 +1223,7 @@ export class AgentBackendStorage {
         )
           fail("BACKEND_DELIVERY_INVALID");
         const write = digest(this.ports.readWrite(originalWrite));
-        this.writeMatches(
-          write,
-          before.connectionId,
-          before.epoch,
-          x.workspaceId,
-          knowledgeHash(message),
-        );
+        this.writeMatches(write, before, x.workspaceId, knowledgeHash(message));
         return commit(before, { ...bodyOf(before), delivery: write });
       },
     );
@@ -1295,19 +1239,11 @@ export class AgentBackendStorage {
       ["effectId", "message"],
       (x) => x.effectId,
       (x, commit) => {
-        const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        );
+        const before = this.head(x.workspaceId, "client-effect", x.effectId);
         if (before.state === "prepared" || before.delivery)
           fail("BACKEND_EFFECT_STALE");
         const p = digest(this.ports.readWrite(originalWrite));
-        this.writeMatches(
-          p,
-          before.connectionId,
-          before.epoch,
-          x.workspaceId,
-          knowledgeHash(x.message),
-        );
+        this.writeMatches(p, before, x.workspaceId, knowledgeHash(x.message));
         if (!("id" in x.message) || x.message.id !== effectRpc(before))
           fail("BACKEND_DELIVERY_INVALID");
         validateEffectResponse(before, x.message);
@@ -1326,12 +1262,8 @@ export class AgentBackendStorage {
       ["remoteRequestId"],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const before = this.required(
-            this.getRequest(x.workspaceId, x.remoteRequestId),
-          ),
-          c = this.required(
-            this.getConnection(x.workspaceId, before.connectionId),
-          ),
+        const before = this.head(x.workspaceId, "request", x.remoteRequestId),
+          c = this.head(x.workspaceId, "connection", before.connectionId),
           p = this.frame(originalFrame, c);
         if (c.observation?.sha256 !== p.sha256 || p.wireId !== before.rpcId)
           fail("BACKEND_REQUEST_STALE");
@@ -1371,9 +1303,7 @@ export class AgentBackendStorage {
       ["connectionId"],
       (x) => x.connectionId,
       (x, commit) => {
-        const before = this.required(
-            this.getConnection(x.workspaceId, x.connectionId),
-          ),
+        const before = this.head(x.workspaceId, "connection", x.connectionId),
           p = digest(this.ports.readDisposal(originalDisposal));
         if (
           p.workspaceId !== x.workspaceId ||
@@ -1417,9 +1347,7 @@ export class AgentBackendStorage {
       ["remoteRequestId", "errorCode"],
       (x) => x.remoteRequestId,
       (x, commit) => {
-        const before = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        );
+        const before = this.head(x.workspaceId, "request", x.remoteRequestId);
         return commit(before, {
           ...bodyOf(before),
           state: "uncertain",
@@ -1428,7 +1356,6 @@ export class AgentBackendStorage {
       },
     );
   }
-  /** Client-effect heads on the connection of `on`, read under the effect head cap. */
   private effectsOnConnection(on: {
     readonly workspaceId: string;
     readonly connectionId: string;
@@ -1468,8 +1395,8 @@ export class AgentBackendStorage {
     return p;
   }
   private liveConnection(r: BackendRemoteRequest): BackendConnectionRevision {
-    const c = this.required(this.getConnection(r.workspaceId, r.connectionId));
-    const b = this.required(this.getBackend(r.workspaceId, c.backendId));
+    const c = this.head(r.workspaceId, "connection", r.connectionId);
+    const b = this.head(r.workspaceId, "backend", c.backendId);
     if (
       c.state !== "session-ready" ||
       c.proof.epoch !== r.epoch ||
@@ -1481,15 +1408,14 @@ export class AgentBackendStorage {
   }
   private writeMatches(
     p: BackendWriteProof,
-    connectionId: string,
-    epoch: string,
+    on: { readonly connectionId: string; readonly epoch: string },
     ws: string,
     frameSha?: string,
   ): void {
     if (
       p.workspaceId !== ws ||
-      p.connectionId !== connectionId ||
-      p.epoch !== epoch ||
+      p.connectionId !== on.connectionId ||
+      p.epoch !== on.epoch ||
       (frameSha && p.frameSha256 !== frameSha)
     )
       fail("BACKEND_WRITE_INVALID");

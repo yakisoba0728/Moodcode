@@ -57,7 +57,6 @@ export function createToolResultEnvelope(input: ToolResultProjection, options: P
     ...(metadata === undefined ? {} : { metadata }), warnings, artifactRefs, outcome };
 }
 
-/** Builds the bounded envelope and mirrors its model text and data into ToolResult.content/data. */
 export function projectToolResult(input: ToolResultProjection, options: Partial<ArtifactLimits> = {}): ToolResult {
   const envelope = createToolResultEnvelope(input, options);
   return { content: envelope.modelContent, ...(envelope.outcome === 'completed' ? {} : { isError: true }),

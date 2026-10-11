@@ -234,7 +234,6 @@ type ResidentStore = Pick<
   EngineRuntime["store"],
   "getSessionDocument" | "putResidentDocument"
 >;
-/** The root's validated resident history for one child task, if it has one. */
 export function readResidentRecord(
   store: Pick<ResidentStore, "getSessionDocument">,
   sessionId: string,
@@ -307,6 +306,8 @@ export const childOutcomeState = (state: RunState): ChildOutcome["state"] =>
     : state === "cancelled"
       ? "cancelled"
       : "failed";
+const exhausted = (r: ChildBudget) =>
+  r.turns < 1 || r.toolCalls < 1 || r.outputBytes < 1024 || r.durationMs < 1;
 export interface ResidentPorts {
   assertCurrent(): void;
   close(): Promise<void>;
@@ -492,14 +493,10 @@ export class ResidentChild {
       );
   }
   private usage() {
-    return this.record.runs.reduce(
-      (a, x) => ({
-        turns: a.turns + (x.usage?.turns ?? 0),
-        toolCalls: a.toolCalls + (x.usage?.toolCalls ?? 0),
-        outputBytes: a.outputBytes + (x.usage?.outputBytes ?? 0),
-      }),
-      { turns: 0, toolCalls: 0, outputBytes: 0 },
-    );
+    const u = { turns: 0, toolCalls: 0, outputBytes: 0 };
+    for (const x of this.record.runs)
+      for (const k of CHILD_USAGE_KEYS) u[k] += x.usage?.[k] ?? 0;
+    return u;
   }
   remaining(): ChildBudget {
     const u = this.usage();
@@ -564,10 +561,7 @@ export class ResidentChild {
         if (
           this.stopping ||
           run.state !== "completed" ||
-          r.turns < 1 ||
-          r.toolCalls < 1 ||
-          r.outputBytes < 1024 ||
-          r.durationMs < 1 ||
+          exhausted(r) ||
           this.record.runs.length >= 32
         ) {
           queueMicrotask(() => void this.stop(childOutcomeState(run.state)));
@@ -599,12 +593,7 @@ export class ResidentChild {
         "A resident accepts a new Run only after prior physical settlement",
       );
     const r = this.remaining();
-    if (
-      r.turns < 1 ||
-      r.toolCalls < 1 ||
-      r.outputBytes < 1024 ||
-      r.durationMs < 1
-    )
+    if (exhausted(r))
       throw new EngineError(
         "RESIDENT_BUDGET_EXCEEDED",
         "Resident allocation is exhausted",

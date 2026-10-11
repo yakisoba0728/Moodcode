@@ -82,8 +82,7 @@ export function createApprovedDelegationHost(ports: EngineDelegationPorts): Dele
         worktreeId = worktree.id;
         owner(context, 'execute', fingerprint);
       } catch (error) {
-        // A failed journal read/update cannot prove that Git effects stopped.
-        // Set the conservative value before inspecting possibly damaged state.
+        // A failed journal read/update cannot prove Git effects stopped; assume not before inspecting it.
         cleanupConfirmed = false;
         try {
           const record = ports.worktrees.list(context.sessionId).find(item => item.requestId === worktreeRequestId);

@@ -197,7 +197,6 @@ async function observedSecrets(home: string, now: () => number, signal?: AbortSi
     return { secrets, error };
   }
 }
-/** Object entries of a bounded models_cache.json; empty when it is missing, unsafe or malformed. */
 async function modelCacheEntries(home: string, signal?: AbortSignal): Promise<Record<string, unknown>[]> {
   try {
     const cache = json(await readLocalFile(join(home, 'models_cache.json'), CACHE_BYTES, signal));

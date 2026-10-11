@@ -6,6 +6,7 @@ import { types } from 'node:util';
 import { EngineError, type JsonObject, type Workspace } from '@moodcode/contracts';
 import type { GrantDocumentPort } from '../permission/grants.js';
 import { jsonTextSha256 } from '../shared/canonical.js';
+import { isBoundedId as id, isSha256 as sha } from '../shared/data.js';
 import { workspaceIdForRoot } from '../workspace/index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { WORKTREE_JOURNAL } from '../worktrees/journal.js';
@@ -47,8 +48,6 @@ export interface ChildStorageSelectionOptions {
 }
 export interface ChildStorageSelectionBudget { maxMetadataBytes?: number; readonly remainingMetadataBytes?: number; readonly remainingRows?: number; charge?(bytes: number): void; chargeRows?(rows: number): void; check?(): void }
 function fail(message: string): never { throw new EngineError('CHILD_STORAGE_BINDING_INVALID', message); }
-const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\x00-\x1f\x7f]/.test(value);
-const sha = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const path = (value: unknown): value is string => typeof value === 'string' && isAbsolute(value) && resolve(value) === value && Buffer.byteLength(value) <= 8192 && !/[\x00-\x1f\x7f]/.test(value);
 const date = (value: unknown): value is string => typeof value === 'string' && value.length <= 32 && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 function plain(value: unknown): Record<string, unknown> {

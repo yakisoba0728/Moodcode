@@ -3,6 +3,7 @@ import { constants, type Stats } from 'node:fs';
 import { lstat, mkdir, open, opendir, realpath, rename, rmdir, unlink, type FileHandle } from 'node:fs/promises';
 import { join, parse, resolve, sep } from 'node:path';
 import { EngineError, type ArtifactIdentity, type ArtifactReference, type JsonObject } from '@moodcode/contracts';
+import { errnoCode, sameIdentity as sameFile } from '../shared/fs.js';
 import { raceAbort } from '../shared/runtime.js';
 import { artifactLimits, DEFAULT_ARTIFACT_RETENTION_MS, type ArtifactLimits } from './limits.js';
 import { ARTIFACT_ID, ARTIFACT_OUTCOMES, artifactId, boundedJson, fail, identity, JsonBudgetError, number, positive, reference, sameIdentity, textPrefix } from './validation.js';
@@ -52,10 +53,8 @@ interface Capture {
 }
 
 const LEFTOVER = /^\.(?:stage|retired)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-function code(error: unknown): string | undefined { return error instanceof Error && 'code' in error ? String(error.code) : undefined; }
-function sameFile(left: Stats, right: Stats): boolean { return left.dev === right.dev && left.ino === right.ino; }
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('ARTIFACT_CANCELLED', 'Artifact operation was cancelled'); }
-function missing(error: unknown): boolean { return code(error) === 'ENOENT'; }
+function missing(error: unknown): boolean { return errnoCode(error) === 'ENOENT'; }
 
 /** Rejects symlinks in the managed root and each existing ancestor. */
 async function directoryPath(path: string, create: boolean): Promise<Stats> {
@@ -68,7 +67,7 @@ async function directoryPath(path: string, create: boolean): Promise<Stats> {
     catch (error) {
       if (!create || !missing(error)) throw error;
       try { await mkdir(current, { mode: 0o700 }); }
-      catch (error) { if (code(error) !== 'EEXIST') throw error; }
+      catch (error) { if (errnoCode(error) !== 'EEXIST') throw error; }
       info = await lstat(current);
     }
     if (!info.isDirectory() || info.isSymbolicLink()) fail('ARTIFACT_PATH_UNSAFE', 'Managed artifact directories must not be symlinks');
@@ -113,7 +112,7 @@ async function knownDirectoryCleanup(path: string): Promise<void> {
   for (const file of ['content', 'manifest.json']) {
     await unlink(join(path, file)).catch(error => { if (!missing(error)) throw error; });
   }
-  await rmdir(path).catch(error => { if (!missing(error) && code(error) !== 'ENOTEMPTY') throw error; });
+  await rmdir(path).catch(error => { if (!missing(error) && errnoCode(error) !== 'ENOTEMPTY') throw error; });
 }
 
 /** Store-owned filenames never use model paths, artifact names, or execution IDs. */

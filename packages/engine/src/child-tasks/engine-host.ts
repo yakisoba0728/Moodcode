@@ -69,7 +69,6 @@ interface Admission {
   confirmed: Promise<void>;
   confirm(): void;
 }
-/** An admitted child engine as this host observed it. */
 export interface ChildExecution {
   resident?: ResidentChild;
   engine: MoodcodeEngine;
@@ -79,7 +78,6 @@ export interface ChildExecution {
   wait: ChildRunHandle["wait"];
   storageRecord?: ChildStorageRecord;
   admittedRun: Run;
-  /** What the request stage's settle hook read from the settled Run. */
   evidence?: unknown;
 }
 /** Hooks an owner attaches to one child request while it waits for admission. */
@@ -132,8 +130,7 @@ function childEngineOptions(
   const { revision: _revision, ...definition } = profile ?? { revision: "" };
   return {
     ...options,
-    // Knowledge selectors are host authority for the parent's physical store.
-    // A separately owned child starts without inherited document context.
+    // Knowledge selectors bind the parent's physical store; a separately owned child starts without them.
     knowledgeContextPolicy: undefined,
     residentTeams: false,
     proposals: false,
@@ -172,6 +169,11 @@ function childEngineOptions(
 
 const requestKey = (sessionId: string, requestId: string) =>
   JSON.stringify([sessionId, requestId]);
+const runCatalogue = (
+  engine: MoodcodeEngine,
+  run: Run,
+  profile: AgentProfile | undefined,
+) => engine.toolRuntime.catalogue("engine", run.config.mode, profile?.tools);
 
 /** Actual child engines inherit configuration and consume a reservation in their live parent. */
 export class EngineChildren {
@@ -226,11 +228,7 @@ export class EngineChildren {
       beforeDispatch: (task) => {
         const key = requestKey(task.sessionId, task.requestId);
         this.stages.get(key)?.guard();
-        const parent = this.parent(
-          task.sessionId,
-          task.parentRunId,
-          task.parentTaskId,
-        );
+        const parent = this.parent(task);
         const admission = this.admissions.get(key);
         if (!admission)
           throw new EngineError(
@@ -291,11 +289,7 @@ export class EngineChildren {
             "TEAM_CHILD_STALE",
             "Team member requires its original live admitted child engine",
           );
-        const parent = this.parent(
-          rootSessionId,
-          task.parentRunId,
-          task.parentTaskId,
-        );
+        const parent = this.parent(task);
         if (
           this.root.store.getSessionControl(rootSessionId).paused ||
           parent.engine.coordinator.getRunCancellationSignal(parent.run.id)
@@ -372,7 +366,6 @@ export class EngineChildren {
       );
     this.batchMembers.set(key, { slot, guard, providerGuard });
   }
-  /** The root's validated storage record for one child, if it has one. */
   private rootStorageRecord(
     sessionId: string,
     taskId: string,
@@ -390,11 +383,7 @@ export class EngineChildren {
     );
   }
   private residentSource(request: EngineChildRequest): string {
-    const parent = this.parent(
-      request.sessionId,
-      request.parentRunId,
-      request.parentTaskId,
-    );
+    const parent = this.parent(request);
     const run = parent.engine.coordinator.getOwnedActiveRun(parent.run.id);
     if (!["created", "running", "awaiting_approval"].includes(run.state))
       throw new EngineError(
@@ -410,11 +399,7 @@ export class EngineChildren {
       config: run.config,
       parentPromptSha256: knowledgeHash(run.prompt),
       profile: profile ?? null,
-      catalogue: parent.engine.toolRuntime.catalogue(
-        "engine",
-        run.config.mode,
-        profile?.tools,
-      ),
+      catalogue: runCatalogue(parent.engine, run, profile),
       worktree,
     });
   }
@@ -560,11 +545,14 @@ export class EngineChildren {
   getStorageDirectory(): string {
     return this.directory;
   }
-  private parent(
-    sessionId: string,
-    runId: string,
-    parentTaskId?: string,
-  ): { engine: MoodcodeEngine; run: Run } {
+  private parent({
+    sessionId,
+    parentRunId: runId,
+    parentTaskId,
+  }: Pick<EngineChildRequest, "sessionId" | "parentRunId" | "parentTaskId">): {
+    engine: MoodcodeEngine;
+    run: Run;
+  } {
     if (!parentTaskId) {
       const run = this.root.store.getRun(runId);
       if (run.sessionId !== sessionId)
@@ -646,11 +634,7 @@ export class EngineChildren {
         "CHILD_TASK_LIMIT",
         "Engine child admission bound exceeded",
       );
-    const parent = this.parent(
-      request.sessionId,
-      request.parentRunId,
-      request.parentTaskId,
-    );
+    const parent = this.parent(request);
     const profile = parent.engine.profiles.forRun(
       parent.run.sessionId,
       parent.run.config,
@@ -658,8 +642,7 @@ export class EngineChildren {
     const hostNames = new Set(
       parent.engine.getCapabilities().tools.map((tool) => tool.name),
     );
-    const allowedTools = parent.engine.toolRuntime
-      .catalogue("engine", parent.run.config.mode, profile?.tools)
+    const allowedTools = runCatalogue(parent.engine, parent.run, profile)
       .tools.map((tool) => tool.name)
       .filter((name) => hostNames.has(name));
     if (
@@ -743,11 +726,7 @@ export class EngineChildren {
     request: Parameters<ChildTaskHost["start"]>[0],
   ): Promise<ChildRunHandle> {
     const key = requestKey(request.task.sessionId, request.task.requestId);
-    const parent = this.parent(
-      request.task.sessionId,
-      request.task.parentRunId,
-      request.task.parentTaskId,
-    );
+    const parent = this.parent(request.task);
     const profile = parent.engine.profiles.forRun(
       parent.run.sessionId,
       parent.run.config,
@@ -782,8 +761,7 @@ export class EngineChildren {
         (typeof configured === "object" || typeof configured === "function") &&
         typeof (configured as { then?: unknown }).then === "function"
       ) {
-        // Host setup is a synchronous contract. Observe rejected promises so an
-        // invalid adapter cannot detach an unhandled rejection after admission.
+        // Host setup is synchronous; observe a returned promise so its rejection cannot go unhandled.
         void Promise.resolve(configured).catch(() => {});
         throw new EngineError(
           "INVALID_CHILD_CONFIGURATION",
@@ -872,12 +850,16 @@ export class EngineChildren {
           ? { storageRecord: structuredClone(admittedStorage) }
           : {}),
       };
+      const close = async () => {
+        unlink?.();
+        await engine.close();
+        execution.closed = true;
+        // The admitted child mirror remains immutable. Only the root records host-observed close.
+        if (admittedStorage)
+          confirmChildStorageClosed(this.root.store, admittedStorage);
+      };
       const parentCatalogueSha256 = knowledgeHash(
-        parent.engine.toolRuntime.catalogue(
-          "engine",
-          parent.run.config.mode,
-          profile?.tools,
-        ),
+        runCatalogue(parent.engine, parent.run, profile),
       );
       const idleTimeoutMs = this.residentRequests.get(key);
       let resident: ResidentChild | undefined;
@@ -903,12 +885,7 @@ export class EngineChildren {
                 profile,
                 parentCatalogueSha256,
               ),
-            close: async () => {
-              unlink?.();
-              await engine.close();
-              execution.closed = true;
-              confirmChildStorageClosed(this.root.store, admittedStorage);
-            },
+            close,
           },
         );
         execution.resident = resident;
@@ -935,14 +912,7 @@ export class EngineChildren {
               const content = engine.store.getLastRunAssistantContent(run.id);
               return { state: childOutcomeState(run.state), content, usage };
             })
-            .finally(async () => {
-              unlink?.();
-              await engine.close();
-              execution.closed = true;
-              // The admitted child mirror remains immutable. Only the root records host-observed close.
-              if (admittedStorage)
-                confirmChildStorageClosed(this.root.store, admittedStorage);
-            });
+            .finally(close);
       void finished.catch(() => {});
       execution.wait = () => finished;
       this.executions.set(request.task.id, execution);
@@ -978,11 +948,7 @@ export class EngineChildren {
     profile: AgentProfile | undefined,
     catalogueSha256: string,
   ): void {
-    const fresh = this.parent(
-      task.sessionId,
-      task.parentRunId,
-      task.parentTaskId,
-    );
+    const fresh = this.parent(task);
     fresh.engine.coordinator.getOwnedActiveRun(fresh.run.id);
     if (
       knowledgeHash(fresh.run.prompt) !== knowledgeHash(original.run.prompt) ||
@@ -1002,13 +968,8 @@ export class EngineChildren {
       (currentProfile &&
         fresh.engine.profiles.list().find((x) => x.id === currentProfile.id)
           ?.revision !== currentProfile.revision) ||
-      knowledgeHash(
-        fresh.engine.toolRuntime.catalogue(
-          "engine",
-          fresh.run.config.mode,
-          currentProfile?.tools,
-        ),
-      ) !== catalogueSha256 ||
+      knowledgeHash(runCatalogue(fresh.engine, fresh.run, currentProfile)) !==
+        catalogueSha256 ||
       knowledgeHash(currentProfile ?? null) !== knowledgeHash(profile ?? null)
     )
       throw new EngineError("RESIDENT_SOURCE_STALE", "Parent profile changed");

@@ -77,12 +77,7 @@ function originalJson(value: object): string {
   return JSON.stringify(value);
 }
 
-/**
- * Admits team input to an owned live child: a steer into its current Run or,
- * for a resident child, a queued follow-up Run. accept() never wakes a
- * scheduler; a resident Run starts only when confirm() releases it after the
- * caller saved its receipt.
- */
+/** Admits team input to an owned live child: a steer, or a resident's queued Run that starts only when confirm() releases it after the caller saved its receipt; accept() never wakes a scheduler. */
 export class ActualChildTeamBridge {
   private readonly targets = new WeakMap<ChildTeamTarget, string>();
   private readonly pending = new Map<ChildTeamTarget, ChildTeamInputEvidence>();

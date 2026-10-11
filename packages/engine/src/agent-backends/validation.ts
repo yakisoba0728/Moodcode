@@ -37,6 +37,17 @@ const ALLOCATION_KEYS = [
   "maxOutputBytes",
   "maxDurationMs",
 ] as const;
+const SESSION_LOAD_KEYS = [
+  "sourceBackendId",
+  "sourceBackendRevisionId",
+  "sourceRequestId",
+  "sourceRequestRevisionId",
+  "sourceRequestSha256",
+  "sourceConnectionId",
+  "sourceConnectionRevisionId",
+  "sourceConnectionSha256",
+  "remoteSessionId",
+] as const;
 export function agentBackendError(code = "INVALID_AGENT_BACKEND"): never {
   throw new EngineError(
     code,
@@ -311,34 +322,17 @@ export function validateAgentBackendSpec(input: unknown): AgentBackendSpec {
     agentBackendError("AGENT_BACKEND_CONTEXT_UNSUPPORTED");
   let sessionLoad: AgentBackendSessionLoad | undefined;
   if (value.contextOwner === "agent") {
-    const selected = agentBackendObject(value.sessionLoad, [
-      "sourceBackendId",
-      "sourceBackendRevisionId",
-      "sourceRequestId",
-      "sourceRequestRevisionId",
-      "sourceRequestSha256",
-      "sourceConnectionId",
-      "sourceConnectionRevisionId",
-      "sourceConnectionSha256",
-      "remoteSessionId",
-    ]);
-    sessionLoad = agentBackendJson({
-      sourceBackendId: agentBackendIdentifier(selected.sourceBackendId),
-      sourceBackendRevisionId: agentBackendIdentifier(
-        selected.sourceBackendRevisionId,
-      ),
-      sourceRequestId: agentBackendIdentifier(selected.sourceRequestId),
-      sourceRequestRevisionId: agentBackendIdentifier(
-        selected.sourceRequestRevisionId,
-      ),
-      sourceRequestSha256: agentBackendSha(selected.sourceRequestSha256),
-      sourceConnectionId: agentBackendIdentifier(selected.sourceConnectionId),
-      sourceConnectionRevisionId: agentBackendIdentifier(
-        selected.sourceConnectionRevisionId,
-      ),
-      sourceConnectionSha256: agentBackendSha(selected.sourceConnectionSha256),
-      remoteSessionId: agentBackendIdentifier(selected.remoteSessionId),
-    });
+    const selected = agentBackendObject(value.sessionLoad, SESSION_LOAD_KEYS);
+    sessionLoad = agentBackendJson(
+      Object.fromEntries(
+        SESSION_LOAD_KEYS.map((key) => [
+          key,
+          key.endsWith("Sha256")
+            ? agentBackendSha(selected[key])
+            : agentBackendIdentifier(selected[key]),
+        ]),
+      ) as unknown as AgentBackendSessionLoad,
+    );
     if (sessionLoad.sourceBackendId === value.id)
       agentBackendError("AGENT_BACKEND_LOAD_ALIAS_REQUIRED");
   } else if (value.sessionLoad !== undefined)
