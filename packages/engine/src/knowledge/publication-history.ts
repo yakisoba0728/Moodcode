@@ -3,6 +3,7 @@ import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,
 } from "./generation-types.js";
+import type { KnowledgePublicationProvenance } from "./publication-types.js";
 import type {
   KnowledgeCandidate,
   KnowledgeGenerationPlan,
@@ -133,4 +134,20 @@ export function readKnowledgePublicationHistory(
       "Candidate does not describe the exact historical completed producer and cleanup",
     );
   return Object.freeze({ candidate, plan, generation, attempt, trust });
+}
+export function knowledgePublicationProvenance(
+  history: KnowledgePublicationHistory,
+): KnowledgePublicationProvenance {
+  return {
+    candidateId: history.candidate.id,
+    candidateSha256: history.candidate.sha256,
+    generationId: history.generation.id,
+    generationSha256: history.generation.sha256,
+    attemptId: history.attempt.id,
+    attemptSha256: history.attempt.sha256,
+    planId: history.plan.id,
+    planSha256: history.plan.sha256,
+    trustRevisionId: history.trust.id,
+    trustRevisionSha256: history.trust.sha256,
+  };
 }

@@ -1,10 +1,11 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
-import { readKnowledgePublicationHistory } from "./publication-history.js";
-import type {
-  KnowledgeGenerationAttempt,
-  KnowledgeGenerationRecord,
-} from "./generation-types.js";
+import {
+  knowledgePublicationProvenance,
+  readKnowledgePublicationHistory,
+  type KnowledgePublicationHistory,
+  type KnowledgePublicationHistoryPorts,
+} from "./publication-history.js";
 import { validateKnowledgePublicationArchiveRow } from "./publication-store.js";
 import type {
   KnowledgePublicationCapture,
@@ -17,8 +18,6 @@ import type {
   WorkspaceDocumentRevision,
 } from "./publication-types.js";
 import type {
-  KnowledgeCandidate,
-  KnowledgeGenerationPlan,
   KnowledgeHostBinding,
   KnowledgeSourceManifest,
   TrustRevision,
@@ -71,29 +70,9 @@ export interface KnowledgePublicationNativePort {
     publicationId: string,
   ): KnowledgePublicationCommitResult;
 }
-export interface KnowledgePublicationServicePorts {
+export interface KnowledgePublicationServicePorts extends KnowledgePublicationHistoryPorts {
   readonly native: KnowledgePublicationNativePort;
-  readonly getCandidate: (
-    workspaceId: string,
-    candidateId: string,
-  ) => KnowledgeCandidate | undefined;
-  readonly getPlan: (
-    workspaceId: string,
-    planId: string,
-  ) => KnowledgeGenerationPlan | undefined;
-  readonly getGeneration: (
-    workspaceId: string,
-    generationId: string,
-  ) => KnowledgeGenerationRecord;
-  readonly getAttempt: (
-    workspaceId: string,
-    attemptId: string,
-  ) => KnowledgeGenerationAttempt;
   readonly getTrust: (workspaceId: string) => TrustRevision | undefined;
-  readonly getTrustRevision: (
-    workspaceId: string,
-    revisionId: string,
-  ) => TrustRevision | undefined;
   readonly checkBinding: (workspaceId: string) => KnowledgeHostBinding;
   readonly assertUnpaused: (workspaceId: string) => void;
   readonly assertTrustSourcesCurrent: (
@@ -110,15 +89,8 @@ export interface KnowledgePublicationServicePorts {
   ) => Promise<T>;
   readonly now?: () => number;
 }
-interface Historical {
-  readonly candidate: KnowledgeCandidate;
-  readonly plan: KnowledgeGenerationPlan;
-  readonly generation: KnowledgeGenerationRecord;
-  readonly attempt: KnowledgeGenerationAttempt;
-  readonly trust: TrustRevision;
-}
 type ApprovalPins = Omit<PrepareKnowledgePublication, "requestId">;
-export interface KnowledgePublicationPreview extends Historical {
+export interface KnowledgePublicationPreview extends KnowledgePublicationHistory {
   readonly projection: "host-knowledge-publication-preview-v1";
   readonly operation: "publish" | "revoke";
   readonly workspaceId: string;
@@ -249,13 +221,6 @@ export class KnowledgePublicationService {
       fail("INVALID_KNOWLEDGE_PUBLICATION", "Publication clock is invalid");
     return value;
   }
-  private historical(workspaceId: string, candidateId: string): Historical {
-    return readKnowledgePublicationHistory(
-      this.#ports,
-      workspaceId,
-      candidateId,
-    );
-  }
   private document(
     workspaceId: string,
     key: string,
@@ -289,7 +254,7 @@ export class KnowledgePublicationService {
   }
   private issue(
     operation: "publish" | "revoke",
-    historical: Historical,
+    historical: KnowledgePublicationHistory,
     existingPublication: KnowledgePublicationRecord | null,
     requestedExpiry?: string,
   ): KnowledgePublicationPreview {
@@ -366,18 +331,7 @@ export class KnowledgePublicationService {
       expectedHeadRevision: document.head?.revision ?? 0,
       expectedHeadSha256: document.head?.bodySha256 ?? null,
       expectedHeadRevisionId: document.head?.revisionId ?? null,
-      provenance: Object.freeze({
-        candidateId: candidate.id,
-        candidateSha256: candidate.sha256,
-        generationId: historical.generation.id,
-        generationSha256: historical.generation.sha256,
-        attemptId: historical.attempt.id,
-        attemptSha256: historical.attempt.sha256,
-        planId: historical.plan.id,
-        planSha256: historical.plan.sha256,
-        trustRevisionId: historical.trust.id,
-        trustRevisionSha256: historical.trust.sha256,
-      }),
+      provenance: Object.freeze(knowledgePublicationProvenance(historical)),
       existingPublicationId: existingPublication?.id ?? null,
       existingPublicationSha256: existingPublication?.sha256 ?? null,
       bodySha256: sha256(body),
@@ -422,7 +376,7 @@ export class KnowledgePublicationService {
       candidateId = identifier(value.candidateId);
     return this.issue(
       "publish",
-      this.historical(workspaceId, candidateId),
+      readKnowledgePublicationHistory(this.#ports, workspaceId, candidateId),
       null,
       value.expiresAt as string | undefined,
     );
@@ -438,11 +392,14 @@ export class KnowledgePublicationService {
       "knowledge_publications",
       this.#ports.native.getPublication(workspaceId, publicationId),
     );
-    const historical = this.historical(
+    const historical = readKnowledgePublicationHistory(
+      this.#ports,
       workspaceId,
       publication.provenance.candidateId,
     );
-    if (!same(publication.provenance, this.provenance(historical)))
+    if (
+      !same(publication.provenance, knowledgePublicationProvenance(historical))
+    )
       fail(
         "KNOWLEDGE_PUBLICATION_EVIDENCE_INVALID",
         "Active publication does not reference the exact historical producer",
@@ -453,20 +410,6 @@ export class KnowledgePublicationService {
       publication,
       value.expiresAt as string | undefined,
     );
-  }
-  private provenance(history: Historical): ApprovalPins["provenance"] {
-    return {
-      candidateId: history.candidate.id,
-      candidateSha256: history.candidate.sha256,
-      generationId: history.generation.id,
-      generationSha256: history.generation.sha256,
-      attemptId: history.attempt.id,
-      attemptSha256: history.attempt.sha256,
-      planId: history.plan.id,
-      planSha256: history.plan.sha256,
-      trustRevisionId: history.trust.id,
-      trustRevisionSha256: history.trust.sha256,
-    };
   }
   private current(preview: KnowledgePublicationPreview): void {
     sync(this.#ports.assertUnpaused(preview.workspaceId));
@@ -485,8 +428,12 @@ export class KnowledgePublicationService {
         "KNOWLEDGE_PUBLICATION_EXPIRED",
         "Original publication approval expired",
       );
-    const history = this.historical(preview.workspaceId, preview.candidate.id);
-    if (!same(this.provenance(history), preview.pins.provenance))
+    const history = readKnowledgePublicationHistory(
+      this.#ports,
+      preview.workspaceId,
+      preview.candidate.id,
+    );
+    if (!same(knowledgePublicationProvenance(history), preview.pins.provenance))
       fail(
         "KNOWLEDGE_PUBLICATION_STALE",
         "Original publication candidate or native producer changed",

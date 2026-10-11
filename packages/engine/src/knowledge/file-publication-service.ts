@@ -21,11 +21,11 @@ import {
   sameFileHead,
 } from "./file-publication-validation.js";
 import {
+  knowledgePublicationProvenance,
   readKnowledgePublicationHistory,
   type KnowledgePublicationHistory,
   type KnowledgePublicationHistoryPorts,
 } from "./publication-history.js";
-import type { KnowledgePublicationProvenance } from "./publication-types.js";
 import type {
   KnowledgeHostBinding,
   KnowledgeSourceManifest,
@@ -214,22 +214,6 @@ function errorCode(value: unknown): string {
     ? value.code
     : "KNOWLEDGE_FILE_PUBLICATION_FAILED";
 }
-function provenance(
-  history: KnowledgePublicationHistory,
-): KnowledgePublicationProvenance {
-  return {
-    candidateId: history.candidate.id,
-    candidateSha256: history.candidate.sha256,
-    generationId: history.generation.id,
-    generationSha256: history.generation.sha256,
-    attemptId: history.attempt.id,
-    attemptSha256: history.attempt.sha256,
-    planId: history.plan.id,
-    planSha256: history.plan.sha256,
-    trustRevisionId: history.trust.id,
-    trustRevisionSha256: history.trust.sha256,
-  };
-}
 
 /** Original operator approval controls one actual host file owner; no coding/tool owner is invented. */
 export class KnowledgeFilePublicationService {
@@ -295,7 +279,9 @@ export class KnowledgeFilePublicationService {
       preview.workspaceId,
       preview.candidate.id,
     );
-    if (!same(provenance(historical), preview.pins.provenance))
+    if (
+      !same(knowledgePublicationProvenance(historical), preview.pins.provenance)
+    )
       fail(
         "KNOWLEDGE_FILE_STALE",
         "File publication historical output changed",
@@ -396,7 +382,10 @@ export class KnowledgeFilePublicationService {
           existing.operation !== "publish" ||
           existing.state !== "completed" ||
           existing.path !== target.path ||
-          !same(existing.provenance, provenance(historical)) ||
+          !same(
+            existing.provenance,
+            knowledgePublicationProvenance(historical),
+          ) ||
           existing.bodySha256 !== target.observation.sha256 ||
           existing.targetRevisionId !== target.observationId)
       )
@@ -436,7 +425,7 @@ export class KnowledgeFilePublicationService {
         binding: candidate.binding,
         path: candidate.target.path,
         expectedTarget: target,
-        provenance: provenance(historical),
+        provenance: knowledgePublicationProvenance(historical),
         existingPublicationId: existing?.id ?? null,
         existingPublicationSha256: existing?.sha256 ?? null,
         body,

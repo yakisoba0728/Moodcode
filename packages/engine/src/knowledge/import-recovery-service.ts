@@ -11,7 +11,10 @@ import type {
   KnowledgeImportRecoveryPreview,
   PrepareKnowledgeImportRecoveryPreview,
 } from "./import-recovery-types.js";
-import { readKnowledgePublicationHistory } from "./publication-history.js";
+import {
+  knowledgePublicationProvenance,
+  readKnowledgePublicationHistory,
+} from "./publication-history.js";
 import { validateKnowledgePublicationArchiveRow } from "./publication-store.js";
 import type {
   KnowledgeHostBinding,
@@ -241,18 +244,7 @@ export class KnowledgeImportRecoveryService {
         workspaceId,
         data: receiptInput,
       }).data as typeof raw.receipt;
-    const provenance = {
-      candidateId: history.candidate.id,
-      candidateSha256: history.candidate.sha256,
-      generationId: history.generation.id,
-      generationSha256: history.generation.sha256,
-      attemptId: history.attempt.id,
-      attemptSha256: history.attempt.sha256,
-      planId: history.plan.id,
-      planSha256: history.plan.sha256,
-      trustRevisionId: history.trust.id,
-      trustRevisionSha256: history.trust.sha256,
-    };
+    const provenance = knowledgePublicationProvenance(history);
     if (
       head.documentKey !== key ||
       document.documentKey !== key ||
