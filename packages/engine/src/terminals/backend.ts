@@ -9,6 +9,7 @@ import {
   cleanupGroup,
   createCommandEnvironment,
 } from "../tools/command/process-control.js";
+import { supervisorExecArgv } from "../tools/command/supervisor-client.js";
 import {
   TERMINAL_LIMITS,
   type PtyBackend,
@@ -22,14 +23,12 @@ import {
 import {
   PtyDiagnosticRecorder,
   ptyDiagnosticErrorCode,
+  unobservedPtyOutcome,
   validatePtyDiagnostics,
   validatePtyOutcome,
 } from "./diagnostics.js";
 
-function loaderArgs(): string[] {
-  if (import.meta.url.endsWith(".ts")) return ["--import", "tsx"];
-  return [];
-}
+const sourceRuntime = import.meta.url.endsWith(".ts");
 const startupOutcomes = new WeakMap<Error, PtyOutcome>();
 /** Engine-internal: the settled outcome behind a post-fork startup rejection. */
 export function startupFailureOutcome(error: unknown): PtyOutcome | undefined {
@@ -109,14 +108,13 @@ export class PosixPtyBackend implements PtyBackend {
         "PTY_UNAVAILABLE",
         "The host has no supported PTY backend",
       );
-    const source = import.meta.url.endsWith(".ts");
     const file = fileURLToPath(
-      new URL(`./supervisor.${source ? "ts" : "js"}`, import.meta.url),
+      new URL(`./supervisor.${sourceRuntime ? "ts" : "js"}`, import.meta.url),
     );
     const child = fork(file, [], {
       detached: true,
       stdio: ["ignore", "pipe", "ignore", "ipc"],
-      execArgv: loaderArgs(),
+      execArgv: supervisorExecArgv(),
       env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
     });
     let pid: number | undefined,
@@ -124,6 +122,13 @@ export class PosixPtyBackend implements PtyBackend {
       settled = false;
     let observedDiagnostics: PtyDiagnostics | undefined;
     const backendEvents: Omit<PtyDiagnosticEvent, "seq">[] = [];
+    const noteInvalidDiagnostics = (): void => {
+      if (backendEvents.length < 8)
+        backendEvents.push({
+          kind: "invalid-diagnostics",
+          errorCode: "PTY_DIAGNOSTICS_INVALID",
+        });
+    };
     let backendExited = false,
       backendClosed = false,
       transportDisconnected = false,
@@ -144,11 +149,7 @@ export class PosixPtyBackend implements PtyBackend {
         observedDiagnostics = data;
         return true;
       } catch {
-        if (backendEvents.length < 8)
-          backendEvents.push({
-            kind: "invalid-diagnostics",
-            errorCode: "PTY_DIAGNOSTICS_INVALID",
-          });
+        noteInvalidDiagnostics();
         return false;
       }
     };
@@ -238,13 +239,7 @@ export class PosixPtyBackend implements PtyBackend {
           });
         }
         // Exit/EOF cannot reconstruct separate native PTY job-control groups.
-        settle({
-          exitCode: null,
-          cancelled: false,
-          timedOut: false,
-          cleanupConfirmed: false,
-          reason: "supervisor_lost",
-        });
+        settle(unobservedPtyOutcome("supervisor_lost"));
       })());
     const checkDisconnectedExit = (): void => {
       if (
@@ -344,11 +339,7 @@ export class PosixPtyBackend implements PtyBackend {
             return;
           result = checked;
         } catch {
-          if (backendEvents.length < 8)
-            backendEvents.push({
-              kind: "invalid-diagnostics",
-              errorCode: "PTY_DIAGNOSTICS_INVALID",
-            });
+          noteInvalidDiagnostics();
         }
       }
       if (packet.type === "ack" && packet.id !== undefined) {
@@ -365,13 +356,9 @@ export class PosixPtyBackend implements PtyBackend {
         kind: "error",
         errorCode: ptyDiagnosticErrorCode(error),
       });
-      settle({
-        exitCode: null,
-        cancelled: false,
-        timedOut: false,
-        cleanupConfirmed: child.pid === undefined,
-        reason: "supervisor_failed",
-      });
+      settle(
+        unobservedPtyOutcome("supervisor_failed", child.pid === undefined),
+      );
     });
     child.once("close", (code, signal) => {
       backendClosed = true;
@@ -390,13 +377,7 @@ export class PosixPtyBackend implements PtyBackend {
         child.kill("SIGKILL");
         child.stdout?.destroy();
         child.unref();
-        settle({
-          exitCode: null,
-          cancelled: false,
-          timedOut: false,
-          cleanupConfirmed: false,
-          reason: "startup_cleanup_uncertain",
-        });
+        settle(unobservedPtyOutcome("startup_cleanup_uncertain"));
       }, TERMINAL_LIMITS.cleanupMs);
       void closed.then(() => clearTimeout(escalation));
     }, TERMINAL_LIMITS.startupMs);
@@ -456,13 +437,11 @@ export class PosixPtyBackend implements PtyBackend {
         child.kill("SIGKILL");
         child.stdout?.destroy();
         child.unref();
-        const outcome = {
-          exitCode: null,
-          cancelled: true,
-          timedOut: false,
-          cleanupConfirmed: false,
-          reason: "supervisor_cleanup_timeout",
-        };
+        const outcome = unobservedPtyOutcome(
+          "supervisor_cleanup_timeout",
+          false,
+          true,
+        );
         settle(outcome);
         return outcome;
       })();

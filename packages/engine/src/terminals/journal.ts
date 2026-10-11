@@ -1,11 +1,12 @@
 import { constants, lstatSync, openSync, closeSync, realpathSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
+import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
-import { TERMINAL_LIMITS, type TerminalJournal, type TerminalSnapshot } from './types.js';
-import { validatePtyDiagnostics } from './diagnostics.js';
+import { TERMINAL_LIMITS, type TerminalJournal, type TerminalSnapshot, type TerminalState } from './types.js';
+import { terminalSizeValid, validatePtyDiagnostics } from './diagnostics.js';
 
-const STATES = new Set(['starting', 'running', 'completed', 'cancelled', 'failed', 'interrupted', 'uncertain']);
+const STATES = new Set(Object.keys({ starting: true, running: true, completed: true, cancelled: true, failed: true, interrupted: true, uncertain: true } satisfies Record<TerminalState, true>));
+const PAYLOAD_BYTES = 4_194_304;
 function validSnapshot(value: unknown): TerminalSnapshot {
   const snapshot = value as TerminalSnapshot, record = snapshot?.record;
   if (!record || record.version !== 1 || typeof record.id !== 'string' || !/^[a-zA-Z0-9_-]{1,128}$/.test(record.id)
@@ -13,7 +14,7 @@ function validSnapshot(value: unknown): TerminalSnapshot {
     || !STATES.has(record.state) || !Array.isArray(record.args) || record.args.length > 128 || !record.args.every(arg => typeof arg === 'string' && Buffer.byteLength(arg) <= 8192)
     || !Number.isSafeInteger(record.outputSeq) || record.outputSeq < 0 || !Number.isSafeInteger(record.oldestSeq) || record.oldestSeq < 1
     || !Number.isSafeInteger(record.observedBytes) || record.observedBytes < 0 || !Number.isSafeInteger(record.retainedBytes) || record.retainedBytes < 0 || record.retainedBytes > TERMINAL_LIMITS.bufferBytes
-    || !Number.isSafeInteger(record.cols) || record.cols < 1 || record.cols > TERMINAL_LIMITS.maxCols || !Number.isSafeInteger(record.rows) || record.rows < 1 || record.rows > TERMINAL_LIMITS.maxRows
+    || !terminalSizeValid(record.cols, record.rows)
     || !Array.isArray(snapshot.output) || snapshot.output.length > TERMINAL_LIMITS.bufferBytes) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal metadata is invalid');
   let bytes = 0, seq = record.oldestSeq - 1;
   for (const item of snapshot.output) {
@@ -65,27 +66,25 @@ export class SqliteTerminalJournal implements TerminalJournal {
     const rows = this.db.prepare('SELECT CAST(rowid AS TEXT) rowId, length(CAST(payload AS BLOB)) bytes FROM terminals ORDER BY id LIMIT ?').all(TERMINAL_LIMITS.maxRecords + 1);
     if (rows.length > TERMINAL_LIMITS.maxRecords) throw new EngineError('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was exceeded');
     for (const row of rows) {
-      if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 0 || Number(row.bytes) > 4_194_304) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
+      if (!Number.isSafeInteger(row.bytes) || Number(row.bytes) < 0 || Number(row.bytes) > PAYLOAD_BYTES) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
     }
-    return rows.map(head => {
-      const row = this.db.prepare('SELECT payload FROM terminals WHERE rowid=? AND length(CAST(payload AS BLOB))=?').get(head.rowId!, Number(head.bytes));
-      if (!row) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history changed during its bounded read');
-      try { return validSnapshot(JSON.parse(String(row.payload))); }
-      catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal history is invalid'); }
-    });
+    return rows.map(head => this.readPayload('SELECT payload FROM terminals WHERE rowid=? AND length(CAST(payload AS BLOB))=?', head.rowId!, Number(head.bytes), 'Stored terminal history changed during its bounded read', 'Stored terminal history is invalid'));
   }
   read(id: string): TerminalSnapshot | undefined {
     const head = this.db.prepare('SELECT length(CAST(payload AS BLOB)) bytes FROM terminals WHERE id=?').get(id);
     if (!head) return;
-    if (!Number.isSafeInteger(head.bytes) || Number(head.bytes) > 4_194_304) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
-    const row = this.db.prepare('SELECT payload FROM terminals WHERE id=? AND length(CAST(payload AS BLOB))=?').get(id, Number(head.bytes));
-    if (!row) throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Terminal observation changed during its bounded read');
+    if (!Number.isSafeInteger(head.bytes) || Number(head.bytes) > PAYLOAD_BYTES) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Terminal observation exceeds its stored byte bound');
+    return this.readPayload('SELECT payload FROM terminals WHERE id=? AND length(CAST(payload AS BLOB))=?', id, Number(head.bytes), 'Terminal observation changed during its bounded read', 'Stored terminal observation is invalid');
+  }
+  private readPayload(sql: string, key: SQLInputValue, bytes: number, changedMessage: string, invalidMessage: string): TerminalSnapshot {
+    const row = this.db.prepare(sql).get(key, bytes);
+    if (!row) throw new EngineError('TERMINAL_JOURNAL_INVALID', changedMessage);
     try { return validSnapshot(JSON.parse(String(row.payload))); }
-    catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', 'Stored terminal observation is invalid'); }
+    catch { throw new EngineError('TERMINAL_JOURNAL_INVALID', invalidMessage); }
   }
   save(snapshot: TerminalSnapshot): void {
     const value = validSnapshot(snapshot), payload = JSON.stringify(value);
-    if (Buffer.byteLength(payload) > 4_194_304) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Stored terminal history is too large');
+    if (Buffer.byteLength(payload) > PAYLOAD_BYTES) throw new EngineError('TERMINAL_JOURNAL_LIMIT', 'Stored terminal history is too large');
     if (!this.db.prepare('SELECT id FROM terminals WHERE id = ?').get(value.record.id) && Number(this.db.prepare('SELECT count(*) AS count FROM terminals').get()?.count) >= TERMINAL_LIMITS.maxRecords) throw new EngineError('TERMINAL_RECORD_LIMIT', 'Terminal history capacity was exceeded');
     this.db.prepare('INSERT INTO terminals (id,payload) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET payload=excluded.payload').run(value.record.id, payload);
   }

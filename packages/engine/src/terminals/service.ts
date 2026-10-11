@@ -4,7 +4,7 @@ import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import { PosixPtyBackend, startupFailureOutcome } from './backend.js';
 import { MemoryTerminalJournal } from './journal.js';
-import { validatePtyOutcome, PtyDiagnosticRecorder } from './diagnostics.js';
+import { validatePtyOutcome, PtyDiagnosticRecorder, terminalSizeValid, unobservedPtyOutcome } from './diagnostics.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 import type { JobOutputSnapshot, TerminalJobSourceProof, TerminalObservationProof, TerminalClosedOutcomeProof } from '../jobs/types.js';
 import { validateTerminalJobSourceProof, validateJobOutputSnapshot, validateTerminalObservationProof, validateTerminalClosedOutcomeProof } from '../jobs/validation.js';
@@ -18,7 +18,7 @@ export interface TerminalServiceOptions {
 const active = (state: TerminalRecord['state']) => state === 'starting' || state === 'running';
 const failure = (code: string, message: string) => new EngineError(code, message);
 function dimensions(cols: number, rows: number): void {
-  if (!Number.isSafeInteger(cols) || cols < 1 || cols > TERMINAL_LIMITS.maxCols || !Number.isSafeInteger(rows) || rows < 1 || rows > TERMINAL_LIMITS.maxRows) throw failure('INVALID_TERMINAL_INPUT', 'Terminal dimensions are outside the supported bounds');
+  if (!terminalSizeValid(cols, rows)) throw failure('INVALID_TERMINAL_INPUT', 'Terminal dimensions are outside the supported bounds');
 }
 function ownerIdentity(owner: TerminalOwner): void {
   if (!owner || owner.authority !== 'user' || ![owner.sessionId, owner.workspaceId].every(value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value))) throw failure('TERMINAL_AUTHORITY', 'A terminal requires a host user authority bound to a session and workspace');
@@ -104,10 +104,8 @@ export class TerminalService {
     ownerIdentity(owner);
     const entry = this.terminals.get(id);
     if (!entry) throw failure('TERMINAL_NOT_FOUND', 'The terminal was not found');
-    if (JSON.stringify(entry.snapshot.record.owner) !== JSON.stringify(owner)) {
-      const bound = entry.snapshot.record.owner;
-      if (bound.authority !== owner.authority || bound.workspaceId !== owner.workspaceId || bound.sessionId !== owner.sessionId) throw failure('TERMINAL_OWNER_MISMATCH', 'The terminal belongs to a different session or workspace');
-    }
+    const bound = entry.snapshot.record.owner;
+    if (bound.authority !== owner.authority || bound.workspaceId !== owner.workspaceId || bound.sessionId !== owner.sessionId) throw failure('TERMINAL_OWNER_MISMATCH', 'The terminal belongs to a different session or workspace');
     return entry;
   }
   private persist(entry: TerminalEntry): void {
@@ -188,7 +186,7 @@ export class TerminalService {
         entry.process = handle; entry.birthNonce = randomUUID();
         const abort = () => { void handle.cancel().catch(() => {}); };
         request.signal?.addEventListener('abort', abort, { once: true });
-        void handle.closed.then(outcome => { this.finish(entry, outcome); request.signal?.removeEventListener('abort', abort); }, () => { this.finish(entry, { exitCode: null, cancelled: false, timedOut: false, cleanupConfirmed: false, reason: 'backend_closed_failed' }); request.signal?.removeEventListener('abort', abort); });
+        void handle.closed.then(outcome => { this.finish(entry, outcome); request.signal?.removeEventListener('abort', abort); }, () => { this.finish(entry, unobservedPtyOutcome('backend_closed_failed')); request.signal?.removeEventListener('abort', abort); });
         record.state = 'running'; record.updatedAt = new Date().toISOString(); this.persist(entry);
         this.state(entry);
         if (this.closing || request.signal?.aborted) { await handle.cancel(); throw failure('ABORTED', 'Terminal creation was cancelled'); }
@@ -253,14 +251,12 @@ export class TerminalService {
     this.readSnapshots.set(original, { source: originalSource, snapshot, observation, bytes }); this.retainedReadSnapshots.add(original); this.retainedSnapshotBytes += bytes;
     return original;
   }
-  readReadSnapshot(original: object): JobOutputSnapshot {
-    const captured = this.readSnapshots.get(original); if (!captured) throw failure('JOB_OUTPUT_SNAPSHOT_EXPIRED', 'Terminal output requires its retained original snapshot');
-    this.readSourceEntry(captured.source); return captured.snapshot;
+  private capturedSnapshot(original: object, message: string): { snapshot: JobOutputSnapshot; observation: TerminalObservationProof } {
+    const captured = this.readSnapshots.get(original); if (!captured) throw failure('JOB_OUTPUT_SNAPSHOT_EXPIRED', message);
+    this.readSourceEntry(captured.source); return captured;
   }
-  readReadObservation(originalSnapshot: object): TerminalObservationProof {
-    const captured = this.readSnapshots.get(originalSnapshot); if (!captured) throw failure('JOB_OUTPUT_SNAPSHOT_EXPIRED', 'Terminal observation requires its original snapshot');
-    this.readSourceEntry(captured.source); return structuredClone(captured.observation);
-  }
+  readReadSnapshot(original: object): JobOutputSnapshot { return this.capturedSnapshot(original, 'Terminal output requires its retained original snapshot').snapshot; }
+  readReadObservation(originalSnapshot: object): TerminalObservationProof { return structuredClone(this.capturedSnapshot(originalSnapshot, 'Terminal observation requires its original snapshot').observation); }
   captureClosedObservation(originalSource: object): object {
     const { entry, proof } = this.readSourceEntry(originalSource), record = entry.snapshot.record, outcome = entry.closedOutcome;
     if (!outcome || entry.process || active(record.state)) throw failure('JOB_SOURCE_NOT_CLOSED', 'The actual terminal has no settled physical outcome');

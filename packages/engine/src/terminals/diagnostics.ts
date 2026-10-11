@@ -1,10 +1,11 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import { pidPresence } from "../shared/runtime.js";
-import type {
-  PtyDiagnosticEvent,
-  PtyDiagnostics,
-  PtyOutcome,
+import {
+  TERMINAL_LIMITS,
+  type PtyDiagnosticEvent,
+  type PtyDiagnostics,
+  type PtyOutcome,
 } from "./types.js";
 
 export const PTY_DIAGNOSTIC_LIMITS = Object.freeze({
@@ -13,19 +14,21 @@ export const PTY_DIAGNOSTIC_LIMITS = Object.freeze({
   groups: 32,
   groupCount: 8192,
 });
-const eventKinds = new Set([
-  "started",
-  "native-exit",
-  "group-probe",
-  "group-snapshot",
-  "group-cleanup",
-  "signal",
-  "supervisor-exit",
-  "supervisor-close",
-  "supervisor-lost",
-  "invalid-diagnostics",
-  "error",
-]);
+const eventKinds = new Set(
+  Object.keys({
+    started: true,
+    "native-exit": true,
+    "group-probe": true,
+    "group-snapshot": true,
+    "group-cleanup": true,
+    signal: true,
+    "supervisor-exit": true,
+    "supervisor-close": true,
+    "supervisor-lost": true,
+    "invalid-diagnostics": true,
+    error: true,
+  } satisfies Record<PtyDiagnosticEvent["kind"], true>),
+);
 const eventKeys = [
   "seq",
   "kind",
@@ -88,29 +91,52 @@ function array(value: unknown, limit: number): unknown[] {
   }
   return result;
 }
+const inRange = (value: unknown, min: number, max: number): value is number =>
+  Number.isSafeInteger(value) &&
+  (value as number) >= min &&
+  (value as number) <= max;
+const isPid = (value: unknown): value is number =>
+  inRange(value, 2, 2_147_483_647);
+const isCode = (value: unknown): value is number =>
+  inRange(value, -2_147_483_648, 2_147_483_647);
+const isLabel = (value: unknown): value is string =>
+  typeof value === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(value);
 function integer(value: unknown, min: number, max: number): number {
-  if (
-    !Number.isSafeInteger(value) ||
-    Number(value) < min ||
-    Number(value) > max
-  )
-    fail();
-  return value as number;
+  if (!inRange(value, min, max)) fail();
+  return value;
 }
 function pid(value: unknown): number | null {
-  return value === null ? null : integer(value, 2, 2_147_483_647);
+  if (value !== null && !isPid(value)) fail();
+  return value;
 }
 function code(value: unknown): number | null {
-  return value === null ? null : integer(value, -2_147_483_648, 2_147_483_647);
+  if (value !== null && !isCode(value)) fail();
+  return value;
 }
 function bool(value: unknown): boolean {
   if (typeof value !== "boolean") fail();
   return value;
 }
 function label(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-zA-Z0-9_-]{1,64}$/.test(value)) fail();
+  if (!isLabel(value)) fail();
   return value;
 }
+
+export const terminalSizeValid = (cols: unknown, rows: unknown): boolean =>
+  inRange(cols, 1, TERMINAL_LIMITS.maxCols) &&
+  inRange(rows, 1, TERMINAL_LIMITS.maxRows);
+
+export const unobservedPtyOutcome = (
+  reason: string,
+  cleanupConfirmed = false,
+  cancelled = false,
+): PtyOutcome => ({
+  exitCode: null,
+  cancelled,
+  timedOut: false,
+  cleanupConfirmed,
+  reason,
+});
 
 /** Strict bounded DATA parser. A valid checksum/shape never restores process ownership. */
 export function validatePtyDiagnostics(value: unknown): PtyDiagnostics {
@@ -263,10 +289,7 @@ export function ptyDiagnosticErrorCode(error: unknown): string {
   if (!error || typeof error !== "object" || types.isProxy(error))
     return "UNKNOWN";
   const code = Object.getOwnPropertyDescriptor(error, "code");
-  return code &&
-    "value" in code &&
-    typeof code.value === "string" &&
-    /^[a-zA-Z0-9_-]{1,64}$/.test(code.value)
+  return code && "value" in code && isLabel(code.value)
     ? code.value
     : "UNKNOWN";
 }
@@ -438,21 +461,10 @@ export class PtyDiagnosticRecorder {
       // Collection failure is metadata loss, not a different process outcome.
       // Strict readers still reject untrusted payloads; this private collector
       // emits a bounded fallback while the original outcome travels separately.
-      const safePid = (value: number | null) =>
-        Number.isSafeInteger(value) && value! > 1 && value! <= 2_147_483_647
-          ? value
-          : null;
-      const safeCode = (value: number | null) =>
-        value === null ||
-        (Number.isSafeInteger(value) &&
-          value >= -2_147_483_648 &&
-          value <= 2_147_483_647)
-          ? value
-          : null;
+      const safePid = (value: number | null) => (isPid(value) ? value : null);
+      const safeCode = (value: number | null) => (isCode(value) ? value : null);
       const safeLabel = (value: string | null) =>
-        typeof value === "string" && /^[a-zA-Z0-9_-]{1,64}$/.test(value)
-          ? value
-          : null;
+        isLabel(value) ? value : null;
       const fallback: PtyDiagnostics = {
         version: 1,
         authority: "observation-only",

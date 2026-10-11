@@ -18,6 +18,8 @@ import {
   PtyDiagnosticRecorder,
   ptyDiagnosticErrorCode,
   observePtyGroupExists,
+  terminalSizeValid,
+  unobservedPtyOutcome,
 } from "./diagnostics.js";
 
 // A detached supervisor owns the PTY. Losing engine IPC closes the process
@@ -33,11 +35,11 @@ let exitCode: number | null = null;
 let outputPaused = false;
 const diagnostics = new PtyDiagnosticRecorder(process.platform, process.pid);
 let currentReason: PtyOutcome["reason"];
-const currentOutcome = (): PtyOutcome => ({
+const currentOutcome = (cleanupConfirmed: boolean): PtyOutcome => ({
   exitCode,
   cancelled: currentReason !== undefined && currentReason !== "descendants",
   timedOut: currentReason === "timeout",
-  cleanupConfirmed: false,
+  cleanupConfirmed,
   ...(currentReason ? { reason: currentReason } : {}),
 });
 const send = (packet: object, done?: () => void): void => {
@@ -101,7 +103,7 @@ async function observedJobGroups(
     }
     send({
       type: "diagnostics",
-      diagnostics: diagnostics.snapshot(currentOutcome()),
+      diagnostics: diagnostics.snapshot(currentOutcome(false)),
     });
     return groups;
   } catch (error) {
@@ -112,7 +114,7 @@ async function observedJobGroups(
     });
     send({
       type: "diagnostics",
-      diagnostics: diagnostics.snapshot(currentOutcome()),
+      diagnostics: diagnostics.snapshot(currentOutcome(false)),
     });
     return undefined;
   }
@@ -174,14 +176,7 @@ const stop = (
   if (cleanup) return cleanup;
   currentReason = reason;
   cleanup = (async () => {
-    if (!terminal)
-      return {
-        exitCode,
-        cancelled: reason !== "descendants",
-        timedOut: reason === "timeout",
-        cleanupConfirmed: !starting,
-        reason,
-      };
+    if (!terminal) return currentOutcome(!starting);
     // Release any paused output before waiting for the native PTY close event.
     try {
       terminal.resume();
@@ -204,13 +199,7 @@ const stop = (
     const confirmed =
       (await cleanGroups(groups ?? [terminal.pid], terminal.pid)) &&
       groups !== undefined;
-    return {
-      exitCode,
-      cancelled: reason !== "descendants",
-      timedOut: reason === "timeout",
-      cleanupConfirmed: confirmed,
-      reason,
-    };
+    return currentOutcome(confirmed);
   })();
   void cleanup.then(finish);
   return cleanup;
@@ -282,23 +271,12 @@ process.on("message", async (message: unknown) => {
       typeof input.file !== "string" ||
       !Array.isArray(input.args) ||
       typeof input.cwd !== "string" ||
-      !Number.isSafeInteger(input.cols) ||
-      input.cols < 1 ||
-      input.cols > TERMINAL_LIMITS.maxCols ||
-      !Number.isSafeInteger(input.rows) ||
-      input.rows < 1 ||
-      input.rows > TERMINAL_LIMITS.maxRows ||
+      !terminalSizeValid(input.cols, input.rows) ||
       !Number.isSafeInteger(input.maxDurationMs) ||
       input.maxDurationMs < 1 ||
       input.maxDurationMs > TERMINAL_LIMITS.maxDurationMs
     ) {
-      finish({
-        exitCode: null,
-        cancelled: false,
-        timedOut: false,
-        cleanupConfirmed: true,
-        reason: "invalid_start",
-      });
+      finish(unobservedPtyOutcome("invalid_start", true));
       return;
     }
     starting = true;
@@ -332,7 +310,7 @@ process.on("message", async (message: unknown) => {
         );
         send({
           type: "diagnostics",
-          diagnostics: diagnostics.snapshot(currentOutcome()),
+          diagnostics: diagnostics.snapshot(currentOutcome(false)),
         });
         if (!cleanup) settleExit(terminal!.pid);
       });
@@ -342,13 +320,7 @@ process.on("message", async (message: unknown) => {
       send({ type: "started", pid: terminal.pid });
     } catch {
       starting = false;
-      finish({
-        exitCode: null,
-        cancelled: false,
-        timedOut: false,
-        cleanupConfirmed: true,
-        reason: "pty_unavailable",
-      });
+      finish(unobservedPtyOutcome("pty_unavailable", true));
     }
     return;
   }
@@ -370,14 +342,7 @@ process.on("message", async (message: unknown) => {
         }
         terminal.write(packet.data);
       } else {
-        if (
-          !Number.isSafeInteger(packet.cols) ||
-          packet.cols! < 1 ||
-          packet.cols! > TERMINAL_LIMITS.maxCols ||
-          !Number.isSafeInteger(packet.rows) ||
-          packet.rows! < 1 ||
-          packet.rows! > TERMINAL_LIMITS.maxRows
-        ) {
+        if (!terminalSizeValid(packet.cols, packet.rows)) {
           reply("INVALID_TERMINAL_INPUT");
           return;
         }
