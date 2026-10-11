@@ -16,7 +16,7 @@ import { KNOWLEDGE_LIMITS, knowledgeHash } from '../knowledge/validation.js';
 import { sha256Hex } from '../shared/canonical.js';
 import { streamStableFile, symlinkFreeDirectorySync, syncDirectory, within } from '../shared/fs.js';
 import { SqliteStore } from './index.js';
-import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
+import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { childStoragePhysicalIdentity, readChildStorageSelection, validateChildStorageRecord, type ChildStorageHostIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';

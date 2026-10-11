@@ -41,8 +41,7 @@ import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPag
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
 import { readHistoryPageDatabase, readModelHistoryDatabase, type ModelHistoryPage } from './native-history.js';
 import { putAttemptUsage, readAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
-import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
-import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
+import { inspectInputDocumentIndex, inspectInputImageIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport, type InputImageIndexOptions, type InputImageIndexReport } from './input-index.js';
 import { readChildStorageSelection, type ChildStorageSelectionOptions, type ChildStorageSelectionReport, type ChildStorageSelectionBudget } from '../child-tasks/storage-binding.js';
 import type { ChildDocumentReadFrame } from './child-document-reader.js';
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
@@ -95,8 +94,7 @@ import type { ExecutionLockMarker } from '../tools/command/execution-lock.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { ModelHistoryPage } from './native-history.js';
-export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
-export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './input-document-index.js';
+export type { InputDocumentIndexOptions, InputDocumentIndexReport, InputImageIndexOptions, InputImageIndexReport } from './input-index.js';
 
 const PAGE_SIZE = 128;
 const MAX_PAGE_SIZE = 1_024;

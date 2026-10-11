@@ -3,7 +3,7 @@ import { isAbsolute, relative, sep } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
 import type { ChildStorageSelectionReport } from '../child-tasks/storage-binding.js';
 import { CHILD_DOCUMENT_READ_LIMITS, readChildDocumentIndex, type ChildDocumentReadFrame, type ChildDocumentReadLimits, type ChildDocumentReadStats } from '../storage/child-document-reader.js';
-import type { InputDocumentIndexReport } from '../storage/input-document-index.js';
+import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { isBoundedId, plainRecord } from '../shared/data.js';
 import { denseValues } from './validation.js';
 

@@ -14,7 +14,7 @@ import { syncBuiltinESMExports } from 'node:module';
 import { createEngine } from '../engine.js';
 import type { ProviderAdapter, ProviderEvent } from '../ports.js';
 import { acquireRecoveryLease } from '../recovery/index.js';
-import { inspectInputDocumentIndex } from './input-document-index.js';
+import { inspectInputDocumentIndex } from './input-index.js';
 import { SqliteStore } from './index.js';
 import { exportEngineArchive, importEngineArchive, validateEngineArchive } from './archive.js';
 

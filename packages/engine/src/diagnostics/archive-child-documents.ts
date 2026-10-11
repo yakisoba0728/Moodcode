@@ -3,7 +3,7 @@ import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 import { attachment } from '../documents/validation.js';
 import { CHILD_DOCUMENT_READ_LIMITS, type ChildDocumentReadLimits, type ChildDocumentReadStats } from '../storage/child-document-reader.js';
-import type { InputDocumentIndexReport } from '../storage/input-document-index.js';
+import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
 import { denseValues } from './validation.js';
 

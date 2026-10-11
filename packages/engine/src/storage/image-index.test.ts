@@ -8,7 +8,7 @@ import { EngineError, type InputImageAttachment } from "@moodcode/contracts";
 import { ImageAttachmentStore } from "../media/store.js";
 import { imageFixture, png } from "../media/fixtures.js";
 import { SqliteStore } from "./index.js";
-import { inspectInputImageIndex } from "./input-image-index.js";
+import { inspectInputImageIndex } from "./input-index.js";
 
 const stamp = "2026-10-07T00:00:00.000Z";
 const code = (expected: string) => (error: unknown) =>
@@ -330,4 +330,27 @@ test("SQLite integers outside the JavaScript safe range remain bounded diagnosti
   const opaqueRowId = f.store.inspectInputImageIndex();
   assert.equal(opaqueRowId.complete, true);
   assert.deepEqual(opaqueRowId.imageIds, [ref.id]);
+});
+
+test("proxied options fail closed before any trap runs", (t) => {
+  const f = fixture(t);
+  let traps = 0;
+  const proxy = new Proxy(
+    {},
+    {
+      get() {
+        traps++;
+        throw new Error("trap");
+      },
+      getPrototypeOf() {
+        traps++;
+        throw new Error("trap");
+      },
+    },
+  );
+  assert.throws(
+    () => f.store.inspectInputImageIndex(proxy),
+    code("INVALID_IMAGE_INDEX_OPTIONS"),
+  );
+  assert.equal(traps, 0);
 });

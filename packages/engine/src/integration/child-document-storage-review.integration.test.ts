@@ -11,7 +11,7 @@ import { pathToFileURL } from 'node:url';
 import type { InputDocumentAttachment } from '@moodcode/contracts';
 import { createEngine, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
-import { inspectInputDocumentIndex } from '../storage/input-document-index.js';
+import { inspectInputDocumentIndex } from '../storage/input-index.js';
 import { SqliteStore } from '../storage/index.js';
 import { childStorageKind, validateChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { retainBackendFixture } from '../agent-backends/fixtures/backend.js';

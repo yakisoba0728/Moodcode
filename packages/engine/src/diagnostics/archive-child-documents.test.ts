@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { getEventListeners } from 'node:events';
-import type { InputDocumentIndexReport } from '../storage/input-document-index.js';
+import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { buildArchivedChildDocumentStorageReport, DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS, validateArchivedChildDocumentStorageRequest,
   type ArchivedChildDocumentObservation, type ArchivedChildDocumentReportInput } from './archive-child-documents.js';
 

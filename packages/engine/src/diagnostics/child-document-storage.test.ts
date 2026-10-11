@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { ChildStorageSelectionReport } from '../child-tasks/storage-binding.js';
 import { createChildDocumentReadFrame } from '../storage/child-document-reader.js';
-import type { InputDocumentIndexReport } from '../storage/input-document-index.js';
+import type { InputDocumentIndexReport } from '../storage/input-index.js';
 import { inspectChildDocumentStorage,validateChildDocumentStorageRequest,DEFAULT_CHILD_DOCUMENT_STORAGE_LIMITS } from './child-document-storage.js';
 
 function index(complete=true):InputDocumentIndexReport{return{scope:'primary-database-only',observedAt:new Date().toISOString(),complete,totalDocuments:1,sampledDocuments:1,invalidDocuments:complete?0:1,omittedDocuments:0,invalidReferences:0,omittedReferences:complete?0:null,sampledJsonBytes:100,documents:[],refs:[],documentIds:[],declaredBytes:complete?42:0,limits:{maxDocuments:64,maxRefs:2048,maxJsonBytes:4_194_304},reasons:complete?[]:['invalid-owner'],coverage:{source:'session_documents.input_documents',ownerValidation:'joined-session-workspace-and-stored-payload',bytes:'UTF-8 sampled JSON and declared unique reference bytes',sql:'bounded metadata/payload rows; document count may scan primary headers',childDatabases:'not-read',childBlobs:'not-read',filesystem:'not-read',physicalReadBytes:null}};}

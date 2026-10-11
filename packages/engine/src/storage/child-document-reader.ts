@@ -11,7 +11,7 @@ import { EngineError } from '@moodcode/contracts';
 import { CHILD_STORAGE_MIRROR_KIND, validateChildStorageRecord, type ChildStoragePhysicalIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { errnoCode, sameRegularFile, stableStat, streamStableFile } from '../shared/fs.js';
 import { plainRecord } from '../shared/data.js';
-import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-document-index.js';
+import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-index.js';
 import { isSqliteBusy } from './transaction.js';
 import { DB_VERSION } from './migrations.js';
 

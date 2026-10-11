@@ -89,8 +89,7 @@ export { projectMediaHistory, validateMediaHistoryPolicy, MEDIA_HISTORY_NOTICE_P
 export type { MediaHistoryPolicy, MediaHistoryOptions, ImageHistoryProvenance, MediaHistoryDiagnostics, MediaHistoryProjection } from './context/media-history.js';
 export { inspectEngineStorage, DEFAULT_STORAGE_USAGE_LIMITS } from './diagnostics/storage-usage.js';
 export type { StorageUsageOptions, StorageUsageReport, StorageUsageLimits, StorageUsageGroup, StorageImageIndex, StorageDocumentIndex, StorageGroupUsage, StorageStopReason, StorageUsageSample } from './diagnostics/storage-usage.js';
-export type { InputImageIndexOptions, InputImageIndexReport } from './storage/input-image-index.js';
-export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './storage/input-document-index.js';
+export type { InputImageIndexOptions, InputImageIndexReport, InputDocumentIndexOptions, InputDocumentIndexReport } from './storage/input-index.js';
 export type { ChildDocumentStorageRequest, ChildDocumentStorageReport, ChildDocumentStorageItem, ChildDocumentStorageLimits } from './diagnostics/child-document-storage.js';
 export { SemanticMemoryService, SEMANTIC_MEMORY_PREFIX } from './context/semantic-memory.js';
 export type { SemanticCheckpoint } from './context/semantic-memory.js';

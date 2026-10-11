@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 import { DocumentAttachmentStore } from '../documents/store.js';
-import { inspectInputDocumentIndex } from './input-document-index.js';
+import { inspectInputDocumentIndex } from './input-index.js';
 import { SqliteStore } from './index.js';
 const stamp='2026-10-07T00:00:00.000Z';
 const code=(expected:string)=>(error:unknown)=>error instanceof EngineError&&error.code===expected;
