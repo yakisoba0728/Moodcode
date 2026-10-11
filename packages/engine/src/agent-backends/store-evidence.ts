@@ -15,11 +15,7 @@ import {
   type RevisionJournal,
   type RevisionJournalProfile,
 } from "../storage/revision-journal.js";
-import type { AgentBackendSpec, AcpV1Message } from "./types.js";
-import type {
-  BackendPeerObservationProof,
-  BackendWriteProof,
-} from "./process.js";
+import type { AgentBackendSpec } from "./types.js";
 import {
   clientEffectToolName,
   clientReadToolInput,
@@ -51,6 +47,7 @@ import {
   pausable,
   bodyOf,
   effectRpc,
+  nativeExitStatus,
   validatePermissionResponse,
   validateEffectResponse,
   validateBody,
@@ -64,6 +61,7 @@ import {
   type BackendClientEffectRevision,
   type AgentBackendRecord,
   type BackendTransitionReceipt,
+  type BackendTerminalControl,
 } from "./journal.js";
 /** Wall-clock time clamped to the newest head, because the validator orders revisions by createdAt. */
 export function backendClock(db: DatabaseSync, now: number): string {
@@ -366,11 +364,7 @@ export function validateTurnSql(db: DatabaseSync, p: BackendTurnProof): void {
 export function validateTerminalOutputSql(
   db: DatabaseSync,
   e: BackendClientEffectRevision,
-  control: {
-    frame: BackendPeerObservationProof;
-    write: BackendWriteProof;
-    message: AcpV1Message;
-  },
+  control: BackendTerminalControl,
 ): void {
   const wire = control.frame.message;
   if (!("method" in wire) || wire.method !== "terminal/output") return;
@@ -432,18 +426,13 @@ export function validateTerminalOutputSql(
     )
   )
     fail("BACKEND_DELIVERY_INVALID");
-  if (result.exitStatus !== undefined) {
-    const data = e.completion?.result as JsonObject | null;
-    if (
-      !e.completion ||
+  if (
+    result.exitStatus !== undefined &&
+    (!completion ||
       knowledgeHash(result.exitStatus) !==
-        knowledgeHash({
-          exitCode: data?.exitCode ?? null,
-          signal: data?.signal ?? null,
-        })
-    )
-      fail("BACKEND_DELIVERY_INVALID");
-  }
+        knowledgeHash(nativeExitStatus(completion.result)))
+  )
+    fail("BACKEND_DELIVERY_INVALID");
 }
 interface SessionEvent {
   readonly header: Record<string, SQLOutputValue>;
@@ -506,10 +495,9 @@ export function nativePayloads(
     (e) => e.event.payload as JsonObject,
   );
 }
-export function validatePermissionSql(
-  db: DatabaseSync,
+function assertEffectOwner(
   e: BackendClientEffectRevision,
-  p: BackendClientPermissionProof,
+  p: BackendClientReadProof | BackendClientPermissionProof,
 ): void {
   digest(p);
   for (const key of [
@@ -520,6 +508,25 @@ export function validatePermissionSql(
     "attemptId",
   ] as const)
     if (p[key] !== e.owner[key]) fail("BACKEND_EFFECT_OWNER_INVALID");
+}
+function proposed(
+  db: DatabaseSync,
+  e: BackendClientEffectRevision,
+  toolCallId: string,
+): boolean {
+  return nativePayloads(db, e.owner, "backend.client_effect_proposed").some(
+    (value) =>
+      value.toolCallId === toolCallId &&
+      value.providerToolCallId === e.input.callId &&
+      knowledgeHash(value.input) === knowledgeHash(e.input),
+  );
+}
+export function validatePermissionSql(
+  db: DatabaseSync,
+  e: BackendClientEffectRevision,
+  p: BackendClientPermissionProof,
+): void {
+  assertEffectOwner(e, p);
   if (
     p.providerToolCallId !== e.input.callId ||
     !nativePayloads(db, e.owner, "backend.client_permission").some(
@@ -527,15 +534,7 @@ export function validatePermissionSql(
     )
   )
     fail("BACKEND_PERMISSION_INVALID");
-  if (
-    !nativePayloads(db, e.owner, "backend.client_effect_proposed").some(
-      (value) =>
-        value.toolCallId === p.toolCallId &&
-        value.providerToolCallId === e.input.callId &&
-        knowledgeHash(value.input) === knowledgeHash(e.input),
-    )
-  )
-    fail("BACKEND_PERMISSION_INVALID");
+  if (!proposed(db, e, p.toolCallId)) fail("BACKEND_PERMISSION_INVALID");
   const tool = readPrimary(db, "tools", p.toolCallId);
   if (
     tool.name !== clientEffectToolName(e.input) ||
@@ -564,15 +563,7 @@ export function validateClientEffectSql(
   e: BackendClientEffectRevision,
   p: BackendClientReadProof,
 ): void {
-  digest(p);
-  for (const key of [
-    "workspaceId",
-    "sessionId",
-    "runId",
-    "turnId",
-    "attemptId",
-  ] as const)
-    if (p[key] !== e.owner[key]) fail("BACKEND_EFFECT_OWNER_INVALID");
+  assertEffectOwner(e, p);
   const run = readPrimary(db, "runs", e.owner.runId);
   const runConfig = run.config as { limits: { maxOutputBytes: number } };
   const outputBudget = integer(runConfig.limits.maxOutputBytes);
@@ -604,15 +595,7 @@ export function validateClientEffectSql(
   if (typeof workspace.root !== "string") fail("BACKEND_EFFECT_INPUT_INVALID");
   const toolInput = tool.input as JsonObject;
   if ("method" in e.input) {
-    if (
-      !nativePayloads(db, e.owner, "backend.client_effect_proposed").some(
-        (value) =>
-          value.toolCallId === p.toolCallId &&
-          value.providerToolCallId === e.input.callId &&
-          knowledgeHash(value.input) === knowledgeHash(e.input),
-      )
-    )
-      fail("BACKEND_EFFECT_INPUT_INVALID");
+    if (!proposed(db, e, p.toolCallId)) fail("BACKEND_EFFECT_INPUT_INVALID");
     if (p.effectMethod !== e.input.method) fail("BACKEND_EFFECT_INPUT_INVALID");
     if (e.input.method === "fs/write_text_file") {
       const local = workspaceLocalPath(workspace.root, e.input.path);
@@ -665,18 +648,12 @@ export function validateClientEffectSql(
         )
           fail("BACKEND_EFFECT_COMPLETION_INVALID");
     }
-    const completionEvents = nativePayloads(
-      db,
-      e.owner,
-      "backend.client_effect_closed",
-    );
     if (
-      !completionEvents.some(
+      !nativePayloads(db, e.owner, "backend.client_effect_closed").some(
         (value) => knowledgeHash(value.completion) === knowledgeHash(p),
       )
     )
       fail("BACKEND_EFFECT_COMPLETION_INVALID");
-    const effectMethod = e.input.method;
     if (
       p.state === "completed" ||
       (isObject(p.result) && p.result.checkpointId)
@@ -696,7 +673,7 @@ export function validateClientEffectSql(
         cp.runId !== p.runId ||
         cp.toolCallId !== p.toolCallId ||
         (p.checkpoint && knowledgeHash(cp) !== p.checkpoint.sha256) ||
-        cp.kind !== (effectMethod === "terminal/create" ? "command" : "patch")
+        cp.kind !== (e.input.method === "terminal/create" ? "command" : "patch")
       )
         fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
     }

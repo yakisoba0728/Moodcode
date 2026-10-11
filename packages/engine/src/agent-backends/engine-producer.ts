@@ -68,6 +68,10 @@ interface Target {
   readonly contextOwner: "engine" | "agent";
   readonly sessionLoad: AgentBackendSessionLoad | null;
 }
+interface Registration {
+  readonly target: Target;
+  readonly record: AgentBackendRevision;
+}
 export interface CaptureAgentBackendTarget {
   readonly backendId: string;
   readonly workspaceId: string;
@@ -147,16 +151,10 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
   private readonly epoch = randomUUID();
   private readonly targets = new WeakMap<object, Target>();
   private readonly retained = new Set<object>();
-  private readonly registrations = new Map<
-    string,
-    { target: Target; record: AgentBackendRevision }
-  >();
+  private readonly registrations = new Map<string, Registration>();
   private readonly turns = new WeakMap<
     object,
-    {
-      proof: BackendTurnProof;
-      registration: { target: Target; record: AgentBackendRevision };
-    }
+    { proof: BackendTurnProof; registration: Registration }
   >();
   private readonly launches = new WeakMap<
     object,
@@ -236,11 +234,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     workspaceId: string,
     sessionId: string,
     config: RunConfig,
-  ): {
-    pin: AgentBackendTargetPin;
-    binding: KnowledgeHostBinding;
-    catalogue: ToolCatalogue;
-  } {
+  ) {
     config = { ...config, budgets: normalizeEngineBudgets(config.budgets) };
     const binding = this.binding(workspaceId);
     if (this.engine.store.getSession(sessionId).workspaceId !== workspaceId)
@@ -471,12 +465,11 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       registration.record.workspaceId !== native.workspaceId
     )
       fail("BACKEND_OWNER_INVALID");
-    const body = {
+    const proof = signed({
       ...native,
       rootBindingSha256: knowledgeHash(registration.target.binding),
       ownerEpoch: registration.target.proof.ownerEpoch,
-    };
-    const proof = signed(body);
+    });
     if (retained && retained.proof.sha256 !== proof.sha256)
       fail("BACKEND_OWNER_STALE");
     this.turns.set(original, { proof, registration });
@@ -493,10 +486,9 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       run.sessionId !== owner.sessionId
     )
       fail("BACKEND_OWNER_INVALID");
-    const request = original as TurnRequest;
     return agentBackendJson({
       prompt: run.prompt,
-      instructions: request.messages
+      instructions: (original as TurnRequest).messages
         .filter((message) => message.role === "system")
         .map((message) => message.content),
     });

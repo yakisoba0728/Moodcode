@@ -27,6 +27,11 @@ import {
   agentBackendSigned as signed,
 } from "./validation.js";
 
+type ClientCapabilityPins = {
+  readTextFile: boolean;
+  writeTextFile: boolean;
+  terminal: boolean;
+};
 /** Root authenticates the native Attempt and pins actual launch files and credentials. */
 export interface BackendLaunchProof {
   workspaceId: string;
@@ -39,11 +44,7 @@ export interface BackendLaunchProof {
   env: Readonly<Record<string, string>>;
   executionLockPath: string;
   executionMode?: "engine-client-effects";
-  clientCapabilities?: {
-    readTextFile: boolean;
-    writeTextFile: boolean;
-    terminal: boolean;
-  };
+  clientCapabilities?: ClientCapabilityPins;
   launchSha256: string;
   ownerSha256: string;
   sha256: string;
@@ -68,11 +69,7 @@ export interface BackendConnectionProof {
   epoch: string;
   processId: number;
   executionMode?: "engine-client-effects";
-  clientCapabilities?: {
-    readTextFile: boolean;
-    writeTextFile: boolean;
-    terminal: boolean;
-  };
+  clientCapabilities?: ClientCapabilityPins;
   birthNonce: string;
   launchSha256: string;
   ownerSha256: string;
@@ -186,6 +183,10 @@ function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
     { propagateReason: true },
   );
 }
+function transportPins(proof: BackendConnectionProof) {
+  const { workspaceId, backendId, connectionId, epoch } = proof;
+  return { workspaceId, backendId, connectionId, epoch };
+}
 function waitClosed(state: ProcessState, ms: number): Promise<void> {
   return new Promise((resolve) => {
     const timeout = setTimeout(resolve, ms);
@@ -276,16 +277,8 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         execArgv: supervisorExecArgv(),
         env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
       });
-      let started!: (pid: number) => void,
-        failed!: (error: EngineError) => void,
-        resolveClosed!: () => void;
-      const startedPromise = new Promise<number>((resolve, reject) => {
-        started = resolve;
-        failed = reject;
-      });
-      const closePromise = new Promise<void>((resolve) => {
-        resolveClosed = resolve;
-      });
+      const admission = Promise.withResolvers<number>(),
+        closing = Promise.withResolvers<void>();
       const handle = Object.freeze({
         kind: "backend-process",
         id: randomUUID(),
@@ -315,8 +308,8 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         proof,
         frames: [],
         buffer: Buffer.alloc(0),
-        admissionFailed: failed,
-        closePromise,
+        admissionFailed: admission.reject,
+        closePromise: closing.promise,
         closed: false,
         consuming: false,
         receiveOrdinal: 0,
@@ -344,10 +337,10 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       child.once("close", () => {
         state.closed = true;
         this.fail(state, "BACKEND_DISCONNECTED");
-        resolveClosed();
+        closing.resolve();
       });
       child.on("message", (packet: unknown) =>
-        this.onSupervisorPacket(state, packet, started),
+        this.onSupervisorPacket(state, packet, admission.resolve),
       );
       const cancel = (): void => {
         void this.dispose(handle).catch(() => {});
@@ -368,7 +361,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
         },
       });
       const pid = await abortable(
-        startedPromise,
+        admission.promise,
         AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
       );
       this.launches.assertLaunchCurrent(launch);
@@ -457,10 +450,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
           ordinal: ++state.receiveOrdinal,
         });
         const frame = signed({
-          workspaceId: state.proof.workspaceId,
-          backendId: state.proof.backendId,
-          connectionId: state.proof.connectionId,
-          epoch: state.proof.epoch,
+          ...transportPins(state.proof),
           receiveOrdinal: state.receiveOrdinal,
           wireId: "id" in message ? message.id : null,
           frameSha256: knowledgeHash(message),
@@ -760,10 +750,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       this.writes.set(
         handle,
         signed({
-          workspaceId: state.proof.workspaceId,
-          backendId: state.proof.backendId,
-          connectionId: state.proof.connectionId,
-          epoch: state.proof.epoch,
+          ...transportPins(state.proof),
           writeOrdinal: ordinal,
           frameSha256: knowledgeHash(wire),
           writtenBytes: bytes,
@@ -801,8 +788,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       }
       let confirmed = state.outcome?.cleanupConfirmed === true && state.closed;
       if (!confirmed && state.proof.processId > 0) {
-        // The original peer can outlive a killed supervisor. Terminate its
-        // actual group, but missing lock-release evidence remains uncertainty.
+        // The peer can outlive a killed supervisor; without its lock-release evidence cleanup stays uncertain.
         try {
           await cleanupGroup(state.proof.processId);
         } catch {
@@ -826,10 +812,7 @@ export class OwnedBackendProcesses implements BackendProcessPort {
       this.disposals.set(
         handle,
         signed({
-          workspaceId: state.proof.workspaceId,
-          backendId: state.proof.backendId,
-          connectionId: state.proof.connectionId,
-          epoch: state.proof.epoch,
+          ...transportPins(state.proof),
           processId: state.proof.processId,
           cleanupConfirmed: confirmed,
           exitCode: state.outcome?.exitCode ?? null,

@@ -1,4 +1,4 @@
-import { EngineError, type JsonObject } from "@moodcode/contracts";
+import { EngineError, type JsonObject, type JsonValue } from "@moodcode/contracts";
 import {
   immutableKnowledgeJson as json,
   knowledgeHash,
@@ -157,13 +157,14 @@ export interface BackendClientEffectRevision extends BackendRevisionBase {
   readonly permission?: BackendClientPermissionProof | null;
   readonly permissionDelivery?: BackendWriteProof | null;
   readonly executionFrame?: BackendPeerObservationProof;
-  readonly controls?: readonly {
-    frame: BackendPeerObservationProof;
-    write: BackendWriteProof;
-    message: AcpV1Message;
-  }[];
+  readonly controls?: readonly BackendTerminalControl[];
   readonly delivery: BackendWriteProof | null;
   readonly errorCode: string | null;
+}
+export interface BackendTerminalControl {
+  frame: BackendPeerObservationProof;
+  write: BackendWriteProof;
+  message: AcpV1Message;
 }
 export type AgentBackendRecord =
   | AgentBackendRevision
@@ -364,6 +365,17 @@ export function bodyOf<T extends AgentBackendRecord>(
   } = record;
   return body as Omit<T, keyof BackendRevisionBase>;
 }
+function sameTransport(
+  proof: { workspaceId: string; connectionId: string; epoch: string },
+  r: { workspaceId: string; connectionId: string },
+  epoch: string,
+): boolean {
+  return (
+    proof.workspaceId === r.workspaceId &&
+    proof.connectionId === r.connectionId &&
+    proof.epoch === epoch
+  );
+}
 function validateSessionLoadBody(r: BackendConnectionRevision): void {
   const load = r.sessionLoad;
   if (!load) return;
@@ -408,9 +420,7 @@ function validateSessionLoadBody(r: BackendConnectionRevision): void {
       load.write.connectionId !== r.connectionId ||
       load.write.epoch !== r.proof.epoch ||
       load.write.frameSha256 !== knowledgeHash(message) ||
-      load.response.workspaceId !== r.workspaceId ||
-      load.response.connectionId !== r.connectionId ||
-      load.response.epoch !== r.proof.epoch ||
+      !sameTransport(load.response, r, r.proof.epoch) ||
       load.response.backendId !== r.backendId ||
       !Number.isSafeInteger(load.response.receiveOrdinal) ||
       load.response.receiveOrdinal < 1 ||
@@ -433,13 +443,16 @@ function validateSessionLoadBody(r: BackendConnectionRevision): void {
 export function effectRpc(e: BackendClientEffectRevision): AcpV1Id {
   return (e.executionFrame?.wireId as AcpV1Id) ?? e.rpcId;
 }
+export function nativeExitStatus(result: JsonValue | null | undefined): {
+  exitCode: JsonValue;
+  signal: JsonValue;
+} {
+  const data = result as JsonObject | null | undefined;
+  return { exitCode: data?.exitCode ?? null, signal: data?.signal ?? null };
+}
 export function validateTerminalControl(
   e: BackendClientEffectRevision,
-  control: {
-    frame: BackendPeerObservationProof;
-    write: BackendWriteProof;
-    message: AcpV1Message;
-  },
+  control: BackendTerminalControl,
   session: string,
 ): void {
   digest(control.frame);
@@ -470,14 +483,10 @@ export function validateTerminalControl(
     (wire.method !== "terminal/output" && !e.completion?.cleanupConfirmed)
   )
     fail("BACKEND_TERMINAL_STALE");
-  const data = e.completion?.result as JsonObject | null;
   if (
     wire.method === "terminal/wait_for_exit" &&
     knowledgeHash(message.result) !==
-      knowledgeHash({
-        exitCode: data?.exitCode ?? null,
-        signal: data?.signal ?? null,
-      })
+      knowledgeHash(nativeExitStatus(e.completion?.result))
   )
     fail("BACKEND_DELIVERY_INVALID");
   if (
@@ -695,9 +704,7 @@ export function validateBody(r: AgentBackendRecord): void {
       digest(r.observation);
       validateAcpV1Message(r.observation.message);
       if (
-        r.observation.connectionId !== r.connectionId ||
-        r.observation.epoch !== r.proof.epoch ||
-        r.observation.workspaceId !== r.workspaceId ||
+        !sameTransport(r.observation, r, r.proof.epoch) ||
         r.observation.receiveOrdinal !== r.receiveOrdinal ||
         r.observation.frameSha256 !== knowledgeHash(r.observation.message)
       )
@@ -706,9 +713,7 @@ export function validateBody(r: AgentBackendRecord): void {
     if (r.disposal) {
       digest(r.disposal);
       if (
-        r.disposal.connectionId !== r.connectionId ||
-        r.disposal.epoch !== r.proof.epoch ||
-        r.disposal.workspaceId !== r.workspaceId ||
+        !sameTransport(r.disposal, r, r.proof.epoch) ||
         r.disposal.processId !== r.proof.processId ||
         typeof r.disposal.cleanupConfirmed !== "boolean"
       )
@@ -762,9 +767,7 @@ export function validateBody(r: AgentBackendRecord): void {
         cancel.method !== "session/cancel" ||
         validateAcpV1Request("session/cancel", cancel.params).sessionId !==
           r.remoteSessionId ||
-        r.cancellation.write.workspaceId !== r.workspaceId ||
-        r.cancellation.write.connectionId !== r.connectionId ||
-        r.cancellation.write.epoch !== r.epoch ||
+        !sameTransport(r.cancellation.write, r, r.epoch) ||
         r.cancellation.write.frameSha256 !== knowledgeHash(cancel)
       )
         fail("BACKEND_REMOTE_SESSION_INVALID");
@@ -772,9 +775,7 @@ export function validateBody(r: AgentBackendRecord): void {
     if (r.dispatch) {
       digest(r.dispatch);
       if (
-        r.dispatch.workspaceId !== r.workspaceId ||
-        r.dispatch.connectionId !== r.connectionId ||
-        r.dispatch.epoch !== r.epoch ||
+        !sameTransport(r.dispatch, r, r.epoch) ||
         r.dispatch.frameSha256 !== r.wireSha256
       )
         fail();
@@ -782,9 +783,7 @@ export function validateBody(r: AgentBackendRecord): void {
     if (r.terminal) {
       digest(r.terminal);
       if (
-        r.terminal.workspaceId !== r.workspaceId ||
-        r.terminal.connectionId !== r.connectionId ||
-        r.terminal.epoch !== r.epoch ||
+        !sameTransport(r.terminal, r, r.epoch) ||
         r.terminal.wireId !== r.rpcId ||
         r.terminal.frameSha256 !== knowledgeHash(r.terminal.message)
       )
@@ -862,19 +861,12 @@ export function validateBody(r: AgentBackendRecord): void {
       digest(r.permission);
       if (!r.permissionDelivery) fail();
       digest(r.permissionDelivery);
-      if (
-        r.permissionDelivery.workspaceId !== r.workspaceId ||
-        r.permissionDelivery.connectionId !== r.connectionId ||
-        r.permissionDelivery.epoch !== r.epoch
-      )
-        fail();
+      if (!sameTransport(r.permissionDelivery, r, r.epoch)) fail();
     }
     if (
       r.effectId !== r.entityId ||
       r.owner.workspaceId !== r.workspaceId ||
-      r.frame.workspaceId !== r.workspaceId ||
-      r.frame.connectionId !== r.connectionId ||
-      r.frame.epoch !== r.epoch ||
+      !sameTransport(r.frame, r, r.epoch) ||
       r.frame.wireId !== r.rpcId ||
       !BACKEND_EFFECT_STATES.includes(r.state)
     )
@@ -893,9 +885,7 @@ export function validateBody(r: AgentBackendRecord): void {
       if (
         (!r.completion &&
           (!("method" in r.input) || r.input.method !== "terminal/create")) ||
-        r.delivery.workspaceId !== r.workspaceId ||
-        r.delivery.connectionId !== r.connectionId ||
-        r.delivery.epoch !== r.epoch
+        !sameTransport(r.delivery, r, r.epoch)
       )
         fail();
     }
@@ -974,62 +964,60 @@ export function validateTransition(
     mutableKeys(before, op),
     () => fail("BACKEND_TRANSITION_INVALID"),
   );
-  if (
-    op === "bind-effect" &&
-    before.kind === "client-effect" &&
-    after.kind === "client-effect" &&
-    (before.executionFrame ||
-      !after.executionFrame ||
-      !after.permission?.allowed)
-  )
-    fail();
-  if (
-    op === "terminal-control" &&
-    before.kind === "client-effect" &&
-    after.kind === "client-effect" &&
-    ((after.controls?.length ?? 0) !== (before.controls?.length ?? 0) + 1 ||
-      knowledgeHash(after.controls?.slice(0, -1) ?? []) !==
-        knowledgeHash(before.controls ?? []))
-  )
-    fail();
-  if (
-    op === "settle-read" &&
-    before.kind === "client-effect" &&
-    after.kind === "client-effect" &&
-    knowledgeHash(before.delivery) !== knowledgeHash(after.delivery) &&
-    !(
-      before.permission?.allowed === false &&
-      knowledgeHash(after.delivery) === knowledgeHash(before.permissionDelivery)
+  if (before.kind === "client-effect" && after.kind === "client-effect") {
+    if (
+      op === "bind-effect" &&
+      (before.executionFrame ||
+        !after.executionFrame ||
+        !after.permission?.allowed)
     )
-  )
-    fail();
-  if (
-    op === "permission" &&
-    before.kind === "client-effect" &&
-    after.kind === "client-effect" &&
-    (before.permission || !after.permission || !after.permissionDelivery)
-  )
-    fail("BACKEND_TRANSITION_INVALID");
-  if (
-    op === "negotiate" &&
-    before.kind === "connection" &&
-    after.kind === "connection" &&
-    (before.capabilities ||
-      !after.capabilities ||
-      !before.observation ||
-      !("result" in before.observation.message) ||
-      knowledgeHash(
-        negotiateAcpV1Capabilities(before.observation.message.result, {
-          ...(before.proof.clientCapabilities ?? {
-            readTextFile: after.capabilities?.readTextFile ?? false,
-          }),
-          contextOwner: after.capabilities?.contextOwner ?? "engine",
-          loadSession: after.capabilities?.loadSession ?? false,
-        }),
-      ) !== knowledgeHash(after.capabilities))
-  )
-    fail();
+      fail();
+    if (
+      op === "terminal-control" &&
+      ((after.controls?.length ?? 0) !== (before.controls?.length ?? 0) + 1 ||
+        knowledgeHash(after.controls?.slice(0, -1) ?? []) !==
+          knowledgeHash(before.controls ?? []))
+    )
+      fail();
+    if (
+      op === "settle-read" &&
+      knowledgeHash(before.delivery) !== knowledgeHash(after.delivery) &&
+      !(
+        before.permission?.allowed === false &&
+        knowledgeHash(after.delivery) ===
+          knowledgeHash(before.permissionDelivery)
+      )
+    )
+      fail();
+    if (
+      op === "permission" &&
+      (before.permission || !after.permission || !after.permissionDelivery)
+    )
+      fail("BACKEND_TRANSITION_INVALID");
+    if (
+      (op === "delivery" || op === "effect-ack") &&
+      (before.delivery !== null || after.delivery === null)
+    )
+      fail();
+  }
   if (before.kind === "connection" && after.kind === "connection") {
+    if (
+      op === "negotiate" &&
+      (before.capabilities ||
+        !after.capabilities ||
+        !before.observation ||
+        !("result" in before.observation.message) ||
+        knowledgeHash(
+          negotiateAcpV1Capabilities(before.observation.message.result, {
+            ...(before.proof.clientCapabilities ?? {
+              readTextFile: after.capabilities?.readTextFile ?? false,
+            }),
+            contextOwner: after.capabilities?.contextOwner ?? "engine",
+            loadSession: after.capabilities?.loadSession ?? false,
+          }),
+        ) !== knowledgeHash(after.capabilities))
+    )
+      fail();
     if (
       op === "load-intent" &&
       (before.sessionLoad ||
@@ -1092,6 +1080,25 @@ export function validateTransition(
         knowledgeHash(after.sessionLoad)
     )
       fail();
+    if (op === "observe") {
+      const message = after.observation?.message;
+      if (after.state !== before.state) {
+        if (!message || !("result" in message)) fail();
+        if (after.state === "initialized")
+          validateAcpV1Result("initialize", message.result);
+        else if (after.state === "session-ready") {
+          const result = validateAcpV1Result("session/new", message.result);
+          if (result.sessionId !== after.remoteSessionId) fail();
+        }
+      }
+      if (
+        (before.remoteSessionId !== null &&
+          after.remoteSessionId !== before.remoteSessionId) ||
+        after.receiveOrdinal !== before.receiveOrdinal + 1 ||
+        after.observation === null
+      )
+        fail();
+    }
   }
   if (
     op === "cancel-wire" &&
@@ -1110,48 +1117,12 @@ export function validateTransition(
   )
     fail();
   if (
-    op === "observe" &&
-    before.kind === "connection" &&
-    after.kind === "connection"
-  ) {
-    const message = after.observation?.message;
-    if (after.state !== before.state) {
-      if (!message || !("result" in message)) fail();
-      if (after.state === "initialized")
-        validateAcpV1Result("initialize", message.result);
-      else if (after.state === "session-ready") {
-        const result = validateAcpV1Result("session/new", message.result);
-        if (result.sessionId !== after.remoteSessionId) fail();
-      }
-    }
-    if (
-      before.remoteSessionId !== null &&
-      after.remoteSessionId !== before.remoteSessionId
-    )
-      fail();
-  }
-  if (
     op === "dispose" &&
     after.kind === "connection" &&
     (after.state === "closed") !==
       (after.disposal?.cleanupConfirmed === true &&
         before?.kind === "connection" &&
         before.sessionLoad?.state !== "dispatching")
-  )
-    fail();
-  if (
-    (op === "delivery" || op === "effect-ack") &&
-    before.kind === "client-effect" &&
-    after.kind === "client-effect" &&
-    (before.delivery !== null || after.delivery === null)
-  )
-    fail();
-  if (
-    op === "observe" &&
-    before.kind === "connection" &&
-    after.kind === "connection" &&
-    (after.receiveOrdinal !== before.receiveOrdinal + 1 ||
-      after.observation === null)
   )
     fail();
   if (

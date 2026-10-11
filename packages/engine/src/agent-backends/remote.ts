@@ -284,7 +284,6 @@ class RemoteAttempt {
     validateAcpV1Request("session/prompt", { sessionId: "pending", prompt });
     return prompt;
   }
-  /** Returns the client capabilities pinned by the launch. */
   async admit(): Promise<ClientCapabilities> {
     const { store, processes, record } = this.options;
     this.process = await processes.launch(
@@ -698,8 +697,7 @@ class RemoteAttempt {
       this.cleanupState.durable = false;
     }
     if (this.process) {
-      // A launch can precede a failed native admission transaction. Physical
-      // disposal cannot replace the missing durable connection receipt.
+      // Disposal cannot replace the connection receipt a failed admission never wrote.
       if (!this.connection) this.cleanupState.durable = false;
       const disposal = (this.disposal ??= await processes.dispose(
         this.process,

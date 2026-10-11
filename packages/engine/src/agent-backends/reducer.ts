@@ -43,20 +43,15 @@ export const SETTLED_EFFECT_STATES: readonly BackendEffectState[] = [
 ];
 export type BackendJournalKind =
   "backend" | "connection" | "request" | "client-effect";
+const unpaused = (states: readonly string[]) =>
+  states.filter((state) => state !== "paused-import");
 const connections: Record<string, readonly string[]> = {
   initialized: ["launched"],
   "session-ready": ["initialized"],
   closing: ["launched", "initialized", "session-ready"],
   closed: ["launched", "initialized", "session-ready", "closing"],
   uncertain: ["launched", "initialized", "session-ready", "closing"],
-  "paused-import": [
-    "launched",
-    "initialized",
-    "session-ready",
-    "closing",
-    "closed",
-    "uncertain",
-  ],
+  "paused-import": unpaused(BACKEND_CONNECTION_STATES),
 };
 const requests: Record<string, readonly string[]> = {
   dispatching: ["prepared"],
@@ -65,15 +60,7 @@ const requests: Record<string, readonly string[]> = {
   failed: ["dispatched"],
   cancelled: ["dispatched"],
   uncertain: ["prepared", "dispatching", "dispatched"],
-  "paused-import": [
-    "prepared",
-    "dispatching",
-    "dispatched",
-    "completed",
-    "failed",
-    "cancelled",
-    "uncertain",
-  ],
+  "paused-import": unpaused(BACKEND_REQUEST_STATES),
 };
 const effects: Record<string, readonly string[]> = {
   completed: ["prepared"],
@@ -81,14 +68,7 @@ const effects: Record<string, readonly string[]> = {
   denied: ["prepared"],
   interrupted: ["prepared"],
   uncertain: ["prepared"],
-  "paused-import": [
-    "prepared",
-    "completed",
-    "failed",
-    "denied",
-    "interrupted",
-    "uncertain",
-  ],
+  "paused-import": unpaused(BACKEND_EFFECT_STATES),
 };
 type KindStates = Partial<Record<BackendJournalKind, readonly string[]>>;
 const PREPARED_OR_SETTLED = ["prepared", ...SETTLED_EFFECT_STATES];

@@ -9,8 +9,7 @@ import {
 } from "../tools/command/process-control.js";
 import { AGENT_BACKEND_LIMITS } from "./validation.js";
 
-// IPC disappearance is the root's liveness signal, including SIGKILL. The peer
-// owns a separate process group, so descendants must disappear before release.
+// IPC loss (even by SIGKILL) means the root is gone; the peer's own group must be gone before release.
 let peer: ChildProcessWithoutNullStreams | undefined;
 let lock: ExecutionLock | undefined;
 let closed = false;
@@ -28,6 +27,11 @@ function send(packet: object): void {
   } catch {
     /* Disconnect cleanup owns the peer. */
   }
+}
+
+function fail(code: string): void {
+  send({ type: "failure", code });
+  void stop();
 }
 
 function closeWithin(
@@ -106,10 +110,7 @@ process.stderr.on("error", () => void stop());
 process.on("message", (packet: unknown) => {
   if (!packet || typeof packet !== "object" || finishing) return;
   const value = packet as Record<string, unknown>;
-  if (value.type === "stop") {
-    void stop();
-    return;
-  }
+  if (value.type === "stop") return void stop();
   if (value.type === "init" && !peer) {
     const launch = value.launch as
       | {
@@ -128,14 +129,10 @@ process.on("message", (packet: unknown) => {
       typeof launch.cwd !== "string" ||
       !launch.env ||
       typeof launch.executionLockPath !== "string"
-    ) {
-      send({ type: "failure", code: "BACKEND_PROCESS_START_FAILED" });
-      void stop();
-      return;
-    }
+    )
+      return fail("BACKEND_PROCESS_START_FAILED");
     try {
-      // Transport supervision owns the peer group. In the explicit effect lane,
-      // the genuine native patch/command supervisor owns the effect lock.
+      // In the effect lane the native patch/command supervisor owns the execution lock.
       if (launch.executionMode !== "engine-client-effects")
         lock = acquireExecutionLock(launch.executionLockPath);
       peer = spawn(launch.command, launch.args, {
@@ -147,14 +144,8 @@ process.on("message", (packet: unknown) => {
       });
       peer.stdout.on("data", (bytes: Buffer) => forward("stdout", bytes));
       peer.stderr.on("data", (bytes: Buffer) => forward("stderr", bytes));
-      peer.stdin.on("error", () => {
-        send({ type: "failure", code: "BACKEND_PIPE_CLOSED" });
-        void stop();
-      });
-      peer.on("error", () => {
-        send({ type: "failure", code: "BACKEND_PROCESS_START_FAILED" });
-        void stop();
-      });
+      peer.stdin.on("error", () => fail("BACKEND_PIPE_CLOSED"));
+      peer.on("error", () => fail("BACKEND_PROCESS_START_FAILED"));
       peer.once("spawn", () => {
         try {
           if (peer?.pid === undefined) throw new Error();
@@ -162,8 +153,7 @@ process.on("message", (packet: unknown) => {
           send({ type: "started", pid: peer.pid });
           if (disconnected) void stop();
         } catch {
-          send({ type: "failure", code: "BACKEND_PROCESS_START_FAILED" });
-          void stop();
+          fail("BACKEND_PROCESS_START_FAILED");
         }
       });
       peer.once("exit", (code, signal) => {
@@ -174,14 +164,11 @@ process.on("message", (packet: unknown) => {
         closed = true;
         exitCode = code;
         exitSignal = signal;
-        if (!finishing) {
-          // Even an orderly leader exit can leave descendants in the group.
-          void stop();
-        }
+        // Even an orderly leader exit can leave descendants in the group.
+        if (!finishing) void stop();
       });
     } catch {
-      send({ type: "failure", code: "BACKEND_PROCESS_START_FAILED" });
-      void stop();
+      fail("BACKEND_PROCESS_START_FAILED");
     }
     return;
   }
@@ -196,19 +183,14 @@ process.on("message", (packet: unknown) => {
     writing = true;
     peer.stdin.write(value.text, (error) => {
       writing = false;
-      if (error) {
-        send({ type: "failure", code: "BACKEND_PIPE_WRITE_FAILED" });
-        void stop();
-      } else
+      if (error) fail("BACKEND_PIPE_WRITE_FAILED");
+      else
         send({
           type: "written",
           ordinal: value.ordinal,
           bytes: Buffer.byteLength(value.text as string),
         });
     });
-  } else if (value.type === "write") {
-    send({ type: "failure", code: "BACKEND_PIPE_WRITE_FAILED" });
-    void stop();
-  }
+  } else if (value.type === "write") fail("BACKEND_PIPE_WRITE_FAILED");
 });
 if (disconnected) void stop();

@@ -17,6 +17,7 @@ import type {
   BackendClientEffectRevision,
   DeliverBackendClientEffectInput,
 } from "./store.js";
+import { nativeExitStatus } from "./journal.js";
 import type { AcpV1Request, AcpV1Response } from "./types.js";
 import {
   ACP_EFFECT_LIMITS,
@@ -70,7 +71,6 @@ export class BackendNativeEffects {
       effectId: entry.record.effectId,
     };
   }
-  /** Sends the reply, then records it against the entry's current revision. */
   private async respond(
     entry: Pick<Entry, "record">,
     response: AcpV1Response,
@@ -385,29 +385,24 @@ export class BackendNativeEffects {
         },
       ).record;
     }
-    const proof = this.options.clientReads.readPermission(entry.handle);
-    if (!proof.allowed) {
-      const completion = await this.settle(entry);
-      await this.deliver(entry, message.id, completion);
-      return;
+    if (this.options.clientReads.readPermission(entry.handle).allowed) {
+      await this.options.clientReads.dispatchEffect(entry.handle);
+      entry.dispatched = true;
+      if (message.method === "terminal/create") {
+        await this.respond(
+          entry,
+          {
+            jsonrpc: "2.0",
+            id: message.id,
+            result: { terminalId: `terminal:${entry.record.effectId}` },
+          },
+          (receipt, input) =>
+            this.options.store.recordClientAcknowledgement(receipt, input),
+        );
+        return;
+      }
     }
-    await this.options.clientReads.dispatchEffect(entry.handle);
-    entry.dispatched = true;
-    if (message.method === "terminal/create")
-      await this.respond(
-        entry,
-        {
-          jsonrpc: "2.0",
-          id: message.id,
-          result: { terminalId: `terminal:${entry.record.effectId}` },
-        },
-        (receipt, input) =>
-          this.options.store.recordClientAcknowledgement(receipt, input),
-      );
-    else {
-      const completion = await this.settle(entry);
-      await this.deliver(entry, message.id, completion);
-    }
+    await this.deliver(entry, message.id, await this.settle(entry));
   }
   private async terminalControl(
     originalFrame: object,
@@ -440,34 +435,25 @@ export class BackendNativeEffects {
         typeof entry.completion.result === "object" &&
         !Array.isArray(entry.completion.result) &&
         entry.completion.result.started !== false
-      ) {
-        const data = entry.completion.result;
+      )
         result = {
           ...(result as JsonObject),
-          exitStatus: {
-            exitCode: data.exitCode ?? null,
-            signal: data.signal ?? null,
-          },
+          exitStatus: nativeExitStatus(entry.completion.result),
         };
-      }
     } else {
       if (
         message.method === "terminal/kill" ||
         message.method === "terminal/release"
       )
         this.options.clientReads.cancelEffect(entry.handle);
-      const completion = await this.settle(entry),
-        data = completion.result as JsonObject | null;
+      const completion = await this.settle(entry);
       if (!completion.cleanupConfirmed)
         throw new EngineError(
           "CLEANUP_UNCERTAIN",
           "The native command group did not confirm cleanup",
         );
       if (message.method === "terminal/wait_for_exit")
-        result = {
-          exitCode: data?.exitCode ?? null,
-          signal: data?.signal ?? null,
-        };
+        result = nativeExitStatus(completion.result);
     }
     const response: AcpV1Response = { jsonrpc: "2.0", id: message.id, result };
     const requestId = randomUUID();

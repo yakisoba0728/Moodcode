@@ -93,7 +93,6 @@ export type BackendClientEffectInput =
       outputByteLimit: number;
     };
 
-/** The Runner tool that executes a client read or effect. */
 export function clientEffectToolName(
   input: BackendClientReadInput | BackendClientEffectInput,
 ): "read_file" | "apply_patch" | "run_command" {
@@ -127,7 +126,6 @@ export function terminalCommandLine(
   return args.length ? [command, ...args].map(quote).join(" ") : command;
 }
 
-/** The read_file input for `limit` lines from `line` (default 1). */
 export function clientReadToolInput(
   local: string,
   line: number | undefined,

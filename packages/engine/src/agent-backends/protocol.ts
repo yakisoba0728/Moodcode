@@ -226,14 +226,6 @@ function sessionScope(value: Record<string, unknown>): void {
   if (!Array.isArray(value.mcpServers) || value.mcpServers.length !== 0)
     agentBackendError("ACP_MCP_UNSUPPORTED");
 }
-function validateAcpV1NewSessionParams(input: unknown): AcpV1NewSessionParams {
-  return envelope(
-    input,
-    ["cwd", "mcpServers"],
-    [],
-    sessionScope,
-  ) as unknown as AcpV1NewSessionParams;
-}
 function validateAcpV1PromptParams(input: unknown): AcpV1PromptParams {
   return envelope(input, ["sessionId", "prompt"], [], (value) => {
     agentBackendIdentifier(value.sessionId);
@@ -497,7 +489,7 @@ export function validateAcpV1Request(method: string, input: unknown): object {
     case "initialize":
       return validateAcpV1InitializeParams(input);
     case "session/new":
-      return validateAcpV1NewSessionParams(input);
+      return envelope(input, ["cwd", "mcpServers"], [], sessionScope);
     case "session/load":
       return envelope(
         input,
