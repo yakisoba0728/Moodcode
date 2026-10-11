@@ -232,9 +232,7 @@ export class KnowledgeGenerationService {
         providerId: plan.providerId,
         modelId: plan.modelId,
         source: originalProjection,
-        ...(reasoningEffort === undefined
-          ? {}
-          : { reasoningEffort: reasoningEffort }),
+        ...(reasoningEffort === undefined ? {} : { reasoningEffort }),
       });
       if (
         originalProjection.workspaceId !== workspaceId ||
@@ -256,9 +254,9 @@ export class KnowledgeGenerationService {
           ),
         });
       const request: CreateKnowledgeGeneration = {
-        workspaceId: workspaceId,
+        workspaceId,
         planId: plan.id,
-        requestId: requestId,
+        requestId,
         budget,
         logicalRequestSha256: built.requestSha256,
         logicalRequestBytes: built.requestBytes,
@@ -272,7 +270,7 @@ export class KnowledgeGenerationService {
         ...built.payload,
         owner: {
           kind: 'host-generation',
-          workspaceId: workspaceId,
+          workspaceId,
           generationId: '00000000-0000-0000-0000-000000000000',
           attemptId: '00000000-0000-0000-0000-000000000000',
         },
@@ -303,7 +301,7 @@ export class KnowledgeGenerationService {
               abort = new AbortController();
             const signal = AbortSignal.any([signalBeforeOwner, abort.signal]);
             this.#live.set(admission.record.id, {
-              workspaceId: workspaceId,
+              workspaceId,
               abort,
             });
             let attempt: KnowledgeGenerationAttemptCapture | undefined;
@@ -313,7 +311,7 @@ export class KnowledgeGenerationService {
                   ...built.payload,
                   owner: {
                     kind: 'host-generation',
-                    workspaceId: workspaceId,
+                    workspaceId,
                     generationId: admission.record.id,
                     attemptId,
                   },
@@ -345,26 +343,19 @@ export class KnowledgeGenerationService {
               });
               const result = this.get(workspaceId, admission.record.id);
               if (result.generation.state === 'completed') {
-                if (signal.aborted)
+                const withheld = signal.aborted
+                  ? 'KNOWLEDGE_GENERATION_CANCELLED'
+                  : Date.now() >= admission.record.deadline
+                    ? 'KNOWLEDGE_GENERATION_DEADLINE'
+                    : null;
+                if (withheld)
                   this.#ports.native.markCandidate(
                     workspaceId,
                     admission.record.id,
-                    {
-                      state: 'withheld',
-                      reason: 'KNOWLEDGE_GENERATION_CANCELLED',
-                    },
-                  );
-                else if (Date.now() >= admission.record.deadline)
-                  this.#ports.native.markCandidate(
-                    workspaceId,
-                    admission.record.id,
-                    {
-                      state: 'withheld',
-                      reason: 'KNOWLEDGE_GENERATION_DEADLINE',
-                    },
+                    { state: 'withheld', reason: withheld },
                   );
                 else
-                  this.recordCandidate(
+                  this.#recordCandidate(
                     workspaceId,
                     admission.record.id,
                     'generation_candidate_' + admission.record.id,
@@ -396,7 +387,7 @@ export class KnowledgeGenerationService {
       return Promise.reject(error);
     }
   }
-  private recordCandidate(
+  #recordCandidate(
     workspaceId: string,
     generationId: string,
     requestId: string,
@@ -409,14 +400,14 @@ export class KnowledgeGenerationService {
       );
     if (record.candidate.state === 'recorded') return;
     try {
+      const attempt = record.attemptId
+        ? this.#ports.native.getAttempt(workspaceId, record.attemptId)
+        : null;
       const existing = this.#ports.knowledge.getCandidateByGeneration(
         workspaceId,
         generationId,
       );
       if (existing) {
-        const attempt = record.attemptId
-          ? this.#ports.native.getAttempt(workspaceId, record.attemptId)
-          : null;
         if (
           !attempt ||
           existing.planId !== record.planId ||
@@ -439,9 +430,6 @@ export class KnowledgeGenerationService {
         generationId,
       );
       try {
-        const attempt = record.attemptId
-          ? this.#ports.native.getAttempt(workspaceId, record.attemptId)
-          : null;
         if (!attempt)
           throw new EngineError(
             'KNOWLEDGE_RECORD_CONFLICT',
@@ -485,7 +473,7 @@ export class KnowledgeGenerationService {
             'KNOWLEDGE_GENERATION_CANCELLED',
             'Candidate finishing was cancelled',
           );
-        this.recordCandidate(workspaceId, generationId, requestId);
+        this.#recordCandidate(workspaceId, generationId, requestId);
         return this.get(workspaceId, generationId);
       });
     } catch (error) {
