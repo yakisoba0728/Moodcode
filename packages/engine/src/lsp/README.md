@@ -6,7 +6,7 @@
 
 `StdioLspConnection.open({ command, args?, cwd, env? })`는 명시한 absolute executable과 argv만 실행한다. shell을 쓰지 않는다. 기본 환경은 PATH와 Windows SystemRoot만이며 stderr를 보관·반환하지 않는다. framing은 4 KiB header/1 MiB message, pending request 32개, listener 16개로 제한한다. JSON node/depth 상한을 넘는 응답은 그 요청만 `LSP_FRAME_LIMIT`로 거부하고, 상한을 넘는 notification은 버리며 연결은 유지한다. JSON batch/잘못된 UTF-8/중복 Content-Length를 거부한다. 요청 cancel/timeout은 `$/cancelRequest`를 보내고 늦은 reply를 다른 요청에 연결하지 않는다. server→host request는 capability unavailable로 응답하고 applyEdit/executeCommand를 실행하지 않는다.
 
-POSIX에서는 전용 process group에 TERM/KILL을 보내며 부모가 먼저 종료되어 남긴 descendant도 정리한다. Windows는 direct child 종료만 제공한다. Windows process-tree 종료 보장은 별도 backend 검증 없이 주장하지 않는다. 등록된 language server 자체가 실행할 수 있는 OS 권한을 이 transport가 sandbox하지는 않는다.
+POSIX에서는 전용 process group에 TERM/KILL을 보내며 부모가 먼저 종료되어 남긴 descendant도 정리한다. 부모가 종료되어도 group이 사라진 것을 확인하지 못하면 close는 `LSP_CLEANUP_UNCERTAIN`이다. Windows는 direct child 종료만 제공한다. Windows process-tree 종료 보장은 별도 backend 검증 없이 주장하지 않는다. 등록된 language server 자체가 실행할 수 있는 OS 권한을 이 transport가 sandbox하지는 않는다.
 
 `updateFile(workspace, serverId, exactPath, languageId, signal)`는 안전하게 관찰한 UTF-8 text의 hash와 UTF-16 version을 관리한다. full 및 incremental sync에서 전체 범위 replacement를 지원한다. 문서는 128개, 문서 하나 512 KiB, workspace/server 합계 8 MiB 이내이다. UTF-8 position encoding, text sync None, open/close 미지원은 명시적으로 거부한다. `fileChanged`가 created/changed/deleted event를 받아 sync/close와 watched-files notification을 연결한다. 자동 filesystem watcher는 없다. 엔진의 checkpoint/revert/호스트 파일 관찰자가 이 메서드를 호출해야 한다.
 

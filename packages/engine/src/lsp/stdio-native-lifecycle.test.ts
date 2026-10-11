@@ -7,6 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import type { JsonValue } from "@moodcode/contracts";
+import { cleanupGroup } from "../shared/runtime.js";
 import { StdioLspConnection } from "./stdio.js";
 import { createTypeScriptNativeLspFactory } from "./typescript-native.js";
 
@@ -82,6 +83,32 @@ function assertPidGone(child: ChildProcessWithoutNullStreams) {
     () => process.kill(child.pid!, 0),
     (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
   );
+}
+
+/** Deny only TERM/KILL sent to the owned group; probes and every other signal stay real. */
+function denyOwnedGroupKills(child: ChildProcessWithoutNullStreams) {
+  const originalKill = process.kill;
+  const denied = { count: 0 };
+  process.kill = ((pid: number, requestedSignal?: string | number) => {
+    if (
+      pid === -child.pid! &&
+      (requestedSignal === "SIGTERM" || requestedSignal === "SIGKILL")
+    ) {
+      denied.count++;
+      throw Object.assign(
+        new Error("Fixture denies only its own group teardown"),
+        { code: "EPERM" },
+      );
+    }
+    return originalKill(pid, requestedSignal);
+  }) as typeof process.kill;
+  return {
+    denied,
+    originalKill,
+    restore: () => {
+      process.kill = originalKill;
+    },
+  };
 }
 
 async function forceOwnedCleanup(child: ChildProcessWithoutNullStreams) {
@@ -287,8 +314,7 @@ test(
       cwd: scope.root,
     });
     const child = ownedChild(connection),
-      exited = exitObservation(child),
-      originalKill = process.kill;
+      exited = exitObservation(child);
     const pending = connection.request(
       "initialize",
       { capabilities: {} },
@@ -300,20 +326,7 @@ test(
       (error: unknown) =>
         (error as { code?: string }).code === "LSP_DISCONNECTED",
     );
-    let deniedOwnedKills = 0;
-    process.kill = ((pid: number, requestedSignal?: string | number) => {
-      if (
-        pid === -child.pid! &&
-        (requestedSignal === "SIGTERM" || requestedSignal === "SIGKILL")
-      ) {
-        deniedOwnedKills++;
-        throw Object.assign(
-          new Error("Fixture denies only its own group teardown"),
-          { code: "EPERM" },
-        );
-      }
-      return originalKill(pid, requestedSignal);
-    }) as typeof process.kill;
+    const { denied, originalKill, restore } = denyOwnedGroupKills(child);
     try {
       const first = connection.close(),
         same = connection.close();
@@ -324,7 +337,8 @@ test(
           (error as { code?: string }).code === "LSP_CLEANUP_UNCERTAIN",
       );
       await pendingRejected;
-      assert.equal(deniedOwnedKills, 2);
+      // The TERM/KILL ladder, then the group cleanup that confirms absence.
+      assert.equal(denied.count, 4);
       assert.equal(exited(), false, "No exit observation was fabricated");
       assert.equal(
         originalKill(child.pid!, 0),
@@ -342,10 +356,57 @@ test(
           (error as { code?: string }).code === "LSP_CLEANUP_UNCERTAIN",
       );
     } finally {
-      process.kill = originalKill;
+      restore();
       await forceOwnedCleanup(child);
       assert.equal(exited(), true);
       assertPidGone(child);
     }
+  },
+);
+
+test(
+  "close stays uncertain when the leader exits but a descendant survives in its owned group",
+  { timeout: 10_000, skip: process.platform === "win32" },
+  async (t) => {
+    const scope = await workspace(t);
+    // The leader exits once stdin ends and leaves a same-group descendant behind.
+    const connection = await StdioLspConnection.open({
+      command: process.execPath,
+      args: [
+        "-e",
+        "const c=require('node:child_process').spawn(process.execPath,['-e','setInterval(()=>{},1000)'],{stdio:'ignore'});c.on('spawn',()=>process.stderr.write(c.pid+'\\n'));process.stdin.resume();process.stdin.on('end',()=>process.exit(0))",
+      ],
+      cwd: scope.root,
+    });
+    const child = ownedChild(connection),
+      exited = exitObservation(child);
+    const descendant = await new Promise<number>((resolve) => {
+      let text = "";
+      child.stderr.on("data", (bytes: Buffer) => {
+        text += bytes.toString();
+        if (text.includes("\n")) resolve(Number(text.trim()));
+      });
+    });
+    const { originalKill, restore } = denyOwnedGroupKills(child);
+    try {
+      await assert.rejects(
+        connection.close(),
+        (error: unknown) =>
+          (error as { code?: string }).code === "LSP_CLEANUP_UNCERTAIN",
+      );
+      assert.equal(exited(), true, "The leader itself exited");
+      assert.equal(
+        originalKill(descendant, 0),
+        true,
+        "Its descendant still runs in the owned group",
+      );
+    } finally {
+      restore();
+      assert.equal(await cleanupGroup(child.pid!), true);
+    }
+    assert.throws(
+      () => process.kill(descendant, 0),
+      (error: unknown) => (error as NodeJS.ErrnoException).code === "ESRCH",
+    );
   },
 );

@@ -7,6 +7,7 @@ import {
   type JsonValue,
 } from "@moodcode/contracts";
 import { boundedJson } from "../artifacts/validation.js";
+import { cleanupGroup } from "../shared/runtime.js";
 export interface LspConnection {
   request(
     method: string,
@@ -411,10 +412,10 @@ export class StdioLspConnection implements LspConnection {
           const timer = setTimeout(done, ms);
           this.child.once("exit", done);
         });
+      const group = process.platform === "win32" ? undefined : this.child.pid;
       const kill = (signal: NodeJS.Signals) => {
         try {
-          if (process.platform !== "win32" && this.child.pid)
-            process.kill(-this.child.pid, signal);
+          if (group) process.kill(-group, signal);
           else this.child.kill(signal);
         } catch {}
       };
@@ -426,10 +427,13 @@ export class StdioLspConnection implements LspConnection {
       this.child.stderr.destroy();
       this.child.stdin.destroy();
       await wait(100);
-      if (!this.exited)
+      // The leader's exit says nothing about descendants left in its group.
+      const groupGone =
+        !group || (await cleanupGroup(group).catch(() => false));
+      if (!this.exited || !groupGone)
         throw new EngineError(
           "LSP_CLEANUP_UNCERTAIN",
-          "Owned LSP process did not confirm exit before its teardown deadline",
+          "Owned LSP process group did not confirm exit before its teardown deadline",
         );
     })());
   }

@@ -1,68 +1,12 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { EngineError } from '@moodcode/contracts';
+import { cleanupGroup, createCommandEnvironment, groupExists, TERMINATION_LIMITS } from '../../shared/runtime.js';
 
-export const TERMINATION_LIMITS = Object.freeze({ termGraceMs: 250, killWaitMs: 2_000, pollMs: 20 });
+export { cleanupGroup, createCommandEnvironment, groupExists, registerCredentialEnvNames, TERMINATION_LIMITS } from '../../shared/runtime.js';
 export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: import('../../sandbox/types.js').SandboxLaunch }
 export interface ProcessOutcome { exitCode: number | null; signal: NodeJS.Signals | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; started: boolean; outputDiscarded?: boolean; error?: string }
 export type ShellOutput = (stream: 'stdout' | 'stderr', bytes: Buffer) => void | Promise<void>;
-
-const PROVIDER_SECRET_NAMES = new Set([
-  'MOODCODE_API_KEY', 'OPENAI_API_KEY', 'OPENAI_ADMIN_KEY', 'ANTHROPIC_API_KEY',
-  'GEMINI_API_KEY', 'GOOGLE_API_KEY', 'AZURE_OPENAI_API_KEY', 'MISTRAL_API_KEY',
-  'COHERE_API_KEY', 'XAI_API_KEY', 'GROQ_API_KEY', 'DEEPSEEK_API_KEY',
-  'TOGETHER_API_KEY', 'OPENROUTER_API_KEY', 'PERPLEXITY_API_KEY',
-  'HUGGINGFACE_API_KEY', 'HF_TOKEN',
-]);
-const HOST_SECRET_NAMES = new Set<string>();
-
-/** Adds host-declared credential variable names for this process; names are never removed. */
-export function registerCredentialEnvNames(names: readonly string[]): void {
-  for (const name of names) HOST_SECRET_NAMES.add(name.toUpperCase());
-}
-
-/** Copies the environment without provider credentials and host-declared credential names. */
-export function createCommandEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const result: NodeJS.ProcessEnv = {};
-  for (const [key, value] of Object.entries(source)) {
-    const upper = key.toUpperCase();
-    const engineSecret = /^MOODCODE_/.test(upper) && /(?:^|_)(?:APIKEY|KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?|AUTH|AUTHORIZATION)(?:_|$)/.test(upper.slice('MOODCODE_'.length));
-    const providerSecret = /^(?:OPENAI|ANTHROPIC|GEMINI|GOOGLE|AZURE_OPENAI|MISTRAL|COHERE|XAI|GROQ|DEEPSEEK|TOGETHER|OPENROUTER|PERPLEXITY)_(?:API_KEYS?|ACCESS_TOKEN|AUTH_TOKEN|SECRET|TOKEN)(?:_|$)/.test(upper);
-    if (upper !== 'ELECTRON_RUN_AS_NODE' && !PROVIDER_SECRET_NAMES.has(upper) && !HOST_SECRET_NAMES.has(upper) && !engineSecret && !providerSecret && value !== undefined) result[key] = value;
-  }
-  return result;
-}
-
-export function groupExists(pid: number): boolean {
-  try { process.kill(-pid, 0); return true; }
-  catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    if (code === 'ESRCH') return false;
-    // Permission denial cannot establish absence. Keep observing within the
-    // cleanup deadline rather than treating a transient denial as completion.
-    if (code === 'EPERM') return true;
-    throw error;
-  }
-}
-
-function signalGroup(pid: number, signal: NodeJS.Signals): void {
-  try { process.kill(-pid, signal); }
-  catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    // A denied signal is never proof of cleanup; settleGroup must still observe
-    // both pipe closure and group absence, or return false at the deadline.
-    if (code !== 'ESRCH' && code !== 'EPERM') throw error;
-  }
-}
-
-async function settleGroup(pid: number, closed: () => boolean, durationMs: number): Promise<boolean> {
-  const deadline = performance.now() + durationMs;
-  do {
-    if (closed() && !groupExists(pid)) return true;
-    await new Promise<void>(resolve => setTimeout(resolve, Math.min(TERMINATION_LIMITS.pollMs, Math.max(1, deadline - performance.now()))));
-  } while (performance.now() < deadline);
-  return closed() && !groupExists(pid);
-}
 
 async function waitGroupAbsent(pid: number, durationMs: number): Promise<boolean> {
   const deadline = performance.now() + durationMs;
@@ -71,13 +15,6 @@ async function waitGroupAbsent(pid: number, durationMs: number): Promise<boolean
     await new Promise<void>(resolve => setTimeout(resolve, TERMINATION_LIMITS.pollMs));
   } while (performance.now() < deadline);
   return !groupExists(pid);
-}
-
-export async function cleanupGroup(pid: number, closed: () => boolean = () => true): Promise<boolean> {
-  signalGroup(pid, 'SIGTERM');
-  if (await settleGroup(pid, closed, TERMINATION_LIMITS.termGraceMs)) return true;
-  signalGroup(pid, 'SIGKILL');
-  return settleGroup(pid, closed, TERMINATION_LIMITS.killWaitMs);
 }
 
 export interface ShellStdinControl { write(data: Buffer): Promise<void>; end(): Promise<void> }

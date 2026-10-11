@@ -16,6 +16,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { backupDatabase } from '../storage/maintenance.js';
 import { databaseVersion } from '../storage/migrations.js';
+import { pidPresence, type PidPresence } from '../shared/runtime.js';
 import { NATIVE_SESSION_TABLES } from '../storage/native-schema.js';
 import { SUMMARY_STORAGE_TABLES } from '../storage/summary-attempts.js';
 import { SUMMARY_RECOVERY_TABLES } from './summary.js';
@@ -87,11 +88,7 @@ function busy(error: unknown): boolean {
   const code = (error as { errcode?: number })?.errcode;
   return typeof code === 'number' && ((code & 0xff) === 5 || (code & 0xff) === 6);
 }
-function observe(pid: number, group: boolean): 'absent' | 'alive' | 'unknown' {
-  if (group && process.platform === 'win32') return 'unknown';
-  try { process.kill(group ? -pid : pid, 0); return 'alive'; }
-  catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown'; }
-}
+const observe = (pid: number, group: boolean): PidPresence => pidPresence(pid, { group }).presence;
 function processBlocker(marker: Marker): RecoveryBlocker | undefined {
   if (marker.groupPid === null) return 'PROCESS_GROUP_NOT_RECORDED';
   const owner = observe(marker.ownerPid, false), group = observe(marker.groupPid, true);

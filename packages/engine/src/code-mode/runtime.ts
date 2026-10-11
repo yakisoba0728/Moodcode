@@ -69,6 +69,7 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
       "../tools/command/process-control.js",
       "../tools/command/process-control.ts",
     ),
+    runtimeFile("../shared/runtime.js", "../shared/runtime.ts"),
   ];
   const node = physicalPin(realpathSync(process.execPath)),
     worker = physicalPin(codeModeWorkerPath());

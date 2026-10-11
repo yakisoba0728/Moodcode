@@ -1,5 +1,6 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
+import { pidPresence } from "../shared/runtime.js";
 import type {
   PtyDiagnosticEvent,
   PtyDiagnostics,
@@ -275,22 +276,16 @@ export function observePtyGroupExists(
   groupPid: number,
   recorder: PtyDiagnosticRecorder,
 ): boolean {
-  try {
-    process.kill(-groupPid, 0);
+  const { presence, error } = pidPresence(groupPid, { group: true });
+  if (presence === "alive") {
     recorder.note({ kind: "group-probe", groupPid, presence: "present" });
     return true;
-  } catch (error) {
-    const errorCode = ptyDiagnosticErrorCode(error);
-    recorder.note({
-      kind: "group-probe",
-      groupPid,
-      presence: errorCode === "ESRCH" ? "absent" : "unknown",
-      errorCode,
-    });
-    if (errorCode === "ESRCH") return false;
-    if (errorCode === "EPERM") return true;
-    throw error;
   }
+  const errorCode = ptyDiagnosticErrorCode(error);
+  recorder.note({ kind: "group-probe", groupPid, presence, errorCode });
+  if (presence === "absent") return false;
+  if (errorCode === "EPERM") return true;
+  throw error;
 }
 
 /** Strict supervisor result parser; corrupt observations cannot stand in for a closed result. */
