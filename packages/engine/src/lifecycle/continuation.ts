@@ -5,6 +5,7 @@ import {
   isTerminal,
   type JsonObject,
   type Run,
+  type RunLimits,
 } from "@moodcode/contracts";
 import type {
   CoordinatorOptions,
@@ -77,24 +78,31 @@ export function lifecycleContinuationDocumentKind(runId: string): string {
 function fail(code: string, message: string): never {
   throw new EngineError(code, message);
 }
+const BUDGET_LIMITS = {
+  turns: "maxTurns",
+  toolCalls: "maxToolCalls",
+  outputBytes: "maxOutputBytes",
+  durationMs: "maxDurationMs",
+} as const;
 function check(signal: AbortSignal): void {
   if (signal.aborted) fail("CANCELLED", "Lifecycle continuation was cancelled");
 }
 function plainRun(value: Run): void {
+  const descriptors =
+    value &&
+    typeof value === "object" &&
+    !types.isProxy(value) &&
+    [Object.prototype, null].includes(Object.getPrototypeOf(value))
+      ? Object.getOwnPropertyDescriptors(value)
+      : undefined;
   if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value)) ||
-    Object.values(Object.getOwnPropertyDescriptors(value)).some(
-      (item) => !Object.hasOwn(item, "value"),
-    )
+    !descriptors ||
+    Object.values(descriptors).some((item) => !Object.hasOwn(item, "value"))
   )
     fail(
       "INVALID_LIFECYCLE_CONTINUATION",
       "Lifecycle continuation requires a plain original Run",
     );
-  const descriptors = Object.getOwnPropertyDescriptors(value);
   if (
     !["id", "sessionId", "workspaceId", "config"].every((key) =>
       Object.hasOwn(descriptors, key),
@@ -149,19 +157,12 @@ export function createLifecycleContinuationPort(
     reservedTurn = false,
   ): VerificationRemainingBudget => {
     const current = ports.readRemainingBudget(run);
-    verificationPlain(current, [
-      "turns",
-      "toolCalls",
-      "outputBytes",
-      "durationMs",
-    ]);
-    for (const [key, limit] of [
-      ["turns", run.config.limits.maxTurns],
-      ["toolCalls", run.config.limits.maxToolCalls],
-      ["outputBytes", run.config.limits.maxOutputBytes],
-      ["durationMs", run.config.limits.maxDurationMs],
-    ] as const) {
-      verificationNumber(current[key], limit);
+    verificationPlain(current, Object.keys(BUDGET_LIMITS));
+    for (const [key, limit] of Object.entries(BUDGET_LIMITS) as [
+      keyof VerificationRemainingBudget,
+      keyof RunLimits,
+    ][]) {
+      verificationNumber(current[key], run.config.limits[limit]);
       if (
         (current[key] <= 0 &&
           key !== "toolCalls" &&

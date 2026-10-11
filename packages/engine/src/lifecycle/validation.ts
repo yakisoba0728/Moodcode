@@ -1,5 +1,6 @@
 import {
   EngineError,
+  type JsonObject,
   type JsonValue,
   type RunLimits,
 } from "@moodcode/contracts";
@@ -233,14 +234,14 @@ const integer = (value: unknown) =>
   typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 const sha = (value: unknown) =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
+const isJsonObject = (value: unknown): value is JsonObject =>
+  !!value && typeof value === "object" && !Array.isArray(value);
 export function lifecycleIdentity(
   identity: unknown,
 ): Readonly<LifecycleRunIdentity> {
   const data = boundedLifecycleJson(identity, 1_024);
   if (
-    !data ||
-    Array.isArray(data) ||
-    typeof data !== "object" ||
+    !isJsonObject(data) ||
     Object.keys(data).length !== 3 ||
     !["workspaceId", "sessionId", "runId"].every((key) =>
       scalarString(data[key]),
@@ -365,9 +366,7 @@ export function lifecycleInvocation(
 ): LifecycleInvocation {
   const copy = boundedLifecycleJson(value, maxBytes);
   if (
-    !copy ||
-    Array.isArray(copy) ||
-    typeof copy !== "object" ||
+    !isJsonObject(copy) ||
     Object.keys(copy).sort().join(",") !==
       "identity,invocationId,metadata,stage" ||
     !scalarString(copy.invocationId) ||
@@ -381,9 +380,7 @@ export function lifecycleInvocation(
   const metadata = copy.metadata,
     schema = schemas[copy.stage as LifecycleStage];
   if (
-    !metadata ||
-    Array.isArray(metadata) ||
-    typeof metadata !== "object" ||
+    !isJsonObject(metadata) ||
     Object.entries(schema.required).some(
       ([key, test]) => !test(metadata[key]),
     ) ||
@@ -410,6 +407,23 @@ export function allowsLifecycleDeny(stage: LifecycleStage): boolean {
     stage === "tool-prepared"
   );
 }
+const TRANSFORMS = {
+  "rewrite-input": {
+    stage: "tool-prepare",
+    expected: "expectedInputSha256",
+    data: "input",
+  },
+  "context-data": {
+    stage: "model-context",
+    expected: "expectedContextSha256",
+    data: "data",
+  },
+  continue: {
+    stage: "before-stop",
+    expected: "expectedVerificationSha256",
+    data: "data",
+  },
+} as const;
 export function lifecycleResult(
   value: LifecycleHookResult | void,
   stage: LifecycleStage,
@@ -420,34 +434,16 @@ export function lifecycleResult(
     maxBytes,
   );
   if (
-    copy &&
-    !Array.isArray(copy) &&
-    typeof copy === "object" &&
-    ["rewrite-input", "context-data", "continue"].includes(copy.kind as string)
+    isJsonObject(copy) &&
+    Object.keys(TRANSFORMS).includes(copy.kind as string)
   ) {
-    const kind = copy.kind;
-    const expectedKey =
-      kind === "rewrite-input"
-        ? "expectedInputSha256"
-        : kind === "context-data"
-          ? "expectedContextSha256"
-          : "expectedVerificationSha256";
-    const dataKey = kind === "rewrite-input" ? "input" : "data";
-    const requiredStage =
-      kind === "rewrite-input"
-        ? "tool-prepare"
-        : kind === "context-data"
-          ? "model-context"
-          : "before-stop";
+    const transform = TRANSFORMS[copy.kind as keyof typeof TRANSFORMS];
     if (
-      stage !== requiredStage ||
+      stage !== transform.stage ||
       Object.keys(copy).sort().join(",") !==
-        ["kind", expectedKey, dataKey].sort().join(",") ||
-      !sha(copy[expectedKey]) ||
-      (dataKey === "data" &&
-        (!copy.data ||
-          Array.isArray(copy.data) ||
-          typeof copy.data !== "object"))
+        ["kind", transform.expected, transform.data].sort().join(",") ||
+      !sha(copy[transform.expected]) ||
+      (transform.data === "data" && !isJsonObject(copy.data))
     )
       throw new EngineError(
         "INVALID_LIFECYCLE_RESULT",
@@ -456,9 +452,7 @@ export function lifecycleResult(
     return copy as unknown as LifecycleHookResult;
   }
   if (
-    !copy ||
-    Array.isArray(copy) ||
-    typeof copy !== "object" ||
+    !isJsonObject(copy) ||
     !["observe", "deny", "stop"].includes(copy.kind as string) ||
     Object.keys(copy).some(
       (key) => !["kind", "code", "reason", "metadata"].includes(key),
@@ -482,12 +476,7 @@ export function lifecycleResult(
       "INVALID_LIFECYCLE_RESULT",
       "Deny is only supported before model dispatch or tool approval/effect",
     );
-  if (
-    copy.metadata !== undefined &&
-    (!copy.metadata ||
-      Array.isArray(copy.metadata) ||
-      typeof copy.metadata !== "object")
-  )
+  if (copy.metadata !== undefined && !isJsonObject(copy.metadata))
     throw new EngineError(
       "INVALID_LIFECYCLE_RESULT",
       "Lifecycle result metadata must be a JSON object",

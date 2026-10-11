@@ -1,5 +1,5 @@
 import { EngineError } from "@moodcode/contracts";
-import { createHash } from "node:crypto";
+import { jsonTextSha256 } from "../shared/canonical.js";
 import type {
   LifecycleHookRegistry,
   LifecycleCapturedHook,
@@ -21,8 +21,16 @@ import type {
   LifecycleTransformReceipt,
 } from "./types.js";
 
-const digest = (value: unknown): string =>
-  createHash("sha256").update(JSON.stringify(value)).digest("hex");
+const STATUS = {
+  observe: "observed",
+  deny: "denied",
+  stop: "stop-requested",
+} as const;
+const deadlineError = () =>
+  new EngineError(
+    "LIFECYCLE_HOOK_TIMEOUT",
+    "Lifecycle callback deadline elapsed",
+  );
 
 type CallbackSettlement =
   | { kind: "result"; result: LifecycleHookResult | void }
@@ -46,12 +54,7 @@ async function invoke(
     signal.addEventListener("abort", abort, { once: true });
     detach = () => signal.removeEventListener("abort", abort);
     timer = setTimeout(() => {
-      deadline.abort(
-        new EngineError(
-          "LIFECYCLE_HOOK_TIMEOUT",
-          "Lifecycle callback deadline elapsed",
-        ),
-      );
+      deadline.abort(deadlineError());
       resolve({ kind: "timeout" });
     }, timeoutMs);
     if (signal.aborted) abort();
@@ -75,12 +78,7 @@ async function invoke(
       (result.kind === "result" || result.kind === "error") &&
       performance.now() - started >= timeoutMs
     ) {
-      deadline.abort(
-        new EngineError(
-          "LIFECYCLE_HOOK_TIMEOUT",
-          "Lifecycle callback deadline elapsed",
-        ),
-      );
+      deadline.abort(deadlineError());
       return { kind: "timeout" };
     }
     return result;
@@ -174,7 +172,7 @@ async function dispatch(
               ? {
                   contextData: {
                     items: contextItems,
-                    sha256: digest(contextItems),
+                    sha256: jsonTextSha256(contextItems),
                   },
                 }
               : {}),
@@ -182,11 +180,7 @@ async function dispatch(
           }
         : {}),
     });
-  for (const hook of registry
-    .captureState(capture)
-    .hooks.filter((item) =>
-      item.descriptor.stages.includes(invocation.stage),
-    )) {
+  const halt = (reason: string): LifecycleDispatchOutcome | undefined => {
     if (signal.aborted)
       return finish(
         "stop",
@@ -197,13 +191,17 @@ async function dispatch(
     try {
       registry.assertCurrent(capture);
     } catch {
-      return finish(
-        "stop",
-        "stale",
-        "LIFECYCLE_REGISTRY_STALE",
-        "Lifecycle capture changed before callback dispatch",
-      );
+      return finish("stop", "stale", "LIFECYCLE_REGISTRY_STALE", reason);
     }
+    return undefined;
+  };
+  for (const hook of registry
+    .captureState(capture)
+    .hooks.filter((item) =>
+      item.descriptor.stages.includes(invocation.stage),
+    )) {
+    const halted = halt("Lifecycle capture changed before callback dispatch");
+    if (halted) return halted;
     const descriptor = hook.descriptor,
       callbackStarted = performance.now(),
       remaining = registry.limits.maxDispatchMs - (callbackStarted - started);
@@ -273,7 +271,7 @@ async function dispatch(
               "LIFECYCLE_TRANSFORM_STALE",
               "Lifecycle rewrite does not match the current input digest",
             );
-          const effectiveSha256 = digest(result.input),
+          const effectiveSha256 = jsonTextSha256(result.input),
             inputBytes = Buffer.byteLength(JSON.stringify(result.input));
           const updated = lifecycleInvocation(
             {
@@ -329,7 +327,7 @@ async function dispatch(
           transform = {
             kind: result.kind,
             expectedContextSha256: result.expectedContextSha256,
-            dataSha256: digest(result.data),
+            dataSha256: jsonTextSha256(result.data),
           };
         } else if (result.kind === "continue") {
           if (
@@ -353,7 +351,7 @@ async function dispatch(
               "LIFECYCLE_CONTINUATION_LIMIT",
               "Lifecycle dispatch accepts only one continuation result",
             );
-          const sha256 = digest(result.data);
+          const sha256 = jsonTextSha256(result.data);
           continuation = {
             verificationSha256: result.expectedVerificationSha256,
             data: result.data,
@@ -379,12 +377,7 @@ async function dispatch(
         : (result.kind as "observe" | "deny" | "stop");
       outcomes.push({
         ...base,
-        status:
-          action === "observe"
-            ? "observed"
-            : action === "deny"
-              ? "denied"
-              : "stop-requested",
+        status: STATUS[action],
         action,
         ...("code" in result
           ? { code: result.code, reason: result.reason }
@@ -425,22 +418,8 @@ async function dispatch(
         );
     }
   }
-  if (signal.aborted)
-    return finish(
-      "stop",
-      "cancelled",
-      "LIFECYCLE_CANCELLED",
-      "Lifecycle dispatch was cancelled",
-    );
-  try {
-    registry.assertCurrent(capture);
-  } catch {
-    return finish(
-      "stop",
-      "stale",
-      "LIFECYCLE_REGISTRY_STALE",
-      "Lifecycle capture changed before result acceptance",
-    );
-  }
-  return finish("observe", "completed");
+  return (
+    halt("Lifecycle capture changed before result acceptance") ??
+    finish("observe", "completed")
+  );
 }

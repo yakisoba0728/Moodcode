@@ -5,25 +5,23 @@ export { LIFECYCLE_STAGES } from "./types.js";
 export type {
   LifecycleAction,
   LifecycleCapture,
+  LifecycleContextData,
+  LifecycleContextDataItem,
+  LifecycleContinuation,
   LifecycleDispatchOutcome,
   LifecycleFailurePolicy,
   LifecycleHookCallback,
   LifecycleHookDescriptor,
   LifecycleHookOutcome,
   LifecycleHookRegistration,
+  LifecycleHookResult,
+  LifecycleInputRewrite,
   LifecycleInvocation,
   LifecycleLimits,
   LifecycleMetadataByStage,
   LifecycleRunIdentity,
   LifecycleStage,
+  LifecycleTransformReceipt,
   ReadonlyLifecycleJsonObject,
   ReadonlyLifecycleJsonValue,
-} from "./types.js";
-export type { LifecycleHookResult } from "./types.js";
-export type {
-  LifecycleTransformReceipt,
-  LifecycleInputRewrite,
-  LifecycleContextData,
-  LifecycleContextDataItem,
-  LifecycleContinuation,
 } from "./types.js";
