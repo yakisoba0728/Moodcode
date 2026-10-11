@@ -413,6 +413,25 @@ test('execute rejects altered preparation and identity before command effects', 
   await assertAbsent(context.artifactDir);
 });
 
+test('an observer that rewrites the preparation before spawn sees the failure and the command is never replayed', { skip: !posix }, async t => {
+  const { root, context, checkpoints } = await fixture(t);
+  const marker = join(root, 'rewritten-effect');
+  const calls: string[] = [];
+  const record = (name: string) => () => { calls.push(name); };
+  const tool = originalCreateCommandTool({ observer: {
+    beforeSpawn: (_context, prepared) => { calls.push('beforeSpawn'); prepared.preview.timeoutMs = 1; return {}; },
+    started: record('started'), output() {}, closed: record('closed'), failed: record('failed'),
+  } });
+  const prepared = await tool.prepare({ command: nodeCommand(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'effect')`) }, context);
+  const approvedTimeout = prepared.preview.timeoutMs;
+  await assert.rejects(tool.execute(prepared, context), { code: 'COMMAND_APPROVAL_MISMATCH' });
+  assert.deepEqual(calls, ['beforeSpawn', 'failed']);
+  prepared.preview.timeoutMs = approvedTimeout!;
+  await assert.rejects(tool.execute(prepared, context), { code: 'COMMAND_ALREADY_EXECUTED' });
+  await assertAbsent(marker);
+  assert.equal(checkpoints.length, 0);
+});
+
 test('execute rechecks an approved cwd after its directory is replaced by an external symlink', { skip: !posix }, async t => {
   const { root, temporary, context } = await fixture(t);
   const directory = join(root, 'approved');

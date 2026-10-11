@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { randomInt } from 'node:crypto';
 import { types as nodeTypes } from 'node:util';
+import { errorText } from './process-control.js';
 
 export interface ExecutionLock {
   recordGroup(pid: number): void;
@@ -25,8 +26,6 @@ export interface ExecutionLockMarker {
   active: boolean;
   updatedAt: string;
 }
-
-type Marker = ExecutionLockMarker;
 
 export interface ExecutionLockReservation { readonly id: string }
 const heldLocks = new WeakMap<object, () => void>();
@@ -68,17 +67,23 @@ function checkLockVersion(version: unknown): void {
   }
 }
 
+/** The primary SQLite result code of a node:sqlite error. */
+function sqliteCode(error: unknown): number | undefined {
+  const errcode = (error as { errcode?: unknown } | null)?.errcode;
+  return typeof errcode === 'number' ? errcode & 0xff : undefined;
+}
+
 function inspectionError(error: unknown): EngineError {
   if (error instanceof EngineError) return error;
-  const value = error as { code?: unknown; errcode?: unknown } | null;
-  const sqliteCode = value && typeof value.errcode === 'number' ? value.errcode & 0xff : undefined;
-  if (value?.code === 'EACCES' || value?.code === 'EPERM' || sqliteCode === 3 || sqliteCode === 23) {
+  const value = error as { code?: unknown } | null;
+  const code = sqliteCode(error);
+  if (value?.code === 'EACCES' || value?.code === 'EPERM' || code === 3 || code === 23) {
     return new EngineError('COMMAND_EFFECTS_INSPECT_PERMISSION_DENIED', 'Permission denied while inspecting the command execution lock.');
   }
-  if (sqliteCode === 8) {
+  if (code === 8) {
     return new EngineError('COMMAND_EFFECTS_INSPECT_RECOVERY_REQUIRED', 'SQLite requires writable recovery before this execution lock can be inspected; inspection performed no recovery.');
   }
-  if ([1, 11, 26].includes(sqliteCode ?? -1)) {
+  if ([1, 11, 26].includes(code ?? -1)) {
     return new EngineError('COMMAND_EFFECTS_INSPECT_CORRUPT', 'The command execution lock database or schema is invalid.');
   }
   return new EngineError('COMMAND_EFFECTS_INSPECT_FAILED', 'Could not inspect the command execution lock.');
@@ -207,19 +212,19 @@ export function inspectExecutionLock(path: string, options: ExecutionLockInspect
   } catch (error) {
     discard(db, transaction);
     checkInspectionAbort(signal);
-    const sqliteCode = typeof (error as { errcode?: unknown } | null)?.errcode === 'number' ? (error as { errcode: number }).errcode & 0xff : undefined;
-    if (sqliteCode === 5 || sqliteCode === 6) return { status: 'busy', marker: null, schemaVersion: null };
+    const code = sqliteCode(error);
+    if (code === 5 || code === 6) return { status: 'busy', marker: null, schemaVersion: null };
     throw inspectionError(error);
   }
 }
 
 function normalizeError(error: unknown): EngineError {
   if (error instanceof EngineError) return error;
-  const value = error as { errcode?: unknown } | null;
-  if (value && typeof value.errcode === 'number' && [5, 6].includes(value.errcode & 0xff)) {
+  const code = sqliteCode(error);
+  if (code === 5 || code === 6) {
     return new EngineError('COMMAND_EFFECTS_BUSY', 'A command supervisor still holds the execution lock.');
   }
-  return new EngineError('COMMAND_EFFECTS_LOCK_FAILED', `Could not manage the command execution lock: ${error instanceof Error ? error.message : String(error)}`);
+  return new EngineError('COMMAND_EFFECTS_LOCK_FAILED', `Could not manage the command execution lock: ${errorText(error)}`);
 }
 
 function openDatabase(path: string): DatabaseSync {
@@ -240,7 +245,7 @@ function openDatabase(path: string): DatabaseSync {
   }
 }
 
-function readMarker(db: DatabaseSync): Marker | undefined {
+function readMarker(db: DatabaseSync): ExecutionLockMarker | undefined {
   const row = db.prepare('SELECT owner_pid, group_pid, active, updated_at FROM command_execution WHERE id=1').get();
   if (!row) return undefined;
   const ownerPid = Number(row.owner_pid);
@@ -252,7 +257,7 @@ function readMarker(db: DatabaseSync): Marker | undefined {
   return { ownerPid, groupPid, active: active === 1, updatedAt: row.updated_at };
 }
 
-function uncertain(marker: Marker): EngineError {
+function uncertain(marker: ExecutionLockMarker): EngineError {
   return new EngineError('COMMAND_CLEANUP_UNCERTAIN', 'A previous command has an active execution marker. Confirm its effects have stopped and reconcile the marker manually before reopening.', {
     ownerPid: marker.ownerPid, groupPid: marker.groupPid, updatedAt: marker.updatedAt,
   });
@@ -288,11 +293,6 @@ export function assertExecutionLockAvailable(path: string): void {
   }
 }
 
-/**
- * Commits active=1 before effects can start, then holds an exclusive transaction.
- * recordGroup updates remain uncommitted while held; a crash may leave group_pid
- * null, but the durable active marker still prevents another command from starting.
- */
 /** Explicit host recovery only; a live or unverifiable PID never authorizes clearing a marker. */
 export function reconcileStoppedExecutionLock(path: string, input: Readonly<ExecutionLockMarker>): void {
   if (!input || typeof input !== 'object' || nodeTypes.isProxy(input) || Object.getPrototypeOf(input) !== Object.prototype) throw new EngineError('COMMAND_EFFECTS_RECOVERY_INVALID', 'Execution recovery requires plain marker metadata');
@@ -301,7 +301,7 @@ export function reconcileStoppedExecutionLock(path: string, input: Readonly<Exec
   const expected = Object.freeze({ ownerPid: descriptors.ownerPid!.value as number, groupPid: descriptors.groupPid!.value as number | null, active: descriptors.active!.value as boolean, updatedAt: descriptors.updatedAt!.value as string });
   if (!Number.isSafeInteger(expected.ownerPid) || expected.ownerPid < 1 || expected.ownerPid > 2_147_483_647 || expected.groupPid !== null || expected.active !== true || typeof expected.updatedAt !== 'string' || expected.updatedAt.length > 128 || !Number.isFinite(Date.parse(expected.updatedAt))) throw new EngineError('COMMAND_EFFECTS_RECOVERY_INVALID', 'Execution recovery requires the exact bounded file marker');
   const inspected = inspectExecutionLock(path);
-  if (inspected.status !== 'uncertain' || expected.groupPid !== null || JSON.stringify(inspected.marker) !== JSON.stringify(expected)) throw new EngineError('COMMAND_EFFECTS_RECOVERY_STALE', 'Execution recovery requires the exact original file marker');
+  if (inspected.status !== 'uncertain' || JSON.stringify(inspected.marker) !== JSON.stringify(expected)) throw new EngineError('COMMAND_EFFECTS_RECOVERY_STALE', 'Execution recovery requires the exact original file marker');
   try { process.kill(expected.ownerPid, 0); throw new EngineError('COMMAND_EFFECTS_OWNER_ALIVE', 'The original file effect process is still alive'); }
   catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error; }
   const db = openDatabase(path); let transaction = false;
@@ -315,6 +315,11 @@ export function reconcileStoppedExecutionLock(path: string, input: Readonly<Exec
   } finally { if (transaction) db.exec('ROLLBACK'); db.close(); }
 }
 
+/**
+ * Commits active=1 before effects can start, then holds an exclusive transaction.
+ * recordGroup updates remain uncommitted while held; a crash may leave group_pid
+ * null, but the durable active marker still prevents another command from starting.
+ */
 export function acquireExecutionLock(path: string, reservation?: ExecutionLockReservation): ExecutionLock {
   const owned = reservation === undefined ? undefined : reservations.get(reservation);
   if (reservation !== undefined && (!owned || owned.used || owned.path !== path)) throw new EngineError('COMMAND_EXECUTION_RESERVATION_INVALID', 'Execution reservation is foreign, consumed or bound to another lock');

@@ -1,4 +1,4 @@
-import { executeShell, type ProcessOutcome, type ShellInput, type ShellStdinControl } from './process-control.js';
+import { errorText, executeShell, notStartedOutcome, type ProcessOutcome, type ShellInput, type ShellStdinControl } from './process-control.js';
 import type { acquireExecutionLock } from './execution-lock.js';
 
 // This process deliberately outlives the engine. IPC disconnect is its parent
@@ -26,7 +26,7 @@ function finish(outcome: ProcessOutcome): void {
   if (finished) return;
   finished = true;
   try { lock?.release(outcome.cleanupConfirmed); }
-  catch (error) { outcome = { ...outcome, cleanupConfirmed: false, error: `Execution lock release failed: ${error instanceof Error ? error.message : String(error)}` }; }
+  catch (error) { outcome = { ...outcome, cleanupConfirmed: false, error: `Execution lock release failed: ${errorText(error)}` }; }
   const exitCode = outcome.cleanupConfirmed ? 0 : 1;
   if (disconnected || outcome.outputDiscarded || outcome.error) {
     // Flush the small bounded queues when the parent is still reading. Abrupt
@@ -51,7 +51,7 @@ function finish(outcome: ProcessOutcome): void {
 }
 
 function idleCancelled(): void {
-  finish({ exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false });
+  finish(notStartedOutcome(true));
 }
 
 process.stdout.on('error', () => { if (!finished) abort.abort(); });
@@ -110,7 +110,7 @@ process.on('message', async (message: unknown) => {
     input = packet.input;
     interactive = packet.interactive === true;
     if (!input || typeof input.command !== 'string' || typeof input.cwd !== 'string' || !Number.isSafeInteger(input.timeoutMs) || input.timeoutMs < 1) {
-      finish({ exitCode: null, signal: null, cancelled: false, timedOut: false, cleanupConfirmed: true, started: false, error: 'Invalid supervisor initialization.' });
+      finish(notStartedOutcome(false, 'Invalid supervisor initialization.'));
       return;
     }
     try {
@@ -123,7 +123,7 @@ process.on('message', async (message: unknown) => {
       ready = true;
       send({ type: 'ready' });
     } catch (error) {
-      finish({ exitCode: null, signal: null, cancelled: false, timedOut: false, cleanupConfirmed: true, started: false, error: error instanceof Error ? error.message : String(error) });
+      finish(notStartedOutcome(false, errorText(error)));
     }
     return;
   }
@@ -135,7 +135,7 @@ process.on('message', async (message: unknown) => {
         pid => { lock?.recordGroup(pid); send({ type: 'started', pid }); }, warning => send({ type: 'warning', warning }), interactive ? control => { stdin = control; } : undefined);
       finish(outcome);
     } catch (error) {
-      finish({ exitCode: null, signal: null, cancelled: abort.signal.aborted, timedOut: false, cleanupConfirmed: false, started: true, error: error instanceof Error ? error.message : String(error) });
+      finish({ exitCode: null, signal: null, cancelled: abort.signal.aborted, timedOut: false, cleanupConfirmed: false, started: true, error: errorText(error) });
     }
   }
 });

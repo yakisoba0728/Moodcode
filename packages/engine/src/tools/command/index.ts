@@ -1,18 +1,6 @@
-import { createHash, randomUUID, type Hash } from "node:crypto";
-import { fork } from "node:child_process";
-import {
-  constants,
-  closeSync,
-  existsSync,
-  fstatSync,
-  openSync,
-  readSync,
-  writeSync,
-} from "node:fs";
-import { chmod, mkdir, mkdtemp, realpath, stat } from "node:fs/promises";
-import { createRequire } from "node:module";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { createHash, randomUUID } from "node:crypto";
+import { realpath, stat } from "node:fs/promises";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import { types } from "node:util";
 import {
   EngineError,
@@ -30,84 +18,66 @@ import { within } from "../../shared/fs.js";
 import {
   captureWorkspace,
   resolveWorkspacePath,
+  type CaptureWorkspaceOptions,
+  type WorkspaceCapture,
 } from "../../workspace/index.js";
 import {
-  cleanupGroup,
-  createCommandEnvironment,
+  COMMAND_LIMITS,
+  captureOutput,
+  closeCaptures,
+  createCaptures,
+  modelPrefix,
+  outputData,
+  sealedArtifact,
+  type CaptureOutput,
+  type Captures,
+} from "./capture.js";
+import {
+  errorText,
+  notStartedOutcome,
   type ProcessOutcome,
 } from "./process-control.js";
 import {
   COMMAND_OBSERVATION_LIMITS,
-  validateCommandArtifactDescriptor,
+  observationFailure,
   type CommandArtifactDescriptor,
   type CommandExecutionObserver,
-  type CommandOutputStream,
+  type CommandObservation,
 } from "./observation.js";
 import { commandBackendCapability, WindowsJobCommandBackend } from "./backends.js";
 import { acquireExecutionLock } from "./execution-lock.js";
+import { runSupervised } from "./supervisor-client.js";
 
-/** Capture and artifact budgets are shared by stdout and stderr. */
-export const COMMAND_LIMITS = Object.freeze({
-  maxCommandBytes: 16_384,
-  maxTimeoutMs: 300_000,
-  captureBytes: 262_144,
-  modelBytes: 65_536,
-  artifactBytes: 1_048_576,
-  termGraceMs: 250,
-  killWaitMs: 2_000,
-  pollMs: 20,
-  checkpointTimeoutMs: 2_000,
-  supervisorStartupMs: 5_000,
-});
+export { COMMAND_LIMITS } from "./capture.js";
+export { supervisorExecArgv } from "./supervisor-client.js";
 
 export interface CommandInput {
   command: string;
   cwd: string;
   timeoutMs: number;
 }
-interface Capture {
-  totalBytes: number;
-  capturedBytes: number;
-  buffers: Buffer[];
-  artifactBytes: number;
-  fd: number;
-  path: string;
-  hash: Hash;
-  device: string;
-  inode: string;
-  closedStat?: { size: number; mtimeNs: string };
-  sealFailed?: boolean;
+/** Neutral physical scope: no Run, Turn, Attempt, Tool or PTY identity is synthesized. */
+export interface PhysicalCommandScope {
+  readonly workspace: Workspace;
+  readonly signal: AbortSignal;
+  readonly limits: {
+    readonly toolTimeoutMs: number;
+    readonly maxOutputBytes: number;
+  };
+  readonly artifactDir: string;
+  readonly executionLockPath?: string;
+  readonly executionLockReservation?: import("./execution-lock.js").ExecutionLockReservation;
+  readonly sandbox?: import("../../sandbox/types.js").SandboxLaunch;
 }
-interface Observation {
-  readonly observer: Pick<
-    CommandExecutionObserver,
-    "started" | "output" | "failed" | "control"
-  >;
-  readonly original: object;
-  failure?: string;
+export interface PhysicalCommandResult {
+  readonly outcome: ProcessOutcome;
+  readonly stdout: CommandArtifactDescriptor;
+  readonly stderr: CommandArtifactDescriptor;
+  readonly files: Checkpoint["files"];
+  readonly warnings: readonly string[];
+  readonly incomplete: boolean;
+  readonly observationFailure?: string;
 }
-function observationFailure(observation: Observation, error: unknown): void {
-  if (observation.failure) return;
-  observation.failure = "Command execution observation failed after admission";
-  try {
-    observation.observer.failed?.(observation.original, error);
-  } catch {
-    /* The original observation uncertainty remains authoritative. */
-  }
-}
-interface OutputData {
-  text: string;
-  totalBytes: number;
-  observedBytes: number;
-  capturedBytes: number;
-  captureTruncatedBytes: number;
-  modelBytes: number;
-  modelSourceBytes: number;
-  modelTruncatedBytes: number;
-  artifactBytes: number;
-  artifactTruncatedBytes: number;
-}
-type WorkspaceCapture = Awaited<ReturnType<typeof captureWorkspace>>;
 
 const ATTRIBUTION_WARNING =
   "Checkpoint differences are observations; concurrent external edits cannot be reliably attributed to this command.";
@@ -260,663 +230,130 @@ async function prepareCommand(
   };
 }
 
-function newCapture(path: string): Capture {
-  const fd = openSync(
-    path,
-    constants.O_CREAT |
-      constants.O_EXCL |
-      constants.O_WRONLY |
-      (constants.O_NOFOLLOW ?? 0),
-    0o600,
-  );
-  try {
-    const stat = fstatSync(fd, { bigint: true });
-    return {
-      totalBytes: 0,
-      capturedBytes: 0,
-      buffers: [],
-      artifactBytes: 0,
-      fd,
-      path,
-      hash: createHash("sha256"),
-      device: stat.dev.toString(),
-      inode: stat.ino.toString(),
-    };
-  } catch (error) {
-    closeSync(fd);
-    throw error;
-  }
-}
-
-async function createCaptures(
-  artifactDir: string,
-): Promise<{ stdout: Capture; stderr: Capture }> {
-  const root = resolve(artifactDir);
-  await mkdir(root, { recursive: true, mode: 0o700 });
-  const directory = await mkdtemp(join(await realpath(root), "command-"));
-  await chmod(directory, 0o700);
-  let stdout: Capture | undefined;
-  try {
-    stdout = newCapture(join(directory, "stdout.log"));
-    return { stdout, stderr: newCapture(join(directory, "stderr.log")) };
-  } catch (error) {
-    if (stdout) closeSync(stdout.fd);
-    throw error;
-  }
-}
-
-export function supervisorExecArgv(): string[] {
-  // Consumers may run the engine through node -e, --test, or Electron. Only
-  // module-loader options belong to this different program's script entry.
-  // Supervisors do not start in this process's cwd, so values are resolved.
-  const result: string[] = [];
-  const loaderOptions = [
-    "--import",
-    "--loader",
-    "--experimental-loader",
-    "--require",
-    "-r",
-    "--conditions",
-  ];
-  const resolveLoader = (option: string, value: string): string => {
-    if (option === "--conditions") return value;
-    const cjs = option === "--require" || option === "-r";
-    if (value.startsWith(".") || isAbsolute(value)) {
-      const path = resolve(process.cwd(), value);
-      return cjs ? path : pathToFileURL(path).href;
-    }
-    return cjs
-      ? createRequire(import.meta.url).resolve(value)
-      : import.meta.resolve(value);
-  };
-  for (let index = 0; index < process.execArgv.length; index++) {
-    const argument = process.execArgv[index]!;
-    if (loaderOptions.includes(argument)) {
-      const value = process.execArgv[++index];
-      if (value !== undefined)
-        result.push(argument, resolveLoader(argument, value));
-    } else {
-      const option = loaderOptions.find((option) =>
-        argument.startsWith(`${option}=`),
-      );
-      if (option)
-        result.push(
-          `${option}=${resolveLoader(option, argument.slice(option.length + 1))}`,
-        );
-    }
-  }
-  result.push("--no-warnings");
-  return result;
-}
-
-function closeCaptures(
-  captures: { stdout: Capture; stderr: Capture },
+async function runWindowsJob(
+  input: CommandInput,
+  context: PhysicalCommandScope,
+  output: CaptureOutput,
   warnings: string[],
-  seal = false,
-): void {
-  for (const capture of Object.values(captures)) {
-    if (capture.fd < 0) continue;
-    try {
-      if (seal) {
-        const stat = fstatSync(capture.fd, { bigint: true });
-        if (
-          !stat.isFile() ||
-          stat.dev.toString() !== capture.device ||
-          stat.ino.toString() !== capture.inode ||
-          stat.size !== BigInt(capture.artifactBytes)
-        )
-          throw new EngineError(
-            "COMMAND_ARTIFACT_CHANGED",
-            "The actual command output file changed before sealing",
-          );
-        capture.closedStat = {
-          size: Number(stat.size),
-          mtimeNs: stat.mtimeNs.toString(),
-        };
-      }
-    } catch (error) {
-      capture.sealFailed = true;
-      warnings.push(
-        `Could not seal output artifact: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    try {
-      closeSync(capture.fd);
-    } catch (error) {
-      capture.sealFailed = true;
-      warnings.push(
-        `Could not close output artifact: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    capture.fd = -1;
-    if (seal && !capture.sealFailed && process.platform === "win32") {
-      // Windows commits last-write timestamps when the write handle closes.
-      // Pin that timestamp after close without replacing the original identity
-      // or producer hash; sealedArtifact still verifies every recorded byte.
-      let readFd: number | undefined;
+  observation?: CommandObservation,
+): Promise<ProcessOutcome> {
+  if (context.sandbox) throw new EngineError("SANDBOX_BACKEND_UNSUPPORTED", "Windows Job Object ownership has no supported sandbox launch");
+  const backend = new WindowsJobCommandBackend();
+  if (!backend.capability().available) throw new EngineError("WINDOWS_JOB_BACKEND_UNAVAILABLE", "A native Windows Job Object host is required");
+  let lock: ReturnType<typeof acquireExecutionLock> | undefined;
+  let outcome: ProcessOutcome | undefined;
+  try {
+    if (context.executionLockPath) lock = acquireExecutionLock(context.executionLockPath, context.executionLockReservation);
+    outcome = await backend.execute(input, context.signal, (stream, bytes) => {
+      output.consume(stream, bytes);
+      if (!observation || observation.failure) return;
       try {
-        readFd = openSync(capture.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-        const stat = fstatSync(readFd, { bigint: true });
-        if (!stat.isFile() || stat.dev.toString() !== capture.device || stat.ino.toString() !== capture.inode || stat.size !== BigInt(capture.artifactBytes))
-          throw new EngineError("COMMAND_ARTIFACT_CHANGED", "The output file changed while its write handle closed");
-        capture.closedStat = { size: Number(stat.size), mtimeNs: stat.mtimeNs.toString() };
+        for (let at = 0; at < bytes.length; at += COMMAND_OBSERVATION_LIMITS.outputHookBytes)
+          observation.observer.output(observation.original, stream, Buffer.from(bytes.subarray(at, at + COMMAND_OBSERVATION_LIMITS.outputHookBytes)));
       } catch (error) {
-        capture.sealFailed = true;
-        warnings.push(`Could not seal closed output artifact: ${error instanceof Error ? error.message : String(error)}`);
-      } finally {
-        if (readFd !== undefined) try { closeSync(readFd); }
-        catch (error) { capture.sealFailed = true; warnings.push(`Could not close output seal reader: ${error instanceof Error ? error.message : String(error)}`); }
+        observationFailure(observation, error);
+        throw new EngineError("COMMAND_OBSERVATION_FAILED", "Command output observation failed");
       }
-    }
+    }, pid => {
+      lock?.recordGroup(pid);
+      if (observation) try { observation.observer.started(observation.original, pid); }
+      catch (error) { observationFailure(observation, error); throw error; }
+    }, message => warnings.push(message));
+    output.recordArtifactFailure(outcome);
+    return outcome;
+  } finally {
+    // A crashed engine loses its kill-on-close handle but leaves this marker
+    // active. Restart preserves unknown effects and never replays a command.
+    lock?.release(outcome?.cleanupConfirmed === true);
   }
 }
 
-function sealedArtifact(capture: Capture): CommandArtifactDescriptor {
-  if (!capture.closedStat || capture.sealFailed || capture.fd >= 0)
-    throw new EngineError(
-      "COMMAND_ARTIFACT_UNSEALED",
-      "The command output file has no confirmed original seal",
-    );
-  const fd = openSync(
-    capture.path,
-    constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
-  );
-  try {
-    const before = fstatSync(fd, { bigint: true });
-    const current = () => {
-      const st = fstatSync(fd, { bigint: true });
-      return (
-        st.isFile() &&
-        st.dev.toString() === capture.device &&
-        st.ino.toString() === capture.inode &&
-        st.size === BigInt(capture.closedStat!.size) &&
-        st.mtimeNs.toString() === capture.closedStat!.mtimeNs
-      );
-    };
-    if (!before.isFile() || !current())
-      throw new EngineError(
-        "COMMAND_ARTIFACT_CHANGED",
-        "The current command output source differs from its original sealed file",
-      );
-    const hash = createHash("sha256"),
-      buffer = Buffer.alloc(16_384);
-    for (let at = 0; at < capture.artifactBytes;) {
-      const size = readSync(
-        fd,
-        buffer,
-        0,
-        Math.min(buffer.byteLength, capture.artifactBytes - at),
-        at,
-      );
-      if (size < 1)
-        throw new EngineError(
-          "COMMAND_ARTIFACT_CHANGED",
-          "The current command output source is incomplete",
-        );
-      hash.update(buffer.subarray(0, size));
-      at += size;
-    }
-    const sha256 = hash.digest("hex");
-    if (!current() || sha256 !== capture.hash.copy().digest("hex"))
-      throw new EngineError(
-        "COMMAND_ARTIFACT_CHANGED",
-        "The current command output bytes differ from the actual producer writes",
-      );
-    return validateCommandArtifactDescriptor({
-      version: 1,
-      path: capture.path,
-      sha256,
-      device: capture.device,
-      inode: capture.inode,
-      size: capture.closedStat.size,
-      mtimeNs: capture.closedStat.mtimeNs,
-      observedBytes: capture.totalBytes,
-      artifactBytes: capture.artifactBytes,
-      truncated: capture.totalBytes > capture.artifactBytes,
-    });
-  } finally {
-    closeSync(fd);
-  }
-}
 async function runProcess(
   input: CommandInput,
   context: PhysicalCommandScope,
-  captures: { stdout: Capture; stderr: Capture },
+  captures: Captures,
   warnings: string[],
-  observation?: Observation,
+  observation?: CommandObservation,
 ): Promise<ProcessOutcome> {
-  let remainingCaptureBytes: number = COMMAND_LIMITS.captureBytes;
-  let remainingArtifactBytes: number = COMMAND_LIMITS.artifactBytes;
-  let artifactFailure = false;
-  const consume = (capture: Capture, chunk: Buffer | string): void => {
-    const bytes = typeof chunk === "string" ? Buffer.from(chunk) : chunk;
-    capture.totalBytes += bytes.byteLength;
-    const capturedBytes = Math.min(bytes.byteLength, remainingCaptureBytes);
-    if (capturedBytes > 0) {
-      capture.buffers.push(Buffer.from(bytes.subarray(0, capturedBytes)));
-      capture.capturedBytes += capturedBytes;
-      remainingCaptureBytes -= capturedBytes;
-    }
-    const artifactBytes = Math.min(bytes.byteLength, remainingArtifactBytes);
-    if (artifactBytes > 0 && !artifactFailure) {
-      try {
-        let offset = 0;
-        while (offset < artifactBytes) {
-          const written = writeSync(
-            capture.fd,
-            bytes,
-            offset,
-            artifactBytes - offset,
-          );
-          if (written < 1) throw new Error("Artifact write made no progress.");
-          offset += written;
-          capture.hash.update(bytes.subarray(offset - written, offset));
-          capture.artifactBytes += written;
-          remainingArtifactBytes -= written;
-        }
-      } catch (error) {
-        artifactFailure = true;
-        warnings.push(
-          `Output artifact write failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
-  };
+  if (context.signal.aborted) return notStartedOutcome(true);
+  const output = captureOutput(captures, warnings);
+  return process.platform === "win32"
+    ? runWindowsJob(input, context, output, warnings, observation)
+    : runSupervised(input, context, output, warnings, observation);
+}
 
-  if (context.signal.aborted)
-    return {
-      exitCode: null,
-      signal: null,
-      cancelled: true,
-      timedOut: false,
-      cleanupConfirmed: true,
-      started: false,
-    };
-  if (process.platform === "win32") {
-    if (context.sandbox) throw new EngineError("SANDBOX_BACKEND_UNSUPPORTED", "Windows Job Object ownership has no supported sandbox launch");
-    const backend = new WindowsJobCommandBackend();
-    if (!backend.capability().available) throw new EngineError("WINDOWS_JOB_BACKEND_UNAVAILABLE", "A native Windows Job Object host is required");
-    let lock: ReturnType<typeof acquireExecutionLock> | undefined;
-    let outcome: ProcessOutcome | undefined;
-    try {
-      if (context.executionLockPath) lock = acquireExecutionLock(context.executionLockPath, context.executionLockReservation);
-      outcome = await backend.execute(input, context.signal, (stream, bytes) => {
-        consume(captures[stream], bytes);
-        if (!observation || observation.failure) return;
-        try {
-          for (let at = 0; at < bytes.length; at += COMMAND_OBSERVATION_LIMITS.outputHookBytes)
-            observation.observer.output(observation.original, stream, Buffer.from(bytes.subarray(at, at + COMMAND_OBSERVATION_LIMITS.outputHookBytes)));
-        } catch (error) {
-          observationFailure(observation, error);
-          throw new EngineError("COMMAND_OBSERVATION_FAILED", "Command output observation failed");
-        }
-      }, pid => {
-        lock?.recordGroup(pid);
-        if (observation) try { observation.observer.started(observation.original, pid); }
-        catch (error) { observationFailure(observation, error); throw error; }
-      }, message => warnings.push(message));
-      if (artifactFailure) outcome.error ??= "Output artifact storage failed after the command started.";
-      return outcome;
-    } finally {
-      // A crashed engine loses its kill-on-close handle but leaves this marker
-      // active. Restart preserves unknown effects and never replays a command.
-      lock?.release(outcome?.cleanupConfirmed === true);
-    }
-  }
-  let execArgv: string[];
+function originalObservation(
+  observer: CommandObservation["observer"],
+  original: unknown,
+  message: string,
+): CommandObservation {
+  if (!original || typeof original !== "object" || types.isProxy(original))
+    throw new EngineError("COMMAND_OBSERVATION_ORIGINAL_REQUIRED", message);
+  return { observer, original };
+}
+
+/**
+ * One command from artifact setup to its sealed outputs and workspace diff.
+ * `admit` rechecks the preparation immediately before spawn, attaches the
+ * observation as soon as it exists so later failures reach its observer, and
+ * returns the scope the process runs in.
+ */
+async function runCapturedCommand(
+  input: CommandInput,
+  scope: PhysicalCommandScope,
+  before: WorkspaceCapture,
+  admit: (attach: (observation: CommandObservation) => void) => Promise<PhysicalCommandScope>,
+  afterCapture: { readonly label: string; readonly limits?: Omit<CaptureWorkspaceOptions, "signal"> },
+) {
+  const warnings = [
+    ATTRIBUTION_WARNING,
+    SCOPE_WARNING,
+    processScopeWarning(),
+    ...before.warnings,
+  ];
+  const captures = await createCaptures(scope.artifactDir);
+  let observation: CommandObservation | undefined;
+  let outcome: ProcessOutcome;
   try {
-    execArgv = supervisorExecArgv();
-  } catch {
-    return {
-      exitCode: null,
-      signal: null,
-      cancelled: false,
-      timedOut: false,
-      cleanupConfirmed: true,
-      started: false,
-      error: "Supervisor could not start: a host loader option could not be resolved.",
-    };
-  }
-  const compiled = fileURLToPath(new URL("./supervisor.js", import.meta.url));
-  const source = fileURLToPath(new URL("./supervisor.ts", import.meta.url));
-  const child = fork(existsSync(compiled) ? compiled : source, [], {
-    cwd: dirname(process.execPath),
-    detached: true,
-    stdio: ["ignore", "pipe", "pipe", "ipc"],
-    execPath: process.execPath,
-    execArgv,
-    env: { ...createCommandEnvironment(), ELECTRON_RUN_AS_NODE: "1" },
-  });
-  let groupPid: number | undefined;
-  let inputSequence = 0;
-  let inputClosed = false;
-  let pendingInput: { seq: number; yes: () => void; no: (error: unknown) => void; timer: ReturnType<typeof setTimeout> } | undefined;
-  const controlEpoch = randomUUID();
-  let startSent = false;
-  let ready = false;
-  let closed = false;
-  let outcome: ProcessOutcome | undefined;
-  let failure: string | undefined;
-  let resolveClosed!: () => void;
-  let resolveFailure!: () => void;
-  const closePromise = new Promise<void>((resolveClose) => {
-    resolveClosed = resolveClose;
-  });
-  const failurePromise = new Promise<void>((resolveFail) => {
-    resolveFailure = resolveFail;
-  });
-  const fail = (message: string): void => {
-    failure ??= message;
-    resolveFailure();
-  };
-  const send = (packet: object): void => {
-    if (!child.connected) return;
-    try {
-      child.send(packet, (error) => {
-        if (error) fail(`Supervisor IPC failed: ${error.message}`);
-      });
-    } catch (error) {
-      fail(
-        `Supervisor IPC failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-  };
-  const writeInput = (type: "stdin" | "eof", data: string): Promise<void> => {
-    if (closed || !child.connected || context.signal.aborted || inputClosed || pendingInput || Buffer.byteLength(data) > 16384) return Promise.reject(new EngineError("COMMAND_STDIN_UNAVAILABLE", "Original stdin is closed, busy or exceeds its bound"));
-    if (type === "eof") inputClosed = true;
-    const seq = ++inputSequence;
-    return new Promise<void>((yes, no) => {
-      const timer = setTimeout(() => { if (pendingInput?.seq === seq) { pendingInput = undefined; no(new EngineError("COMMAND_STDIN_UNCERTAIN", "Physical stdin acknowledgement was not received")); send({type:"stop"}); } }, 2000);
-      pendingInput = {seq,yes,no,timer};
-      send({type,seq,data:Buffer.from(data).toString("base64")});
+    const launch = await admit((admitted) => {
+      observation = admitted;
     });
-  };
-  const onAbort = (): void => {
-    send({ type: "stop" });
-  };
-  const pendingOutput: { stream: CommandOutputStream; bytes: Buffer }[] = [];
-  let pendingOutputBytes = 0;
-  const observedOutput = (
-    stream: CommandOutputStream,
-    capture: Capture,
-    chunk: Buffer,
-  ): void => {
-    consume(capture, chunk);
-    if (!observation || observation.failure) return;
-    try {
-      for (
-        let at = 0;
-        at < chunk.byteLength;
-        at += COMMAND_OBSERVATION_LIMITS.outputHookBytes
-      ) {
-        const bytes = Buffer.from(
-          chunk.subarray(at, at + COMMAND_OBSERVATION_LIMITS.outputHookBytes),
-        );
-        if (groupPid === undefined) {
-          if (
-            pendingOutputBytes + bytes.byteLength >
-            COMMAND_OBSERVATION_LIMITS.preAdmissionBytes
-          )
-            throw new EngineError(
-              "COMMAND_OBSERVATION_ADMISSION_MISSING",
-              "Observed output exceeded its bounded queue before the actual process admission",
-            );
-          pendingOutput.push({ stream, bytes });
-          pendingOutputBytes += bytes.byteLength;
-        } else observation.observer.output(observation.original, stream, bytes);
-      }
-    } catch (error) {
-      pendingOutput.length = 0;
-      pendingOutputBytes = 0;
-      observationFailure(observation, error);
-      fail("Command output observation failed");
-      send({ type: "stop" });
-    }
-  };
-  child.stdout?.on("data", (chunk) =>
-    observedOutput("stdout", captures.stdout, chunk),
-  );
-  child.stderr?.on("data", (chunk) =>
-    observedOutput("stderr", captures.stderr, chunk),
-  );
-  child.stdout?.on("error", (error) =>
-    fail(`Supervisor stdout failed: ${error.message}`),
-  );
-  child.stderr?.on("error", (error) =>
-    fail(`Supervisor stderr failed: ${error.message}`),
-  );
-  child.on("error", (error) =>
-    fail(`Supervisor could not start: ${error.message}`),
-  );
-  child.once("close", () => {
-    closed = true;
-    if (pendingInput) { clearTimeout(pendingInput.timer); pendingInput.no(new EngineError("COMMAND_STDIN_UNCERTAIN", "Supervisor closed before stdin acknowledgement")); pendingInput = undefined; }
-    resolveClosed();
-  });
-  child.on("message", (packet: unknown) => {
-    if (!object(packet)) return;
-    if (packet.type === "input-result" && pendingInput && pendingInput.seq === packet.seq) {
-      const pending = pendingInput; pendingInput = undefined; clearTimeout(pending.timer);
-      packet.ok === true ? pending.yes() : pending.no(new EngineError("COMMAND_STDIN_UNAVAILABLE", "Original physical stdin write failed"));
-    } else if (packet.type === "ready" && !ready) {
-      ready = true;
-      if (context.signal.aborted) onAbort();
-      else {
-        startSent = true;
-        send({ type: "start" });
-      }
-    } else if (
-      packet.type === "started" &&
-      Number.isSafeInteger(packet.pid) &&
-      Number(packet.pid) > 0
-    ) {
-      if (observation && groupPid !== undefined) {
-        observationFailure(
-          observation,
-          new EngineError(
-            "COMMAND_OBSERVATION_ADMISSION_CHANGED",
-            "The original process group admission was repeated",
-          ),
-        );
-        fail("Command process admission changed");
-        send({ type: "stop" });
-      } else {
-        groupPid = Number(packet.pid);
-        if (observation && !observation.failure)
-          try {
-            observation.observer.started(observation.original, groupPid);
-            observation.observer.control?.(observation.original, Object.freeze({supervisorPid:child.pid!,groupPid,epoch:controlEpoch,write:(data: string)=>writeInput("stdin",data),end:()=>writeInput("eof",""),alive:()=>!closed && child.connected && !context.signal.aborted}));
-            for (const entry of pendingOutput)
-              observation.observer.output(
-                observation.original,
-                entry.stream,
-                entry.bytes,
-              );
-          } catch (error) {
-            observationFailure(observation, error);
-            fail("Command process admission observation failed");
-            send({ type: "stop" });
-          }
-      }
-      pendingOutput.length = 0;
-      pendingOutputBytes = 0;
-    } else if (
-      packet.type === "warning" &&
-      typeof packet.warning === "string"
-    ) {
-      warnings.push(packet.warning);
-    } else if (
-      packet.type === "result" &&
-      object(packet.outcome) &&
-      typeof packet.outcome.cleanupConfirmed === "boolean"
-    ) {
-      outcome = packet.outcome as unknown as ProcessOutcome;
-    }
-  });
-  context.signal.addEventListener("abort", onAbort, { once: true });
-  send({
-    type: "init",
-    input: {...input,...(context.sandbox ? {sandbox:context.sandbox} : {})},
-    interactive: Boolean(observation?.observer.control),
-    ...(context.executionLockPath
-      ? { executionLockPath: context.executionLockPath }
-      : {}),
-  });
-  if (context.signal.aborted) onAbort();
-  const startupTimer = setTimeout(() => {
-    if (!ready && !outcome) fail("Supervisor readiness deadline expired.");
-  }, COMMAND_LIMITS.supervisorStartupMs);
-  const watchdog = setTimeout(
-    () => fail("Supervisor execution or cleanup deadline expired."),
-    COMMAND_LIMITS.supervisorStartupMs +
-      input.timeoutMs +
-      COMMAND_LIMITS.termGraceMs +
-      COMMAND_LIMITS.killWaitMs +
-      1_000,
-  );
-  const waitClosed = async (ms: number): Promise<boolean> => {
-    if (closed) return true;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    try {
-      await Promise.race([
-        closePromise,
-        new Promise<void>((resolveWait) => {
-          timer = setTimeout(resolveWait, ms);
-        }),
-      ]);
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-    return closed;
-  };
-  try {
-    await Promise.race([closePromise, failurePromise]);
-    if (!closed) {
-      send({ type: "stop" });
-      child.kill("SIGTERM");
-      if (
-        !(await waitClosed(
-          COMMAND_LIMITS.termGraceMs + COMMAND_LIMITS.killWaitMs + 250,
-        ))
-      ) {
-        child.kill("SIGKILL");
-        await waitClosed(250);
-      }
-    }
-    if (!outcome) {
-      let cleanupConfirmed = !startSent;
-      if (groupPid !== undefined) {
-        try {
-          cleanupConfirmed = await cleanupGroup(groupPid);
-        } catch (error) {
-          failure ??= `Fallback process cleanup failed: ${error instanceof Error ? error.message : String(error)}`;
-        }
-      }
-      outcome = {
-        exitCode: null,
-        signal: null,
-        cancelled: context.signal.aborted,
-        timedOut: false,
-        cleanupConfirmed,
-        started: startSent,
-        outputDiscarded: true,
-        error:
-          failure ?? "Supervisor exited without reporting command completion.",
-      };
-      warnings.push(
-        "Supervisor completion was lost. A durable execution lock, when configured, remains blocked until cleanup uncertainty is reconciled.",
-      );
-    }
-    if (!closed) {
-      child.stdout?.destroy();
-      child.stderr?.destroy();
-      child.unref();
-    }
-    if (
-      observation &&
-      (pendingOutputBytes > 0 || (outcome.started && groupPid === undefined))
-    )
-      observationFailure(
-        observation,
-        new EngineError(
-          "COMMAND_OBSERVATION_ADMISSION_MISSING",
-          "The command closed without its original process group admission",
-        ),
-      );
-    pendingOutput.length = 0;
-    pendingOutputBytes = 0;
-    if (artifactFailure)
-      outcome.error ??=
-        "Output artifact storage failed after the command started.";
-    if (failure) outcome.error ??= failure;
-    return outcome;
+    outcome = await runProcess(input, launch, captures, warnings, observation);
+  } catch (error) {
+    if (observation) observationFailure(observation, error);
+    throw error;
   } finally {
-    clearTimeout(startupTimer);
-    clearTimeout(watchdog);
-    context.signal.removeEventListener("abort", onAbort);
+    closeCaptures(captures, warnings, observation !== undefined);
   }
-}
-
-/** A complete UTF-8 prefix, with replacement characters for invalid output. */
-function modelPrefix(
-  capture: Capture,
-  budget: number,
-): { text: string; sourceBytes: number } {
-  const bytes = Buffer.concat(capture.buffers, capture.capturedBytes);
-  if (budget <= 0) return { text: "", sourceBytes: 0 };
-  let end = 0;
-  let renderedBytes = 0;
-  while (end < bytes.byteLength) {
-    const first = bytes[end]!;
-    let length =
-      first < 0x80
-        ? 1
-        : first >= 0xc2 && first <= 0xdf
-          ? 2
-          : first >= 0xe0 && first <= 0xef
-            ? 3
-            : first >= 0xf0 && first <= 0xf4
-              ? 4
-              : 0;
-    let valid = length > 0 && end + length <= bytes.byteLength;
-    for (let index = 1; valid && index < length; index++)
-      valid = (bytes[end + index]! & 0xc0) === 0x80;
-    const second = bytes[end + 1];
-    if (
-      (first === 0xe0 && second! < 0xa0) ||
-      (first === 0xed && second! >= 0xa0) ||
-      (first === 0xf0 && second! < 0x90) ||
-      (first === 0xf4 && second! > 0x8f)
-    )
-      valid = false;
-    // Invalid bytes render as replacement characters. Counting each separately
-    // is conservative when the decoder consumes a malformed multi-byte sequence.
-    const renderedLength = valid ? length : 3;
-    if (renderedBytes + renderedLength > budget) break;
-    if (!valid) length = 1;
-    renderedBytes += renderedLength;
-    end += length;
+  let after: WorkspaceCapture | undefined;
+  try {
+    after = await captureWorkspace(scope.workspace, {
+      signal: AbortSignal.timeout(COMMAND_LIMITS.checkpointTimeoutMs),
+      ...afterCapture.limits,
+    });
+    warnings.push(...after.warnings);
+  } catch (error) {
+    warnings.push(`${afterCapture.label}: ${errorText(error)}`);
   }
-  const text = bytes.subarray(0, end).toString("utf8");
-  return { text, sourceBytes: end };
-}
-
-function outputData(
-  capture: Capture,
-  text: string,
-  sourceBytes: number,
-): OutputData {
+  const ownArtifactPaths = new Set(
+    [captures.stdout, captures.stderr].map((capture) =>
+      relative(scope.workspace.root, capture.path).split(sep).join("/"),
+    ),
+  );
+  const files = after
+    ? changedFiles(before, after, warnings, ownArtifactPaths)
+    : [];
   return {
-    text,
-    totalBytes: capture.totalBytes,
-    observedBytes: capture.totalBytes,
-    capturedBytes: capture.capturedBytes,
-    captureTruncatedBytes: capture.totalBytes - capture.capturedBytes,
-    modelBytes: Buffer.byteLength(text),
-    modelSourceBytes: sourceBytes,
-    modelTruncatedBytes: capture.totalBytes - sourceBytes,
-    artifactBytes: capture.artifactBytes,
-    artifactTruncatedBytes: capture.totalBytes - capture.artifactBytes,
+    outcome,
+    captures,
+    observation,
+    files,
+    warnings: [...new Set(warnings)],
+    incomplete:
+      !after ||
+      !outcome.cleanupConfirmed ||
+      before.warnings.length > 0 ||
+      Boolean(after?.warnings.length),
   };
 }
 
@@ -962,15 +399,7 @@ function cancelledResult(context: ToolContext): ToolResult {
       Math.min(context.limits.maxOutputBytes, COMMAND_LIMITS.modelBytes),
     ),
     isError: true,
-    data: {
-      status: "cancelled",
-      exitCode: null,
-      signal: null,
-      cancelled: true,
-      timedOut: false,
-      cleanupConfirmed: true,
-      started: false,
-    },
+    data: { status: "cancelled", ...notStartedOutcome(true) },
   };
 }
 
@@ -1048,16 +477,7 @@ export function createCommandTool(
           "This prepared command has already been consumed; use a new tool call instead of retrying effects.",
         );
       consumed.add(prepared.fingerprint);
-      const warnings = [
-        ATTRIBUTION_WARNING,
-        SCOPE_WARNING,
-        processScopeWarning(),
-        ...before.warnings,
-      ];
-      const captures = await createCaptures(context.artifactDir);
-      let outcome: ProcessOutcome;
-      let observation: Observation | undefined;
-      try {
+      const run = await runCapturedCommand(input, context, before, async (attach) => {
         // Recheck immediately before spawn, after snapshot and artifact setup.
         const ready = await prepare(checked.input, context);
         if (ready.fingerprint !== checked.fingerprint)
@@ -1066,69 +486,31 @@ export function createCommandTool(
             "Command cwd changed immediately before execution.",
           );
         if (observer) {
-          const binding = JSON.stringify(prepared),
-            original = observer.beforeSpawn(context, prepared);
-          if (
-            !original ||
-            typeof original !== "object" ||
-            types.isProxy(original)
-          )
-            throw new EngineError(
-              "COMMAND_OBSERVATION_ORIGINAL_REQUIRED",
-              "The command observer must return its actual original owner",
-            );
-          observation = { observer, original };
+          const binding = JSON.stringify(prepared);
+          attach(originalObservation(
+            observer,
+            observer.beforeSpawn(context, prepared),
+            "The command observer must return its actual original owner",
+          ));
           if (JSON.stringify(prepared) !== binding)
             throw new EngineError(
               "COMMAND_APPROVAL_MISMATCH",
               "The original command preparation changed before spawn",
             );
         }
-        outcome = await runProcess(
-          input,
-          {...context,...(options.sandbox ? {sandbox:options.sandbox(context)} : {})},
-          captures,
-          warnings,
-          observation,
-        );
-      } catch (error) {
-        if (observation) observationFailure(observation, error);
-        throw error;
-      } finally {
-        closeCaptures(captures, warnings, observation !== undefined);
-      }
-      let after: WorkspaceCapture | undefined;
-      try {
-        after = await captureWorkspace(context.workspace, {
-          signal: AbortSignal.timeout(COMMAND_LIMITS.checkpointTimeoutMs),
-        });
-        warnings.push(...after.warnings);
-      } catch (error) {
-        warnings.push(
-          `After-command workspace capture failed: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-      const ownArtifactPaths = new Set(
-        [captures.stdout, captures.stderr].map((capture) =>
-          relative(context.workspace.root, capture.path).split(sep).join("/"),
-        ),
-      );
-      const files = after
-        ? changedFiles(before, after, warnings, ownArtifactPaths)
-        : [];
+        return {...context,...(options.sandbox ? {sandbox:options.sandbox(context)} : {})};
+      }, { label: "After-command workspace capture failed" });
+      const { captures, observation } = run;
+      let outcome = run.outcome;
       const checkpoint: Checkpoint = {
         id: randomUUID(),
         runId: context.runId,
         toolCallId: context.toolCallId,
         kind: "command",
         createdAt: new Date().toISOString(),
-        files,
-        warnings: [...new Set(warnings)],
-        incomplete:
-          !after ||
-          !outcome.cleanupConfirmed ||
-          before.warnings.length > 0 ||
-          Boolean(after?.warnings.length),
+        files: run.files,
+        warnings: run.warnings,
+        incomplete: run.incomplete,
       };
       try {
         context.recordCheckpoint(checkpoint);
@@ -1240,28 +622,6 @@ export function createCommandTool(
   };
 }
 
-/** Neutral physical scope: no Run, Turn, Attempt, Tool or PTY identity is synthesized. */
-export interface PhysicalCommandScope {
-  readonly workspace: Workspace;
-  readonly signal: AbortSignal;
-  readonly limits: {
-    readonly toolTimeoutMs: number;
-    readonly maxOutputBytes: number;
-  };
-  readonly artifactDir: string;
-  readonly executionLockPath?: string;
-  readonly executionLockReservation?: import("./execution-lock.js").ExecutionLockReservation;
-  readonly sandbox?: import("../../sandbox/types.js").SandboxLaunch;
-}
-export interface PhysicalCommandResult {
-  readonly outcome: ProcessOutcome;
-  readonly stdout: CommandArtifactDescriptor;
-  readonly stderr: CommandArtifactDescriptor;
-  readonly files: Checkpoint["files"];
-  readonly warnings: readonly string[];
-  readonly incomplete: boolean;
-  readonly observationFailure?: string;
-}
 export const preparePhysicalCommand = normalizeInput;
 /** Reuses native process ownership, exact observations and bounded artifacts. */
 export async function executePhysicalCommand(
@@ -1271,66 +631,31 @@ export async function executePhysicalCommand(
   observer: Pick<CommandExecutionObserver, "started" | "output" | "failed" | "control">,
   beforeSpawn: () => object,
 ): Promise<PhysicalCommandResult> {
-  const warnings = [
-    ATTRIBUTION_WARNING,
-    SCOPE_WARNING,
-    processScopeWarning(),
-    ...before.warnings,
-  ];
-  const captures = await createCaptures(scope.artifactDir);
-  let observation: Observation | undefined;
-  let outcome: ProcessOutcome;
-  try {
-    const ready = await normalizeInput(input, scope);
-    if (JSON.stringify(ready) !== JSON.stringify(input))
-      throw new EngineError(
-        "COMMAND_APPROVAL_MISMATCH",
-        "Physical command preparation changed before execution",
-      );
-    const original = beforeSpawn();
-    if (!original || typeof original !== "object" || types.isProxy(original))
-      throw new EngineError(
-        "COMMAND_OBSERVATION_ORIGINAL_REQUIRED",
+  const { outcome, captures, observation, files, warnings, incomplete } =
+    await runCapturedCommand(input, scope, before, async (attach) => {
+      const ready = await normalizeInput(input, scope);
+      if (JSON.stringify(ready) !== JSON.stringify(input))
+        throw new EngineError(
+          "COMMAND_APPROVAL_MISMATCH",
+          "Physical command preparation changed before execution",
+        );
+      attach(originalObservation(
+        observer,
+        beforeSpawn(),
         "Physical command requires its original owner",
-      );
-    observation = { observer, original };
-    outcome = await runProcess(input, scope, captures, warnings, observation);
-  } catch (error) {
-    if (observation) observationFailure(observation, error);
-    throw error;
-  } finally {
-    closeCaptures(captures, warnings, true);
-  }
-  let after: WorkspaceCapture | undefined;
-  try {
-    after = await captureWorkspace(scope.workspace, {
-      signal: AbortSignal.timeout(COMMAND_LIMITS.checkpointTimeoutMs),
-      maxFiles: 128,
-      maxFileBytes: 8192,
-      maxTotalBytes: 32768,
+      ));
+      return scope;
+    }, {
+      label: "After-command capture failed",
+      limits: { maxFiles: 128, maxFileBytes: 8192, maxTotalBytes: 32768 },
     });
-    warnings.push(...after.warnings);
-  } catch (error) {
-    warnings.push(
-      `After-command capture failed: ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  const excluded = new Set(
-    [captures.stdout, captures.stderr].map((capture) =>
-      relative(scope.workspace.root, capture.path).split(sep).join("/"),
-    ),
-  );
   return {
     outcome: Object.freeze({ ...outcome }),
     stdout: sealedArtifact(captures.stdout),
     stderr: sealedArtifact(captures.stderr),
-    files: after ? changedFiles(before, after, warnings, excluded) : [],
-    warnings: [...new Set(warnings)],
-    incomplete:
-      !after ||
-      !outcome.cleanupConfirmed ||
-      before.warnings.length > 0 ||
-      Boolean(after?.warnings.length),
+    files,
+    warnings,
+    incomplete,
     ...(observation?.failure
       ? { observationFailure: observation.failure }
       : {}),

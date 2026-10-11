@@ -46,6 +46,27 @@ export interface CommandExecutionObserver {
   closed(original: object, completion: CommandExecutionCompletion): void;
   failed?(original: object, error: unknown): void;
 }
+/** One admitted observer of a running command; its first failure is final. */
+export interface CommandObservation {
+  readonly observer: Pick<
+    CommandExecutionObserver,
+    "started" | "output" | "failed" | "control"
+  >;
+  readonly original: object;
+  failure?: string;
+}
+export function observationFailure(
+  observation: CommandObservation,
+  error: unknown,
+): void {
+  if (observation.failure) return;
+  observation.failure = "Command execution observation failed after admission";
+  try {
+    observation.observer.failed?.(observation.original, error);
+  } catch {
+    /* The original observation uncertainty remains authoritative. */
+  }
+}
 export interface CommandOutputEvent {
   readonly seq: number;
   readonly stream: CommandOutputStream;

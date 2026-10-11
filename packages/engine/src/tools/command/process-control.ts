@@ -7,6 +7,8 @@ export { cleanupGroup, createCommandEnvironment, groupExists, registerCredential
 export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: import('../../sandbox/types.js').SandboxLaunch }
 export interface ProcessOutcome { exitCode: number | null; signal: NodeJS.Signals | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; started: boolean; outputDiscarded?: boolean; error?: string }
 export type ShellOutput = (stream: 'stdout' | 'stderr', bytes: Buffer) => void | Promise<void>;
+export const notStartedOutcome = (cancelled: boolean, error?: string): ProcessOutcome => ({ exitCode: null, signal: null, cancelled, timedOut: false, cleanupConfirmed: true, started: false, ...(error === undefined ? {} : { error }) });
+export const errorText = (error: unknown): string => error instanceof Error ? error.message : String(error);
 
 async function waitGroupAbsent(pid: number, durationMs: number): Promise<boolean> {
   const deadline = performance.now() + durationMs;
@@ -20,7 +22,7 @@ async function waitGroupAbsent(pid: number, durationMs: number): Promise<boolean
 export interface ShellStdinControl { write(data: Buffer): Promise<void>; end(): Promise<void> }
 
 export async function executeShell(input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, stdinControl?: (control: ShellStdinControl) => void): Promise<ProcessOutcome> {
-  if (signal.aborted) return { exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false };
+  if (signal.aborted) return notStartedOutcome(true);
   if (!['darwin', 'linux', 'freebsd'].includes(process.platform)) throw new EngineError('COMMAND_PLATFORM_UNSUPPORTED', 'Shell execution requires a supported owned process backend');
   const launch=input.sandbox;
   if(launch && (process.platform!=='darwin'||launch.version!==1||launch.backend!=='darwin-seatbelt-v1'||launch.executable!=='/usr/bin/sandbox-exec'||typeof launch.profile!=='string'||Buffer.byteLength(launch.profile)>32768))throw new EngineError('SANDBOX_LAUNCH_INVALID','Unsupported sandbox never falls back to the host backend');
@@ -57,7 +59,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
   const pendingOutput = new Set<Promise<void>>();
   const warning = (message: string): void => {
     try { warn(message); }
-    catch (error) { processError ??= `Could not report command warning: ${error instanceof Error ? error.message : String(error)}`; }
+    catch (error) { processError ??= `Could not report command warning: ${errorText(error)}`; }
   };
   const discardAndDrain = (): void => {
     if (discardOutput) return;
@@ -76,7 +78,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
     timedOut = reason === 'timeout';
     discardAndDrain();
     cleanup = child.pid === undefined ? Promise.resolve(closed) : cleanupGroup(child.pid, () => closed).catch(error => {
-      processError = `Process group cleanup failed: ${error instanceof Error ? error.message : String(error)}`;
+      processError = `Process group cleanup failed: ${errorText(error)}`;
       return false;
     });
     wake?.();
@@ -101,13 +103,13 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
         };
         void pending.then(settle, error => {
           if (!discardOutput) {
-            processError = `Command output delivery failed: ${error instanceof Error ? error.message : String(error)}`;
+            processError = `Command output delivery failed: ${errorText(error)}`;
             terminate('descendants');
           }
           settle();
         });
       } catch (error) {
-        processError = `Command output delivery failed: ${error instanceof Error ? error.message : String(error)}`;
+        processError = `Command output delivery failed: ${errorText(error)}`;
         terminate('descendants');
       }
     });
@@ -121,7 +123,7 @@ export async function executeShell(input: ShellInput, signal: AbortSignal, outpu
   child.on('close', (code, exitSignalValue) => { closed = true; exitCode = code; exitSignal = exitSignalValue; wake?.(); });
   if (child.pid !== undefined) {
     try { started(child.pid); stdinControl?.(originalStdin); }
-    catch (error) { processError = `Could not record command group: ${error instanceof Error ? error.message : String(error)}`; terminate('descendants'); }
+    catch (error) { processError = `Could not record command group: ${errorText(error)}`; terminate('descendants'); }
   }
   const onAbort = (): void => terminate('cancel');
   signal.addEventListener('abort', onAbort, { once: true });

@@ -1,5 +1,5 @@
 import { EngineError } from '@moodcode/contracts';
-import { createCommandEnvironment, executeShell, type ProcessOutcome, type ShellInput, type ShellOutput } from './process-control.js';
+import { createCommandEnvironment, executeShell, notStartedOutcome, type ProcessOutcome, type ShellInput, type ShellOutput } from './process-control.js';
 import { loadWindowsJobHost } from './windows-job-host.js';
 
 export interface CommandBackendCapability {
@@ -73,7 +73,7 @@ export function commandBackendCapability(): CommandBackendCapability {
 
 /** Exported for host adapter contract tests; actual OS capability stays separate. */
 export async function executeOwnedWindowsJob(host: WindowsJobHostPort, input: ShellInput, signal: AbortSignal, output: ShellOutput, started: (pid: number) => void, warn: (message: string) => void, limits: Readonly<{ operationMs: number; cleanupMs: number; pollMs: number }> = WINDOWS_JOB_LIMITS): Promise<ProcessOutcome> {
-  if (signal.aborted) return { exitCode: null, signal: null, cancelled: true, timedOut: false, cleanupConfirmed: true, started: false };
+  if (signal.aborted) return notStartedOutcome(true);
   let job: WindowsOwnedJob | undefined, child: WindowsSuspendedProcess | undefined;
   let assigned = false, cancelled = false, timedOut = false, exitCode: number | null = null;
   let openingSettled = false, spawnDispatched = false, spawnSettled = false;
