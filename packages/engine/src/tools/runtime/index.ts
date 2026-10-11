@@ -77,7 +77,7 @@ function resources(prepared: PreparedTool): string[] {
   if (Array.isArray(input.changes)) for (const change of input.changes) if (change && typeof change === 'object' && !Array.isArray(change) && typeof change.path === 'string') targets.push(`path:${change.path}`);
   return [...new Set(targets)].sort();
 }
-/** Captures handlers with their catalogue revision. The existing coordinator remains the approval owner. */
+/** Captures handlers with their catalogue revision. The runner coordinator remains the approval owner. */
 export class ScopedToolRuntime {
   readonly policy: ToolPolicy; readonly grants: ScopedToolGrants;
   private scopes = new Map<string, Map<string, Entry>>(); private current = 0;
@@ -299,7 +299,7 @@ export class ScopedToolRuntime {
   }
   hasPreparedResources(catalogue:ToolCatalogue,toolName:string):boolean {this.assertCatalogueCurrent(catalogue);if(!this.captures.get(catalogue)!.entries.has(toolName))return false;const entry=this.entry(catalogue,toolName);return this.options.preparedResourceTools?.includes(entry.sourceIdentity)===true && hasPreparedResourceProducer(entry.sourceIdentity);}
   async capturePreparedResources(prepared:PreparedTool,context:ToolContext):Promise<object|null>{await this.assertPreparedCurrent(prepared,context);const request=this.requests.get(prepared)!;if(!this.options.preparedResourceTools?.includes(request.entry.sourceIdentity))return null;return capturePreparedResource(request.entry.sourceIdentity,request.inner);}
-  /** For old runner registration: every prepare takes a fresh catalogue snapshot. */
+  /** Plain ToolDefinition adapter for hosts without catalogue capture; each prepare captures a fresh catalogue, so advertisement-to-prepare staleness is not detected. */
   delegate(scopeId: string, toolName: string, mode: 'plan' | 'build' = 'build'): ToolDefinition {
     const initial = [scopeId, ...this.included.get(scopeId) ?? []].map(scope => this.scopes.get(scope)?.get(toolName)).find(Boolean); if (!initial) fail('TOOL_NOT_FOUND', 'Tool is not registered in the scope');
     return { name: toolName, description: initial.definition.description, inputSchema: structuredClone(initial.definition.inputSchema), effectClass: initial.effect,
@@ -381,7 +381,7 @@ export class ScopedToolRuntime {
         }
         this.assertPrepared(catalogue, inner, innerSnapshot, context);
         const narrowingAsk = roleReceipt?.decision === 'ask' || preflightReceipt !== undefined && this.commandPreflight!.registry.decision(preflightReceipt, policy.decision, inner.requiresApproval || entry.exactApproval) === 'ask';
-        // Legacy grants have no role-registry generation binding; never adopt them into a dynamic policy generation.
+        // Scoped grants carry no role-registry generation binding; never adopt them into a dynamic role policy generation.
         const grant = !roleCapture && !narrowingAsk && !entry.exactApproval && entry.revalidate && entry.effect !== 'unknown' && policy.reason !== 'configured approval requirement' ? this.grants.find(grantScope, policy.version) : undefined;
         const fingerprint = jsonTextSha256({ scope: catalogue.scopeId, revision: catalogue.revision, policyVersion: policy.version, binding: binding(context), inner: inner.fingerprint, preview: inner.preview, grantId: grant?.id, grantRevision: grant?.revision,
           ...(catalogue.profile ? { profile: catalogue.profile } : {}), ...(roleCapture ? { rolePolicy: roleGeneration(roleCapture) } : {}), ...(roleReceipt ? { roleReceiptSha256: roleReceipt.receiptSha256 } : {}), ...(preflightReceipt ? { preflightReceiptSha256: preflightReceipt.receiptSha256 } : {}) });

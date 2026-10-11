@@ -639,9 +639,7 @@ export class RunCoordinator implements CoordinatorPort {
     checkAbort(owner.abort.signal);
   }
 
-  /** Child allocations permanently reduce the active parent's absolute caps. */
-
-private readonly childGroupSlots = new WeakMap<
+  private readonly childGroupSlots = new WeakMap<
     object,
     {
       runId: string;
@@ -725,7 +723,8 @@ private readonly childGroupSlots = new WeakMap<
     this.assertChildRunGroupSlot(original, runId, allocation);
     this.childGroupSlots.get(original)!.used = true;
   }
-reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
+  /** Child allocations permanently reduce the active parent's absolute caps. */
+  reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     const owner = this.owners.get(runId);
     if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child allocation requires an active owned parent Run');
     this.assertLive(owner);

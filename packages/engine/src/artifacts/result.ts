@@ -103,7 +103,7 @@ export async function settleToolResult(result: ToolResult, settlement: ToolResul
     warnings: [...enriched.structuredResult!.warnings, artifactsUnavailable.reason],
   }, limits) };
   if (!store) return enriched;
-  // Only this producer's returned bytes can be observed; legacy truncation must remain explicit.
+  // Only this producer's returned bytes can be observed; truncation the producer reports on its artifacts must remain explicit.
   try {
     const artifacts = await store();
     const settlementOutcome = enriched.structuredResult!.outcome;

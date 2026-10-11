@@ -35,7 +35,7 @@ export type KnowledgeSourcePin =
   | { readonly kind: 'file'; readonly path: string; readonly sha256: string; readonly bytes: number; readonly device: string; readonly inode: string };
 export interface KnowledgeSourceManifest {
   readonly projection: 'host-selected-text-v1';
-  /** Exact allowlisted source text supplied to the future tool-free extractor. */
+  /** Exact allowlisted source text supplied to the tool-free extractor. */
   readonly sha256: string;
   readonly bytes: number;
   readonly pins: readonly KnowledgeSourcePin[];
@@ -155,7 +155,7 @@ export interface KnowledgeStoragePorts {
   readonly assertTrustSourcesCurrent: (binding: KnowledgeHostBinding, sources: readonly TrustSourcePin[]) => void;
   readonly assertSourcesCurrent: (binding: KnowledgeHostBinding, source: KnowledgeSourceManifest) => void;
   readonly assertTargetCurrent: (binding: KnowledgeHostBinding, target: KnowledgeTarget) => void;
-  /** Absent until native host generation ownership exists: candidates cannot be appended. */
+  /** Optional; without it candidate appends fail with KNOWLEDGE_GENERATION_OWNER_UNAVAILABLE. */
   readonly readGenerationEvidence?: (plan: KnowledgeGenerationPlan, ownerId: string) => KnowledgeGenerationEvidence;
   readonly now?: () => number;
 }

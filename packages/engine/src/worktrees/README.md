@@ -11,5 +11,3 @@
 `claimOwnership(sessionId, id, ownerId)`는 ready worktree를 실행 하나에 배정한다. owner가 있으면 cleanup을 거부한다. `releaseOwnership`은 해당 실행의 종료를 확인한 호스트만 호출한다. uncertain owner는 재시작으로 지워지지 않는다. 관리자 복구 시에도 실제 실행 종료를 먼저 확인해야 한다.
 
 Git 명령은 기존 shell 없는 `runGit`을 사용한다. 일반 Git 설정과 checkout hook의 실행은 사용자 Git 환경에 속하며, 이 모듈이 OS sandbox를 제공하지 않는다. worktree 생성과 정리는 모델의 임의 경로 입력을 그대로 실행하는 도구가 아니라 명시적 호스트 API이다.
-
-검증: 실제 임시 Git 저장소 9개 fixture는 생성/boot 실패/재시작/dirty 및 커밋 보존/취소·timeout/위조 base identity/동시 요청을 확인한다. 사용자 저장소나 계정에 접근하지 않는다.

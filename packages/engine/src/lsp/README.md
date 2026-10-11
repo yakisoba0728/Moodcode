@@ -1,6 +1,6 @@
 # Engine LSP port
 
-공식 [LSP 3.18 specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/)과 [initialize/encoding 정의](https://raw.githubusercontent.com/microsoft/language-server-protocol/gh-pages/_specifications/lsp/3.18/general/initialize.md)를 확인하고 필요한 경계만 자체 구현했다. Content-Length JSON-RPC, initialize/initialized, UTF-16 document sync와 진단·formatting, shutdown/exit를 지원한다. protocol version negotiation은 없으며 실제 server capability를 확인한다.
+공식 [LSP 3.18 specification](https://microsoft.github.io/language-server-protocol/specifications/lsp/3.18/specification/)과 [initialize/encoding 정의](https://raw.githubusercontent.com/microsoft/language-server-protocol/gh-pages/_specifications/lsp/3.18/general/initialize.md) 중 필요한 경계만 구현한다. Content-Length JSON-RPC, initialize/initialized, UTF-16 document sync와 진단·formatting, shutdown/exit를 지원한다. protocol version negotiation은 없으며 실제 server capability를 확인한다.
 
 호스트는 `LspManager.register(serverId, factory)`로 명시적으로 server를 등록한다. workspace/server당 startup promise를 공유하므로 동시 파일 요청이 중복 spawn하지 않는다. 한 caller의 취소는 공유 startup을 취소하지 않는다. factory는 manager 소유 AbortSignal을 받고, manager 종료 후 늦게 생긴 connection도 close한다. 기본 startup/request는 5초, cleanup은 1초이며 constructor에서 bounded deadline을 지정할 수 있다. 미확정 종료는 `LSP_CLEANUP_UNCERTAIN`으로 드러난다. 시작 실패나 연결 종료로 닫힌 server는 cleanup deadline이 지나기 전까지 같은 실패를 반환하고, 그 뒤의 호출에서 새로 시작한다. 교체된 server의 정리도 manager 종료 때 확인한다.
 
@@ -13,5 +13,3 @@ POSIX에서는 전용 process group에 TERM/KILL을 보내며 부모가 먼저 �
 진단은 등록 workspace의 열린 정확 URI만 받고, document version/hash에 묶인다. 과거/future version, 다른 URI, 무효 range와 budget 초과를 버린다. version 없는 진단은 첫 version에서만 허용한다. 갱신 후 unversioned 결과의 최신성을 증명할 수 없어 보수적으로 제외한다. 128 diagnostic/64 KiB, message 4 KiB 이내다. 모델 입력에는 호스트가 이 snapshot을 명시적으로 선택해야 한다.
 
 `formatting`은 synchronized version과 실제 파일 hash가 응답 뒤에도 일치할 때만 proposal을 반환한다. server capability가 없으면 unsupported이다. UTF-16 range·겹침·surrogate/CRLF 경계를 확인하고 최대 128 text edit를 text로 합성한다. `createLspFormatTool(manager)`는 이 proposal을 승인 및 기존 checkpoint patch에 연결한다. formatting 요청 자체는 파일을 수정하지 않는다.
-
-실제 stdio fixture와 host fake 테스트가 spawn dedup, doc update/현재 진단, BOM/CRLF format/checkpoint, cancel/timeout, malformed/oversized frame, server 편집 요청 차단, 환경 격리, POSIX descendant 종료, startup late cleanup, unsupported capability, 외부 파일 변경, shape 상한 초과 응답, crash와 startup 실패 뒤 재시작을 확인한다.

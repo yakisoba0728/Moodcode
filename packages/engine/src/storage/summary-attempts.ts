@@ -143,11 +143,11 @@ export class SummaryAttemptStorage {
   /** Full identity/status/proof validation, with text type/UTF8 length checked in SQL. */
   private metadata(idValue: string, expectedSessionId?: string): SummaryAttemptMetadata {
     const row = this.header(idValue, expectedSessionId);
-    // Identity is capped at 64KiB; 16KiB additionally covers status/proof fields.
     const projected = this.db.prepare(`SELECT json_type(data,'$.partialText') AS text_type,
       length(CAST(json_extract(data,'$.partialText') AS BLOB)) AS text_bytes,
       json_type(json_remove(data,'$.partialText'),'$.partialText') AS remaining_text_type,
       length(CAST(json_remove(data,'$.partialText') AS BLOB)) AS metadata_bytes FROM summary_attempts WHERE id=?`).get(idValue);
+    // Metadata without partialText: 64 KiB identity plus 16 KiB status/proof fields.
     if (Number(projected?.metadata_bytes) > 81920) fail('SUMMARY_RECORD_LIMIT', 'Stored summary metadata exceeds its read bound');
     if (projected?.text_type !== 'text' || !Number.isSafeInteger(projected.text_bytes) || Number(projected.text_bytes) > 65536 || projected.remaining_text_type !== null) fail('INVALID_SUMMARY_RECORD', 'Stored summary retained text is invalid');
     const raw = readEvidenceBody(this.db, { table: 'summary_attempts', key: idValue, projection: 'summary-metadata-v1' }, { expectedBytes: Number(projected?.metadata_bytes), maxBytes: 81920 });
@@ -254,7 +254,7 @@ export class SummaryAttemptStorage {
   }
   completeInTransaction(runId: string, idValue: string, scope: SummaryAttemptIdentity['scope'], revisionId: string, text: string, usage: unknown, binding: Partial<SummaryAttemptIdentity>, contextRevisionId?: string): void {
     if (!this.db.isTransaction) fail('STORAGE_TRANSACTION_REQUIRED', 'Summary activation shares its checkpoint transaction');
-    // Legacy journals are retained without claiming a typed backfill. Updated services always prepare a typed record.
+    // Summaries journaled before typed attempts existed have no row; they complete without a typed backfill.
     if (!this.db.prepare('SELECT 1 FROM summary_attempts WHERE id=?').get(idValue)) return;
     const { record, run } = this.read(idValue), actualUsage = this.usageFor(record)?.usage ?? unknownUsage();
     const suppliedUsage = usage as SummaryUsageSnapshot; usageMerge(unknownUsage(), suppliedUsage);

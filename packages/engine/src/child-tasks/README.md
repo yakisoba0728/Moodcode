@@ -24,6 +24,4 @@ dispatch 전 starting 기록을 저장하고 worktree ownership을 child ID로 c
 
 자식은 pinned commit snapshot에서 실행하므로 부모의 미커밋 파일은 포함하지 않는다. 같은 부모/requestId의 정확한 재요청은 기존 worktree와 child task를 join하고 이미 예약한 allocation을 다시 차감하지 않는다. 현재 invocation의 tool timeout·부모 취소와 child deadline이 실제 child engine에 연결된다. 완료는 8 KiB 이하의 도구 관측 결과이며 journal summary 자체는 4 KiB 이하다. `deliver`·새 input·자동 queue promotion·파일 병합·Git commit은 실행하지 않는다. 프로그램 API의 효과를 허용한 자식은 계속 자신의 독립 승인을 요구한다. worktree와 Git 옵션은 OS filesystem sandbox를 대체하지 않는다.
 
-공개 행동 비교와 근거는 [2026-10-07 delegation 연구](../../../../docs/moodcode/research/2026-10-07-delegation.md)에 있다. 새 fixture는 실제 temporary Git/별도 child engine에서 모델 위임 승인, 잘못된 fingerprint/owner, exhausted-budget exact retry, pinned dirty-source 분리, parent 취소, HEAD 변경, 기존 effect marker 보존과 실제 hook/filter 미실행을 확인한다.
-
-검증은 manager의 실제 worktree·취소·dispatch/receipt·복구 경계와 기본 엔진의 parent/child/grandchild 5개, 승인한 direct/nested merge 3개 fixture를 포함한다. 각 child는 실제 독립 engine을 사용하며 예산 debit·프로파일·공유 deny 정책·취소 cleanup·중복 input·원본 Git HEAD 불변을 확인한다. 이 fixture는 실제 외부 provider 호출을 하지 않는다.
+공개 행동 비교와 근거는 [2026-10-07 delegation 연구](../../../../docs/moodcode/research/2026-10-07-delegation.md)에 있다.
