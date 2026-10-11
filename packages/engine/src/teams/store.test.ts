@@ -529,3 +529,70 @@ test("actual message row cannot redirect a native membership pointer even if the
     .run(JSON.stringify(corrupted), message.id);
   assert.throws(() => validateTeamDatabase(f.db), error());
 });
+test("member retirement rejects an asynchronous owner check before writing a revision", async (t) => {
+  const f = await fixture(t),
+    owner = f.owner(),
+    storage = new TeamStorage(f.db, {
+      ...f.storage.ports,
+      assertMemberOwnerCurrent: () =>
+        Promise.reject(new Error("asynchronous owner check")),
+    });
+  try {
+    assert.throws(
+      () =>
+        storage.retireMember(owner, {
+          workspaceId: f.workspace.id,
+          teamId: "native-team",
+          memberId: "second",
+          generation: 1,
+          expectedRevision: 1,
+          requestId: "async-owner-retire",
+        }),
+      error("TEAM_OWNER_INVALID"),
+    );
+  } finally {
+    f.host.releaseOwner(owner);
+  }
+  assert.equal(
+    f.storage.getMember(f.workspace.id, "native-team", "second")?.sha256,
+    f.second.record.sha256,
+  );
+});
+test("a task replay rejects a receipt whose record digest no longer matches", async (t) => {
+  const f = await fixture(t),
+    owner = f.owner(),
+    input = {
+      workspaceId: f.workspace.id,
+      teamId: "native-team",
+      memberId: "first",
+      generation: 1,
+      taskId: "replay-digest",
+      requestId: "replay-digest",
+      expectedRevision: 0,
+      title: "bounded task",
+      description: "observations only",
+      dependencies: [],
+      expiresAt: f.expiry,
+    };
+  try {
+    const task = f.storage.putTask(owner, input);
+    const row = f.db
+      .prepare("SELECT data FROM team_operation_receipts WHERE id=?")
+      .get(task.receipt.id)!;
+    const { sha256, ...body } = JSON.parse(String(row.data));
+    body.recordSha256 = "0".repeat(64);
+    const { knowledgeHash } = await import("../knowledge/validation.js");
+    f.db
+      .prepare("UPDATE team_operation_receipts SET data=? WHERE id=?")
+      .run(
+        JSON.stringify({ ...body, sha256: knowledgeHash(body) }),
+        task.receipt.id,
+      );
+    assert.throws(
+      () => f.storage.putTask(owner, input),
+      error("TEAM_SCOPE_MISMATCH"),
+    );
+  } finally {
+    f.host.releaseOwner(owner);
+  }
+});

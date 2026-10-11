@@ -1,8 +1,13 @@
 import { randomUUID } from "node:crypto";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { TeamStorage } from "./store.js";
-import type { PutTeamTaskInput, TeamTaskRevision } from "./types.js";
+import type {
+  PutTeamTaskInput,
+  TeamRequestResult,
+  TeamTaskRevision,
+} from "./types.js";
 import {
+  TEAM_LIMITS,
   teamError,
   teamHash,
   teamId,
@@ -37,7 +42,7 @@ export function putTask(
     task = r.taskId as string,
     request = r.requestId as string,
     sha = knowledgeHash(r);
-  const duplicate = s.receipt(
+  const replay = s.findOperationRequest(
     ws,
     team,
     r.memberId as string,
@@ -45,12 +50,7 @@ export function putTask(
     request,
     sha,
   );
-  if (duplicate)
-    return Object.freeze({
-      record: s.readRevision(ws, duplicate.recordId) as TeamTaskRevision,
-      receipt: duplicate,
-      duplicate: true,
-    });
+  if (replay) return replay as TeamRequestResult<TeamTaskRevision>;
   return s.tx(() => {
     const member = s.activeMember(
       original,
@@ -75,7 +75,7 @@ export function putTask(
             "SELECT count(*) AS n FROM team_state_heads WHERE team_id=? AND kind='task'",
           )
           .get(team)!.n,
-      ) >= 128
+      ) >= TEAM_LIMITS.tasks
     )
       teamError("TEAM_LIMIT");
     if (!Array.isArray(r.dependencies) || r.dependencies.length > 32)
@@ -109,21 +109,16 @@ export function putTask(
       }),
     );
     s.append("task", task, record, current);
-    return Object.freeze({
+    return s.receipted(
       record,
-      receipt: s.putReceipt(
-        ws,
-        team,
-        member.memberId,
-        member.generation,
-        request,
-        sha,
-        "task",
-        record.id,
-        record.sha256,
-      ),
-      duplicate: false,
-    });
+      ws,
+      team,
+      member.memberId,
+      member.generation,
+      request,
+      sha,
+      "task",
+    );
   });
 }
 type ClaimInput = {
@@ -152,13 +147,15 @@ export function claimTask(s: TeamStorage, original: object, input: ClaimInput) {
     request = teamId(r.requestId),
     generation = teamInteger(r.generation),
     sha = knowledgeHash(r),
-    dup = s.receipt(ws, team, memberId, generation, request, sha);
-  if (dup)
-    return Object.freeze({
-      record: s.readRevision(ws, dup.recordId) as TeamTaskRevision,
-      receipt: dup,
-      duplicate: true,
-    });
+    replay = s.findOperationRequest(
+      ws,
+      team,
+      memberId,
+      generation,
+      request,
+      sha,
+    );
+  if (replay) return replay as TeamRequestResult<TeamTaskRevision>;
   return s.tx(() => {
     const m = s.activeMember(original, ws, team, memberId, generation),
       prior = s.getTask(ws, team, taskId);
@@ -198,21 +195,16 @@ export function claimTask(s: TeamStorage, original: object, input: ClaimInput) {
         }),
       );
     s.append("task", taskId, record, prior);
-    return Object.freeze({
+    return s.receipted(
       record,
-      receipt: s.putReceipt(
-        ws,
-        team,
-        memberId,
-        generation,
-        request,
-        sha,
-        "claim-task",
-        record.id,
-        record.sha256,
-      ),
-      duplicate: false,
-    });
+      ws,
+      team,
+      memberId,
+      generation,
+      request,
+      sha,
+      "claim-task",
+    );
   });
 }
 export function completeTask(
@@ -235,13 +227,8 @@ export function completeTask(
     generation = teamInteger(r.generation),
     request = teamId(r.requestId),
     sha = knowledgeHash({ ...r, operation: "complete" }),
-    dup = s.receipt(ws, team, member, generation, request, sha);
-  if (dup)
-    return Object.freeze({
-      record: s.readRevision(ws, dup.recordId) as TeamTaskRevision,
-      receipt: dup,
-      duplicate: true,
-    });
+    replay = s.findOperationRequest(ws, team, member, generation, request, sha);
+  if (replay) return replay as TeamRequestResult<TeamTaskRevision>;
   return s.tx(() => {
     const actual = s.activeMember(original, ws, team, member, generation),
       prior = s.getTask(ws, team, teamId(r.taskId));
@@ -265,20 +252,15 @@ export function completeTask(
         }),
       );
     s.append("task", record.taskId, record, prior);
-    return Object.freeze({
+    return s.receipted(
       record,
-      receipt: s.putReceipt(
-        ws,
-        team,
-        member,
-        generation,
-        request,
-        sha,
-        "task",
-        record.id,
-        record.sha256,
-      ),
-      duplicate: false,
-    });
+      ws,
+      team,
+      member,
+      generation,
+      request,
+      sha,
+      "task",
+    );
   });
 }

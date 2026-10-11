@@ -6,6 +6,7 @@ import type {
   RegisterTeamMemberInput,
   TeamMemberRevision,
   TeamRecord,
+  TeamRequestResult,
 } from "./types.js";
 import {
   TEAM_LIMITS,
@@ -14,7 +15,9 @@ import {
   teamId,
   teamInteger,
   teamObject,
+  teamOwnerIdentity,
   teamSha,
+  teamSyncResult,
   validateTeam,
   validateTeamCursor,
   validateTeamMember,
@@ -33,13 +36,8 @@ export function createTeam(s: TeamStorage, input: CreateTeamInput) {
         ? `team_${knowledgeHash({ workspaceId: ws, requestId: request }).slice(0, 32)}`
         : teamId(r.teamId),
     sha = knowledgeHash(r);
-  const duplicate = s.receipt(ws, team, "host", 0, request, sha);
-  if (duplicate) {
-    const record = s.readRevision(ws, duplicate.recordId) as TeamRecord;
-    if (record.sha256 !== duplicate.recordSha256)
-      teamError("TEAM_SCOPE_MISMATCH");
-    return Object.freeze({ record, receipt: duplicate, duplicate: true });
-  }
+  const replay = s.findOperationRequest(ws, team, "host", 0, request, sha);
+  if (replay) return replay as TeamRequestResult<TeamRecord>;
   return s.tx(() => {
     if (s.getTeam(ws, team)) teamError("TEAM_EXISTS");
     const count = s.db
@@ -70,19 +68,18 @@ export function createTeam(s: TeamStorage, input: CreateTeamInput) {
           archiveSha256: null,
         }),
       );
-    const row = s.append("team", team, record, undefined),
-      receipt = s.putReceipt(
-        ws,
-        team,
-        "host",
-        0,
-        request,
-        sha,
-        "create",
-        row,
-        record.sha256,
-      );
-    return Object.freeze({ record, receipt, duplicate: false });
+    const row = s.append("team", team, record, undefined);
+    return s.receipted(
+      record,
+      ws,
+      team,
+      "host",
+      0,
+      request,
+      sha,
+      "create",
+      row,
+    );
   });
 }
 export function registerMember(
@@ -106,7 +103,7 @@ export function registerMember(
   teamInteger(r.expectedRevision);
   teamSha(r.ownerSha256);
   const sha = knowledgeHash(r),
-    duplicate = s.receipt(
+    replay = s.findOperationRequest(
       r.workspaceId as string,
       r.teamId as string,
       "host",
@@ -114,15 +111,7 @@ export function registerMember(
       r.requestId as string,
       sha,
     );
-  if (duplicate) {
-    const record = s.readRevision(
-      r.workspaceId as string,
-      duplicate.recordId,
-    ) as TeamMemberRevision;
-    if (!record || record.sha256 !== duplicate.recordSha256)
-      teamError("TEAM_SCOPE_MISMATCH");
-    return Object.freeze({ record, receipt: duplicate, duplicate: true });
-  }
+  if (replay) return replay as TeamRequestResult<TeamMemberRevision>;
   return s.tx(() => {
     const team = s.activeTeam(r.workspaceId as string, r.teamId as string),
       prior = s.getMember(team.workspaceId, team.id, r.memberId as string);
@@ -149,7 +138,7 @@ export function registerMember(
             "SELECT count(*) AS n FROM team_state_heads WHERE team_id=? AND kind='member'",
           )
           .get(team.id)!.n,
-      ) >= 32
+      ) >= TEAM_LIMITS.members
     )
       teamError("TEAM_LIMIT");
     const owner = validateTeamOwner(s.ports.readMemberOwner(original));
@@ -177,11 +166,7 @@ export function registerMember(
         createdAt: s.stamp(),
       }),
     );
-    const result = s.ports.assertMemberOwnerCurrent(original, record);
-    if (result !== undefined) {
-      void Promise.resolve(result).catch(() => {});
-      teamError("TEAM_OWNER_INVALID");
-    }
+    teamSyncResult(s.ports.assertMemberOwnerCurrent(original, record));
     s.expiry(record.expiresAt, team.expiresAt);
     s.append("member", record.memberId, record, prior);
     const cursor = validateTeamCursor(
@@ -211,7 +196,8 @@ export function registerMember(
         null,
         JSON.stringify(cursor),
       );
-    const receipt = s.putReceipt(
+    return s.receipted(
+      record,
       record.workspaceId,
       record.teamId,
       "host",
@@ -219,10 +205,7 @@ export function registerMember(
       r.requestId as string,
       sha,
       "member",
-      record.id,
-      record.sha256,
     );
-    return Object.freeze({ record, receipt, duplicate: false });
   });
 }
 export function retireMember(
@@ -251,11 +234,8 @@ export function retireMember(
     generation = teamInteger(r.generation),
     request = teamId(r.requestId),
     sha = knowledgeHash(r);
-  const duplicate = s.receipt(ws, team, "host", 0, request, sha);
-  if (duplicate) {
-    const record = s.readRevision(ws, duplicate.recordId) as TeamMemberRevision;
-    return Object.freeze({ record, receipt: duplicate, duplicate: true });
-  }
+  const replay = s.findOperationRequest(ws, team, "host", 0, request, sha);
+  if (replay) return replay as TeamRequestResult<TeamMemberRevision>;
   return s.tx(() => {
     s.activeTeam(ws, team);
     const prior = s.getMember(ws, team, member);
@@ -267,10 +247,9 @@ export function retireMember(
     )
       teamError("TEAM_STALE");
     const owner = validateTeamOwner(s.ports.readMemberOwner(original));
-    const { sha256: _old, cleanup: _before, ...a } = prior.owner,
-      { sha256: _new, cleanup: _after, ...b } = owner;
-    if (knowledgeHash(a) !== knowledgeHash(b)) teamError("TEAM_OWNER_STALE");
-    s.ports.assertMemberOwnerCurrent(original, prior);
+    if (teamOwnerIdentity(prior.owner) !== teamOwnerIdentity(owner))
+      teamError("TEAM_OWNER_STALE");
+    teamSyncResult(s.ports.assertMemberOwnerCurrent(original, prior));
     const { sha256, ...body } = prior,
       record = validateTeamMember(
         teamHash({
@@ -284,20 +263,6 @@ export function retireMember(
         }),
       );
     s.append("member", member, record, prior);
-    return Object.freeze({
-      record,
-      receipt: s.putReceipt(
-        ws,
-        team,
-        "host",
-        0,
-        request,
-        sha,
-        "member",
-        record.id,
-        record.sha256,
-      ),
-      duplicate: false,
-    });
+    return s.receipted(record, ws, team, "host", 0, request, sha, "member");
   });
 }

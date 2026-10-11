@@ -22,17 +22,20 @@ import type {
 } from "./types.js";
 import {
   TEAM_LIMITS,
+  deliveryReceiptMatches,
   teamDate,
   teamError,
   teamHash,
   teamId,
   teamInteger,
   teamJson,
-  teamObject,
   teamSha,
+  teamSyncResult,
   validateAgentMessage,
+  validateDeliveryReceipt,
   validateTeam,
   validateTeamCursor,
+  validateTeamDelivery,
   validateTeamMember,
   validateTeamOwner,
   validateTeamReceipt,
@@ -50,8 +53,7 @@ import {
   cancelDelivery,
   recoverDeliveries,
   lookupSend,
-  validateDelivery,
-  validateDeliveryReceipt,
+  parseSend,
 } from "./mailbox.js";
 import { putTask, claimTask, completeTask } from "./board.js";
 export { TEAM_TABLES } from "./schema.js";
@@ -121,10 +123,10 @@ export class TeamStorage {
       )
       .get(...args);
     if (!meta) return undefined;
-    teamInteger(meta.bytes, 65536);
+    teamInteger(meta.bytes, TEAM_LIMITS.rowBytes);
     const row = this.db
       .prepare(
-        `SELECT data FROM ${table} WHERE ${where} AND length(CAST(data AS BLOB))<=65536`,
+        `SELECT data FROM ${table} WHERE ${where} AND length(CAST(data AS BLOB))<=${TEAM_LIMITS.rowBytes}`,
       )
       .get(...args);
     if (!row || typeof row.data !== "string") teamError("TEAM_SCOPE_MISMATCH");
@@ -329,11 +331,7 @@ export class TeamStorage {
       teamError("TEAM_DELIVERY_UNCERTAIN");
     if (actual.sha256 !== value.owner.sha256 || actual.cleanup !== "live")
       teamError("TEAM_OWNER_STALE");
-    const result = this.ports.assertMemberOwnerCurrent(original, value);
-    if (result !== undefined) {
-      void Promise.resolve(result).catch(() => {});
-      teamError("TEAM_OWNER_INVALID");
-    }
+    teamSyncResult(this.ports.assertMemberOwnerCurrent(original, value));
     if (Date.parse(value.expiresAt) <= this.now()) teamError("TEAM_EXPIRED");
     return value;
   }
@@ -346,8 +344,8 @@ export class TeamStorage {
       )
       .iterate(teamId(ws))) {
       if (++count > 32) teamError("TEAM_LIMIT");
-      bytes += teamInteger(row.bytes, 65536);
-      if (bytes > 1048576) teamError("TEAM_LIMIT");
+      bytes += teamInteger(row.bytes, TEAM_LIMITS.rowBytes);
+      if (bytes > TEAM_LIMITS.frontierBytes) teamError("TEAM_LIMIT");
       const record = this.getDelivery(ws, teamId(row.id));
       if (!record) teamError("TEAM_SCOPE_MISMATCH");
       const actual = record.owner;
@@ -437,6 +435,33 @@ export class TeamStorage {
         JSON.stringify(value),
       );
     return value;
+  }
+  receipted<T extends { readonly id: string; readonly sha256: string }>(
+    record: T,
+    ws: string,
+    team: string,
+    actor: string,
+    generation: number,
+    request: string,
+    sha: string,
+    operation: TeamOperationReceipt["operation"],
+    recordId = record.id,
+  ) {
+    return Object.freeze({
+      record,
+      receipt: this.putReceipt(
+        ws,
+        team,
+        actor,
+        generation,
+        request,
+        sha,
+        operation,
+        recordId,
+        record.sha256,
+      ),
+      duplicate: false,
+    });
   }
   getMessage(ws: string, id: string): AgentMessage | undefined {
     const data = this.readData("team_messages", "workspace_id=? AND id=?", [
@@ -547,7 +572,7 @@ export class TeamStorage {
       const v = this.state<T>(ws, team, kind, teamId(row.state_key));
       if (!v) teamError();
       const charge = Buffer.byteLength(JSON.stringify(v));
-      if (bytes + charge > 65536) break;
+      if (bytes + charge > TEAM_LIMITS.rowBytes) break;
       bytes += charge;
       out.push(v);
     }
@@ -559,11 +584,34 @@ export class TeamStorage {
   listTasks(ws: string, team: string, limit = 32) {
     return this.listState<TeamTaskRevision>(ws, team, "task", limit);
   }
-  listTasksPage(ws:string,team:string,afterTaskId:string|undefined,limit=1):{tasks:TeamTaskRevision[];hasMore:boolean;nextTaskId:string|null}{
-    teamId(ws);teamId(team);if(afterTaskId!==undefined)teamId(afterTaskId);if(!teamInteger(limit,1)||limit<1)teamError("TEAM_LIMIT");
-    const rows=this.db.prepare("SELECT state_key FROM team_state_heads WHERE workspace_id=? AND team_id=? AND kind='task' AND state_key>? ORDER BY state_key LIMIT ?").all(ws,team,afterTaskId??'',limit+1);
-    const tasks=rows.slice(0,limit).map(row=>this.state<TeamTaskRevision>(ws,team,'task',teamId(row.state_key))!);if(tasks.some(t=>!t))teamError();
-    return {tasks,hasMore:rows.length>limit,nextTaskId:rows.length>limit?tasks.at(-1)!.taskId:null};
+  listTasksPage(
+    ws: string,
+    team: string,
+    afterTaskId: string | undefined,
+    limit = 1,
+  ): {
+    tasks: TeamTaskRevision[];
+    hasMore: boolean;
+    nextTaskId: string | null;
+  } {
+    teamId(ws);
+    teamId(team);
+    if (afterTaskId !== undefined) teamId(afterTaskId);
+    if (!teamInteger(limit, 1) || limit < 1) teamError("TEAM_LIMIT");
+    const rows = this.db
+      .prepare(
+        "SELECT state_key FROM team_state_heads WHERE workspace_id=? AND team_id=? AND kind='task' AND state_key>? ORDER BY state_key LIMIT ?",
+      )
+      .all(ws, team, afterTaskId ?? "", limit + 1);
+    const tasks = rows
+      .slice(0, limit)
+      .map((row) => this.getTask(ws, team, teamId(row.state_key))!);
+    if (tasks.some((t) => !t)) teamError();
+    return {
+      tasks,
+      hasMore: rows.length > limit,
+      nextTaskId: rows.length > limit ? tasks.at(-1)!.taskId : null,
+    };
   }
   createTeam(input: CreateTeamInput) {
     return createTeam(this, input);
@@ -578,7 +626,7 @@ export class TeamStorage {
     return sendMessage(this, original, input);
   }
   findSendRequest(input: SendAgentMessageInput) {
-    return lookupSend(this, input);
+    return lookupSend(this, parseSend(input));
   }
   findOperationRequest(
     ws: string,
@@ -611,16 +659,7 @@ export class TeamStorage {
     const receipt = this.getDeliveryReceipt(ws, id) ?? null;
     if (
       (record.state === "delivered") !== (receipt !== null) ||
-      (receipt &&
-        (receipt.deliverySha256 !== record.sha256 ||
-          receipt.deliveryId !== record.id ||
-          receipt.memberId !== record.memberId ||
-          receipt.generation !== record.generation ||
-          receipt.messagesSha256 !== knowledgeHash(record.page.messages) ||
-          receipt.input.sessionId !== record.owner.sessionId ||
-          (receipt.input.delivery==="steer" && receipt.input.runId !== record.owner.runId) ||
-          (receipt.input.delivery==="queue" && record.owner.kind!=="child") ||
-          receipt.input.requestId !== `team-delivery:${record.id}`))
+      (receipt && !deliveryReceiptMatches(record, receipt))
     )
       teamError("TEAM_SCOPE_MISMATCH");
     return Object.freeze({
@@ -684,7 +723,7 @@ export class TeamStorage {
       teamId(id),
     ]);
     if (data === undefined) return undefined;
-    const value = validateDelivery(data),
+    const value = validateTeamDelivery(data),
       meta = this.db
         .prepare(
           "SELECT team_id,member_id,generation,request_id,request_sha256,state,revision FROM team_deliveries WHERE workspace_id=? AND id=?",
@@ -734,15 +773,7 @@ export function pauseImportedTeams(
   teamId(workspaceId);
   teamSha(archiveSha256);
   if (!db.isTransaction) teamError("TEAM_TRANSACTION_REQUIRED");
-  const storage = new TeamStorage(db, {
-    writeTx: (op) => op(),
-    getWorkspace: () => teamError(),
-    checkBinding: () => teamError(),
-    readMemberOwner: () => teamError(),
-    assertMemberOwnerCurrent: () => teamError(),
-    assertRecipientCurrent: () => teamError(),
-    readAcceptedInput: () => teamError(),
-  });
+  const storage = offlineTeamStorage(db);
   for (const row of db
     .prepare(
       "SELECT team_id FROM team_state_heads WHERE workspace_id=? AND kind='team' ORDER BY team_id",
@@ -767,18 +798,24 @@ export function pauseImportedTeams(
   }
   recoverDeliveries(storage);
 }
+export function offlineTeamStorage(
+  db: DatabaseSync,
+  fail: () => never = () => teamError(),
+  writeTx: TeamStoragePorts["writeTx"] = (op) => op(),
+): TeamStorage {
+  return new TeamStorage(db, {
+    writeTx,
+    getWorkspace: () => fail(),
+    checkBinding: () => fail(),
+    readMemberOwner: () => fail(),
+    assertMemberOwnerCurrent: () => fail(),
+    assertRecipientCurrent: () => fail(),
+    readAcceptedInput: () => fail(),
+  });
+}
 export function validateTeamDatabase(
   db: DatabaseSync,
   check: () => void = () => {},
 ): void {
-  const storage = new TeamStorage(db, {
-    writeTx: (op) => op(),
-    getWorkspace: () => teamError(),
-    checkBinding: () => teamError(),
-    readMemberOwner: () => teamError(),
-    assertMemberOwnerCurrent: () => teamError(),
-    assertRecipientCurrent: () => teamError(),
-    readAcceptedInput: () => teamError(),
-  });
-  validateTeamRelations(storage, check);
+  validateTeamRelations(offlineTeamStorage(db), check);
 }

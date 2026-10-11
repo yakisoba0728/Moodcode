@@ -10,8 +10,14 @@ import {
 import { knowledgeHash } from "../knowledge/validation.js";
 import { requestIdentity } from "../storage/native-schema.js";
 import { teamMailboxInput } from "./input-port.js";
-import { TeamStorage } from "./store.js";
-import { teamError, teamId, teamInteger } from "./validation.js";
+import { childOwnerMatchesStorage } from "./proof-validation.js";
+import { offlineTeamStorage } from "./store.js";
+import {
+  deliveryReceiptMatches,
+  teamError,
+  teamId,
+  teamInteger,
+} from "./validation.js";
 
 const CHILD_ROW_BYTES = 262144;
 function invalid(): never {
@@ -40,15 +46,7 @@ export function validateTeamChildInputRelations(
 ): void {
   record = validateChildStorageRecord(record);
   const binding = record.binding;
-  const storage = new TeamStorage(primary, {
-    writeTx: () => invalid(),
-    getWorkspace: () => invalid(),
-    checkBinding: () => invalid(),
-    readMemberOwner: () => invalid(),
-    assertMemberOwnerCurrent: () => invalid(),
-    assertRecipientCurrent: () => invalid(),
-    readAcceptedInput: () => invalid(),
-  });
+  const storage = offlineTeamStorage(primary, invalid, invalid);
   for (const row of primary
     .prepare(
       "SELECT id,workspace_id FROM team_deliveries WHERE workspace_id=? AND state='delivered' ORDER BY id",
@@ -63,35 +61,16 @@ export function validateTeamChildInputRelations(
     )
       continue;
     const proof = owner.owner;
-    if (
-      binding.phase !== "admitted" ||
-      !binding.child.runId ||
-      proof.childStorageSha256 !== record.sha256 ||
-      proof.childTaskFingerprint !== binding.lineage.taskFingerprint ||
-      proof.rootSessionId !== binding.lineage.sessionId ||
-      proof.rootRunId !== binding.lineage.sourceRunId ||
-      proof.sessionId !== binding.child.sessionId ||
-      proof.runId !== binding.child.runId ||
-      proof.workspaceId !== binding.child.workspaceId ||
-      proof.worktreeId !== binding.worktree.id
-    )
-      invalid();
+    if (!childOwnerMatchesStorage(proof, record)) invalid();
     const receipt = storage.getDeliveryReceipt(owner.workspaceId, owner.id);
     if (
       !receipt ||
-      receipt.deliveryId !== owner.id ||
-      receipt.deliverySha256 !== owner.sha256 ||
-      receipt.memberId !== owner.memberId ||
-      receipt.generation !== owner.generation ||
       receipt.teamId !== owner.teamId ||
-      receipt.messagesSha256 !== knowledgeHash(owner.page.messages) ||
-      receipt.input.sessionId !== proof.sessionId ||
-      (receipt.input.delivery==="steer" && receipt.input.runId !== proof.runId) ||
-      receipt.input.requestId !== `team-delivery:${owner.id}`
+      !deliveryReceiptMatches(owner, receipt)
     )
       invalid();
 
-    const acceptedRunId=receipt.input.runId;
+    const acceptedRunId = receipt.input.runId;
     check();
     const runMeta = child
       .prepare(

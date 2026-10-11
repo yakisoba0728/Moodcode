@@ -2,20 +2,42 @@ import { knowledgeHash } from "../knowledge/validation.js";
 import {
   childStorageKind,
   validateChildStorageRecord,
+  type ChildStorageRecord,
 } from "../child-tasks/storage-binding.js";
 import type { TeamStorage } from "./store.js";
 import type {
+  TeamMemberOwnerProof,
   TeamMemberRevision,
   TeamRecord,
   TeamTaskRevision,
 } from "./types.js";
 import {
+  deliveryReceiptMatches,
   teamError,
   teamId,
   teamInteger,
   validateTeamMember,
   validateTeamReceipt,
 } from "./validation.js";
+
+export function childOwnerMatchesStorage(
+  owner: TeamMemberOwnerProof,
+  record: ChildStorageRecord,
+): boolean {
+  const b = record.binding;
+  return (
+    record.sha256 === owner.childStorageSha256 &&
+    b.phase === "admitted" &&
+    b.lineage.taskId === owner.childTaskId &&
+    b.lineage.taskFingerprint === owner.childTaskFingerprint &&
+    b.lineage.sourceRunId === owner.rootRunId &&
+    b.lineage.sessionId === owner.rootSessionId &&
+    b.child.sessionId === owner.sessionId &&
+    b.child.runId === owner.runId &&
+    b.child.workspaceId === owner.workspaceId &&
+    b.worktree.id === owner.worktreeId
+  );
+}
 
 /** Pure native graph checks. Historical facts never rebind or issue an execution handle. */
 export function validateTeamRelations(s: TeamStorage, check: () => void): void {
@@ -93,19 +115,7 @@ export function validateTeamRelations(s: TeamStorage, check: () => void): void {
         } catch {
           teamError("TEAM_OWNER_GRAPH_INVALID");
         }
-        const b = record.binding;
-        if (
-          record.sha256 !== owner.childStorageSha256 ||
-          b.phase !== "admitted" ||
-          b.lineage.taskId !== owner.childTaskId ||
-          b.lineage.taskFingerprint !== owner.childTaskFingerprint ||
-          b.lineage.sourceRunId !== owner.rootRunId ||
-          b.lineage.sessionId !== owner.rootSessionId ||
-          b.child.sessionId !== owner.sessionId ||
-          b.child.runId !== owner.runId ||
-          b.child.workspaceId !== owner.workspaceId ||
-          b.worktree.id !== owner.worktreeId
-        )
+        if (!childOwnerMatchesStorage(owner, record))
           teamError("TEAM_OWNER_GRAPH_INVALID");
       } else if (
         owner.workspaceId !== value.workspaceId ||
@@ -416,15 +426,7 @@ export function validateTeamRelations(s: TeamStorage, check: () => void): void {
     );
     if (receipt) {
       if (
-        receipt.deliverySha256 !== record.sha256 ||
-        receipt.deliveryId !== record.id ||
-        receipt.memberId !== record.memberId ||
-        receipt.generation !== record.generation ||
-        receipt.messagesSha256 !== knowledgeHash(record.page.messages) ||
-        receipt.input.sessionId !== record.owner.sessionId ||
-        (receipt.input.delivery==="steer" && receipt.input.runId !== record.owner.runId) ||
-        (receipt.input.delivery==="queue" && record.owner.kind!=="child") ||
-        receipt.input.requestId !== `team-delivery:${record.id}` ||
+        !deliveryReceiptMatches(record, receipt) ||
         receipt.cursor.claimedSeq !== record.page.messages.at(-1)!.seq ||
         receipt.cursor.pendingDeliveryId !== null ||
         cursor.claimedSeq < receipt.cursor.claimedSeq ||

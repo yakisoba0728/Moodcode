@@ -5,8 +5,10 @@ import type { TeamPermissions, TeamRole } from "./types.js";
 import {
   boundedTeamJson,
   TEAM_LIMITS,
+  TEAM_ROLES,
   teamDate,
   teamId,
+  teamPermissionsAllowed,
 } from "./validation.js";
 
 export function teamHostError(code = "INVALID_TEAM_HOST_INPUT"): never {
@@ -46,16 +48,9 @@ export function teamHostPermissions(
   role: unknown,
   value: unknown,
 ): { readonly role: TeamRole; readonly permissions: TeamPermissions } {
-  if (!["coordinator", "worker", "observer"].includes(role as string))
-    teamHostError("TEAM_PERMISSION");
+  if (!TEAM_ROLES.includes(role as TeamRole)) teamHostError("TEAM_PERMISSION");
   teamHostObject(value, ["send", "receive", "claimTasks", "manageTasks"]);
-  if (
-    Object.values(value).some((item) => typeof item !== "boolean") ||
-    (role === "observer" &&
-      (value.send || value.claimTasks || value.manageTasks)) ||
-    (role !== "coordinator" && value.manageTasks)
-  )
-    teamHostError("TEAM_PERMISSION");
+  if (!teamPermissionsAllowed(role, value)) teamHostError("TEAM_PERMISSION");
   return teamHostData({
     role: role as TeamRole,
     permissions: value as unknown as TeamPermissions,

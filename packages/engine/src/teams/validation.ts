@@ -6,11 +6,15 @@ import {
 } from "../knowledge/validation.js";
 import type {
   AgentMessage,
+  TeamAcceptedInputProof,
+  TeamDeliveryReceipt,
+  TeamDeliveryRecord,
   TeamMailboxCursor,
   TeamMemberOwnerProof,
   TeamMemberRevision,
   TeamOperationReceipt,
   TeamRecord,
+  TeamRole,
   TeamTaskRevision,
 } from "./types.js";
 export const TEAM_LIMITS = Object.freeze({
@@ -25,14 +29,20 @@ export const TEAM_LIMITS = Object.freeze({
   pendingMessages: 256,
   pendingBytes: 1048576,
   ttlMs: 3600000,
-  owners: 32,
   frontierBytes: 1048576,
 });
+export const TEAM_ROLES = ["coordinator", "worker", "observer"] as const;
 export function teamError(code = "INVALID_TEAM"): never {
   throw new EngineError(
     code,
     "Team records require exact workspace, membership generation and native ownership",
   );
+}
+/** Owner ports are synchronous: any returned value is rejected, and a returned promise cannot reject unhandled. */
+export function teamSyncResult(value: unknown): void {
+  if (value === undefined) return;
+  void Promise.resolve(value).catch(() => {});
+  teamError("TEAM_OWNER_INVALID");
 }
 /** Immutable knowledge JSON within a serialized byte bound; walker errors propagate unless onInvalid maps them. */
 export function boundedTeamJson<T>(
@@ -129,6 +139,48 @@ export function teamHash<T extends object>(
 export function teamCheckHash(r: Record<string, unknown>): void {
   const { sha256, ...body } = r;
   if (teamSha(sha256) !== knowledgeHash(body)) teamError("TEAM_HASH_MISMATCH");
+}
+export function teamPermissionsAllowed(
+  role: unknown,
+  p: Record<string, unknown>,
+): boolean {
+  return (
+    Object.values(p).every((v) => typeof v === "boolean") &&
+    !(role === "observer" && (p.send || p.claimTasks || p.manageTasks)) &&
+    !(role !== "coordinator" && p.manageTasks)
+  );
+}
+export function teamOwnerIdentity({
+  cleanup: _cleanup,
+  sha256: _sha256,
+  ...identity
+}: TeamMemberOwnerProof): string {
+  return knowledgeHash(identity);
+}
+export const teamDeliveryRequestId = (id: string) => `team-delivery:${id}`;
+export function deliveryInputMatches(
+  record: Pick<TeamDeliveryRecord, "id" | "owner">,
+  input: TeamAcceptedInputProof,
+): boolean {
+  return (
+    input.sessionId === record.owner.sessionId &&
+    (input.delivery !== "steer" || input.runId === record.owner.runId) &&
+    (input.delivery !== "queue" || record.owner.kind === "child") &&
+    input.requestId === teamDeliveryRequestId(record.id)
+  );
+}
+export function deliveryReceiptMatches(
+  record: TeamDeliveryRecord,
+  receipt: TeamDeliveryReceipt,
+): boolean {
+  return (
+    receipt.deliveryId === record.id &&
+    receipt.deliverySha256 === record.sha256 &&
+    receipt.memberId === record.memberId &&
+    receipt.generation === record.generation &&
+    receipt.messagesSha256 === knowledgeHash(record.page.messages) &&
+    deliveryInputMatches(record, receipt.input)
+  );
 }
 export function validateTeam(value: unknown): TeamRecord {
   const r = teamObject(value, [
@@ -227,7 +279,7 @@ export function validateTeamMember(value: unknown): TeamMemberRevision {
   if (r.previousId !== null) teamId(r.previousId);
   if (
     (r.revision === 1) !== (r.previousId === null) ||
-    !["coordinator", "worker", "observer"].includes(r.role as string) ||
+    !TEAM_ROLES.includes(r.role as TeamRole) ||
     !["active", "retired", "uncertain"].includes(r.status as string)
   )
     teamError();
@@ -237,12 +289,7 @@ export function validateTeamMember(value: unknown): TeamMemberRevision {
     "claimTasks",
     "manageTasks",
   ]);
-  if (
-    Object.values(p).some((v) => typeof v !== "boolean") ||
-    (r.role === "observer" && (p.send || p.claimTasks || p.manageTasks)) ||
-    (r.role !== "coordinator" && p.manageTasks)
-  )
-    teamError("TEAM_PERMISSION");
+  if (!teamPermissionsAllowed(r.role, p)) teamError("TEAM_PERMISSION");
   validateTeamOwner(r.owner);
   teamDate(r.expiresAt);
   teamDate(r.createdAt);
@@ -347,7 +394,10 @@ export function validateAgentMessage(value: unknown): AgentMessage {
     teamId(r[k]);
   for (const k of ["senderGeneration", "recipientGeneration", "seq"])
     if (!teamInteger(r[k])) teamError();
-  if (Buffer.byteLength(teamText(r.text, 4096)) !== teamInteger(r.bytes, 4096))
+  if (
+    Buffer.byteLength(teamText(r.text, TEAM_LIMITS.messageBytes)) !==
+    teamInteger(r.bytes, TEAM_LIMITS.messageBytes)
+  )
     teamError();
   teamSha(r.requestSha256);
   teamDate(r.expiresAt);
@@ -464,4 +514,128 @@ export function validateTeamReceipt(value: unknown): TeamOperationReceipt {
   }
   teamCheckHash(r);
   return r as unknown as TeamOperationReceipt;
+}
+export function validateTeamDelivery(value: unknown): TeamDeliveryRecord {
+  const r = teamObject(value, [
+    "id",
+    "workspaceId",
+    "teamId",
+    "memberId",
+    "generation",
+    "memberRevisionId",
+    "memberSha256",
+    "owner",
+    "requestId",
+    "requestSha256",
+    "runtimeEpoch",
+    "state",
+    "revision",
+    "page",
+    "createdAt",
+    "updatedAt",
+    "errorCode",
+    "sha256",
+  ]);
+  for (const k of [
+    "id",
+    "workspaceId",
+    "teamId",
+    "memberId",
+    "memberRevisionId",
+    "requestId",
+    "runtimeEpoch",
+  ])
+    teamId(r[k]);
+  for (const k of ["memberSha256", "requestSha256"]) teamSha(r[k]);
+  if (
+    !teamInteger(r.generation) ||
+    !teamInteger(r.revision) ||
+    !["prepared", "dispatched", "delivered", "cancelled", "uncertain"].includes(
+      r.state as string,
+    )
+  )
+    teamError();
+  validateTeamOwner(r.owner);
+  const page = teamObject(r.page, [
+    "workspaceId",
+    "teamId",
+    "memberId",
+    "generation",
+    "memberRevisionId",
+    "memberSha256",
+    "cursor",
+    "messages",
+    "bytes",
+    "hasMore",
+    "sha256",
+  ]);
+  teamCheckHash(page);
+  validateTeamCursor(page.cursor);
+  if (
+    !Array.isArray(page.messages) ||
+    !page.messages.length ||
+    page.messages.length > 64
+  )
+    teamError();
+  for (const message of page.messages) validateAgentMessage(message);
+  if (
+    page.workspaceId !== r.workspaceId ||
+    page.teamId !== r.teamId ||
+    page.memberId !== r.memberId ||
+    page.generation !== r.generation ||
+    page.memberRevisionId !== r.memberRevisionId ||
+    page.memberSha256 !== r.memberSha256
+  )
+    teamError("TEAM_SCOPE_MISMATCH");
+  for (const k of ["createdAt", "updatedAt"]) teamDate(r[k]);
+  if (r.errorCode !== null) teamId(r.errorCode);
+  teamCheckHash(r);
+  return r as unknown as TeamDeliveryRecord;
+}
+export function validateTeamAcceptedInput(
+  value: unknown,
+): TeamAcceptedInputProof {
+  const r = teamObject(value, [
+    "sessionId",
+    "runId",
+    "inputId",
+    "requestId",
+    "inputSha256",
+    "admittedSeq",
+    "delivery",
+  ]);
+  for (const k of ["sessionId", "runId", "inputId", "requestId"]) teamId(r[k]);
+  teamSha(r.inputSha256);
+  if (
+    !teamInteger(r.admittedSeq) ||
+    !["steer", "queue"].includes(String(r.delivery))
+  )
+    teamError();
+  return r as unknown as TeamAcceptedInputProof;
+}
+export function validateDeliveryReceipt(value: unknown): TeamDeliveryReceipt {
+  const r = teamObject(value, [
+    "id",
+    "workspaceId",
+    "teamId",
+    "deliveryId",
+    "deliverySha256",
+    "memberId",
+    "generation",
+    "messagesSha256",
+    "input",
+    "cursor",
+    "createdAt",
+    "sha256",
+  ]);
+  for (const k of ["id", "workspaceId", "teamId", "deliveryId", "memberId"])
+    teamId(r[k]);
+  if (r.id !== r.deliveryId || !teamInteger(r.generation)) teamError();
+  teamSha(r.deliverySha256);
+  teamSha(r.messagesSha256);
+  validateTeamAcceptedInput(r.input);
+  validateTeamCursor(r.cursor);
+  teamDate(r.createdAt);
+  teamCheckHash(r);
+  return r as unknown as TeamDeliveryReceipt;
 }

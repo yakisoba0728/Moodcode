@@ -3,6 +3,7 @@ import { EngineError, isTerminal } from '@moodcode/contracts';
 import type { EngineRuntime } from '../engine-runtime.js';
 import type { TeamMemberOwnerProof, TeamMemberRevision } from './types.js';
 import { knowledgeHash } from '../knowledge/validation.js';
+import { teamOwnerIdentity } from './validation.js';
 
 interface Selection { workspaceId: string; rootSessionId: string; rootRunId?: string; childTaskId?: string }
 interface Capture { selection: Selection; runId: string; epoch: string }
@@ -73,9 +74,7 @@ export class EngineTeamOwners {
   }
 
   assertCurrent(original: object, member: TeamMemberRevision): void {
-    const actual = this.read(original);
-    const expected = member.owner;
-    for (const key of ['kind', 'workspaceId', 'sessionId', 'runId', 'rootSessionId', 'rootRunId', 'childTaskId', 'childTaskFingerprint', 'childStorageSha256', 'worktreeId', 'ownerEpoch'] as const) if (actual[key] !== expected[key]) fail();
+    if (teamOwnerIdentity(this.read(original)) !== teamOwnerIdentity(member.owner)) fail();
   }
 
   release(original: object): void { this.originals.delete(original); }

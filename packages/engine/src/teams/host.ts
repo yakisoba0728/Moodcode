@@ -22,7 +22,12 @@ import {
   teamHostPermissions,
   teamHostSignal,
 } from "./policy.js";
-import { teamId, teamInteger, validateTeamOwner } from "./validation.js";
+import {
+  teamId,
+  teamInteger,
+  teamOwnerIdentity,
+  validateTeamOwner,
+} from "./validation.js";
 
 export interface TeamHostNativePort {
   createTeam(input: CreateTeamInput): TeamRequestResult<TeamRecord>;
@@ -170,15 +175,12 @@ export class TeamHostService {
     this.open();
     const state = this.owned(original);
     this.ports.owner.assertCurrent(state.original, member);
-    const {
-        cleanup: _currentCleanup,
-        sha256: _currentSha,
-        ...current
-      } = this.readMemberOwner(original),
-      { cleanup: _oldCleanup, sha256: _oldSha, ...previous } = member.owner;
     // Retirement can observe confirmed/unknown cleanup of the same actual owner.
     // Native activeMember separately requires the original complete SHA and live cleanup.
-    if (knowledgeHash(current) !== knowledgeHash(previous))
+    if (
+      teamOwnerIdentity(this.readMemberOwner(original)) !==
+      teamOwnerIdentity(member.owner)
+    )
       teamHostError("TEAM_OWNER_STALE");
   }
   releaseOwner(original: object): void {

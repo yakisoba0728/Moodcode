@@ -10,6 +10,7 @@ import {
   knowledgeHash,
 } from "../knowledge/validation.js";
 import type { TeamModelInput, TeamModelOperation } from "./model-tools.js";
+import type { TeamTaskMutationInput } from "./service.js";
 export const TEAM_WORKFLOW_PREFIX = "team.workflow.";
 export interface TeamBoardSubmission {
   id: string;
@@ -190,9 +191,7 @@ export class TeamWorkflowBoard {
         MoodcodeEngine,
         "getTeamMember" | "getTeamTask" | "readTeamTaskPage"
       >,
-    private readonly complete: (
-      input: import("./service.js").TeamTaskMutationInput,
-    ) => unknown,
+    private readonly complete: (input: TeamTaskMutationInput) => unknown,
   ) {}
   /** Board documents live in the claimant's root session, whoever acts on them. */
   private boardSession(member: TeamMemberRevision, task: TeamTaskRevision) {
