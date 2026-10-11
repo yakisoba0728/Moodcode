@@ -18,6 +18,7 @@ import type { ToolCatalogue } from "../tools/runtime/index.js";
 import type {
   AgentBackendCredentialReference,
   AgentBackendLaunch,
+  AgentBackendSessionLoad,
   AgentBackendSpec,
   AgentBackendTargetPin,
 } from "./types.js";
@@ -63,7 +64,7 @@ interface Target {
   readonly files: readonly FilePin[];
   readonly proof: BackendTargetProof;
   readonly contextOwner: "engine" | "agent";
-  readonly sessionLoad: import("./types.js").AgentBackendSessionLoad | null;
+  readonly sessionLoad: AgentBackendSessionLoad | null;
 }
 export interface CaptureAgentBackendTarget {
   readonly backendId: string;
@@ -74,7 +75,7 @@ export interface CaptureAgentBackendTarget {
   readonly credentialReference: AgentBackendCredentialReference | null;
   readonly endpointAudience: string;
   readonly contextOwner?: "engine" | "agent";
-  readonly sessionLoad?: import("./types.js").AgentBackendSessionLoad;
+  readonly sessionLoad?: AgentBackendSessionLoad;
 }
 export interface AgentBackendSecretResolver {
   resolve(

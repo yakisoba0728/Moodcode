@@ -174,6 +174,11 @@ export interface AcpV1CancelParams {
   readonly sessionId: string;
   readonly _meta?: JsonObject;
 }
+export interface AcpV1TerminalControlParams {
+  readonly sessionId: string;
+  readonly terminalId: string;
+  readonly _meta?: JsonObject;
+}
 export interface AcpV1ReadTextFileParams {
   readonly sessionId: string;
   readonly path: string;

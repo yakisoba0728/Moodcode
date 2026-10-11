@@ -17,6 +17,7 @@ import type {
 } from "./store.js";
 import type {
   AcpV1Message,
+  AcpV1NegotiatedCapabilities,
   AcpV1Request,
   AcpV1Response,
   AcpV1StopReason,
@@ -106,8 +107,7 @@ export class AgentBackendRemote implements ProviderAdapter {
     let disposal: object | undefined;
     let settled = false;
     let nativeEffects: BackendNativeEffects | undefined;
-    let capabilities:
-      import("./types.js").AcpV1NegotiatedCapabilities | undefined;
+    let capabilities: AcpV1NegotiatedCapabilities | undefined;
     const observe = (
       original: object,
       state: "initialized" | "session-ready" | "observe",

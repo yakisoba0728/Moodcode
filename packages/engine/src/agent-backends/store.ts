@@ -1237,11 +1237,8 @@ export class AgentBackendStorage {
         if (
           !("method" in message) ||
           message.method !== "session/cancel" ||
-          (
-            validateAcpV1Request(message.method, message.params) as {
-              sessionId: string;
-            }
-          ).sessionId !== before.remoteSessionId
+          validateAcpV1Request("session/cancel", message.params).sessionId !==
+            before.remoteSessionId
         )
           fail("BACKEND_REMOTE_SESSION_INVALID");
         const write = digest(this.ports.readWrite(originalWrite));
@@ -2241,12 +2238,10 @@ function validateTerminalControl(
   if (
     !("method" in wire) ||
     !("id" in wire) ||
-    ![
-      "terminal/output",
-      "terminal/wait_for_exit",
-      "terminal/kill",
-      "terminal/release",
-    ].includes(wire.method) ||
+    (wire.method !== "terminal/output" &&
+      wire.method !== "terminal/wait_for_exit" &&
+      wire.method !== "terminal/kill" &&
+      wire.method !== "terminal/release") ||
     !("id" in message) ||
     message.id !== wire.id ||
     !("result" in message) ||
@@ -2257,10 +2252,7 @@ function validateTerminalControl(
     control.write.frameSha256 !== knowledgeHash(message)
   )
     fail("BACKEND_DELIVERY_INVALID");
-  const p = validateAcpV1Request(wire.method, wire.params) as {
-    terminalId: string;
-    sessionId: string;
-  };
+  const p = validateAcpV1Request(wire.method, wire.params);
   if (
     p.terminalId !== `terminal:${e.effectId}` ||
     p.sessionId !== session ||
@@ -2884,11 +2876,8 @@ function validateBody(r: AgentBackendRecord): void {
         !("method" in cancel) ||
         "id" in cancel ||
         cancel.method !== "session/cancel" ||
-        (
-          validateAcpV1Request(cancel.method, cancel.params) as {
-            sessionId: string;
-          }
-        ).sessionId !== r.remoteSessionId ||
+        validateAcpV1Request("session/cancel", cancel.params).sessionId !==
+          r.remoteSessionId ||
         r.cancellation.write.workspaceId !== r.workspaceId ||
         r.cancellation.write.connectionId !== r.connectionId ||
         r.cancellation.write.epoch !== r.epoch ||
@@ -3317,9 +3306,7 @@ function validateTransition(
       if (after.state === "initialized")
         validateAcpV1Result("initialize", message.result);
       else if (after.state === "session-ready") {
-        const result = validateAcpV1Result("session/new", message.result) as {
-          sessionId: string;
-        };
+        const result = validateAcpV1Result("session/new", message.result);
         if (result.sessionId !== after.remoteSessionId) fail();
       }
     }

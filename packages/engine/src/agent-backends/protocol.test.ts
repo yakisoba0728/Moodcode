@@ -327,6 +327,56 @@ test("peer metadata is immutable bounded advisory data and cannot extend exact e
   );
   assert.equal(accessed, 0);
 });
+test("field errors precede peer metadata errors, and session and initialize metadata precede update and auth checks", () => {
+  const meta = { _meta: null };
+  for (const [method, input, code] of [
+    [
+      "session/load",
+      { sessionId: "peer", cwd: "relative", mcpServers: [], ...meta },
+      "AGENT_BACKEND_PATH_INVALID",
+    ],
+    [
+      "session/load",
+      { sessionId: "peer", cwd: "/workspace", mcpServers: [{}], ...meta },
+      "ACP_MCP_UNSUPPORTED",
+    ],
+    [
+      "terminal/create",
+      { sessionId: "peer", command: "ls", env: [{ name: "A" }], ...meta },
+      "ACP_ENV_UNSUPPORTED",
+    ],
+    [
+      "session/prompt",
+      {
+        sessionId: "peer",
+        prompt: [{ type: "image", text: "x", ...meta }],
+        ...meta,
+      },
+      "ACP_CONTENT_UNSUPPORTED",
+    ],
+    [
+      "session/update",
+      { sessionId: "peer", update: { sessionUpdate: "plan" }, ...meta },
+      "ACP_INVALID_MESSAGE",
+    ],
+  ] as const)
+    assert.throws(() => validateAcpV1Request(method, input), fails(code));
+  assert.throws(
+    () =>
+      validateAcpV1Result("session/prompt", { stopReason: "paused", ...meta }),
+    fails("ACP_COMPLETION_INVALID"),
+  );
+  assert.throws(
+    () =>
+      validateAcpV1Result("initialize", {
+        protocolVersion: 1,
+        agentCapabilities: {},
+        authMethods: "none",
+        ...meta,
+      }),
+    fails("ACP_INVALID_MESSAGE"),
+  );
+});
 test("read responses and streamed text have explicit byte bounds and every supported stop reason remains distinct", () => {
   for (const stopReason of [
     "end_turn",
