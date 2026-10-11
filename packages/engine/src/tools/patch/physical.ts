@@ -6,6 +6,7 @@ import path from 'node:path';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
 import { textHash } from '../file-actions/text.js';
+import type { PreparedResourceClaim } from '../../effect-batches/types.js';
 
 const MAX_FILES = 32;
 const MAX_FILE_BYTES = 1024 * 1024;
@@ -62,7 +63,7 @@ function parse(input: unknown): Change[] {
   if (!object(input) || !keys(input, ['changes']) || !Array.isArray(input.changes) || types.isProxy(input.changes) || input.changes.length === 0 || input.changes.length > MAX_FILES) {
     throw new EngineError('INVALID_PATCH_INPUT', `A patch requires between 1 and ${MAX_FILES} full-content changes`);
   }
-  if (types.isProxy(input.changes) || Object.getPrototypeOf(input.changes) !== Array.prototype) throw new EngineError('INVALID_PATCH_INPUT', 'Patch changes must be original plain data');
+  if (Object.getPrototypeOf(input.changes) !== Array.prototype) throw new EngineError('INVALID_PATCH_INPUT', 'Patch changes must be original plain data');
   const descriptors = Object.getOwnPropertyDescriptors(input.changes);
   if (Reflect.ownKeys(descriptors).length !== input.changes.length + 1 || Array.from({length:input.changes.length}, (_,i) => descriptors[String(i)]).some(d => !d?.enumerable || !Object.hasOwn(d, 'value'))) throw new EngineError('INVALID_PATCH_INPUT', 'Patch changes must have complete data entries');
   const changes: Change[] = [];
@@ -318,7 +319,7 @@ export class PhysicalPatchProducer {
     return structuredClone({ binding: record.binding, changes: record.changes, sourceSha256: record.sourceSha256,
       physicalPinsSha256: record.physicalPinsSha256, preview: preview(record.changes, record.before) });
   }
-  resourceSnapshot(original: object): Omit<import('../../effect-batches/types.js').PreparedResourceClaim, 'sha256'> | null {
+  resourceSnapshot(original: object): Omit<PreparedResourceClaim, 'sha256'> | null {
     const record = this.original(original);
     if (record.state !== 'prepared' || record.changes.some((change, i) => change.content === null || !record.before[i]?.stat || record.before[i]?.hash === null)) return null;
     const pins = record.pins as {parents:{path:string;dev:string|null;ino:string|null}[]};

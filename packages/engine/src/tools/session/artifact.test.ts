@@ -95,7 +95,8 @@ test('prepared reads reject cloned, mutated, reused and changed current executio
   for (const workspace of [{ ...f.context.workspace, id: 'other-workspace' }, { ...f.context.workspace, root: join(f.root, 'other-root') }]) {
     const fresh = await f.tool.prepare(f.input, f.context); await assert.rejects(f.tool.execute(fresh, { ...f.context, workspace }), code('ARTIFACT_REQUEST_STALE'));
   }
-  const fresh = await f.tool.prepare(f.input, f.context); await f.tool.execute(fresh, f.context);
+  const fresh = await f.tool.prepare(f.input, f.context);
+  await assert.rejects(f.tool.execute(fresh, { ...f.context, attemptId: 'other' }), code('ARTIFACT_REQUEST_STALE')); await f.tool.execute(fresh, f.context);
   await assert.rejects(f.tool.execute(fresh, f.context), code('ARTIFACT_REQUEST_STALE'));
 });
 

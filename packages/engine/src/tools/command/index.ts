@@ -15,6 +15,7 @@ import type {
   ToolResult,
 } from "../../ports.js";
 import { within } from "../../shared/fs.js";
+import type { SandboxLaunch } from "../../sandbox/types.js";
 import {
   captureWorkspace,
   resolveWorkspacePath,
@@ -45,7 +46,7 @@ import {
   type CommandObservation,
 } from "./observation.js";
 import { commandBackendCapability, WindowsJobCommandBackend } from "./backends.js";
-import { acquireExecutionLock } from "./execution-lock.js";
+import { acquireExecutionLock, type ExecutionLockReservation } from "./execution-lock.js";
 import { runSupervised } from "./supervisor-client.js";
 
 export { COMMAND_LIMITS } from "./capture.js";
@@ -66,8 +67,8 @@ export interface PhysicalCommandScope {
   };
   readonly artifactDir: string;
   readonly executionLockPath?: string;
-  readonly executionLockReservation?: import("./execution-lock.js").ExecutionLockReservation;
-  readonly sandbox?: import("../../sandbox/types.js").SandboxLaunch;
+  readonly executionLockReservation?: ExecutionLockReservation;
+  readonly sandbox?: SandboxLaunch;
 }
 export interface PhysicalCommandResult {
   readonly outcome: ProcessOutcome;
@@ -404,7 +405,7 @@ function cancelledResult(context: ToolContext): ToolResult {
 }
 
 export function createCommandTool(
-  options: { readonly observer?: CommandExecutionObserver; readonly sandbox?: (context: ToolContext) => import("../../sandbox/types.js").SandboxLaunch } = {},
+  options: { readonly observer?: CommandExecutionObserver; readonly sandbox?: (context: ToolContext) => SandboxLaunch } = {},
 ): ToolDefinition {
   const observer = options.observer;
   const consumed = new Set<string>();

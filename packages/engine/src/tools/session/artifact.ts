@@ -4,37 +4,22 @@ import {
   type ArtifactIdentity,
   type JsonObject,
 } from "@moodcode/contracts";
-import type { PreparedTool, ToolContext, ToolDefinition } from "../../ports.js";
+import type { PreparedTool, ToolDefinition } from "../../ports.js";
 import type { ArtifactStore } from "../../artifacts/store.js";
 import type { SqliteStore } from "../../storage/index.js";
 import { boundedJson } from "../../artifacts/validation.js";
+import { preparedRequests, workspaceCallBinding } from "../prepared-requests.js";
 
 export function createArtifactReadTool(
   store: SqliteStore,
   artifacts: () => Promise<ArtifactStore>,
 ): ToolDefinition {
-  const requests = new WeakMap<
-    PreparedTool,
-    {
-      owner: string;
-      snapshot: string;
-      used: boolean;
-      identity: ArtifactIdentity;
-      id: string;
-      offset: number;
-      limit: number;
-    }
-  >();
-  const owner = (context: ToolContext) =>
-    JSON.stringify([
-      context.workspace.id,
-      context.workspace.root,
-      context.sessionId,
-      context.runId,
-      context.toolCallId,
-      context.turnId,
-      context.attemptId,
-    ]);
+  const requests = preparedRequests<{
+    identity: ArtifactIdentity;
+    id: string;
+    offset: number;
+    limit: number;
+  }>(workspaceCallBinding);
   return {
     name: "read_artifact",
     effectClass: "read",
@@ -140,30 +125,18 @@ export function createArtifactReadTool(
         requiresApproval: false,
         preview: { operation: "artifact.read", ...normalized },
       };
-      requests.set(prepared, {
-        owner: owner(context),
-        snapshot: JSON.stringify(prepared),
+      return requests.remember(prepared, context, {
         identity,
         id: input.artifactId as string,
         offset,
         limit,
-        used: false,
       });
-      return prepared;
     },
     async execute(prepared, context) {
-      const request = requests.get(prepared);
-      if (
-        !request ||
-        request.used ||
-        request.owner !== owner(context) ||
-        request.snapshot !== JSON.stringify(prepared)
-      )
-        throw new EngineError(
-          "ARTIFACT_REQUEST_STALE",
-          "Artifact read must use its fresh prepared owner",
-        );
-      request.used = true;
+      const request = requests.claim(prepared, context, [
+        "ARTIFACT_REQUEST_STALE",
+        "Artifact read must use its fresh prepared owner",
+      ]);
       const page = await (
         await artifacts()
       ).read(request.id, {

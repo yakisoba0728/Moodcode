@@ -1,10 +1,11 @@
 import { spawn } from 'node:child_process';
 import type { Readable } from 'node:stream';
 import { EngineError } from '@moodcode/contracts';
+import type { SandboxLaunch } from '../../sandbox/types.js';
 import { cleanupGroup, createCommandEnvironment, groupExists, TERMINATION_LIMITS } from '../../shared/runtime.js';
 
 export { cleanupGroup, createCommandEnvironment, groupExists, registerCredentialEnvNames, TERMINATION_LIMITS } from '../../shared/runtime.js';
-export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: import('../../sandbox/types.js').SandboxLaunch }
+export interface ShellInput { command: string; cwd: string; timeoutMs: number; sandbox?: SandboxLaunch }
 export interface ProcessOutcome { exitCode: number | null; signal: NodeJS.Signals | null; cancelled: boolean; timedOut: boolean; cleanupConfirmed: boolean; started: boolean; outputDiscarded?: boolean; error?: string }
 export type ShellOutput = (stream: 'stdout' | 'stderr', bytes: Buffer) => void | Promise<void>;
 export const notStartedOutcome = (cancelled: boolean, error?: string): ProcessOutcome => ({ exitCode: null, signal: null, cancelled, timedOut: false, cleanupConfirmed: true, started: false, ...(error === undefined ? {} : { error }) });

@@ -4,8 +4,13 @@ import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { assertWorkspaceWriteParent, workspaceWritePath } from '../../workspace/index.js';
+import { plainRecord } from '../../shared/data.js';
 export const TEXT_FILE_LIMIT = 1024 * 1024;
 export const textHash = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
+/** A plain input object with exactly `keys`; fails with `code` and the shape or the key-set message. */
+export function exactInput(value: unknown, keys: readonly string[], code: string, [shape, fields]: readonly [string, string]): Record<string, unknown> {
+  return plainRecord(value, keys, [], fault => { throw new EngineError(code, fault === 'shape' ? shape : fields); });
+}
 export function exactPath(value: unknown): string {
   workspaceWritePath(value, 'INVALID_FILE_ACTION_PATH', 'Use an exact bounded workspace-relative path outside Git metadata and dependencies');
   return value as string;
@@ -32,4 +37,9 @@ export async function readExactText(workspace: Workspace, relative: string, sign
     if (raw.includes(0) || !Buffer.from(content).equals(raw)) throw new EngineError('UNSUPPORTED_FILE_ACTION', 'Binary or non-UTF-8 files are unsupported');
     return { content, hash: textHash(content), mode: Number(before.mode & 0o7777n) };
   } finally { await handle.close(); }
+}
+export async function readExpectedText(workspace: Workspace, relative: string, expectedHash: string, signal: AbortSignal, [code, message]: readonly [string, string]): Promise<{ content: string; hash: string; mode: number }> {
+  const before = await readExactText(workspace, relative, signal);
+  if (before.hash !== expectedHash) throw new EngineError(code, message);
+  return before;
 }

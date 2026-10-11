@@ -5,18 +5,15 @@ import { EngineError, type Checkpoint, type JsonValue } from '@moodcode/contract
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../../ports.js';
 import { acquireExecutionLock, type ExecutionLock } from '../command/execution-lock.js';
 import { PhysicalPatchProducer, PHYSICAL_PATCH_LIMITS, type PhysicalPatchCapture } from './physical.js';
+import { preparedRequests } from '../prepared-requests.js';
 
 function hash(value: unknown): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
 function active(context: ToolContext): void { if (context.signal.aborted) throw new EngineError('CANCELLED', 'Patch was cancelled'); }
-interface BoundRequest {
-  workspaceId: string; root: string; sessionId: string; runId: string; toolCallId: string;
-  executionLockPath?: string; fingerprint: string; input: string; preview: string;
-  capture: PhysicalPatchCapture; resource: object|null; used: boolean;
-}
+const binding = (context: ToolContext) => JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.executionLockPath]);
 
 /** The real tool wrapper owns approval and Run checkpoints; physical I/O has its own original capability. */
 export function createPatchTool(): ToolDefinition {
-  const physical = new PhysicalPatchProducer(), requests = new WeakMap<PreparedTool, BoundRequest>();
+  const physical = new PhysicalPatchProducer(), requests = preparedRequests<{ capture: PhysicalPatchCapture; resource: object | null; executionLockPath: string | undefined }>(binding);
   const tool:ToolDefinition = {
     name: 'apply_patch',
     description: 'Propose bounded create, update, or delete changes using full UTF-8 file contents and expected SHA-256 hashes. Requires approval.',
@@ -37,20 +34,14 @@ export function createPatchTool(): ToolDefinition {
           sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId, executionLockPath: context.executionLockPath, changes: source.changes };
         const prepared: PreparedTool = { name: 'apply_patch', input: { changes: source.changes.map(change => ({ ...change })) },
           fingerprint: hash(identity), requiresApproval: true, preview: source.preview };
-        requests.set(prepared, { workspaceId: context.workspace.id, root: context.workspace.root, sessionId: context.sessionId,
-          runId: context.runId, toolCallId: context.toolCallId, executionLockPath: context.executionLockPath,
-          fingerprint: prepared.fingerprint, input: JSON.stringify(prepared.input), preview: JSON.stringify(prepared.preview), capture, resource:physical.resourceSnapshot(capture) ? issuePreparedPatchResource(physical.resourceSnapshot(capture)!,capture,signal=>physical.assertFresh(capture,signal)) : null, used: false });
-        return prepared;
+        const proof = physical.resourceSnapshot(capture);
+        return requests.remember(prepared, context, { capture, executionLockPath: context.executionLockPath,
+          resource: proof ? issuePreparedPatchResource(proof, capture, signal => physical.assertFresh(capture, signal)) : null });
       } catch (error) { physical.release(capture); throw error; }
     },
     async execute(prepared, context): Promise<ToolResult> {
-      active(context); const request = requests.get(prepared);
-      if (!request || request.used) throw new EngineError('INVALID_PREPARED_PATCH', 'A patch must be prepared by this tool and can be executed only once');
-      request.used = true;
-      if (prepared.name !== 'apply_patch' || !prepared.requiresApproval || prepared.fingerprint !== request.fingerprint
-        || JSON.stringify(prepared.input) !== request.input || JSON.stringify(prepared.preview) !== request.preview
-        || context.workspace.id !== request.workspaceId || context.workspace.root !== request.root || context.sessionId !== request.sessionId
-        || context.runId !== request.runId || context.toolCallId !== request.toolCallId || context.executionLockPath !== request.executionLockPath) {
+      active(context); const request = requests.consume(prepared, ['INVALID_PREPARED_PATCH', 'A patch must be prepared by this tool and can be executed only once']);
+      if (!requests.current(prepared, context)) {
         physical.release(request.capture); throw new EngineError('PATCH_APPROVAL_STALE', 'Prepared patch or approval context changed; a new preview and approval are required');
       }
       let lock: ExecutionLock | undefined, accountingComplete = false, cleanupConfirmed = false;
@@ -76,6 +67,6 @@ export function createPatchTool(): ToolDefinition {
       } finally { if(context.effectBatchPermit)settleResourcePermit(context.effectBatchPermit,context,request.capture,accountingComplete && cleanupConfirmed);physical.release(request.capture); lock?.release(accountingComplete && cleanupConfirmed); }
     },
   };
-  registerPreparedResourceProducer(tool, prepared=>requests.get(prepared)?.resource??null);
+  registerPreparedResourceProducer(tool, prepared=>requests.peek(prepared)?.data.resource??null);
   return tool;
 }

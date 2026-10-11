@@ -24,6 +24,7 @@ import {
 } from "../runner/queue-target.js";
 import { McpClient } from "../mcp/client.js";
 import { StdioMcpTransport } from "../mcp/stdio.js";
+import type { JsonRpcMessage } from "../mcp/protocol.js";
 import type {
   CommandExecutionObserver,
   CommandExecutionCompletion,
@@ -585,7 +586,7 @@ export class SandboxHost implements CommandExecutionObserver {
     let registered = false,
       binding: SandboxGrant | undefined,
       expectedTarget: SandboxGrant["target"] | undefined;
-    const guard = (message?: import("../mcp/protocol.js").JsonRpcMessage) => {
+    const guard = (message?: JsonRpcMessage) => {
       const current = this.grants.get(x.sessionId);
       if (!current) sandboxError("SANDBOX_GRANT_REQUIRED");
       if (registered && !binding) sandboxError("SANDBOX_MCP_UNBOUND");
