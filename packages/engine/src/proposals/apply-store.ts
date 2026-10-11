@@ -5,6 +5,11 @@ import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
 import { sealRecord, sha256Hex } from "../shared/canonical.js";
 import { guardedWrite } from "../storage/transaction.js";
 import {
+  readProposalApplyGuard,
+  validateProposalApplyGuard,
+  type ProposalApplyGuardChecks,
+} from "./execution-guards.js";
+import {
   advanceProposalHead,
   readProposalHead,
   validateProposalRevision,
@@ -106,6 +111,14 @@ const {
   maxDepth: 16,
   maxItems: 128,
 });
+const guardChecks: ProposalApplyGuardChecks = {
+  fail,
+  id,
+  exact: fields,
+  json: immutable,
+  verify: checkHash,
+  decoded,
+};
 const inputFields = [
   "workspaceId",
   "proposalId",
@@ -244,41 +257,6 @@ function readRow(
     .get(ws, key, max);
   if (!row) fail("PROPOSAL_APPLY_STALE");
   return decoded(row.data, max);
-}
-function validateProposalApplyGuard(value: unknown): ProposalApplyGuard {
-  const r = fields(immutable(value), [
-    "id",
-    "workspaceId",
-    "ownerId",
-    "binding",
-    "lock",
-    "marker",
-    "sha256",
-  ]);
-  if (id(r.id) !== id(r.ownerId)) fail();
-  id(r.workspaceId);
-  if (validateBinding(r.binding).workspaceId !== r.workspaceId) fail();
-  const lock = fields(r.lock, ["path", "device", "inode"]),
-    marker = fields(r.marker, ["ownerPid", "groupPid", "active", "updatedAt"]);
-  if (
-    typeof lock.path !== "string" ||
-    !lock.path.startsWith("/") ||
-    Buffer.byteLength(lock.path) > 4096 ||
-    lock.path.includes("\0") ||
-    typeof lock.device !== "string" ||
-    !/^\d{1,32}$/u.test(lock.device) ||
-    typeof lock.inode !== "string" ||
-    !/^\d{1,32}$/u.test(lock.inode) ||
-    count(marker.ownerPid) < 1 ||
-    marker.groupPid !== null ||
-    marker.active !== true ||
-    typeof marker.updatedAt !== "string" ||
-    Buffer.byteLength(marker.updatedAt) > 128 ||
-    !Number.isFinite(Date.parse(marker.updatedAt))
-  )
-    fail();
-  checkHash(r);
-  return r as unknown as ProposalApplyGuard;
 }
 function image(value: unknown): string | null {
   if (value === null) return null;
@@ -767,6 +745,7 @@ export class ProposalApplyStorage {
       const originalGuard = reserveGuard();
       const guard = validateProposalApplyGuard(
         this.ports.readExecutionGuard(capture, originalGuard),
+        guardChecks,
       );
       if (
         guard.ownerId !== record.id ||
@@ -790,7 +769,8 @@ export class ProposalApplyStorage {
       const guard = this.ports.getExecutionGuard(record.workspaceId, record.id);
       if (
         !guard ||
-        validateProposalApplyGuard(guard).sha256 !== record.guardSha256
+        validateProposalApplyGuard(guard, guardChecks).sha256 !==
+          record.guardSha256
       )
         fail("PROPOSAL_APPLY_GUARD_INVALID");
       return this.#update(record, {
@@ -1172,7 +1152,8 @@ export class ProposalApplyStorage {
         );
         if (
           guard &&
-          (validateProposalApplyGuard(guard).ownerId !== record.id ||
+          (validateProposalApplyGuard(guard, guardChecks).ownerId !==
+            record.id ||
             knowledgeHash(guard.binding) !== knowledgeHash(record.binding))
         )
           fail("PROPOSAL_APPLY_GUARD_INVALID");
@@ -1406,28 +1387,6 @@ function latestDecision(
     fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
   return value;
 }
-function rawGuard(
-  db: DatabaseSync,
-  ws: string,
-  ownerId: string,
-): ProposalApplyGuard | undefined {
-  const meta = db
-    .prepare(
-      "SELECT length(CAST(data AS BLOB)) AS bytes FROM proposal_apply_execution_guards WHERE workspace_id=? AND owner_id=?",
-    )
-    .get(ws, ownerId);
-  if (!meta) return undefined;
-  count(meta.bytes, PROPOSAL_APPLY_LIMITS.rowBytes);
-  const row = db
-    .prepare(
-      "SELECT data FROM proposal_apply_execution_guards WHERE workspace_id=? AND owner_id=? AND length(CAST(data AS BLOB))<=65536",
-    )
-    .get(ws, ownerId);
-  if (!row) fail("PROPOSAL_APPLY_GUARD_INVALID");
-  return validateProposalApplyGuard(
-    decoded(row.data, PROPOSAL_APPLY_LIMITS.rowBytes),
-  );
-}
 type ResumePin = {
   readonly pin: ProposalApplyRecoveryPreview["owners"][number];
   readonly binding: string;
@@ -1482,7 +1441,7 @@ function frontier(
   getGuard: (ws: string, id: string) => ProposalApplyGuard | undefined = (
     ws,
     key,
-  ) => rawGuard(db, ws, key),
+  ) => readProposalApplyGuard(db, ws, key, guardChecks),
 ): ProposalApplyRecoveryPreview["owners"] {
   const resumed = resumePins(db, ws),
     resumable = new Map<string, boolean>();
@@ -1498,7 +1457,7 @@ function frontier(
         readRow(db, "proposal_apply_owners", ws, id(row.id)),
       ),
       guard = getGuard(ws, owner.id);
-    if (guard) validateProposalApplyGuard(guard);
+    if (guard) validateProposalApplyGuard(guard, guardChecks);
     if (
       owner.state === "uncertain" &&
       resolved(db, owner, guard, resumed, resumable)
@@ -1586,7 +1545,8 @@ export function validateProposalApplyDatabase(
     assertCurrent: () => fail(),
     readPhysicalResult: () => fail(),
     readExecutionGuard: () => fail(),
-    getExecutionGuard: (ws, key) => rawGuard(db, ws, key),
+    getExecutionGuard: (ws, key) =>
+      readProposalApplyGuard(db, ws, key, guardChecks),
     assertCleanup: () => fail(),
   });
   for (const row of db
@@ -1606,7 +1566,12 @@ export function validateProposalApplyDatabase(
       revision.totalBytes > 4_194_304
     )
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const guard = rawGuard(db, owner.workspaceId, owner.id);
+    const guard = readProposalApplyGuard(
+      db,
+      owner.workspaceId,
+      owner.id,
+      guardChecks,
+    );
     if (owner.guardSha256 !== null && guard?.sha256 !== owner.guardSha256)
       fail("PROPOSAL_APPLY_GUARD_INVALID");
     const checkpoint = history.checkpoint;
@@ -1806,8 +1771,8 @@ export function validateProposalApplyDatabase(
         owner.sha256 !== pin.sha256 ||
         owner.state !== "uncertain" ||
         owner.checkpointSha256 !== pin.checkpointSha256 ||
-        (rawGuard(db, decision.workspaceId, owner.id)?.sha256 ??
-          owner.guardSha256) !== pin.guardSha256
+        (readProposalApplyGuard(db, decision.workspaceId, owner.id, guardChecks)
+          ?.sha256 ?? owner.guardSha256) !== pin.guardSha256
       )
         fail("PROPOSAL_APPLY_RECOVERY_STALE");
     }
