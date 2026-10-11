@@ -1,18 +1,10 @@
 import { EngineError } from "@moodcode/contracts";
 import type { ProviderAdapter } from "../ports.js";
-import type { BackendNativeClientEffectPort } from "./client-effects.js";
-import type { BackendProcessPort } from "./process.js";
-import type {
-  ActualBackendTurnPort,
-  AgentBackendRevision,
-  AgentBackendStorage,
-} from "./store.js";
+import type { BackendEffectPorts } from "./client-effects.js";
+import type { ActualBackendTurnPort, AgentBackendRevision } from "./store.js";
 import { AgentBackendRemote } from "./remote.js";
 
-export interface AgentBackendHostOptions {
-  store: AgentBackendStorage;
-  processes: BackendProcessPort;
-  clientReads: BackendNativeClientEffectPort;
+export interface AgentBackendHostOptions extends BackendEffectPorts {
   turns: ActualBackendTurnPort;
   lifetime?: AbortSignal;
 }

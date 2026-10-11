@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import {
   EngineError,
   type JsonObject,
@@ -6,15 +6,16 @@ import {
 } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { TurnRequest } from "../ports.js";
-import type {
-  BackendClientEffectInput,
-  BackendClientReadProof,
-  BackendNativeClientEffectPort,
+import {
+  backendReadResponse,
+  type BackendClientEffectInput,
+  type BackendClientReadInput,
+  type BackendClientReadProof,
+  type BackendEffectPorts,
 } from "./client-effects.js";
-import type { BackendProcessPort } from "./process.js";
 import type {
-  AgentBackendStorage,
   BackendClientEffectRevision,
+  DeliverBackendClientEffectInput,
 } from "./store.js";
 import type { AcpV1Request, AcpV1Response } from "./types.js";
 import {
@@ -36,11 +37,6 @@ interface Entry {
   completion?: BackendClientReadProof;
   settling?: Promise<BackendClientReadProof>;
 }
-export interface BackendNativeEffectsOptions {
-  store: AgentBackendStorage;
-  processes: BackendProcessPort;
-  clientReads: BackendNativeClientEffectPort;
-}
 export interface BackendNativeEffectScope {
   originalTurn: TurnRequest;
   originalConnection: object;
@@ -55,18 +51,43 @@ export class BackendNativeEffects {
   private readonly entries = new Map<string, Entry>();
   private controls = 0;
   constructor(
-    private readonly options: BackendNativeEffectsOptions,
+    private readonly options: BackendEffectPorts,
     private readonly scope: BackendNativeEffectScope,
   ) {}
-  private async send(
-    response: AcpV1Response,
-    signal = this.scope.signal,
-  ): Promise<object> {
+  private async send(response: AcpV1Response): Promise<object> {
     return this.options.processes.write(
       this.scope.originalConnection,
       response,
-      signal,
+      this.scope.signal,
     );
+  }
+  private base(entry: Pick<Entry, "record">, requestId: string = randomUUID()) {
+    return {
+      workspaceId: this.scope.workspaceId,
+      requestId,
+      expectedRevision: entry.record.revision,
+      effectId: entry.record.effectId,
+    };
+  }
+  /** Sends the reply, then records it against the entry's current revision. */
+  private async respond(
+    entry: Pick<Entry, "record">,
+    response: AcpV1Response,
+    record: (
+      receipt: object,
+      input: DeliverBackendClientEffectInput,
+    ) => { record: BackendClientEffectRevision },
+    requestId?: string,
+  ): Promise<void> {
+    const receipt = await this.send(response);
+    try {
+      entry.record = record(receipt, {
+        ...this.base(entry, requestId),
+        message: response,
+      }).record;
+    } finally {
+      this.options.processes.releaseWrite(receipt);
+    }
   }
   private identity(method: string, params: unknown): string {
     return knowledgeHash({ method, params });
@@ -172,12 +193,10 @@ export class BackendNativeEffects {
       const original = await this.options.clientReads.waitEffect(entry.handle);
       try {
         const proof = this.options.clientReads.readCompletion(original);
-        entry.record = this.options.store.settleClientRead(original, {
-          workspaceId: this.scope.workspaceId,
-          requestId: randomUUID(),
-          expectedRevision: entry.record.revision,
-          effectId: entry.record.effectId,
-        }).record;
+        entry.record = this.options.store.settleClientRead(
+          original,
+          this.base(entry),
+        ).record;
         entry.completion = proof;
         entry.settled = true;
         return proof;
@@ -186,135 +205,212 @@ export class BackendNativeEffects {
       }
     })());
   }
+  /** Same-Attempt native tool receipts settle before any remote read response. */
+  async read(originalFrame: object): Promise<void> {
+    const frame = this.options.processes.readPeerObservation(originalFrame);
+    const message = frame.message;
+    if (
+      !("method" in message) ||
+      !("id" in message) ||
+      message.method !== "fs/read_text_file"
+    )
+      throw new EngineError(
+        "ACP_EFFECT_UNSUPPORTED",
+        "The backend requested an unsupported client effect",
+      );
+    const params = validateAcpV1Request("fs/read_text_file", message.params);
+    if (params.sessionId !== this.scope.remoteSessionId)
+      throw new EngineError(
+        "BACKEND_REMOTE_SESSION_INVALID",
+        "The client read belongs to another remote session",
+      );
+    const effectId = randomUUID();
+    const callId = `acp:${createHash("sha256")
+      .update(
+        JSON.stringify([
+          frame.connectionId,
+          frame.epoch,
+          frame.receiveOrdinal,
+          typeof message.id,
+          message.id,
+        ]),
+      )
+      .digest("hex")}`;
+    const read: BackendClientReadInput = {
+      callId,
+      path: params.path,
+      ...(params.line == null ? {} : { line: params.line }),
+      ...(params.limit == null ? {} : { limit: params.limit }),
+    };
+    const prepared = this.options.store.prepareClientRead(
+      this.scope.originalTurn,
+      originalFrame,
+      {
+        workspaceId: this.scope.workspaceId,
+        requestId: randomUUID(),
+        expectedRevision: 0,
+        effectId,
+        remoteRequestId: this.scope.remoteRequestId,
+        input: read,
+      },
+    );
+    if (prepared.duplicate)
+      throw new EngineError(
+        "BACKEND_EFFECT_ALREADY_BOUND",
+        "A historical client read cannot be replayed",
+      );
+    const entry = { record: prepared.record };
+    let completion: object | undefined;
+    try {
+      completion = await this.options.clientReads.executeRead(
+        this.scope.originalTurn,
+        read,
+        this.scope.signal,
+      );
+      const proof = this.options.clientReads.readCompletion(completion);
+      entry.record = this.options.store.settleClientRead(
+        completion,
+        this.base(entry),
+      ).record;
+      let response: AcpV1Response;
+      try {
+        response = {
+          jsonrpc: "2.0",
+          id: message.id,
+          result: backendReadResponse(proof) as unknown as JsonValue,
+        };
+      } catch {
+        response = {
+          jsonrpc: "2.0",
+          id: message.id,
+          error: {
+            code: -32001,
+            message: proof.errorCode ?? "Native client read failed",
+          },
+        };
+      }
+      await this.respond(entry, response, (receipt, input) =>
+        this.options.store.recordClientDelivery(receipt, input),
+      );
+    } finally {
+      if (completion) this.options.clientReads.releaseCompletion(completion);
+    }
+  }
   async handle(originalFrame: object, message: AcpV1Request): Promise<void> {
     if (++this.controls > 64)
       throw new EngineError(
         "BACKEND_EFFECT_LIMIT",
         "The Attempt client RPC bound was reached",
       );
-    if (message.method === "session/request_permission") {
-      const params = validateAcpV1PermissionParams(message.params);
-      this.session(params.sessionId);
-      if (!params.options.some((option) => option.kind === "allow_once")) {
-        const receipt = await this.send({
-          jsonrpc: "2.0",
-          id: message.id,
-          result: { outcome: { outcome: "cancelled" } },
-        });
-        this.options.processes.releaseWrite(receipt);
-        return;
-      }
-      const entry = await this.prepare(originalFrame, message, true),
-        proof = this.options.clientReads.readPermission(entry.handle);
-      const option = params.options.find(
-        (option) =>
-          option.kind === (proof.allowed ? "allow_once" : "reject_once"),
-      );
-      const response: AcpV1Response = {
-        jsonrpc: "2.0",
-        id: message.id,
-        result: {
-          outcome: option
-            ? { outcome: "selected", optionId: option.optionId }
-            : { outcome: "cancelled" },
-        },
-      };
-      const receipt = await this.send(response);
-      try {
-        entry.record = this.options.store.recordClientPermission(
-          entry.handle,
-          receipt,
-          {
-            workspaceId: this.scope.workspaceId,
-            requestId: randomUUID(),
-            expectedRevision: entry.record.revision,
-            effectId: entry.record.effectId,
-            message: response,
-          },
-        ).record;
-      } finally {
-        this.options.processes.releaseWrite(receipt);
-      }
-      if (!proof.allowed) {
-        await this.settle(entry);
-        this.options.clientReads.releaseEffect(entry.handle);
-        entry.released = true;
-      }
-      return;
-    }
-    if (
+    if (message.method === "session/request_permission")
+      await this.permission(originalFrame, message);
+    else if (
       message.method === "fs/write_text_file" ||
       message.method === "terminal/create"
-    ) {
-      const input = this.input(message),
-        key = this.identity(message.method, message.params);
-      let entry = [...this.entries.values()].find(
-        (e) =>
-          e.permission &&
-          !e.dispatched &&
-          !e.released &&
-          e.permissionKey === key,
-      );
-      if (
-        !entry &&
-        [...this.entries.values()].some(
-          (e) => e.permission && !e.dispatched && !e.released,
-        )
+    )
+      await this.effect(originalFrame, message);
+    else await this.terminalControl(originalFrame, message);
+  }
+  private async permission(
+    originalFrame: object,
+    message: AcpV1Request,
+  ): Promise<void> {
+    const params = validateAcpV1PermissionParams(message.params);
+    this.session(params.sessionId);
+    if (!params.options.some((option) => option.kind === "allow_once")) {
+      const receipt = await this.send({
+        jsonrpc: "2.0",
+        id: message.id,
+        result: { outcome: { outcome: "cancelled" } },
+      });
+      this.options.processes.releaseWrite(receipt);
+      return;
+    }
+    const entry = await this.prepare(originalFrame, message, true),
+      proof = this.options.clientReads.readPermission(entry.handle);
+    const option = params.options.find(
+      (option) =>
+        option.kind === (proof.allowed ? "allow_once" : "reject_once"),
+    );
+    const response: AcpV1Response = {
+      jsonrpc: "2.0",
+      id: message.id,
+      result: {
+        outcome: option
+          ? { outcome: "selected", optionId: option.optionId }
+          : { outcome: "cancelled" },
+      },
+    };
+    await this.respond(entry, response, (receipt, input) =>
+      this.options.store.recordClientPermission(entry.handle, receipt, input),
+    );
+    if (!proof.allowed) {
+      await this.settle(entry);
+      this.options.clientReads.releaseEffect(entry.handle);
+      entry.released = true;
+    }
+  }
+  private async effect(
+    originalFrame: object,
+    message: AcpV1Request,
+  ): Promise<void> {
+    const input = this.input(message),
+      key = this.identity(message.method, message.params);
+    const permitted = [...this.entries.values()].find(
+      (e) =>
+        e.permission && !e.dispatched && !e.released && e.permissionKey === key,
+    );
+    if (
+      !permitted &&
+      [...this.entries.values()].some(
+        (e) => e.permission && !e.dispatched && !e.released,
       )
-        throw new EngineError(
-          "ACP_PERMISSION_STALE",
-          "The wire effect changed after its precise approval",
-        );
-      if (!entry) entry = await this.prepare(originalFrame, message, false);
-      if (entry.permission) {
-        // The RPC response identity changes; the native effect remains bound to its original permission frame.
-        entry.record = this.options.store.bindApprovedClientEffect(
-          this.scope.originalTurn,
-          originalFrame,
-          {
-            workspaceId: this.scope.workspaceId,
-            requestId: randomUUID(),
-            expectedRevision: entry.record.revision,
-            effectId: entry.record.effectId,
-            input: { ...input, callId: entry.input.callId },
-          },
-        ).record;
-      }
-      const proof = this.options.clientReads.readPermission(entry.handle);
-      if (!proof.allowed) {
-        const completion = await this.settle(entry);
-        await this.deliver(entry, message.id, completion);
-        return;
-      }
-      await this.options.clientReads.dispatchEffect(entry.handle);
-      entry.dispatched = true;
-      if (message.method === "terminal/create") {
-        const response: AcpV1Response = {
+    )
+      throw new EngineError(
+        "ACP_PERMISSION_STALE",
+        "The wire effect changed after its precise approval",
+      );
+    const entry =
+      permitted ?? (await this.prepare(originalFrame, message, false));
+    if (entry.permission) {
+      // The RPC response identity changes; the native effect remains bound to its original permission frame.
+      entry.record = this.options.store.bindApprovedClientEffect(
+        this.scope.originalTurn,
+        originalFrame,
+        {
+          ...this.base(entry),
+          input: { ...input, callId: entry.input.callId },
+        },
+      ).record;
+    }
+    const proof = this.options.clientReads.readPermission(entry.handle);
+    if (!proof.allowed) {
+      const completion = await this.settle(entry);
+      await this.deliver(entry, message.id, completion);
+      return;
+    }
+    await this.options.clientReads.dispatchEffect(entry.handle);
+    entry.dispatched = true;
+    if (message.method === "terminal/create")
+      await this.respond(
+        entry,
+        {
           jsonrpc: "2.0",
           id: message.id,
           result: { terminalId: `terminal:${entry.record.effectId}` },
-        };
-        const receipt = await this.send(response);
-        try {
-          entry.record = this.options.store.recordClientAcknowledgement(
-            receipt,
-            {
-              workspaceId: this.scope.workspaceId,
-              requestId: randomUUID(),
-              expectedRevision: entry.record.revision,
-              effectId: entry.record.effectId,
-              message: response,
-            },
-          ).record;
-        } finally {
-          this.options.processes.releaseWrite(receipt);
-        }
-      } else {
-        const completion = await this.settle(entry);
-        await this.deliver(entry, message.id, completion);
-      }
-      return;
+        },
+        (receipt, input) =>
+          this.options.store.recordClientAcknowledgement(receipt, input),
+      );
+    else {
+      const completion = await this.settle(entry);
+      await this.deliver(entry, message.id, completion);
     }
+  }
+  private async terminalControl(
+    originalFrame: object,
+    message: AcpV1Request,
+  ): Promise<void> {
     const p = validateAcpV1Request(message.method, message.params) as {
       sessionId: string;
       terminalId: string;
@@ -372,30 +468,24 @@ export class BackendNativeEffects {
         };
     }
     const response: AcpV1Response = { jsonrpc: "2.0", id: message.id, result };
-    const requestId = randomUUID(),
-      control = () => ({
-        workspaceId: this.scope.workspaceId,
-        requestId,
-        expectedRevision: entry.record.revision,
-        effectId: entry.record.effectId,
-        message: response,
-      });
+    const requestId = randomUUID();
     this.options.store.assertTerminalControl(
       this.scope.originalTurn,
       originalFrame,
-      control(),
+      { ...this.base(entry, requestId), message: response },
     );
-    const receipt = await this.send(response);
-    try {
-      entry.record = this.options.store.recordTerminalControl(
-        this.scope.originalTurn,
-        originalFrame,
-        receipt,
-        control(),
-      ).record;
-    } finally {
-      this.options.processes.releaseWrite(receipt);
-    }
+    await this.respond(
+      entry,
+      response,
+      (receipt, input) =>
+        this.options.store.recordTerminalControl(
+          this.scope.originalTurn,
+          originalFrame,
+          receipt,
+          input,
+        ),
+      requestId,
+    );
     if (message.method === "terminal/release") {
       this.options.clientReads.releaseEffect(entry.handle);
       entry.released = true;
@@ -419,18 +509,9 @@ export class BackendNativeEffects {
               message: proof.errorCode ?? "Native effect failed",
             },
           };
-    const receipt = await this.send(response);
-    try {
-      entry.record = this.options.store.recordClientDelivery(receipt, {
-        workspaceId: this.scope.workspaceId,
-        requestId: randomUUID(),
-        expectedRevision: entry.record.revision,
-        effectId: entry.record.effectId,
-        message: response,
-      }).record;
-    } finally {
-      this.options.processes.releaseWrite(receipt);
-    }
+    await this.respond(entry, response, (receipt, input) =>
+      this.options.store.recordClientDelivery(receipt, input),
+    );
     this.options.clientReads.releaseEffect(entry.handle);
     entry.released = true;
   }
@@ -454,10 +535,7 @@ export class BackendNativeEffects {
       } catch (error) {
         try {
           this.options.store.markClientEffectUncertain({
-            workspaceId: this.scope.workspaceId,
-            requestId: randomUUID(),
-            expectedRevision: entry.record.revision,
-            effectId: entry.record.effectId,
+            ...this.base(entry),
             errorCode: "CLEANUP_UNCERTAIN",
           });
         } catch {}

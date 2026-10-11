@@ -2,17 +2,12 @@ import { BackendNativeEffects } from "./native-effects.js";
 import { randomUUID } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from "../ports.js";
-import {
-  BackendClientEffects,
-  type BackendNativeClientEffectPort,
-} from "./client-effects.js";
-import type { BackendConnectionProof, BackendProcessPort } from "./process.js";
+import type { AgentBackendHostOptions } from "./host.js";
+import type { BackendConnectionProof } from "./process.js";
 import type {
   AgentBackendRevision,
-  AgentBackendStorage,
   BackendConnectionRevision,
   BackendRemoteRequest,
-  ActualBackendTurnPort,
 } from "./store.js";
 import type {
   AcpV1InitializeResult,
@@ -28,12 +23,11 @@ import {
   validateAcpV1Result,
 } from "./protocol.js";
 
-export interface AgentBackendRemoteOptions {
+export interface AgentBackendRemoteOptions extends Omit<
+  AgentBackendHostOptions,
+  "lifetime"
+> {
   record: AgentBackendRevision;
-  store: AgentBackendStorage;
-  processes: BackendProcessPort;
-  clientReads: BackendNativeClientEffectPort;
-  turns: ActualBackendTurnPort;
   lifetime: AbortSignal;
 }
 interface CleanupState {
@@ -71,10 +65,8 @@ export class AgentBackendRemote implements ProviderAdapter {
   readonly id: string;
   readonly inputModalities = ["text"] as const;
   readonly retryableHttpStatuses: readonly number[] = [];
-  private readonly effects: BackendClientEffects;
   constructor(private readonly options: AgentBackendRemoteOptions) {
     this.id = `acp:${options.record.backendId}`;
-    this.effects = new BackendClientEffects(options);
   }
   streamTurn(
     originalTurn: TurnRequest,
@@ -108,7 +100,6 @@ export class AgentBackendRemote implements ProviderAdapter {
   ): AsyncGenerator<ProviderEvent> {
     const attempt = new RemoteAttempt(
       this.options,
-      this.effects,
       originalTurn,
       inputSignal,
       cleanupState,
@@ -161,7 +152,6 @@ class RemoteAttempt {
   private stopReason: AcpV1StopReason | undefined;
   constructor(
     private readonly options: AgentBackendRemoteOptions,
-    private readonly effects: BackendClientEffects,
     private readonly originalTurn: TurnRequest,
     inputSignal: AbortSignal,
     private readonly cleanupState: CleanupState,
@@ -494,15 +484,7 @@ class RemoteAttempt {
             wire.method === "fs/read_text_file" &&
             capabilities?.readTextFile
           ) {
-            await this.effects.read({
-              originalTurn: this.originalTurn,
-              originalFrame: original,
-              originalConnection: this.process!,
-              workspaceId: this.workspaceId,
-              remoteRequestId: this.request!.remoteRequestId,
-              remoteSessionId: this.remoteSessionId!,
-              signal: this.signal,
-            });
+            await nativeEffects.read(original);
           } else if (
             (wire.method === "fs/write_text_file" &&
               capabilities?.writeTextFile) ||
