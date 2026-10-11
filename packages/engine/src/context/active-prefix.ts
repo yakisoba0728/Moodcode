@@ -1,7 +1,9 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, SESSION_SCHEMA_VERSION, type ContextRevision, type EngineEvent, type JsonObject } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderMessage, TurnRequest } from '../ports.js';
+import { isBoundedId } from '../shared/data.js';
 import type { SqliteStore } from '../storage/index.js';
+import type { SummaryUsageSnapshot } from '../storage/summary-attempts.js';
 import type { ModelSpec } from './model-spec.js';
 import { settleSummaryFailure, streamSummary, type SummaryLifecycleStore } from './summary-stream.js';
 
@@ -40,7 +42,7 @@ export interface ActivePrefixCheckpoint {
   boundaryTurnId: string; boundaryAttemptId: string; latestUserMessageId: string;
   factsSha256: string; manifestSha256: string; policySha256: string; summarySha256: string;
   createdAt: string; previousCheckpointId?: string;
-  usage: { inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null };
+  usage: SummaryUsageSnapshot;
 }
 export interface PreparedActivePrefix { source: ActivePrefixSource; checkpoint: ActivePrefixCheckpoint; summaryRevision: ContextRevision }
 export interface ActivePrefixContextPublication { contextRevision: ContextRevision; contextData: JsonObject }
@@ -53,7 +55,7 @@ const hash = (value: string) => createHash('sha256').update(value).digest('hex')
 const json = (value: unknown): JsonObject => JSON.parse(JSON.stringify(value)) as JsonObject;
 function cancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Active-prefix summary was cancelled'); }
 function ids(value: unknown, max: number): value is string[] {
-  return Array.isArray(value) && value.length <= max && new Set(value).size === value.length && value.every(id => typeof id === 'string' && id.length > 0 && Buffer.byteLength(id) <= 256 && !/[\u0000-\u001f\u007f]/u.test(id));
+  return Array.isArray(value) && value.length <= max && new Set(value).size === value.length && value.every(isBoundedId);
 }
 function sha(value: unknown): value is string { return typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value); }
 export function validateActivePrefixPolicy(value: ActivePrefixPolicy): ValidatedActivePrefixPolicy {
@@ -90,7 +92,7 @@ export class ActivePrefixMemoryService {
       || checkpoint.sessionId !== sessionId || checkpoint.workspaceId !== session.workspaceId || checkpoint.providerId !== run.config.providerId || checkpoint.modelId !== run.config.modelId
       || checkpoint.policySha256 !== this.policySha256 || !sha(checkpoint.summarySha256) || !sha(checkpoint.factsSha256) || !sha(checkpoint.manifestSha256)
       || !ids(checkpoint.sourceMessageIds, 128) || !ids(checkpoint.sourceTurnIds, 128) || !ids(checkpoint.coveredMessageIds, 1024) || !ids(checkpoint.protectedMessageIds, 1024)
-      || !ids([checkpoint.id], 1) || !ids([checkpoint.revisionId], 1) || !ids([checkpoint.boundaryTurnId], 1) || !ids([checkpoint.boundaryAttemptId], 1) || !ids([checkpoint.latestUserMessageId], 1)
+      || !isBoundedId(checkpoint.id) || !isBoundedId(checkpoint.revisionId) || !isBoundedId(checkpoint.boundaryTurnId) || !isBoundedId(checkpoint.boundaryAttemptId) || !isBoundedId(checkpoint.latestUserMessageId)
       || !checkpoint.protectedMessageIds.includes(checkpoint.latestUserMessageId) || !Number.isFinite(Date.parse(checkpoint.createdAt))
       || checkpoint.protectedMessageIds.some(id => checkpoint.coveredMessageIds.includes(id)) || checkpoint.sourceMessageIds.some(id => !checkpoint.coveredMessageIds.includes(id))) {
       throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Active-prefix checkpoint has inconsistent source identity');
@@ -114,7 +116,7 @@ export class ActivePrefixMemoryService {
       || source.limits.maxSourceBytes > Math.min(this.policy.maxSourceBytes, request.budget?.budgets.maxSummaryBytes ?? this.policy.maxSourceBytes, Math.floor(request.config.limits.maxContextBytes / 2))
       || source.limits.keepRecentTurns !== this.policy.keepRecentTurns || source.limits.maxCoveredMessages !== this.policy.maxCoveredMessages
       || source.sourceMessageIds.length > source.limits.maxSourceMessages || Buffer.byteLength(source.sourceJson) > source.limits.maxSourceBytes
-      || !ids([source.boundaryTurnId], 1) || !ids([source.boundaryAttemptId], 1) || !ids([source.latestUserMessageId], 1) || !source.protectedMessageIds.includes(source.latestUserMessageId)
+      || !isBoundedId(source.boundaryTurnId) || !isBoundedId(source.boundaryAttemptId) || !isBoundedId(source.latestUserMessageId) || !source.protectedMessageIds.includes(source.latestUserMessageId)
       || !['between-turns', 'overflow-recovery'].includes(source.stage) || source.stage === 'overflow-recovery' && (!source.currentTurnId || !source.failedAttemptId || source.cleanupConfirmed !== true)) throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Active-prefix source is not an exact bounded owner projection');
     try { JSON.parse(source.sourceJson); } catch { throw new EngineError('ACTIVE_PREFIX_BINDING_MISMATCH', 'Active-prefix source facts are not JSON'); }
     const protectedIds = new Set(source.protectedMessageIds);
@@ -192,13 +194,10 @@ export class ActivePrefixMemoryService {
       const candidate = { source: structuredClone(source), checkpoint, summaryRevision };
       this.candidates.set(candidate, { fingerprint: hash(JSON.stringify(candidate)), state: 'prepared', signal: request.signal });
       return candidate;
-    } catch (error) { this.recordFailure(id, error, request.signal.aborted); throw error; }
-  }
-  private recordFailure(id: string, error: unknown, interrupted = false): void {
-    settleSummaryFailure(this.store, id, error, true, interrupted);
+    } catch (error) { settleSummaryFailure(this.store, id, error, true, request.signal.aborted); throw error; }
   }
   discard(candidate: PreparedActivePrefix, error: unknown): void {
-    this.prepared(candidate); const record = this.candidates.get(candidate)!; record.state = 'discarded'; this.recordFailure(candidate.checkpoint.id, error, record.signal.aborted);
+    this.prepared(candidate); const record = this.candidates.get(candidate)!; record.state = 'discarded'; settleSummaryFailure(this.store, candidate.checkpoint.id, error, true, record.signal.aborted);
   }
   publishWithContext(request: ContextRequest, candidate: PreparedActivePrefix, context: ActivePrefixContextPublication): ActivePrefixCheckpoint {
     this.prepared(candidate);
@@ -214,6 +213,6 @@ export class ActivePrefixMemoryService {
       this.store.commitActivePrefixCheckpoint(candidate.checkpoint.runId, { summaryAttemptId: candidate.checkpoint.id, scope: 'active-run-prefix', revisionId: candidate.summaryRevision.id,
         contextRevisionId: context.contextRevision.id, usage: json(candidate.checkpoint.usage) }, { ...candidate, ...context });
       this.candidates.get(candidate)!.state = 'published'; return structuredClone(candidate.checkpoint);
-    } catch (error) { this.candidates.get(candidate)!.state = 'discarded'; this.recordFailure(candidate.checkpoint.id, error, request.signal.aborted); throw error; }
+    } catch (error) { this.candidates.get(candidate)!.state = 'discarded'; settleSummaryFailure(this.store, candidate.checkpoint.id, error, true, request.signal.aborted); throw error; }
   }
 }

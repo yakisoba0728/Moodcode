@@ -2,16 +2,14 @@ import { EngineError } from '@moodcode/contracts';
 import type { ContextRequest, ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { raceAbort, settleWithin } from '../shared/runtime.js';
 import type { SqliteStore } from '../storage/index.js';
+import type { SummaryUsageSnapshot } from '../storage/summary-attempts.js';
 
-export interface SummaryUsageSnapshot {
-  inputTokens: number | null; outputTokens: number | null; cachedInputTokens: number | null; reasoningOutputTokens: number | null;
-}
 export type SummaryLifecycleStore = Pick<SqliteStore, 'dispatchSummaryAttempt' | 'observeSummaryAttempt' | 'markSummaryProviderCompleted' | 'settleSummaryAttempt'>;
-export function summaryFailureCode(error: unknown): string {
+function summaryFailureCode(error: unknown): string {
   return error instanceof EngineError ? error.code : error instanceof Error && error.name === 'AbortError' ? 'CANCELLED' : 'SUMMARY_FAILED';
 }
 const cancellation = () => new EngineError('CANCELLED', 'Summary was cancelled');
-function cancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? cancellation(); }
+export function checkSummaryCancelled(signal: AbortSignal): void { if (signal.aborted) throw signal.reason ?? cancellation(); }
 
 /** A failed derived result never activates; unresolved cleanup or durable settlement is fatal. */
 export function settleSummaryFailure(store: SummaryLifecycleStore, id: string, error: unknown, cleanupConfirmed: boolean, interrupted = false): void {
@@ -38,12 +36,12 @@ export async function streamSummary(options: {
   let text = '', finish = false, streamDone = false, providerInvoked = false, cleanupConfirmed = false, iterator: AsyncIterator<ProviderEvent> | undefined;
   let failure: unknown;
   try {
-    cancelled(combined);
-    store.dispatchSummaryAttempt(id); cancelled(combined); providerInvoked = true;
+    checkSummaryCancelled(combined);
+    store.dispatchSummaryAttempt(id); checkSummaryCancelled(combined); providerInvoked = true;
     iterator = provider.streamTurn(turnRequest, combined)[Symbol.asyncIterator](); progress();
     for (;;) {
       const next = await raceAbort(Promise.resolve().then(() => iterator!.next()), combined, cancellation, { propagateReason: true });
-      cancelled(combined);
+      checkSummaryCancelled(combined);
       if (next.done === true) { streamDone = true; cleanupConfirmed = true; break; }
       progress();
       const event = next.value;
@@ -78,7 +76,7 @@ export async function streamSummary(options: {
       } else throw new EngineError('SUMMARY_PROTOCOL_ERROR', 'Summary must contain only text, progress and usage');
     }
     if (!finish || !text.trim()) throw new EngineError('SUMMARY_INCOMPLETE', 'Empty or incomplete summary cannot replace working memory');
-    cancelled(combined);
+    checkSummaryCancelled(combined);
   } catch (error) { failure = error === undefined ? new EngineError('SUMMARY_FAILED', 'Summary provider failed without an error value') : error; }
   finally {
     clearTimeout(timer); clearTimeout(inactivity);
@@ -97,7 +95,7 @@ export async function streamSummary(options: {
     settleSummaryFailure(store, id, failure, cleanupConfirmed, request.signal.aborted); throw failure;
   }
   try {
-    cancelled(request.signal); store.markSummaryProviderCompleted(id);
+    checkSummaryCancelled(request.signal); store.markSummaryProviderCompleted(id);
     return { text, usage };
   } catch (error) { settleSummaryFailure(store, id, error, true, request.signal.aborted); throw error; }
 }
