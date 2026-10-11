@@ -30,6 +30,7 @@ import {
   workflowInteger,
   workflowJson,
   WORKFLOW_LIMITS,
+  WORKFLOW_STAGE_KEYS,
 } from "./spec.js";
 
 /** Root-owned private actual child executions issue every original admission/completion handle. */
@@ -164,7 +165,16 @@ export class WorkflowService {
   private open(): void {
     if (this.closed) workflowError("WORKFLOW_CLOSED");
   }
-  private identity(input: WorkflowStageMutationInput): void {
+  /** The shape, identifiers and signal of a stage request, and approval for a start. */
+  private stageInput(
+    input: ObserveWorkflowStageInput & { readonly approved?: boolean },
+    approval: boolean,
+  ): void {
+    workflowHostRecord(
+      input,
+      approval ? [...WORKFLOW_STAGE_KEYS, "approved"] : WORKFLOW_STAGE_KEYS,
+      ["signal"],
+    );
     for (const id of [
       input.workspaceId,
       input.instanceId,
@@ -173,6 +183,14 @@ export class WorkflowService {
     ])
       workflowIdentifier(id);
     workflowInteger(input.expectedRevision, Number.MAX_SAFE_INTEGER, 1);
+    workflowAbort(input.signal);
+    if (approval && input.approved !== true)
+      workflowError("WORKFLOW_APPROVAL_REQUIRED");
+  }
+  private linked(signal?: AbortSignal): AbortSignal {
+    return signal
+      ? AbortSignal.any([signal, this.lifetime.signal])
+      : this.lifetime.signal;
   }
   private owned(
     workspaceId: string,
@@ -260,21 +278,7 @@ export class WorkflowService {
     input: StartWorkflowStageInput,
   ): Promise<WorkflowRequestResult<WorkflowInstanceRevision>> {
     try {
-      workflowHostRecord(
-        input,
-        [
-          "workspaceId",
-          "instanceId",
-          "stageId",
-          "requestId",
-          "expectedRevision",
-          "approved",
-        ],
-        ["signal"],
-      );
-      this.identity(input);
-      workflowAbort(input.signal);
-      if (input.approved !== true) workflowError("WORKFLOW_APPROVAL_REQUIRED");
+      this.stageInput(input, true);
       this.open();
       const { signal, ...data } = input,
         key = knowledgeHash([
@@ -297,17 +301,14 @@ export class WorkflowService {
       if (this.stageRequests.size >= 256) workflowError("WORKFLOW_LIMIT");
       const operation = this.doStartStage({
         ...data,
-        signal: signal
-          ? AbortSignal.any([signal, this.lifetime.signal])
-          : this.lifetime.signal,
+        signal: this.linked(signal),
       });
       this.stageRequests.set(key, {
         instanceId: input.instanceId,
         sha256,
         operation,
       });
-      this.track(input.instanceId, operation);
-      return operation.then((result) => structuredClone(result));
+      return this.track(input.instanceId, operation);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -315,21 +316,7 @@ export class WorkflowService {
   private async doStartStage(
     input: StartWorkflowStageInput,
   ): Promise<WorkflowRequestResult<WorkflowInstanceRevision>> {
-    workflowHostRecord(
-      input,
-      [
-        "workspaceId",
-        "instanceId",
-        "stageId",
-        "requestId",
-        "expectedRevision",
-        "approved",
-      ],
-      ["signal"],
-    );
-    this.identity(input);
-    workflowAbort(input.signal);
-    if (input.approved !== true) workflowError("WORKFLOW_APPROVAL_REQUIRED");
+    this.stageInput(input, true);
     const { record, owner } = this.owned(input.workspaceId, input.instanceId),
       registration = this.ports.native.getWorkflow(
         input.workspaceId,
@@ -457,28 +444,13 @@ export class WorkflowService {
     input: ObserveWorkflowStageInput,
   ): Promise<WorkflowRequestResult<WorkflowInstanceRevision>> {
     try {
-      workflowHostRecord(
-        input,
-        [
-          "workspaceId",
-          "instanceId",
-          "stageId",
-          "requestId",
-          "expectedRevision",
-        ],
-        ["signal"],
-      );
-      this.identity(input);
-      workflowAbort(input.signal);
+      this.stageInput(input, false);
       const { signal, ...data } = input;
       const operation = this.doObserveStage({
         ...data,
-        signal: signal
-          ? AbortSignal.any([signal, this.lifetime.signal])
-          : this.lifetime.signal,
+        signal: this.linked(signal),
       });
-      this.track(input.instanceId, operation);
-      return operation.then((result) => structuredClone(result));
+      return this.track(input.instanceId, operation);
     } catch (error) {
       return Promise.reject(error);
     }
@@ -486,13 +458,7 @@ export class WorkflowService {
   private async doObserveStage(
     input: ObserveWorkflowStageInput,
   ): Promise<WorkflowRequestResult<WorkflowInstanceRevision>> {
-    workflowHostRecord(
-      input,
-      ["workspaceId", "instanceId", "stageId", "requestId", "expectedRevision"],
-      ["signal"],
-    );
-    this.identity(input);
-    workflowAbort(input.signal);
+    this.stageInput(input, false);
     const { record, owner } = this.owned(input.workspaceId, input.instanceId),
       child = owner.children.get(input.stageId);
     if (!child) workflowError("WORKFLOW_CHILD_UNAVAILABLE");
@@ -564,7 +530,8 @@ export class WorkflowService {
   ): { record: WorkflowInstanceRevision; owner: InstanceOwner } {
     return this.owned(workspaceId, instanceId);
   }
-  private track(instanceId: string, operation: Promise<unknown>): void {
+  /** Tracks a stage operation until it settles; callers get a copy of its result. */
+  private track<T>(instanceId: string, operation: Promise<T>): Promise<T> {
     this.pending.set(operation, instanceId);
     operation
       .finally(() => {
@@ -572,6 +539,7 @@ export class WorkflowService {
         this.reclaim(instanceId);
       })
       .catch(() => {});
+    return operation.then((result) => structuredClone(result));
   }
   /** A failed, cancelled or uncertain instance with no stage operation and no mergeable editor effect releases its owner. Completed instances stay deliverable. */
   reclaim(instanceId: string): void {

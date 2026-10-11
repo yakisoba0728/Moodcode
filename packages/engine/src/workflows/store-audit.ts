@@ -11,7 +11,12 @@ import {
   type WorkflowTransitionEvent,
   type WorkflowWorktreePin,
 } from "./reducer.js";
-import { WORKFLOW_LIMITS, workflowError, workflowIdentifier } from "./spec.js";
+import {
+  WORKFLOW_LIMITS,
+  WORKFLOW_STAGE_KEYS,
+  workflowError,
+  workflowIdentifier,
+} from "./spec.js";
 import type {
   WorkflowSpecRevision,
   WorkflowStorage,
@@ -147,11 +152,7 @@ function replay(
     let event: WorkflowTransitionEvent;
     if (receipt.operation === "prepare") {
       fields(request, [
-        "workspaceId",
-        "instanceId",
-        "stageId",
-        "requestId",
-        "expectedRevision",
+        ...WORKFLOW_STAGE_KEYS,
         "prompt",
         "childRequestId",
         "operation",
@@ -169,25 +170,11 @@ function replay(
         promptSha256: sha256Hex(request.prompt),
       };
     } else if (receipt.operation === "admit") {
-      fields(request, [
-        "workspaceId",
-        "instanceId",
-        "stageId",
-        "requestId",
-        "expectedRevision",
-        "operation",
-      ]);
+      fields(request, [...WORKFLOW_STAGE_KEYS, "operation"]);
       if (!stage?.child) workflowError("WORKFLOW_DATABASE_INVALID");
       event = { operation: "admit", stageId: stageId!, child: stage.child };
     } else if (receipt.operation === "settle") {
-      fields(request, [
-        "workspaceId",
-        "instanceId",
-        "stageId",
-        "requestId",
-        "expectedRevision",
-        "operation",
-      ]);
+      fields(request, [...WORKFLOW_STAGE_KEYS, "operation"]);
       if (
         !stage?.child ||
         !(CHILD_OUTCOME_STATES as readonly string[]).includes(stage.state) ||

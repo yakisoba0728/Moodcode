@@ -28,8 +28,14 @@ import {
   workflowError,
   workflowIdentifier,
   workflowJson,
-  WORKFLOW_READ_TOOLS,
+  WORKFLOW_ROLE_TOOLS,
 } from "./spec.js";
+
+/** Every tool some stage role may be granted. */
+const STAGE_TOOLS = [...new Set(Object.values(WORKFLOW_ROLE_TOOLS).flat())];
+const profilePin = (
+  profile: { readonly id: string; readonly revision: string } | undefined,
+) => (profile ? { id: profile.id, revision: profile.revision } : null);
 
 interface PhysicalFile {
   readonly path: string;
@@ -157,8 +163,7 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
       workflowError("WORKFLOW_OWNER_STALE");
   }
   private profile(run: Run) {
-    const profile = this.engine.profiles.forRun(run.sessionId, run.config);
-    return profile ? { id: profile.id, revision: profile.revision } : null;
+    return profilePin(this.engine.profiles.forRun(run.sessionId, run.config));
   }
   private run(owner: CapturedOwner, dispatch: boolean): Run {
     this.binding(owner);
@@ -231,22 +236,18 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
         run.workspaceId
     )
       workflowError("WORKFLOW_OWNER_STALE");
-    const profile = this.profile(run),
+    const resolved = this.engine.profiles.forRun(run.sessionId, run.config),
+      profile = profilePin(resolved),
       catalogue = this.engine.toolRuntime.catalogue(
         "engine",
         run.config.mode,
-        this.engine.profiles.forRun(run.sessionId, run.config)?.tools,
+        resolved?.tools,
         profile ?? undefined,
       ),
       exposed = new Set(
         this.engine.getCapabilities().tools.map((tool) => tool.name),
       );
-    const tools = [
-      ...WORKFLOW_READ_TOOLS,
-      "apply_patch",
-      "run_command",
-      "verify_changes",
-    ].filter(
+    const tools = STAGE_TOOLS.filter(
       (name) =>
         exposed.has(name) && catalogue.tools.some((tool) => tool.name === name),
     );
@@ -343,17 +344,21 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
   read(original: object): WorkflowOwnerProof {
     return workflowJson(this.original(original).proof);
   }
-  assertCurrent(original: object, expected: WorkflowOwnerProof): void {
+  private assertOwner(
+    original: object,
+    expected: WorkflowOwnerProof,
+    dispatch: boolean,
+  ): void {
     const owner = this.original(original);
     if (knowledgeHash(expected) !== knowledgeHash(owner.proof))
       workflowError("WORKFLOW_OWNER_STALE");
-    this.run(owner, true);
+    this.run(owner, dispatch);
+  }
+  assertCurrent(original: object, expected: WorkflowOwnerProof): void {
+    this.assertOwner(original, expected, true);
   }
   assertSettling(original: object, expected: WorkflowOwnerProof): void {
-    const owner = this.original(original);
-    if (knowledgeHash(expected) !== knowledgeHash(owner.proof))
-      workflowError("WORKFLOW_OWNER_STALE");
-    this.run(owner, false);
+    this.assertOwner(original, expected, false);
   }
   configuration(original: object): WorkflowParentConfiguration {
     const owner = this.original(original),

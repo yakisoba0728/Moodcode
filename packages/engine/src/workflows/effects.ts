@@ -33,7 +33,11 @@ import {
   workflowHostRecord,
   type ActualWorkflowOwnerPort,
 } from "./host.js";
-import { workflowJson, workflowIdentifier } from "./spec.js";
+import {
+  readonlyWorkflowRole,
+  workflowJson,
+  workflowIdentifier,
+} from "./spec.js";
 import {
   effectFail,
   signEffect,
@@ -189,8 +193,7 @@ export class WorkflowEffects {
     return this.native.publish(original, expectedRevision);
   }
   assertSupported(original: object, spec: WorkflowSpec): void {
-    if (!spec.stages.some((s) => ["editor", "validator"].includes(s.role)))
-      return;
+    if (spec.stages.every((s) => readonlyWorkflowRole(s.role))) return;
     if (!this.core) effectFail("WORKFLOW_EFFECT_UNSUPPORTED");
     const owner = this.owners.read(original),
       config = this.engine.store.getRun(owner.runId).config;
@@ -230,7 +233,7 @@ export class WorkflowEffects {
     this.open();
     const stage = this.specOf(before).stages.find((s) => s.id === stageId)!,
       none = () => this.issueEffect(null, () => {});
-    if (!["editor", "validator"].includes(stage.role)) return none();
+    if (readonlyWorkflowRole(stage.role)) return none();
     const completion = this.children.readCompletion(originalCompletion);
     if (completion.state !== "completed" || !completion.complete) return none();
     const evidence = this.children.readExecution(originalCompletion),
@@ -396,7 +399,7 @@ export class WorkflowEffects {
     record: WorkflowInstanceRevision,
   ): WorkflowEffectRecord[] {
     return this.specOf(record)
-      .stages.filter((s) => ["editor", "validator"].includes(s.role))
+      .stages.filter((s) => !readonlyWorkflowRole(s.role))
       .map((s) => {
         const r = this.native.read(
           record.owner.sessionId,

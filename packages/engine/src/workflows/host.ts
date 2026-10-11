@@ -19,7 +19,8 @@ import {
   workflowIdentifier,
   workflowInteger,
   workflowJson,
-  WORKFLOW_READ_TOOLS,
+  WORKFLOW_ROLE_TOOLS,
+  readonlyWorkflowRole,
   validateNewWorkflowWorktreeSharing,
 } from "./spec.js";
 
@@ -137,12 +138,7 @@ export class WorkflowHost {
       durationMs: 0,
     };
     for (const stage of stages) {
-      const readonly = ["planner", "advisory-reviewer"].includes(stage.role);
-      const allowed = readonly
-        ? WORKFLOW_READ_TOOLS
-        : stage.role === "editor"
-          ? [...WORKFLOW_READ_TOOLS, "apply_patch"]
-          : [...WORKFLOW_READ_TOOLS, "run_command", "verify_changes"];
+      const allowed = WORKFLOW_ROLE_TOOLS[stage.role];
       if (
         knowledgeHash(stage.profile) !== knowledgeHash(configuration.profile) ||
         knowledgeHash(stage.model) !== knowledgeHash(configuration.model)
@@ -272,7 +268,7 @@ export class WorkflowHost {
         parameters,
         worktrees,
         readonlyStages: spec.stages.every((stage) =>
-          ["planner", "advisory-reviewer"].includes(stage.role),
+          readonlyWorkflowRole(stage.role),
         ),
         automaticParentDelivery: false as const,
       });

@@ -15,6 +15,7 @@ import { exactPath } from "../tools/file-actions/text.js";
 
 import type {
   WorkflowObjectSchema,
+  WorkflowRole,
   WorkflowSchema,
   WorkflowSpec,
   WorkflowStageResult,
@@ -35,6 +36,30 @@ export const WORKFLOW_LIMITS = Object.freeze({
   tools: 64,
 });
 export const WORKFLOW_READ_TOOLS = DELEGATION_READ_TOOLS;
+/** The tools each stage role may be granted. */
+export const WORKFLOW_ROLE_TOOLS: Readonly<
+  Record<WorkflowRole, readonly string[]>
+> = Object.freeze({
+  planner: WORKFLOW_READ_TOOLS,
+  editor: Object.freeze([...WORKFLOW_READ_TOOLS, "apply_patch"]),
+  validator: Object.freeze([
+    ...WORKFLOW_READ_TOOLS,
+    "run_command",
+    "verify_changes",
+  ]),
+  "advisory-reviewer": WORKFLOW_READ_TOOLS,
+});
+export function readonlyWorkflowRole(role: WorkflowRole): boolean {
+  return role === "planner" || role === "advisory-reviewer";
+}
+/** The fields that address one stage request. */
+export const WORKFLOW_STAGE_KEYS = [
+  "workspaceId",
+  "instanceId",
+  "stageId",
+  "requestId",
+  "expectedRevision",
+] as const;
 export const WORKFLOW_MODEL_NAMES = [
   "request_workflow_stage",
   "observe_workflow_stage",
@@ -116,7 +141,7 @@ function field(input: unknown): string {
   if (["__proto__", "constructor", "prototype"].includes(key)) workflowError();
   return key;
 }
-function text(input: unknown, maximum: number): string {
+export function workflowText(input: unknown, maximum: number): string {
   if (
     typeof input !== "string" ||
     input.includes("\0") ||
@@ -497,7 +522,7 @@ function stage(input: unknown): WorkflowStageSpec {
     role: value.role,
     dependsOn: stringArray(value.dependsOn, WORKFLOW_LIMITS.stages),
     join: value.join,
-    prompt: text(value.prompt, WORKFLOW_LIMITS.promptBytes),
+    prompt: workflowText(value.prompt, WORKFLOW_LIMITS.promptBytes),
     profile:
       profile === null
         ? null
@@ -586,7 +611,7 @@ export function validateWorkflowSpec(input: unknown): WorkflowSpec {
   const definition = workflowJson({
     schemaVersion: 1 as const,
     id: workflowIdentifier(value.id),
-    description: text(value.description, 4096),
+    description: workflowText(value.description, 4096),
     parameterSchema: validateWorkflowObjectSchema(value.parameterSchema),
     resultSchema,
     stages,

@@ -9,6 +9,7 @@ import {
   workflowJson,
   workflowObject,
   workflowSha,
+  workflowText,
 } from "./spec.js";
 import type {
   WorkflowRecipe,
@@ -44,12 +45,7 @@ export function validateWorkflowRecipe(
     workflowSha(value.workflowSha256) !== spec.sha256
   )
     workflowError("WORKFLOW_RECIPE_STALE");
-  if (
-    typeof value.description !== "string" ||
-    value.description.includes("\0") ||
-    Buffer.byteLength(value.description) > 4096
-  )
-    workflowError("WORKFLOW_LIMIT");
+  const description = workflowText(value.description, 4096);
   const inputSchema = validateWorkflowObjectSchema(value.inputSchema);
   if (
     !value.parameterBindings ||
@@ -103,7 +99,7 @@ export function validateWorkflowRecipe(
   const definition = workflowJson({
     schemaVersion: 1 as const,
     id: workflowIdentifier(value.id),
-    description: value.description,
+    description,
     workflowId: spec.id,
     workflowSha256: spec.sha256,
     inputSchema,

@@ -20,6 +20,7 @@ import {
 } from "../child-tasks/storage-binding.js";
 import {
   WORKFLOW_LIMITS,
+  WORKFLOW_STAGE_KEYS,
   validateWorkflowSpec,
   validateWorkflowValue,
   workflowError,
@@ -1390,13 +1391,7 @@ export class WorkflowStorage {
     const safeInput = json(input);
     const allowed =
       "stageId" in safeInput
-        ? [
-            "workspaceId",
-            "instanceId",
-            "stageId",
-            "requestId",
-            "expectedRevision",
-          ]
+        ? WORKFLOW_STAGE_KEYS
         : [
             "workspaceId",
             "instanceId",
@@ -1535,11 +1530,7 @@ export class WorkflowStorage {
     input: PrepareWorkflowStageInput,
   ): WorkflowRequestResult<WorkflowInstanceRevision> {
     input = workflowObject(input, [
-      "workspaceId",
-      "instanceId",
-      "stageId",
-      "requestId",
-      "expectedRevision",
+      ...WORKFLOW_STAGE_KEYS,
       "childRequestId",
       "prompt",
     ]) as unknown as PrepareWorkflowStageInput;
