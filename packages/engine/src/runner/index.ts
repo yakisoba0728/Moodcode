@@ -2,10 +2,6 @@ import type { EffectBatchExecution } from '../effect-batches/host.js';
 import {ProviderAudioCapture} from '../media/output.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { types } from 'node:util';
-import { lstat, open, realpath } from 'node:fs/promises';
-import { constants } from 'node:fs';
-import { dirname } from 'node:path';
-import { isAbsolute, relative, sep } from 'node:path';
 import {
   EngineError, isTerminal,
   type Checkpoint, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall,
@@ -16,9 +12,9 @@ import type {
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
   ChildRunReservation, RunUsage, LifecycleContinuationCapture, TurnRequest, ProviderRequestOwner,
 } from '../ports.js';
-import { clientEffectToolName, clientReadToolInput, terminalCommandLine, workspaceLocalPath, type BackendClientReadInput, type BackendClientReadProof, type BackendClientEffectInput, type BackendClientPermissionProof } from '../agent-backends/client-effects.js';
+import type { BackendClientReadInput, BackendClientReadProof, BackendClientEffectInput, BackendClientPermissionProof } from '../agent-backends/client-effects.js';
 import { codeJson, CODE_MODE_TOOLS, codeModeError } from '../code-mode/types.js';
-import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
+import { knowledgeHash } from '../knowledge/validation.js';
 import { plainJson } from '../shared/data.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
@@ -33,6 +29,9 @@ import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 import type { LifecycleCapture, LifecycleDispatchOutcome, LifecycleInvocation } from '../lifecycle/index.js';
 import type { VerificationBoundary } from '../verification/completion.js';
+import { checkAbort, uncertain } from './abort.js';
+import { ProviderClientEffects, type OriginalProviderRequest } from './client-effects.js';
+import { ToolOwnerContexts } from './tool-owner-context.js';
 
 const CLEANUP_GRACE_MS = 1_000;
 // Closing the owned generator can join a pending wait, then the adapter's
@@ -40,12 +39,8 @@ const CLEANUP_GRACE_MS = 1_000;
 const PROVIDER_CLEANUP_GRACE_MS = CLEANUP_GRACE_MS * 3;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
 const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
-const UNSAFE_EFFECT_ERRORS = new Set([
-  'CLEANUP_UNCERTAIN', 'PROCESS_CLEANUP_FAILED', 'COMMAND_CLEANUP_UNCERTAIN',
-  'COMMAND_EFFECTS_LOCK_FAILED', 'PATCH_CHECKPOINT_FAILED', 'PATCH_CLEANUP_UNCERTAIN',
-]);
 
-interface Owner {
+export interface Owner {
   run: Run;
   abort: AbortController;
   done: Promise<Run>;
@@ -79,32 +74,6 @@ interface Owner {
   lifecycleContinuationsUsed: number;
   verificationContinuation?: { stageId: string; message: ProviderMessage };
   verificationBoundary?: VerificationBoundary;
-}
-
-interface TeamToolContextCapture {
-  owner: Owner;
-  record: ToolCallRecord;
-  active: () => boolean;
-  phase: 'prepare' | 'execute';
-  binding: string;
-  signal: AbortSignal;
-  approval?: ApprovedMcpToolOwner['approval'];
-}
-
-interface OriginalProviderRequest {
-  readonly owner: Owner;
-  readonly proof: ProviderRequestOwner;
-  readonly signal: AbortSignal;
-  pendingRead: boolean;
-}
-interface ClientReadCapture {
-  record?: ToolCallRecord;
-  result?: ToolResult;
-  fingerprint?: string;
-  signal?: AbortSignal;
-  gate?: () => Promise<void>;
-  dispatched?:()=>void;
-  approved?: (approval?: ApprovedMcpToolOwner['approval']) => void;
 }
 
 /** Preserve request insertion order without evaluating adapter-added serializers or accessors. */
@@ -155,25 +124,6 @@ function copyReplay(items: unknown, providerId: string, maxBytes: number, bindin
   return { providerId, items: copied as JsonObject[], ...binding };
 }
 
-function uncertain(value: unknown): boolean {
-  const pending = [value];
-  const seen = new Set<object>();
-  while (pending.length) {
-    const current = pending.pop();
-    if (!current || typeof current !== 'object' || seen.has(current)) continue;
-    seen.add(current);
-    const record = current as Record<string, unknown>;
-    if (typeof record.code === 'string' && UNSAFE_EFFECT_ERRORS.has(record.code)) return true;
-    if (record.cleanupConfirmed === false || record.cleanupUncertain === true || record.effectsUncertain === true || record.executionBlocked === true) return true;
-    pending.push(record.data, record.details);
-  }
-  return false;
-}
-
-function checkAbort(signal: AbortSignal): void {
-  if (signal.aborted) throw signal.reason ?? new EngineError('RUN_CANCELLED', 'Run was cancelled');
-}
-
 /** Wait for an aborted operation to settle before claiming that its cleanup finished. */
 async function abortable<T>(operation: () => Promise<T>, signal: AbortSignal, label: string, cleanupGraceMs = CLEANUP_GRACE_MS): Promise<T> {
   checkAbort(signal);
@@ -213,16 +163,10 @@ export class RunCoordinator implements CoordinatorPort {
   private readonly tools = new Map<string, ToolDefinition>();
   private readonly unsafeWorkspaces = new Set<string>();
   private readonly finalUsage = new Map<string, Readonly<RunUsage>>();
-  private readonly verificationSettlementOwners = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string }>();
-  private readonly teamToolContexts = new WeakMap<ToolContext, TeamToolContextCapture>();
-  private readonly codeModeContexts = new WeakMap<ToolContext,{owner:Owner;record:ToolCallRecord;phase:'prepare'|'execute';active:()=>boolean;binding:string;signal:AbortSignal;approval?:ApprovedMcpToolOwner['approval']}>();
-  private readonly codeModeNested = new Map<string,{outer:ToolContext;signal:AbortSignal;deadline:number;assertCurrent:()=>void}>();
-  private readonly commandJobContexts = new WeakMap<ToolContext, { owner: Owner; record: ToolCallRecord; active: () => boolean; binding: string; signal: AbortSignal; approval?: ApprovedMcpToolOwner['approval'] }>();
+  private readonly codeModeNested = new Map<string, { outer: ToolContext; signal: AbortSignal; deadline: number; assertCurrent: () => void }>();
   private readonly providerRequests = new WeakMap<TurnRequest, OriginalProviderRequest>();
-  private readonly clientReadCompletions = new WeakMap<object, BackendClientReadProof>();
-  private readonly retainedClientReads = new Set<object>();
-  private readonly clientEffectHandles = new WeakMap<object, {request:TurnRequest;input:BackendClientEffectInput;proof:BackendClientPermissionProof;dispatch:()=>void;abort:AbortController;done:Promise<object>;started:Promise<void>;dispatched:boolean;completion:()=>BackendClientReadProof|undefined;}>();
-  private readonly clientReadCaptures = new Map<string, ClientReadCapture>();
+  private readonly clientEffects: ProviderClientEffects;
+  private readonly toolOwners: ToolOwnerContexts;
   private closing = false;
   private closePromise?: Promise<void>;
   private sessionHooks?: {
@@ -237,6 +181,13 @@ export class RunCoordinator implements CoordinatorPort {
       if (this.tools.has(tool.name)) throw new EngineError('INVALID_CONFIG', `Duplicate tool name: ${tool.name}`);
       this.tools.set(tool.name, tool);
     }
+    this.clientEffects = new ProviderClientEffects(options, {
+      originalProviderRequest: (request, phase) => this.originalProviderRequest(request, phase),
+      remainingChildBudget: owner => this.remainingChildBudget(owner),
+      message: (owner, role) => this.message(owner, role),
+      executeTool: (owner, call, workspace) => this.executeTool(owner, call, workspace),
+    });
+    this.toolOwners = new ToolOwnerContexts(options, this.owners, this);
   }
 
   submit(input: SubmitInput): RunReceipt {
@@ -314,676 +265,64 @@ export class RunCoordinator implements CoordinatorPort {
     this.originalProviderRequest(request, phase);
   }
 
-  /** One client read executes inside the still-open original provider Attempt. */
-  async executeProviderClientRead(request: TurnRequest, value: BackendClientReadInput, signal: AbortSignal): Promise<object> {
-    const captured = this.originalProviderRequest(request, 'dispatch'), { owner, proof } = captured;
-    const input = immutableKnowledgeJson(value);
-    if (Object.keys(input).some(key => !['callId', 'path', 'line', 'limit'].includes(key)) || typeof input.callId !== 'string' || !input.callId || Buffer.byteLength(input.callId) > 256
-      || typeof input.path !== 'string' || !isAbsolute(input.path) || Buffer.byteLength(input.path) > 4096 || input.path.includes('\0')
-      || input.line !== undefined && (!Number.isSafeInteger(input.line) || input.line < 1)
-      || input.limit !== undefined && (!Number.isSafeInteger(input.limit) || input.limit < 1 || input.limit > 2000)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'The client read must have an explicit absolute path and bounded line range');
-    if (signal.aborted) throw signal.reason ?? new EngineError('RUN_CANCELLED', 'Client read was cancelled');
-    if (captured.pendingRead || owner.callIds.has(input.callId)) throw new EngineError('BACKEND_CLIENT_READ_CONFLICT', 'Client reads must be serialized with distinct request identities');
-    if (this.retainedClientReads.size >= 128) throw new EngineError('BACKEND_CLIENT_READ_LIMIT', 'Client read completion handle limit was reached');
-    const workspace = this.options.store.getWorkspace(proof.workspaceId), localPath = workspaceLocalPath(workspace.root, input.path);
-    if (localPath === undefined) throw new EngineError('BACKEND_CLIENT_READ_OUTSIDE', 'Client reads must remain inside the actual workspace');
-    const readInput = clientReadToolInput(localPath, input.line, input.limit);
-    if (readInput.endLine !== undefined && !Number.isSafeInteger(readInput.endLine)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'Client line range exceeds its integer bound');
-    if (this.remainingChildBudget(owner).toolCalls < 1) throw new EngineError('TOOL_CALL_LIMIT', 'The original Run tool budget is exhausted');
-    owner.budget.reserveToolCalls(1);
-    const toolCallId = randomUUID(), message = this.message(owner, 'assistant');
-    const call: ProviderToolCall = { id: input.callId, name: clientEffectToolName(input), input: readInput };
-    owner.callIds.add(call.id); owner.invocations.set(call.id, toolCallId);
-    this.options.store.commit(owner.run.id, 'backend.client_read_proposed', { toolCallId, providerToolCallId: call.id, turnId: proof.turnId, attemptId: proof.attemptId }, { message });
-    owner.turn!.toolProposal(message.id, toolCallId, call);
-    const readCapture: ClientReadCapture = {};
-    this.clientReadCaptures.set(toolCallId, readCapture); captured.pendingRead = true;
-    const abort = () => owner.abort.abort(new EngineError('RUN_CANCELLED', 'The original backend client read was cancelled'));
-    signal.addEventListener('abort', abort, { once: true });
-    let failure: unknown;
-    try { this.originalProviderRequest(request, 'dispatch'); await this.executeTool(owner, call, workspace); }
-    catch (error) { failure = error; }
-    finally { signal.removeEventListener('abort', abort); captured.pendingRead = false; this.clientReadCaptures.delete(toolCallId); }
-    const record = readCapture.record;
-    if (!record) throw failure ?? new EngineError('BACKEND_CLIENT_READ_FAILED', 'The native client read was not admitted');
-    const data = readCapture.result?.data;
-    const complete = record.state === 'completed' && data !== null && typeof data === 'object' && !Array.isArray(data) && typeof data.content === 'string' && Buffer.byteLength(data.content) <= 24576
-      && data.truncated === false && data.outputTruncated === false && data.hasMore === false && data.partialFirstLine === false && data.partialLastLine === false;
-    const errorCode = failure instanceof EngineError ? failure.code : failure ? 'BACKEND_CLIENT_READ_FAILED'
-      : record.state === 'denied' ? 'APPROVAL_DENIED' : record.state !== 'completed' ? 'BACKEND_CLIENT_READ_FAILED' : !complete ? 'BACKEND_CLIENT_READ_PARTIAL' : null;
-    const resultBody = { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
-      toolCallId, providerToolCallId: call.id, preparedFingerprint: readCapture.fingerprint ?? null,
-      state: (['completed', 'failed', 'denied', 'interrupted'].includes(record.state) ? record.state : 'interrupted') as BackendClientReadProof['state'],
-      inputSha256: knowledgeHash(record.input), outputSha256: createHash('sha256').update(record.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(record.output ?? ''),
-      content: complete ? (data as JsonObject).content as string : null, errorCode,
-      cleanupConfirmed: !uncertain(failure) && !['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT'].includes(errorCode ?? '') };
-    const completion: BackendClientReadProof = immutableKnowledgeJson({ ...resultBody, sha256: knowledgeHash(resultBody) });
-    const original = Object.freeze({}); this.clientReadCompletions.set(original, completion); this.retainedClientReads.add(original);
-    return original;
+  executeProviderClientRead(request: TurnRequest, value: BackendClientReadInput, signal: AbortSignal): Promise<object> {
+    return this.clientEffects.executeRead(request, value, signal);
   }
 
-  /** Approval waits in the genuine tool pipeline; an allow-once wire response cannot execute another input. */
-  async prepareProviderClientEffect(
-    request: TurnRequest,
-    value: BackendClientEffectInput,
-    signal: AbortSignal,
-  ): Promise<object> {
-    const captured = this.originalProviderRequest(request, 'dispatch'),
-      { owner, proof } = captured;
-    const input = immutableKnowledgeJson(value),
-      workspace = this.options.store.getWorkspace(proof.workspaceId);
-    if (signal.aborted) throw signal.reason;
-    if (captured.pendingRead || owner.callIds.has(input.callId))
-      throw new EngineError(
-        'BACKEND_CLIENT_EFFECT_CONFLICT',
-        'Only one exact native client effect may be active',
-      );
-    if (this.retainedClientReads.size >= 128)
-      throw new EngineError(
-        'BACKEND_CLIENT_READ_LIMIT',
-        'Client completion retention limit reached',
-      );
-    let toolInput: JsonObject;
-    if (input.method === 'fs/write_text_file') {
-      if (
-        Object.keys(input).some(
-          (key) => !['callId', 'method', 'path', 'content'].includes(key),
-        ) ||
-        typeof input.content !== 'string' ||
-        Buffer.byteLength(input.content) > 16384 ||
-        !isAbsolute(input.path)
-      )
-        throw new EngineError(
-          'BACKEND_CLIENT_EFFECT_INVALID',
-          'Invalid bounded client write',
-        );
-      const local = workspaceLocalPath(workspace.root, input.path);
-      if (local === undefined)
-        throw new EngineError(
-          'BACKEND_CLIENT_READ_OUTSIDE',
-          'Client effects stay inside the workspace',
-        );
-      let at = dirname(input.path);
-      while (true) {
-        try {
-          const canonical = await realpath(at);
-          const rel = relative(workspace.root, canonical);
-          if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel))
-            throw new EngineError(
-              'PATH_OUTSIDE_WORKSPACE',
-              'Client write parent escaped the workspace',
-            );
-          break;
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-          const parent = dirname(at);
-          if (parent === at) throw error;
-          at = parent;
-        }
-      }
-      let expectedHash: string | null = null;
-      try {
-        const stat = await lstat(input.path);
-        if (
-          !stat.isFile() ||
-          stat.isSymbolicLink() ||
-          stat.nlink !== 1 ||
-          stat.size > 1048576
-        )
-          throw new EngineError(
-            'UNSAFE_PATCH_PATH',
-            'Client write requires a bounded regular source',
-          );
-        const source = await open(
-          input.path,
-          constants.O_RDONLY | constants.O_NOFOLLOW,
-        );
-        try {
-          const opened = await source.stat();
-          if (
-            !opened.isFile() ||
-            opened.nlink !== 1 ||
-            opened.dev !== stat.dev ||
-            opened.ino !== stat.ino ||
-            opened.size !== stat.size ||
-            opened.size > 1048576
-          )
-            throw new EngineError(
-              'UNSAFE_PATCH_PATH',
-              'The bounded source was replaced before descriptor capture',
-            );
-          const bytes = Buffer.alloc(1048577);
-          let position = 0;
-          while (position < bytes.length) {
-            const read = await source.read(
-              bytes,
-              position,
-              bytes.length - position,
-              position,
-            );
-            if (read.bytesRead === 0) break;
-            position += read.bytesRead;
-          }
-          const after = await source.stat();
-          if (
-            position > 1048576 ||
-            after.size !== opened.size ||
-            after.mtimeMs !== opened.mtimeMs ||
-            after.ctimeMs !== opened.ctimeMs ||
-            position !== after.size
-          )
-            throw new EngineError(
-              'UNSAFE_PATCH_PATH',
-              'The bounded source changed during capture',
-            );
-          expectedHash = createHash('sha256')
-            .update(bytes.subarray(0, position))
-            .digest('hex');
-        } finally {
-          try {
-            await source.close();
-          } catch {
-            throw new EngineError(
-              'CLEANUP_UNCERTAIN',
-              'The source capture descriptor did not confirm closure',
-            );
-          }
-        }
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      }
-      toolInput = {
-        changes: [{ path: local, expectedHash, content: input.content }],
-      };
-    } else if (input.method === 'terminal/create') {
-      if (process.platform === 'win32')
-        throw new EngineError(
-          'COMMAND_PLATFORM_UNSUPPORTED',
-          'ACP terminals require the native POSIX command owner',
-        );
-      if (
-        Object.keys(input).some(
-          (key) =>
-            ![
-              'callId',
-              'method',
-              'command',
-              'args',
-              'cwd',
-              'outputByteLimit',
-            ].includes(key),
-        ) ||
-        !Array.isArray(input.args) ||
-        input.args.length > 64 ||
-        input.args.some(
-          (arg) => typeof arg !== 'string' || arg.includes('\0'),
-        ) ||
-        !isAbsolute(input.cwd) ||
-        !Number.isSafeInteger(input.outputByteLimit) ||
-        input.outputByteLimit < 1 ||
-        input.outputByteLimit > 16384
-      )
-        throw new EngineError(
-          'BACKEND_CLIENT_EFFECT_INVALID',
-          'Invalid exact terminal input',
-        );
-      toolInput = {
-        command: terminalCommandLine(input.command, input.args),
-        cwd: input.cwd,
-        timeoutMs: Math.min(owner.run.config.limits.toolTimeoutMs, 300000),
-      };
-    } else
-      throw new EngineError(
-        'ACP_EFFECT_UNSUPPORTED',
-        'Unsupported client effect',
-      );
-    const name = clientEffectToolName(input);
-    if (!request.tools.some((tool) => tool.name === name))
-      throw new EngineError(
-        'TOOL_NOT_ALLOWED',
-        'The original catalogue does not contain this effect',
-      );
-    this.originalProviderRequest(request, 'dispatch');
-    if (this.remainingChildBudget(owner).toolCalls < 1)
-      throw new EngineError(
-        'TOOL_CALL_LIMIT',
-        'The original Run tool budget is exhausted',
-      );
-    owner.budget.reserveToolCalls(1);
-    const toolCallId = randomUUID(),
-      call: ProviderToolCall = { id: input.callId, name, input: toolInput },
-      message = this.message(owner, 'assistant');
-    owner.callIds.add(call.id);
-    owner.invocations.set(call.id, toolCallId);
-    this.options.store.commit(
-      owner.run.id,
-      'backend.client_effect_proposed',
-      {
-        toolCallId,
-        providerToolCallId: call.id,
-        effectMethod: input.method,
-        input: input as unknown as JsonValue,
-        turnId: proof.turnId,
-        attemptId: proof.attemptId,
-      },
-      { message },
-    );
-    owner.turn!.toolProposal(message.id, toolCallId, call);
-    this.options.store.commitRunObservation?.(
-      owner.run.id,
-      'backend.client_effect_proposed',
-      {
-        toolCallId,
-        providerToolCallId: call.id,
-        effectMethod: input.method,
-        input: input as unknown as JsonValue,
-        turnId: proof.turnId,
-        attemptId: proof.attemptId,
-      },
-      { turnId: proof.turnId, attemptId: proof.attemptId },
-    );
-    const abort = new AbortController(),
-      effectSignal = AbortSignal.any([signal, abort.signal]);
-    let release!: () => void, ready!: () => void;
-    const gate = new Promise<void>((resolve) => (release = resolve)),
-      admitted = new Promise<void>((resolve) => (ready = resolve));
-    let actualStart!: () => void;
-    const started = new Promise<void>((resolve) => (actualStart = resolve));
-    let permission: BackendClientPermissionProof | undefined;
-    let terminalCompletion: BackendClientReadProof | undefined;
-    const capture: ClientReadCapture = {
-      signal: effectSignal,
-      dispatched: actualStart,
-      gate: async () => {
-        await new Promise<void>((resolve, reject) => {
-          const cancel = () => reject(effectSignal.reason);
-          if (effectSignal.aborted) return cancel();
-          effectSignal.addEventListener('abort', cancel, { once: true });
-          void gate.then(() => {
-            effectSignal.removeEventListener('abort', cancel);
-            resolve();
-          });
-        });
-        checkAbort(effectSignal);
-        this.originalProviderRequest(request, 'dispatch');
-      },
-      approved: (approval) => {
-        const body = {
-          workspaceId: proof.workspaceId,
-          sessionId: proof.sessionId,
-          runId: proof.runId,
-          turnId: proof.turnId,
-          attemptId: proof.attemptId,
-          toolCallId,
-          providerToolCallId: call.id,
-          inputSha256: knowledgeHash(toolInput),
-          preparedFingerprint: capture.fingerprint ?? null,
-          approvalId: approval?.id ?? null,
-          allowed: true,
-        };
-        const granted: BackendClientPermissionProof = immutableKnowledgeJson({
-          ...body,
-          sha256: knowledgeHash(body),
-        });
-        if (!this.options.store.commitRunObservation)
-          throw new EngineError(
-            'BACKEND_NATIVE_OBSERVATION_REQUIRED',
-            'Native permission journal is required',
-          );
-        this.options.store.commitRunObservation(
-          owner.run.id,
-          'backend.client_permission',
-          { permission: granted as unknown as JsonValue },
-          { turnId: proof.turnId, attemptId: proof.attemptId },
-        );
-        permission = granted;
-        ready();
-      },
-    };
-    this.clientReadCaptures.set(toolCallId, capture);
-    captured.pendingRead = true;
-    const done = (async () => {
-      let failure: unknown;
-      try {
-        await this.executeTool(owner, call, workspace);
-      } catch (error) {
-        failure = error;
-      } finally {
-        captured.pendingRead = false;
-        this.clientReadCaptures.delete(toolCallId);
-      }
-      const record = capture.record;
-      if (!record)
-        throw (
-          failure ??
-          new EngineError(
-            'BACKEND_CLIENT_EFFECT_FAILED',
-            'Native effect was not admitted',
-          )
-        );
-      if (!permission) {
-        const body = {
-          workspaceId: proof.workspaceId,
-          sessionId: proof.sessionId,
-          runId: proof.runId,
-          turnId: proof.turnId,
-          attemptId: proof.attemptId,
-          toolCallId,
-          providerToolCallId: call.id,
-          inputSha256: knowledgeHash(record.input),
-          preparedFingerprint: capture.fingerprint ?? null,
-          approvalId: null,
-          allowed: false,
-        };
-        const denied: BackendClientPermissionProof = immutableKnowledgeJson({
-          ...body,
-          sha256: knowledgeHash(body),
-        });
-        this.options.store.commitRunObservation?.(
-          owner.run.id,
-          'backend.client_permission',
-          { permission: denied as unknown as JsonValue },
-          { turnId: proof.turnId, attemptId: proof.attemptId },
-        );
-        permission = denied;
-        ready();
-      }
-      let result: JsonValue | null = null;
-      try {
-        if (capture.result?.data !== undefined) {
-          let data = immutableKnowledgeJson(capture.result.data);
-          if (
-            input.method === 'terminal/create' &&
-            data &&
-            typeof data === 'object' &&
-            !Array.isArray(data)
-          )
-            data = immutableKnowledgeJson(
-              Object.fromEntries(
-                Object.entries(data).filter(([key]) =>
-                  [
-                    'status',
-                    'exitCode',
-                    'signal',
-                    'cancelled',
-                    'timedOut',
-                    'cleanupConfirmed',
-                    'started',
-                    'checkpointId',
-                    'checkpointIncomplete',
-                    'outputAccountingComplete',
-                    'error',
-                  ].includes(key),
-                ),
-              ),
-            );
-          if (Buffer.byteLength(JSON.stringify(data)) <= 24576) result = data;
-        }
-      } catch {
-        result = null;
-      }
-      const errorCode =
-        failure instanceof EngineError
-          ? failure.code
-          : failure
-            ? 'BACKEND_CLIENT_EFFECT_FAILED'
-            : record.state === 'denied'
-              ? 'APPROVAL_DENIED'
-              : record.state !== 'completed'
-                ? 'BACKEND_CLIENT_EFFECT_FAILED'
-                : result === null
-                  ? 'BACKEND_CLIENT_EFFECT_LIMIT'
-                  : null;
-      const actualCheckpoint = [...owner.checkpoints.values()].find(
-        (cp) => cp.toolCallId === toolCallId,
-      );
-      const body = {
-        checkpoint: actualCheckpoint
-          ? { id: actualCheckpoint.id, sha256: knowledgeHash(actualCheckpoint) }
-          : null,
-        workspaceId: proof.workspaceId,
-        sessionId: proof.sessionId,
-        runId: proof.runId,
-        turnId: proof.turnId,
-        attemptId: proof.attemptId,
-        toolCallId,
-        providerToolCallId: call.id,
-        preparedFingerprint: capture.fingerprint ?? null,
-        state: (['completed', 'failed', 'denied', 'interrupted'].includes(
-          record.state,
-        )
-          ? record.state
-          : 'interrupted') as BackendClientReadProof['state'],
-        inputSha256: knowledgeHash(record.input),
-        outputSha256: createHash('sha256')
-          .update(record.output ?? '')
-          .digest('hex'),
-        outputBytes: Buffer.byteLength(record.output ?? ''),
-        content: null,
-        errorCode,
-        cleanupConfirmed:
-          !uncertain(failure) &&
-          (!result ||
-            typeof result !== 'object' ||
-            Array.isArray(result) ||
-            result.cleanupConfirmed !== false),
-        effectMethod: input.method,
-        result,
-      };
-      const completion: BackendClientReadProof = immutableKnowledgeJson({
-        ...body,
-        sha256: knowledgeHash(body),
-      });
-      if (!this.options.store.commitRunObservation)
-        throw new EngineError(
-          'BACKEND_NATIVE_OBSERVATION_REQUIRED',
-          'Client effects require a native completion anchor',
-        );
-      this.options.store.commitRunObservation(
-        owner.run.id,
-        'backend.client_effect_closed',
-        { completion: completion as unknown as JsonValue },
-        { turnId: proof.turnId, attemptId: proof.attemptId },
-      );
-      terminalCompletion = completion;
-      const original = Object.freeze({});
-      this.clientReadCompletions.set(original, completion);
-      this.retainedClientReads.add(original);
-      return original;
-    })().finally(ready);
-    // Rejection remains observable to waitEffect.
-    void done.catch(() => {});
-    await admitted;
-    if (!permission) {
-      await done;
-      throw new EngineError(
-        'BACKEND_CLIENT_EFFECT_FAILED',
-        'Native preparation failed',
-      );
-    }
-    const original = Object.freeze({});
-    this.clientEffectHandles.set(original, {
-      request,
-      input,
-      proof: permission,
-      dispatch: release,
-      abort,
-      done,
-      started,
-      dispatched: false,
-      completion: () => terminalCompletion,
-    });
-    return original;
+  prepareProviderClientEffect(request: TurnRequest, value: BackendClientEffectInput, signal: AbortSignal): Promise<object> {
+    return this.clientEffects.prepareEffect(request, value, signal);
   }
-  readProviderClientEffectPermission(
-    original: object,
-  ): BackendClientPermissionProof {
-    const x = this.clientEffectHandles.get(original);
-    if (!x)
-      throw new EngineError(
-        'BACKEND_ORIGINAL_REQUIRED',
-        'Original prepared effect is required',
-      );
-    return structuredClone(x.proof);
+
+  readProviderClientEffectPermission(original: object): BackendClientPermissionProof {
+    return this.clientEffects.readPermission(original);
   }
-  async dispatchProviderClientEffect(original: object): Promise<void> {
-    const x = this.clientEffectHandles.get(original);
-    if (!x || x.dispatched || !x.proof.allowed)
-      throw new EngineError(
-        'BACKEND_EFFECT_STALE',
-        'The precise native effect cannot be dispatched',
-      );
-    this.originalProviderRequest(x.request, 'dispatch');
-    x.dispatched = true;
-    x.dispatch();
-    await Promise.race([
-      x.started,
-      x.done.then(() => {
-        throw new EngineError(
-          'BACKEND_CLIENT_EFFECT_FAILED',
-          'Native effect failed before dispatch',
-        );
-      }),
-    ]);
+
+  dispatchProviderClientEffect(original: object): Promise<void> {
+    return this.clientEffects.dispatchEffect(original);
   }
+
   readProviderClientEffectRequest(original: object): TurnRequest {
-    const x = this.clientEffectHandles.get(original);
-    if (!x)
-      throw new EngineError(
-        'BACKEND_ORIGINAL_REQUIRED',
-        'Original effect is required',
-      );
-    this.originalProviderRequest(x.request, 'dispatch');
-    return x.request;
+    return this.clientEffects.readRequest(original);
   }
+
   readProviderClientEffectScope(original: object) {
-    const x = this.clientEffectHandles.get(original);
-    if (!x || !x.dispatched || x.input.method !== 'terminal/create')
-      throw new EngineError(
-        'BACKEND_ORIGINAL_REQUIRED',
-        'Only the original admitted terminal has output authority',
-      );
-    this.originalProviderRequest(x.request, 'dispatch');
-    const completion = x.completion(), result = completion?.result;
-    // The same actual settled Tool proves cancellation before a physical source existed.
-    const noProcessCompletionSha256 =
-      x.abort.signal.aborted && completion?.state === 'failed' &&
-      completion.effectMethod === 'terminal/create' &&
-      completion.cleanupConfirmed === true && completion.content === null &&
-      completion.checkpoint === null && result &&
-      typeof result === 'object' && !Array.isArray(result) &&
-      result.status === 'cancelled' && result.started === false &&
-      result.cancelled === true && result.timedOut === false &&
-      result.cleanupConfirmed === true && result.exitCode === null &&
-      result.signal === null ? completion.sha256 : null;
-    return {
-      permission: structuredClone(x.proof),
-      input: structuredClone(x.input),
-      noProcessCompletionSha256,
-    };
+    return this.clientEffects.readScope(original);
   }
+
   waitProviderClientEffect(original: object): Promise<object> {
-    const x = this.clientEffectHandles.get(original);
-    if (!x)
-      throw new EngineError(
-        'BACKEND_ORIGINAL_REQUIRED',
-        'Original effect is required',
-      );
-    return x.done;
+    return this.clientEffects.waitEffect(original);
   }
+
   cancelProviderClientEffect(original: object): void {
-    this.clientEffectHandles
-      .get(original)
-      ?.abort.abort(
-        new EngineError('CANCELLED', 'The exact remote terminal was cancelled'),
-      );
+    this.clientEffects.cancelEffect(original);
   }
+
   releaseProviderClientEffect(original: object): void {
-    this.clientEffectHandles.delete(original);
+    this.clientEffects.releaseEffect(original);
   }
 
   readProviderClientReadCompletion(original: object): BackendClientReadProof {
-    if (!original || typeof original !== 'object' || types.isProxy(original)) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'Client read completion requires its original receipt');
-    const proof = this.clientReadCompletions.get(original);
-    if (!proof) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'The native client read completion receipt is unavailable');
-    return structuredClone(proof);
+    return this.clientEffects.readCompletion(original);
   }
 
   releaseProviderClientReadCompletion(original: object): void {
-    this.clientReadCompletions.delete(original); this.retainedClientReads.delete(original);
+    this.clientEffects.releaseCompletion(original);
   }
 
-  private teamContextBinding(context: ToolContext): string {
-    if (types.isProxy(context) || ![Object.prototype,null].includes(Object.getPrototypeOf(context))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require original plain context data');
-    const fields = Object.getOwnPropertyDescriptors(context);
-    if (Reflect.ownKeys(fields).some(key => typeof key !== 'string' || !Object.hasOwn(fields[key]!, 'value')) || ['workspace','limits','signal','sessionId','runId','toolCallId','turnId','attemptId','artifactDir'].some(key => !Object.hasOwn(fields,key))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require unchanged original context data');
-    const metadata: Record<string,unknown>[] = [];
-    for (const value of [context.workspace, context.limits]) {
-      if (!value || types.isProxy(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team context metadata changed');
-      const descriptors = Object.getOwnPropertyDescriptors(value);
-      if (Reflect.ownKeys(descriptors).some(key => typeof key !== 'string' || !descriptors[key]!.enumerable || !Object.hasOwn(descriptors[key]!, 'value') || descriptors[key]!.value !== null && !['string', 'number', 'boolean'].includes(typeof descriptors[key]!.value))) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team context metadata must remain plain data');
-      const copy: Record<string,unknown> = Object.create(null);
-      for (const [key,descriptor] of Object.entries(descriptors)) copy[key] = descriptor.value;
-      metadata.push(copy);
-    }
-    return JSON.stringify([...metadata, fields.sessionId!.value, fields.runId!.value, fields.toolCallId!.value, fields.turnId!.value, fields.attemptId!.value, fields.artifactDir!.value, fields.executionLockPath?.value ?? null]);
-  }
-
-  /** Team/workflow live phases require the same unchanged, non-aborted owner. */
-  private liveToolOwnerChanged(captured: TeamToolContextCapture, context: ToolContext, phase: 'prepare' | 'execute', safeBinding: string): boolean {
-    const { owner, record } = captured;
-    return this.owners.get(owner.run.id) !== owner || owner.terminal || owner.abort.signal.aborted || context.signal !== captured.signal || context.signal.aborted
-      || safeBinding !== captured.binding || owner.activeTools.get(record.id) !== record
-      || owner.run.sessionId !== context.sessionId || owner.run.id !== context.runId || owner.run.workspaceId !== context.workspace.id
-      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId
-      || record.id !== context.toolCallId || record.state !== (phase === 'prepare' ? 'requested' : 'running');
-  }
-
-  /** SQL-matching copies cannot become an original current tool producer. */
   assertTeamToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
-    const captured = this.teamToolContexts.get(context);
-    if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
-    const { record } = captured;
-    const safeBinding = this.teamContextBinding(context);
-    if (!['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task'].includes(record.name)
-      || this.liveToolOwnerChanged(captured, context, phase, safeBinding)) throw new EngineError('TEAM_MODEL_OWNER_STALE', 'Original team tool execution changed');
-    this.captureToolCatalogue(context);
-    if (phase === 'execute' && !['read_agent_mailbox','read_team_board'].includes(record.name)) {
-      if (!captured.approval) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
-      const approval = this.options.store.getApproval(captured.approval.id);
-      if (approval.status !== 'allowed' || approval.fingerprint !== captured.approval.fingerprint || approval.sessionId !== context.sessionId || approval.runId !== context.runId || approval.toolCallId !== record.id || approval.toolName !== record.name) throw new EngineError('TEAM_MODEL_APPROVAL_REQUIRED', 'Team mutation approval changed');
-    }
+    this.toolOwners.assertTeam(context, phase);
   }
 
-  /** Original native context for the two readonly command job model consumers. */
   readCommandJobToolContext(context: ToolContext, phase: 'prepare' | 'execute') {
-    const captured=this.teamToolContexts.get(context);
-    if(!captured||captured.phase!==phase||!captured.active())throw new EngineError('COMMAND_JOB_MODEL_OWNER_STALE','Command output needs the original current tool context');
-    const {owner,record}=captured;const binding=this.teamContextBinding(context);
-    if(!['read_command_job','read_command_job_output'].includes(record.name)||this.owners.get(owner.run.id)!==owner||owner.terminal||owner.abort.signal.aborted||context.signal!==captured.signal||context.signal.aborted||binding!==captured.binding||owner.activeTools.get(record.id)!==record||owner.run.id!==context.runId||owner.run.sessionId!==context.sessionId||owner.run.workspaceId!==context.workspace.id||owner.turn?.id!==context.turnId||owner.turn?.attemptId!==context.attemptId||record.id!==context.toolCallId||record.state!==(phase==='prepare'?'requested':'running'))throw new EngineError('COMMAND_JOB_MODEL_OWNER_STALE','The original readonly command job owner changed');
-    const catalogue=this.captureToolCatalogue(context);return {workspaceId:context.workspace.id,sessionId:context.sessionId,runId:context.runId,toolCallId:record.id,turnId:context.turnId!,attemptId:context.attemptId!,catalogueSha256:knowledgeHash(catalogue),profile:catalogue.profile?{id:catalogue.profile.id,revision:catalogue.profile.revision}:null};
+    return this.toolOwners.readCommandJob(context, phase);
   }
 
   assertWorkflowToolContext(context: ToolContext, phase: 'prepare' | 'execute'): void {
-    const captured = this.teamToolContexts.get(context);
-    if (!captured || captured.phase !== phase || !captured.active()) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Team tools require their original current coordinator context');
-    const { record } = captured;
-    const safeBinding = this.teamContextBinding(context);
-    if (!['request_workflow_stage', 'observe_workflow_stage', 'merge_workflow_stage', 'deliver_workflow_result'].includes(record.name)
-      || this.liveToolOwnerChanged(captured, context, phase, safeBinding)) throw new EngineError('WORKFLOW_MODEL_OWNER_STALE', 'Original team tool execution changed');
-    this.captureToolCatalogue(context);
-    if (phase === 'execute' && record.name !== 'observe_workflow_stage') {
-      if (!captured.approval) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Team mutations require exact original native approval');
-      const approval = this.options.store.getApproval(captured.approval.id);
-      if (approval.status !== 'allowed' || approval.fingerprint !== captured.approval.fingerprint || approval.sessionId !== context.sessionId || approval.runId !== context.runId || approval.toolCallId !== record.id || approval.toolName !== record.name) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Team mutation approval changed');
-    }
+    this.toolOwners.assertWorkflow(context, phase);
   }
 
   getWorkflowToolApproval(context: ToolContext): { id: string; fingerprint: string } {
-    this.assertWorkflowToolContext(context, 'execute');
-    const captured = this.teamToolContexts.get(context)!;
-    if (!captured.approval) throw new EngineError('WORKFLOW_MODEL_APPROVAL_REQUIRED', 'Workflow effects require their actual native approval');
-    return { ...captured.approval };
+    return this.toolOwners.workflowApproval(context);
   }
 
   /** Nested host verification keeps the original advertised profile/discovery capture. */
@@ -994,79 +333,48 @@ export class RunCoordinator implements CoordinatorPort {
     this.options.toolRuntime.assertCatalogueCurrent(owner.catalogue);
     return owner.catalogue;
   }
-  readCodeModeContext(context:ToolContext, phase:'prepare'|'execute'|'observe') {
-    const c=this.codeModeContexts.get(context);if(!c||!c.active()||c.phase!==(phase==='observe'?'execute':phase)||this.teamContextBinding(context)!==c.binding)codeModeError('CODE_MODE_OWNER_STALE');
-    const {owner,record}=c;if(this.owners.get(owner.run.id)!==owner||owner.terminal||owner.activeTools.get(record.id)!==record||context.signal!==c.signal||record.name!=='execute_code'||context.runId!==owner.run.id||context.sessionId!==owner.run.sessionId||context.workspace.id!==owner.run.workspaceId||context.turnId!==owner.turn?.id||context.attemptId!==owner.turn?.attemptId||phase!=='observe'&&(context.signal.aborted||owner.abort.signal.aborted||record.state!==(phase==='prepare'?'requested':'running')))codeModeError('CODE_MODE_OWNER_STALE');
-    const catalogue=phase==='observe'?owner.catalogue:this.captureToolCatalogue(context);if(!catalogue)codeModeError('CODE_MODE_OWNER_STALE');
-    let approval:null|{id:string;fingerprint:string}=null;
-    if(phase!=='prepare'){if(!c.approval)codeModeError('CODE_MODE_APPROVAL_REQUIRED');const a=this.options.store.getApproval(c.approval.id);if(a.status!=='allowed'||a.fingerprint!==c.approval.fingerprint||a.runId!==context.runId||a.toolCallId!==record.id||a.toolName!==record.name)codeModeError('CODE_MODE_APPROVAL_REQUIRED');approval={id:a.id,fingerprint:a.fingerprint};}
-    return {workspaceId:context.workspace.id,sessionId:context.sessionId,runId:context.runId,turnId:context.turnId!,attemptId:context.attemptId!,toolCallId:record.id,configSha256:knowledgeHash(owner.run.config),catalogueSha256:knowledgeHash(catalogue),profile:catalogue.profile??null,approval};
-  }
-  async executeCodeModeNested(context:ToolContext,input:{id:string;tool:string;input:JsonObject;deadline:number;signal:AbortSignal;assertCurrent:()=>void}) {
-    this.readCodeModeContext(context,'execute');input.assertCurrent();if(!(CODE_MODE_TOOLS as readonly string[]).includes(input.tool))codeModeError('CODE_MODE_TOOL_UNSUPPORTED');
-    const owner=this.codeModeContexts.get(context)!.owner;
-    if(!owner.turn||owner.callIds.has(input.id))codeModeError('CODE_MODE_DUPLICATE_CALL');
-    if(this.remainingChildBudget(owner).toolCalls<1)codeModeError('TOOL_CALL_LIMIT');
-    const clean=codeJson(input.input);owner.budget.reserveToolCalls(1);owner.callIds.add(input.id);
-    const toolId=randomUUID();owner.invocations.set(input.id,toolId);this.codeModeNested.set(toolId,{outer:context,signal:AbortSignal.any([context.signal,input.signal]),deadline:input.deadline,assertCurrent:input.assertCurrent});
-    const call={id:input.id,name:input.tool,input:clean};
-    const message={...this.message(owner,'assistant',''),toolCalls:[call]};this.options.store.commit(owner.run.id,'message.created',{}, {message});
-    owner.turn.toolProposal(message.id,toolId,call);
-    try{await this.executeTool(owner,call,context.workspace);const tool=this.options.store.getSnapshot(owner.run.sessionId).tools.find(t=>t.id===toolId)!;const approvals=this.options.store.getSnapshot(owner.run.sessionId).approvals.filter(a=>a.toolCallId===toolId&&a.status==='allowed');return {toolCallId:toolId,providerToolCallId:input.id,name:tool.name,inputSha256:knowledgeHash(tool.input),state:tool.state,outputSha256:createHash('sha256').update(tool.output??'').digest('hex'),outputBytes:Buffer.byteLength(tool.output??''),approval:approvals[0]?{id:approvals[0].id,fingerprint:approvals[0].fingerprint}:null,content:tool.output??''};}
-    finally{this.codeModeNested.delete(toolId);}
+
+  readCodeModeContext(context: ToolContext, phase: 'prepare' | 'execute' | 'observe') {
+    return this.toolOwners.readCodeMode(context, phase);
   }
 
-  /** ORIGINAL approved execution scope, retained only while the genuine command owns its Run. */
+  async executeCodeModeNested(context: ToolContext, input: { id: string; tool: string; input: JsonObject; deadline: number; signal: AbortSignal; assertCurrent: () => void }) {
+    this.readCodeModeContext(context, 'execute');
+    input.assertCurrent();
+    if (!(CODE_MODE_TOOLS as readonly string[]).includes(input.tool)) codeModeError('CODE_MODE_TOOL_UNSUPPORTED');
+    const owner = this.toolOwners.codeModeOwner(context);
+    if (!owner.turn || owner.callIds.has(input.id)) codeModeError('CODE_MODE_DUPLICATE_CALL');
+    if (this.remainingChildBudget(owner).toolCalls < 1) codeModeError('TOOL_CALL_LIMIT');
+    const clean = codeJson(input.input);
+    owner.budget.reserveToolCalls(1);
+    owner.callIds.add(input.id);
+    const toolId = randomUUID();
+    owner.invocations.set(input.id, toolId);
+    this.codeModeNested.set(toolId, { outer: context, signal: AbortSignal.any([context.signal, input.signal]), deadline: input.deadline, assertCurrent: input.assertCurrent });
+    const call = { id: input.id, name: input.tool, input: clean };
+    const message = { ...this.message(owner, 'assistant', ''), toolCalls: [call] };
+    this.options.store.commit(owner.run.id, 'message.created', {}, { message });
+    owner.turn.toolProposal(message.id, toolId, call);
+    try {
+      await this.executeTool(owner, call, context.workspace);
+      const tool = this.options.store.getSnapshot(owner.run.sessionId).tools.find(t => t.id === toolId)!;
+      const approvals = this.options.store.getSnapshot(owner.run.sessionId).approvals.filter(a => a.toolCallId === toolId && a.status === 'allowed');
+      return { toolCallId: toolId, providerToolCallId: input.id, name: tool.name, inputSha256: knowledgeHash(tool.input), state: tool.state,
+        outputSha256: createHash('sha256').update(tool.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(tool.output ?? ''),
+        approval: approvals[0] ? { id: approvals[0].id, fingerprint: approvals[0].fingerprint } : null, content: tool.output ?? '' };
+    } finally { this.codeModeNested.delete(toolId); }
+  }
+
   readOwnedCommandContext(context: ToolContext, phase: 'start' | 'settle') {
-    const captured = this.commandJobContexts.get(context);
-    if (!captured || !captured.active() || this.teamContextBinding(context) !== captured.binding) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command jobs require the original unchanged execution context');
-    const { owner, record, approval: pin } = captured;
-    if (owner.terminal || this.owners.get(owner.run.id) !== owner || owner.activeTools.get(record.id) !== record || context.signal !== captured.signal
-      || owner.run.id !== context.runId || owner.run.sessionId !== context.sessionId || owner.run.workspaceId !== context.workspace.id
-      || owner.turn?.id !== context.turnId || owner.turn?.attemptId !== context.attemptId || !['run_command','verify_changes','run_command_job','command_job_input','wait_command_job'].includes(record.name)
-      || phase === 'start' && (context.signal.aborted || owner.abort.signal.aborted || record.state !== 'running')) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'The actual command execution owner changed');
-    if (!pin) throw new EngineError('COMMAND_JOB_APPROVAL_REQUIRED', 'Command observation requires its exact native approval');
-    const approval = this.options.store.getApproval(pin.id);
-    if (approval.status !== 'allowed' || approval.fingerprint !== pin.fingerprint || approval.toolCallId !== record.id || approval.runId !== context.runId || approval.sessionId !== context.sessionId || approval.toolName !== record.name) throw new EngineError('COMMAND_JOB_APPROVAL_REQUIRED', 'The actual native command approval changed');
-    const catalogue = phase === 'start' ? this.captureToolCatalogue(context) : owner.catalogue;
-    if (!catalogue) throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Command catalogue is unavailable');
-    return { name: record.name, workspaceId: context.workspace.id, sessionId: context.sessionId, runId: context.runId,
-      toolCallId: record.id, turnId: context.turnId!, attemptId: context.attemptId!, approvalId: approval.id,
-      approvalFingerprint: approval.fingerprint, catalogueSha256: knowledgeHash(catalogue) };
+    return this.toolOwners.readOwnedCommand(context, phase);
   }
 
-  /** Authenticate only the real verification execution's narrowed nested command, then discard it. */
-  async withVerificationCommandContext<T>(outer: ToolContext, nested: ToolContext, execute: () => Promise<T>): Promise<T> {
-    const owner = this.readOwnedCommandContext(outer, 'start');
-    if (owner.name !== 'verify_changes' || outer === nested || this.commandJobContexts.has(nested))
-      throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Nested commands require their original verification owner');
-    const binding = this.teamContextBinding(nested);
-    const outerFields = Object.getOwnPropertyDescriptors(outer), nestedFields = Object.getOwnPropertyDescriptors(nested);
-    const fieldsChanged = Reflect.ownKeys(outerFields).length !== Reflect.ownKeys(nestedFields).length
-      || Object.keys(outerFields).some(key => !Object.hasOwn(nestedFields, key)
-        || !['limits', 'recordCheckpoint'].includes(key) && outerFields[key]!.value !== nestedFields[key]!.value);
-    const nestedLimits = nested.limits as unknown as Record<string, unknown>;
-    const limitsChanged = Object.keys(outer.limits).length !== Object.keys(nestedLimits).length
-      || Object.entries(outer.limits).some(([key, value]) => {
-        if (!Object.hasOwn(nestedLimits, key)) return true;
-        const selected = nestedLimits[key];
-        if (!['toolTimeoutMs', 'maxOutputBytes'].includes(key)) return selected !== value;
-        return typeof selected !== 'number' || !Number.isSafeInteger(selected) || selected < 1 || selected > value;
-      });
-    if (fieldsChanged || limitsChanged || typeof nested.recordCheckpoint !== 'function')
-      throw new EngineError('COMMAND_JOB_OWNER_STALE', 'Verification nesting may only narrow timeout/output limits and wrap checkpoint publication');
-    const capture = this.commandJobContexts.get(outer)!;
-    this.commandJobContexts.set(nested, { ...capture, binding });
-    try { return await execute(); }
-    finally { this.commandJobContexts.delete(nested); }
+  withVerificationCommandContext<T>(outer: ToolContext, nested: ToolContext, execute: () => Promise<T>): Promise<T> {
+    return this.toolOwners.withVerificationCommand(outer, nested, execute);
   }
 
-  /** Cancellation can settle the consumed command, without creating any new verification work. */
   commitConsumedVerificationSettlement(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): import('../storage/native-records.js').SessionDocument {
-    const capture = this.verificationSettlementOwners.get(context);
-    const binding = JSON.stringify([context.workspace.id, context.workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]);
-    if (!capture || capture.binding !== binding || !capture.active() || capture.owner.terminal || this.owners.get(context.runId) !== capture.owner || capture.record.name !== 'verify_changes' || capture.record.state !== 'running' || capture.owner.activeTools.get(context.toolCallId) !== capture.record || capture.owner.turn?.id !== context.turnId || capture.owner.turn?.attemptId !== context.attemptId || !context.turnId || !context.attemptId || !this.options.store.putConsumedVerificationSettlement) throw new EngineError('VERIFICATION_SETTLEMENT_OWNER_INVALID', 'Consumed settlement requires the original live native verification execution owner');
-    return this.options.store.putConsumedVerificationSettlement({ runId: context.runId, toolCallId: context.toolCallId, turnId: context.turnId, attemptId: context.attemptId }, kind, expectedRevision, data);
+    return this.toolOwners.commitConsumedVerificationSettlement(context, kind, expectedRevision, data);
   }
 
   verificationRemainingBudget(run: Run): ChildBudget {
@@ -2095,21 +1403,21 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         owner.checkpoints.set(checkpoint.id, structuredClone(checkpoint));
       },
     };
-    if (record.name === 'verify_changes') this.verificationSettlementOwners.set(context, { owner, record, active: allowCheckpoint, binding: JSON.stringify([workspace.id, workspace.root, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]) });
+    this.toolOwners.captureSettlement(context, owner, record, allowCheckpoint);
     return context;
   }
 
   private async toolOperation<T>(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], execute: boolean, operation: (context: ToolContext) => Promise<T>, approval?: ApprovedMcpToolOwner['approval']): Promise<T> {
     const timeout = new AbortController();
-    const nested=this.codeModeNested.get(record.id);if(nested){this.readCodeModeContext(nested.outer,'execute');nested.assertCurrent();}
-    const signal = AbortSignal.any([owner.abort.signal, timeout.signal,...(nested?[nested.signal]:[]), ...(this.clientReadCaptures.get(record.id)?.signal ? [this.clientReadCaptures.get(record.id)!.signal!] : [])]);
-    const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), Math.max(1,Math.min(owner.run.config.limits.toolTimeoutMs,nested?nested.deadline-Date.now():Infinity)));
+    const nested = this.codeModeNested.get(record.id);
+    if (nested) { this.readCodeModeContext(nested.outer, 'execute'); nested.assertCurrent(); }
+    const clientSignal = this.clientEffects.capture(record.id)?.signal;
+    const signal = AbortSignal.any([owner.abort.signal, timeout.signal, ...(nested ? [nested.signal] : []), ...(clientSignal ? [clientSignal] : [])]);
+    const timer = setTimeout(() => timeout.abort(new EngineError('TOOL_TIMEOUT', `Tool ${record.name} exceeded its execution timeout`)), Math.max(1, Math.min(owner.run.config.limits.toolTimeoutMs, nested ? nested.deadline - Date.now() : Infinity)));
     let active = execute;
     let inProgress = true;
     const context = this.context(owner, record, workspace, signal, () => active);
-    if(record.name==='execute_code')this.codeModeContexts.set(context,{owner,record,phase:execute?'execute':'prepare',active:()=>inProgress,binding:this.teamContextBinding(context),signal,...approval?{approval}:{}});
-    if (execute && ['run_command','verify_changes','run_command_job','command_job_input','wait_command_job'].includes(record.name)) this.commandJobContexts.set(context, { owner, record, active: () => inProgress, binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
-    if (['send_agent_message', 'read_agent_mailbox', 'claim_team_task', 'complete_team_task','read_team_board','submit_team_task','review_team_task','read_command_job','read_command_job_output','request_workflow_stage','observe_workflow_stage','merge_workflow_stage','deliver_workflow_result'].includes(record.name)) this.teamToolContexts.set(context, { owner, record, active: () => inProgress, phase: execute ? 'execute' : 'prepare', binding: this.teamContextBinding(context), signal, ...(approval ? { approval } : {}) });
+    this.toolOwners.capture(context, owner, record, execute, signal, () => inProgress, approval);
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
       ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
@@ -2125,7 +1433,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     owner.toolCount++;
     // Provider IDs belong to a conversation; durable tool rows need globally unique IDs.
     const record: ToolCallRecord = { id: owner.invocations.get(call.id) ?? randomUUID(), runId: owner.run.id, sessionId: owner.run.sessionId, name: call.name, input: call.input, state: 'requested' };
-    const clientRead = this.clientReadCaptures.get(record.id);
+    const clientRead = this.clientEffects.capture(record.id);
     if (clientRead) clientRead.record = record;
     owner.activeTools.set(record.id, record);
     batch?.controller.attach(batch.index,record);
@@ -2355,7 +1663,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     if (record.name === 'run_command') this.options.onOwnedCommandToolSettled?.(record);
     if(record.name==='execute_code')this.options.onCodeModeToolSettled?.(record);
     if(record.name==='merge_workflow_stage')this.options.onWorkflowToolSettled?.(record);
-    const clientRead = this.clientReadCaptures.get(record.id);
+    const clientRead = this.clientEffects.capture(record.id);
     if (clientRead) clientRead.result = structuredClone(result);
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');
     return output.content;

@@ -126,10 +126,10 @@ for (const lane of ["team", "workflow"] as const) {
             : "assertWorkflowToolContext",
         original = coordinator[method].bind(coordinator),
         nativeCatalogue = coordinator.captureToolCatalogue.bind(coordinator),
-        captures = Reflect.get(coordinator, "teamToolContexts") as WeakMap<
-          ToolContext,
-          CapturedExecution
-        >,
+        captures = Reflect.get(
+          Reflect.get(coordinator, "toolOwners"),
+          "teamToolContexts",
+        ) as WeakMap<ToolContext, CapturedExecution>,
         owners = Reflect.get(coordinator, "owners") as Map<string, object>;
       t.after(() => childTurns.stop());
       let instanceId = "";
