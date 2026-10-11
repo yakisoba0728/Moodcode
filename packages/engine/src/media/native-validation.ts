@@ -29,10 +29,14 @@ import { join, dirname, isAbsolute, parse, relative, sep } from "node:path";
 import {
   attachment,
   attachments,
-  digest,
   sameAttachment,
 } from "./segment-validation.js";
-import { decodeMediaSegments, decodePcmWave } from "./segments.js";
+import {
+  decodeMediaSegments,
+  decodePcmWave,
+  SEGMENT_LIMITS,
+  segmentHash,
+} from "./segments.js";
 import { SEGMENT_DOCUMENT_KIND } from "./segment-store.js";
 import {
   MEDIA_REFERENCE_TABLES,
@@ -87,7 +91,7 @@ function jsonRecord(
   return row;
 }
 function hash(value: unknown): string {
-  return digest(Buffer.from(JSON.stringify(value)));
+  return segmentHash(Buffer.from(JSON.stringify(value)));
 }
 interface MediaHistory {
   sources: Array<InputMediaAttachment & { sessionId: string }>;
@@ -132,7 +136,7 @@ function readSourceIndexes(
       data.version !== 1 ||
       Number(row.revision) < 1 ||
       !Array.isArray(data.attachments) ||
-      data.attachments.length > 32
+      data.attachments.length > SEGMENT_LIMITS.sessionSources
     )
       bad();
     const workspace = JSON.parse(String(row.workspace_data)),
@@ -153,7 +157,7 @@ function readSourceIndexes(
       if (
         indexed.has(key) ||
         sources.length >= 4096 ||
-        (bytes += ref.bytes) > 16777216
+        (bytes += ref.bytes) > SEGMENT_LIMITS.sessionBytes
       )
         bad();
       indexed.set(key, ref);
@@ -511,8 +515,8 @@ export function validateMediaFiles(
   for (const ref of history.sources) {
     check();
     const file = "input-segments/" + ref.id + ".blob",
-      bytes = safeBytes(root, file, 524288, check);
-    if (bytes.length !== ref.bytes || digest(bytes) !== ref.sha256) bad();
+      bytes = safeBytes(root, file, SEGMENT_LIMITS.sourceBytes, check);
+    if (bytes.length !== ref.bytes || segmentHash(bytes) !== ref.sha256) bad();
     member(file, ref.bytes, ref.sha256);
     decodeMediaSegments(bytes, ref.mimeType, ref.segments);
   }
@@ -520,8 +524,9 @@ export function validateMediaFiles(
     check();
     const ref = part.artifact,
       file = "managed/" + ref.id + "/content",
-      bytes = safeBytes(root, file, 524288, check);
-    if (bytes.length !== ref.storedBytes || digest(bytes) !== ref.sha256) bad();
+      bytes = safeBytes(root, file, SEGMENT_LIMITS.sourceBytes, check);
+    if (bytes.length !== ref.storedBytes || segmentHash(bytes) !== ref.sha256)
+      bad();
     member(file, ref.storedBytes, ref.sha256);
     const manifestFile = "managed/" + ref.id + "/manifest.json",
       raw = safeBytes(root, manifestFile, 65536, check),
@@ -529,7 +534,7 @@ export function validateMediaFiles(
         string,
         unknown
       >;
-    member(manifestFile, raw.length, digest(raw));
+    member(manifestFile, raw.length, segmentHash(raw));
     if (
       hash(manifest.reference) !== hash(ref) ||
       manifest.mediaType !== part.mime ||
@@ -556,7 +561,10 @@ export function validateMediaFiles(
         : part.mime === "application/octet-stream" && !ref.complete
           ? bytes
           : bad();
-    if (metadata.pcmBytes !== pcm.length || metadata.pcmSha256 !== digest(pcm))
+    if (
+      metadata.pcmBytes !== pcm.length ||
+      metadata.pcmSha256 !== segmentHash(pcm)
+    )
       bad();
   }
 }

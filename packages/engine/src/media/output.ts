@@ -6,7 +6,13 @@ import {
 } from "@moodcode/contracts";
 import type { ProviderEvent } from "../ports.js";
 import type { ArtifactStore } from "../artifacts/store.js";
-import { encodePcmWave, segmentHash } from "./segments.js";
+import {
+  encodePcmWave,
+  MAX_WAV_PCM_BYTES,
+  PCM_CHANNELS,
+  PCM_SAMPLE_RATES,
+  segmentHash,
+} from "./segments.js";
 import { types } from "node:util";
 
 /** Owned by one actual provider Attempt, retaining bounded copied PCM only. */
@@ -55,8 +61,8 @@ export class ProviderAudioCapture {
       !providerMediaId ||
       Buffer.byteLength(providerMediaId) > 256 ||
       /[\u0000-\u001f\u007f]/.test(providerMediaId) ||
-      ![8000, 16000, 24000, 48000].includes(sampleRate) ||
-      ![1, 2].includes(channels) ||
+      !PCM_SAMPLE_RATES.includes(sampleRate) ||
+      !PCM_CHANNELS.includes(channels) ||
       types.isProxy(bytes) ||
       !(bytes instanceof Uint8Array) ||
       !bytes.byteLength ||
@@ -73,7 +79,7 @@ export class ProviderAudioCapture {
       this.#parts.length >= 256 ||
       bytes.byteLength > available ||
       this.#bytes + bytes.byteLength >
-        Math.min(524244, sampleRate * channels * 2 * 30)
+        Math.min(MAX_WAV_PCM_BYTES, sampleRate * channels * 2 * 30)
     )
       throw new EngineError(
         "OUTPUT_LIMIT",

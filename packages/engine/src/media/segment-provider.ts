@@ -7,10 +7,14 @@ import {
   attachment,
   attachments,
   cancelled,
-  digest,
   sameAttachment,
 } from "./segment-validation.js";
-import { decodeMediaSegments, type DecodedMediaAsset } from "./segments.js";
+import {
+  decodeMediaSegments,
+  SEGMENT_LIMITS,
+  segmentHash,
+  type DecodedMediaAsset,
+} from "./segments.js";
 
 export interface ProviderSegmentSource {
   attachment: InputMediaAttachment;
@@ -95,7 +99,10 @@ export function providerSegments(
           "PROVIDER_UNSUPPORTED_INPUT",
           "Selected model lacks explicit media support",
         );
-      if (++occurrences > 4 || (sourceBytes += ref.bytes) > 1048576)
+      if (
+        ++occurrences > SEGMENT_LIMITS.requestOccurrences ||
+        (sourceBytes += ref.bytes) > SEGMENT_LIMITS.requestBytes
+      )
         throw new EngineError(
           "PROVIDER_LIMIT_EXCEEDED",
           "Media source occurrence cap exceeded",
@@ -150,7 +157,7 @@ export function providerSegments(
     if (
       raw.length !== ref.bytes ||
       raw.toString("base64") !== safe.data ||
-      digest(raw) !== ref.sha256
+      segmentHash(raw) !== ref.sha256
     )
       throw new EngineError("PROVIDER_INVALID_REQUEST", "Source bytes changed");
     const decoded = decodeMediaSegments(
@@ -161,9 +168,9 @@ export function providerSegments(
     );
     if (
       decoded.decoder !== ref.decoder ||
-      (assets += decoded.assets.length) > 4 ||
+      (assets += decoded.assets.length) > SEGMENT_LIMITS.assets ||
       (bytesTotal += decoded.assets.reduce((s, a) => s + a.bytes.length, 0)) >
-        1048576
+        SEGMENT_LIMITS.totalBytes
     )
       throw new EngineError(
         "PROVIDER_LIMIT_EXCEEDED",
@@ -192,7 +199,10 @@ export function providerSegments(
           wireAssets++;
           wireBytes += Number(value.bytes);
         }
-  if (wireAssets > 4 || wireBytes > 1048576)
+  if (
+    wireAssets > SEGMENT_LIMITS.assets ||
+    wireBytes > SEGMENT_LIMITS.totalBytes
+  )
     throw new EngineError(
       "PROVIDER_LIMIT_EXCEEDED",
       "Repeated decoded media exceeds the wire budget",

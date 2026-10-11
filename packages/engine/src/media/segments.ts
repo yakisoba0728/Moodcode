@@ -2,6 +2,7 @@ import { types } from "node:util";
 import { createHash } from "node:crypto";
 import { deflateSync } from "node:zlib";
 import { jobJson } from "../jobs/validation.js";
+import { cancelled } from "./segment-validation.js";
 import {
   EngineError,
   type InputMediaAttachment,
@@ -15,9 +16,21 @@ export const SEGMENT_LIMITS = Object.freeze({
   sourceFrames: 32,
   chunks: 256,
   durationMs: 30000,
+  maxSegments: 4,
+  maxSegmentMs: 10000,
   width: 256,
   height: 256,
+  sessionSources: 32,
+  sessionBytes: 16777216,
+  requestOccurrences: 4,
+  requestBytes: 1048576,
 });
+export const PCM_SAMPLE_RATES: readonly number[] = Object.freeze([
+  8000, 16000, 24000, 48000,
+]);
+export const PCM_CHANNELS: readonly number[] = Object.freeze([1, 2]);
+/** Samples that fit one source after the 44-byte canonical WAV header. */
+export const MAX_WAV_PCM_BYTES = SEGMENT_LIMITS.sourceBytes - 44;
 export interface DecodedMediaAsset {
   kind: "audio" | "image";
   mimeType: "audio/wav" | "image/png";
@@ -38,9 +51,6 @@ function fail(code = "MEDIA_INVALID_SOURCE"): never {
     code,
     "Local media source or bounded selection is invalid or unsupported",
   );
-}
-function abort(signal?: AbortSignal): void {
-  if (signal?.aborted) fail("MEDIA_CANCELLED");
 }
 interface Chunk {
   id: string;
@@ -104,8 +114,8 @@ export function decodePcmWave(bytes: Uint8Array): PcmWave {
     sampleRate = b.readUInt32LE(fmt.at + 4),
     align = b.readUInt16LE(fmt.at + 12);
   if (
-    ![1, 2].includes(channels) ||
-    ![8000, 16000, 24000, 48000].includes(sampleRate) ||
+    !PCM_CHANNELS.includes(channels) ||
+    !PCM_SAMPLE_RATES.includes(sampleRate) ||
     b.readUInt16LE(fmt.at + 14) !== 16 ||
     align !== channels * 2 ||
     b.readUInt32LE(fmt.at + 8) !== sampleRate * align ||
@@ -131,11 +141,11 @@ export function encodePcmWave(
   if (
     types.isProxy(samples) ||
     !(samples instanceof Uint8Array) ||
-    ![8000, 16000, 24000, 48000].includes(sampleRate) ||
-    ![1, 2].includes(channels) ||
+    !PCM_SAMPLE_RATES.includes(sampleRate) ||
+    !PCM_CHANNELS.includes(channels) ||
     samples.byteLength < 2 ||
     samples.byteLength % (channels * 2) ||
-    samples.byteLength + 44 > SEGMENT_LIMITS.sourceBytes
+    samples.byteLength > MAX_WAV_PCM_BYTES
   )
     fail("MEDIA_LIMIT_EXCEEDED");
   const b = Buffer.alloc(44 + samples.byteLength);
@@ -259,22 +269,22 @@ function decodeAvi(
   if (
     Math.abs(b.readUInt32LE(avih.at) - (scale * 1000000) / rate) > 1 ||
     width < 1 ||
-    width > 256 ||
+    width > SEGMENT_LIMITS.width ||
     height < 1 ||
-    height > 256 ||
+    height > SEGMENT_LIMITS.height ||
     !scale ||
     !rate ||
     rate > 100000 ||
     scale > 100000 ||
     !count ||
-    count > 32 ||
+    count > SEGMENT_LIMITS.sourceFrames ||
     b.readUInt32LE(avih.at + 16) !== count ||
     b.readUInt32LE(avih.at + 32) !== width ||
     b.readUInt32LE(avih.at + 36) !== height
   )
     fail("MEDIA_LIMIT_EXCEEDED");
   const durationMs = (count * scale * 1000) / rate;
-  if (durationMs > 30000) fail("MEDIA_LIMIT_EXCEEDED");
+  if (durationMs > SEGMENT_LIMITS.durationMs) fail("MEDIA_LIMIT_EXCEEDED");
   const frames = chunks(b, movi.at + 4, movi.end).filter(
     (c) => c.id !== "JUNK",
   );
@@ -291,12 +301,12 @@ function decodeAvi(
     fail("MEDIA_SELECTION_INVALID");
   const assets: DecodedMediaAsset[] = [];
   for (let n = 0; n < frames.length; n++) {
-    abort(signal);
+    cancelled(signal);
     const startMs = (n * scale * 1000) / rate,
       endMs = ((n + 1) * scale * 1000) / rate;
     if (!segments.some((s) => startMs >= s.startMs && startMs < s.endMs))
       continue;
-    if (assets.length >= 4) fail("MEDIA_LIMIT_EXCEEDED");
+    if (assets.length >= SEGMENT_LIMITS.assets) fail("MEDIA_LIMIT_EXCEEDED");
     const c = frames[n]!,
       png = pngRgb(width, height, b.subarray(c.at, c.end), signedHeight > 0);
     assets.push({
@@ -317,9 +327,13 @@ export function decodeMediaSegments(
   segments: readonly InputMediaSegment[],
   signal?: AbortSignal,
 ): DecodedMedia {
-  abort(signal);
+  cancelled(signal);
   const safe = jobJson(segments, 4096);
-  if (!Array.isArray(safe) || !safe.length || safe.length > 4)
+  if (
+    !Array.isArray(safe) ||
+    !safe.length ||
+    safe.length > SEGMENT_LIMITS.maxSegments
+  )
     fail("MEDIA_SELECTION_INVALID");
   let previous = 0;
   for (const value of safe) {
@@ -336,8 +350,8 @@ export function decodeMediaSegments(
       !Number.isSafeInteger(s.endMs) ||
       s.startMs < previous ||
       s.endMs <= s.startMs ||
-      s.endMs > 30000 ||
-      s.endMs - s.startMs > 10000
+      s.endMs > SEGMENT_LIMITS.durationMs ||
+      s.endMs - s.startMs > SEGMENT_LIMITS.maxSegmentMs
     )
       fail("MEDIA_SELECTION_INVALID");
     previous = s.endMs;
@@ -348,7 +362,7 @@ export function decodeMediaSegments(
   const wave = decodePcmWave(bytes),
     assets: DecodedMediaAsset[] = [];
   for (const s of segments) {
-    abort(signal);
+    cancelled(signal);
     if (s.endMs > wave.durationMs) fail("MEDIA_SELECTION_INVALID");
     const start = (s.startMs * wave.sampleRate) / 1000,
       end = (s.endMs * wave.sampleRate) / 1000;
