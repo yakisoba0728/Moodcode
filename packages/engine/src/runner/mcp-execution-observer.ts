@@ -1,4 +1,4 @@
-import { EngineError } from '@moodcode/contracts';
+import { EngineError, type ApprovalRecord } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
 import type { McpToolCallObservation, McpToolCallObserver } from '../mcp/execution-observation.js';
 import type { EngineStore, ExecutionRecordStore } from '../ports.js';
@@ -9,6 +9,12 @@ export interface ApprovedMcpToolOwner {
 }
 
 function invalid(): never { throw new EngineError('MCP_EXECUTION_OBSERVATION_INVALID', 'MCP execution requires its exact approved native owner and local request observations.'); }
+
+/** The approval still allows exactly this fingerprint for this native tool call. */
+export function approvalAllows(approval: ApprovalRecord, fingerprint: string, scope: Pick<ApprovalRecord, 'runId' | 'sessionId' | 'toolCallId' | 'toolName'>): boolean {
+  return approval.status === 'allowed' && approval.fingerprint === fingerprint && approval.runId === scope.runId && approval.sessionId === scope.sessionId
+    && approval.toolCallId === scope.toolCallId && approval.toolName === scope.toolName;
+}
 
 /** The runner supplies the actual allowed outer approval; the RPC never supplies authority. */
 export function createMcpExecutionObserver(store: EngineStore, records: ExecutionRecordStore | undefined, owner: ApprovedMcpToolOwner): McpToolCallObserver {
@@ -26,9 +32,7 @@ export function createMcpExecutionObserver(store: EngineStore, records: Executio
     if (event.phase === 'prepared') {
       if (request !== undefined) invalid();
       const approval = store.getApproval(selected.approval.id);
-      if (approval.status !== 'allowed' || approval.fingerprint !== selected.approval.fingerprint
-        || approval.toolCallId !== selected.toolCallId || approval.toolName !== selected.toolName
-        || approval.runId !== selected.runId || approval.sessionId !== selected.sessionId) invalid();
+      if (!approvalAllows(approval, selected.approval.fingerprint, selected)) invalid();
       const attempt = records.getAttempt(selected.attemptId);
       if (attempt.turnId !== selected.turnId || attempt.runId !== selected.runId || attempt.sessionId !== selected.sessionId) invalid();
       const created = records.createMcpExecution({ ...event.identity, toolCallId: selected.toolCallId, sessionId: selected.sessionId,

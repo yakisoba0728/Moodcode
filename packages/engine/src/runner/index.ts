@@ -1,10 +1,10 @@
 import type { EffectBatchExecution } from '../effect-batches/host.js';
 import {ProviderAudioCapture} from '../media/output.js';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { types } from 'node:util';
 import {
   EngineError, isTerminal,
-  type Checkpoint, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall,
+  type Checkpoint, type JsonObject, type JsonValue, type Message, type ProviderReplay, type ProviderToolCall, type ProviderUsageSnapshot,
   type Run, type RunReceipt, type RunState, type SubmitInput, type ToolCallRecord,
 } from '@moodcode/contracts';
 import type {
@@ -14,7 +14,7 @@ import type {
 } from '../ports.js';
 import type { BackendClientReadInput, BackendClientReadProof, BackendClientEffectInput, BackendClientPermissionProof } from '../agent-backends/client-effects.js';
 import { codeJson, CODE_MODE_TOOLS, codeModeError } from '../code-mode/types.js';
-import { knowledgeHash } from '../knowledge/validation.js';
+import { knowledgeHash, sha256 } from '../knowledge/validation.js';
 import { plainJson } from '../shared/data.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
@@ -22,14 +22,16 @@ import { ACTIVE_PREFIX_MEMORY_PREFIX } from '../context/active-prefix.js';
 import { BudgetAccount } from '../config/budgets.js';
 import { validateToolResultEnvelope } from '@moodcode/contracts/validation';
 import { executionRecords, TurnExecutor } from './turn-executor.js';
-import { createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
+import { approvalAllows, createMcpExecutionObserver, type ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 import type { ToolCatalogue } from '../tools/runtime/index.js';
 import { DISCOVERY_TOOL_NAME, RunToolDiscovery, type ToolDiscoveryAction } from './tool-discovery.js';
 import { bindCheckpointArtifacts } from '../artifacts/result.js';
 import type { ChildBudget } from '../child-tasks/index.js';
+import { CHILD_BUDGET_KEYS, CHILD_USAGE_KEYS } from '../child-tasks/journal.js';
 import type { LifecycleCapture, LifecycleDispatchOutcome, LifecycleInvocation } from '../lifecycle/index.js';
+import type { SessionDocument } from '../storage/native-records.js';
 import type { VerificationBoundary } from '../verification/completion.js';
-import { checkAbort, uncertain } from './abort.js';
+import { checkAbort, TERMINAL_TOOL_STATES, uncertain } from './abort.js';
 import { ProviderClientEffects, type OriginalProviderRequest } from './client-effects.js';
 import { ToolOwnerContexts } from './tool-owner-context.js';
 
@@ -39,6 +41,7 @@ const CLEANUP_GRACE_MS = 1_000;
 const PROVIDER_CLEANUP_GRACE_MS = CLEANUP_GRACE_MS * 3;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
 const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
+const COMMAND_LIFETIME_TOOLS = new Set(['run_command_job', 'command_job_input', 'wait_command_job']);
 
 export interface Owner {
   run: Run;
@@ -80,7 +83,7 @@ export interface Owner {
 function originalRequestSha256(value: TurnRequest, maxBytes: number): string {
   const invalid = (): never => { throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'The original request must retain ordinary bounded JSON data'); };
   const encoded = JSON.stringify(plainJson(value, { maxBytes, maxNodes: 32_768, maxDepth: 32, maxItems: 4_096, accounting: 'text', wellFormed: true, nullPrototype: true, fail: invalid }));
-  if (Buffer.byteLength(encoded) > maxBytes) invalid(); return createHash('sha256').update(encoded).digest('hex');
+  if (Buffer.byteLength(encoded) > maxBytes) invalid(); return sha256(encoded);
 }
 
 interface WorkspaceLease { commandRunId?:string;
@@ -89,6 +92,8 @@ interface WorkspaceLease { commandRunId?:string;
   summaryRecovery: boolean;
   cleanupError?: EngineError;
 }
+
+type LeaseKind = 'maintenance' | 'recovery' | 'host-generation' | 'file-publication' | 'proposal-apply' | 'command';
 
 interface Outcome<T> { ok: boolean; value?: T; error?: unknown }
 
@@ -357,10 +362,11 @@ export class RunCoordinator implements CoordinatorPort {
     owner.turn.toolProposal(message.id, toolId, call);
     try {
       await this.executeTool(owner, call, context.workspace);
-      const tool = this.options.store.getSnapshot(owner.run.sessionId).tools.find(t => t.id === toolId)!;
-      const approvals = this.options.store.getSnapshot(owner.run.sessionId).approvals.filter(a => a.toolCallId === toolId && a.status === 'allowed');
+      const snapshot = this.options.store.getSnapshot(owner.run.sessionId);
+      const tool = snapshot.tools.find(t => t.id === toolId)!;
+      const approvals = snapshot.approvals.filter(a => a.toolCallId === toolId && a.status === 'allowed');
       return { toolCallId: toolId, providerToolCallId: input.id, name: tool.name, inputSha256: knowledgeHash(tool.input), state: tool.state,
-        outputSha256: createHash('sha256').update(tool.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(tool.output ?? ''),
+        outputSha256: sha256(tool.output ?? ''), outputBytes: Buffer.byteLength(tool.output ?? ''),
         approval: approvals[0] ? { id: approvals[0].id, fingerprint: approvals[0].fingerprint } : null, content: tool.output ?? '' };
     } finally { this.codeModeNested.delete(toolId); }
   }
@@ -373,7 +379,7 @@ export class RunCoordinator implements CoordinatorPort {
     return this.toolOwners.withVerificationCommand(outer, nested, execute);
   }
 
-  commitConsumedVerificationSettlement(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): import('../storage/native-records.js').SessionDocument {
+  commitConsumedVerificationSettlement(context: ToolContext, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
     return this.toolOwners.commitConsumedVerificationSettlement(context, kind, expectedRevision, data);
   }
 
@@ -456,15 +462,14 @@ export class RunCoordinator implements CoordinatorPort {
    * operation must not await close() or detach work from its settlement.
    */
   withWorkspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.workspaceLease(workspaceId, operation, false);
+    return this.workspaceLease(workspaceId, operation, 'maintenance');
   }
 
   /** A genuine approved command tool may retain a Root lease across its own terminal Run. */
   withCommandWorkspaceLease<T>(context: ToolContext, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     const owner = this.readOwnedCommandContext(context, 'start');
     if (owner.name !== 'run_command_job') throw new EngineError('COMMAND_LIFETIME_OWNER_STALE', 'Only the approved original lifetime tool may own this lease');
-    const pending=this.workspaceLease(owner.workspaceId, operation, false, false, false, false, owner.runId);
-    const lease=this.workspaceLeases.get(owner.workspaceId);if(lease)lease.commandRunId=owner.runId;return pending;
+    return this.workspaceLease(owner.workspaceId, operation, 'command', owner.runId);
   }
   reserveCommandLifetimeBudget(context: ToolContext, outputBytes: number, durationMs: number): void {
     this.readOwnedCommandContext(context, 'start');
@@ -476,25 +481,27 @@ export class RunCoordinator implements CoordinatorPort {
 
   /** Host generation owns a durable quarantine, independently of coding effects. */
   withHostGenerationLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.workspaceLease(workspaceId, operation, false, true);
+    return this.workspaceLease(workspaceId, operation, 'host-generation');
   }
 
   /** Physical knowledge publication has its own durable recovery barrier. */
   withHostFilePublicationLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.workspaceLease(workspaceId, operation, false, true, true);
+    return this.workspaceLease(workspaceId, operation, 'file-publication');
   }
 
   /** Host proposal effects retain their own durable uncertainty after lease settlement. */
   withHostProposalApplyLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.workspaceLease(workspaceId, operation, false, true, false, true);
+    return this.workspaceLease(workspaceId, operation, 'proposal-apply');
   }
 
   /** Host recovery decisions only. Keeps other quarantines and never wakes queued work. */
   withRecoveryDecisionLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
-    return this.workspaceLease(workspaceId, operation, true);
+    return this.workspaceLease(workspaceId, operation, 'recovery');
   }
 
-  private workspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>, summaryRecovery: boolean, hostGeneration = false, hostFile = false, hostProposal = false, originalRunId?: string): Promise<T> {
+  private workspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>, kind: LeaseKind, originalRunId?: string): Promise<T> {
+    const summaryRecovery = kind === 'recovery', hostFile = kind === 'file-publication', hostProposal = kind === 'proposal-apply';
+    const hostGeneration = hostFile || hostProposal || kind === 'host-generation';
     const nativeUncertainty = () => hostProposal ? this.options.store.hasUncertainProposalApply?.(workspaceId)
       : hostFile ? this.options.store.hasUncertainKnowledgeFilePublication?.(workspaceId) : this.options.store.hasUncertainKnowledgeGeneration?.(workspaceId);
     try {
@@ -512,7 +519,7 @@ export class RunCoordinator implements CoordinatorPort {
       if (active) throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
     } catch (error) { return Promise.reject(error); }
     let settled!: () => void;
-    const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }), summaryRecovery };
+    const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }), summaryRecovery, ...(originalRunId ? { commandRunId: originalRunId } : {}) };
     // No await precedes this registration: immediately following submit/lease
     // calls see the reservation even before operation's microtask starts.
     this.workspaceLeases.set(workspaceId, lease);
@@ -636,12 +643,7 @@ private readonly childGroupSlots = new WeakMap<
       );
     const total = { turns: 0, toolCalls: 0, outputBytes: 0, durationMs: 0 };
     for (const allocation of allocations)
-      for (const key of [
-        "turns",
-        "toolCalls",
-        "outputBytes",
-        "durationMs",
-      ] as const) {
+      for (const key of CHILD_BUDGET_KEYS) {
         if (!Number.isSafeInteger(allocation[key]) || allocation[key] < 1)
           throw new EngineError(
             "CHILD_BUDGET_EXCEEDED",
@@ -709,11 +711,11 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child allocation requires an active owned parent Run');
     this.assertLive(owner);
     const remainingBudget = this.remainingChildBudget(owner);
-    if (!allocation || typeof allocation !== 'object' || Array.isArray(allocation) || Object.keys(allocation).some(key => !['turns', 'toolCalls', 'outputBytes', 'durationMs'].includes(key))
-      || !['turns', 'toolCalls', 'outputBytes', 'durationMs'].every(key => Number.isSafeInteger(allocation[key as keyof ChildBudget]) && allocation[key as keyof ChildBudget] >= 0 && allocation[key as keyof ChildBudget] <= remainingBudget[key as keyof ChildBudget])
+    if (!allocation || typeof allocation !== 'object' || Array.isArray(allocation) || Object.keys(allocation).some(key => !(CHILD_BUDGET_KEYS as readonly string[]).includes(key))
+      || !CHILD_BUDGET_KEYS.every(key => Number.isSafeInteger(allocation[key]) && allocation[key] >= 0 && allocation[key] <= remainingBudget[key])
       || allocation.turns < 1 || allocation.durationMs < 1) throw new EngineError('CHILD_BUDGET_EXCEEDED', 'Child allocation must fit the active parent remaining budget');
     const selected = { ...allocation };
-    for (const key of ['turns', 'toolCalls', 'outputBytes'] as const) owner.childReserved[key] += selected[key];
+    for (const key of CHILD_USAGE_KEYS) owner.childReserved[key] += selected[key];
     return { signal: owner.abort.signal, remainingBudget, allocation: selected };
   }
 
@@ -830,9 +832,9 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
             catch (error) { if (!(error instanceof EngineError) || error.code !== 'TOOL_CATALOGUE_STALE') throw error; }
           }
           owner.catalogue = this.options.toolRuntime?.catalogue('engine', run.config.mode, owner.allowedTools ? [...owner.allowedTools] : undefined, profile);
-          const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+          const schemas = this.advertisedSchemas(owner);
           reservedBytes = Buffer.byteLength(JSON.stringify({ messages: [], tools: schemas }), 'utf8') - 2;
-          toolCatalogueSha256 = createHash('sha256').update(JSON.stringify(schemas)).digest('hex');
+          toolCatalogueSha256 = sha256(JSON.stringify(schemas));
         }
       };
       captureCatalogue();
@@ -1074,7 +1076,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       }
       try { owner.turn?.fail(failure); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Execution records could not be durably settled'); }
-      for (const tool of owner.activeTools.values()) if (!['completed', 'denied', 'failed', 'interrupted'].includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
+      for (const tool of owner.activeTools.values()) if (!TERMINAL_TOOL_STATES.includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
       // Windows native cancellation and code mode can prove physical cleanup
       // before the Run interrupts their Tool. Settle those observations only
       // after Turn.fail has closed the original Part; a Tool interruption alone
@@ -1113,9 +1115,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     const payload: JsonObject = { invocationId, stage, registryRevision: outcome.registryRevision, status: outcome.status, action: outcome.action,
       ...(outcome.inputRewrite ? { originalInputSha256: outcome.inputRewrite.originalSha256, effectiveInputSha256: outcome.inputRewrite.effectiveSha256 } : {}),
       outcomes: outcome.outcomes.map(item => ({ hookId: item.hookId, hookRevision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs, ...(item.code ? { code: item.code } : {}), ...(item.transform ? { transform: { ...item.transform } } : {}) })) };
-    const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
-    if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'lifecycle.outcome', payload, refs);
-    else this.options.store.commit(owner.run.id, 'lifecycle.outcome', payload);
+    this.observe(owner, 'lifecycle.outcome', payload);
     if (!control) return outcome;
     this.assertLive(owner);
     if (outcome.status === 'stale') throw new EngineError('LIFECYCLE_REGISTRY_STALE', 'Lifecycle configuration changed during this Run');
@@ -1131,9 +1131,22 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     return allowed ? this.options.tools.filter(tool => allowed.has(tool.name)) : this.options.tools;
   }
 
+  private advertisedSchemas(owner: Owner) {
+    return owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
+  }
+
+  private turnRefs(owner: Owner): { turnId?: string; attemptId?: string } {
+    return owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
+  }
+
+  /** Legacy stores without the native observation journal record the payload alone. */
+  private observe(owner: Owner, type: 'lifecycle.outcome' | 'tool.policy_decision', payload: JsonObject): void {
+    if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, type, payload, this.turnRefs(owner));
+    else this.options.store.commit(owner.run.id, type, payload);
+  }
+
   private checkContext(owner: Owner, messages: ProviderMessage[]): number {
-    const schemas = owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema }));
-    const bytes = Buffer.byteLength(JSON.stringify({ messages, tools: schemas }), 'utf8');
+    const bytes = Buffer.byteLength(JSON.stringify({ messages, tools: this.advertisedSchemas(owner) }), 'utf8');
     if (bytes > owner.run.config.limits.maxContextBytes) {
       throw new EngineError('CONTEXT_LIMIT', 'Model context byte budget was exceeded');
     }
@@ -1200,7 +1213,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       if (!pendingDelta || owner.terminal || owner.abort.signal.aborted) return;
       try { flush(); } catch { owner.abort.abort(new EngineError('STORAGE_COMMIT_FAILED', 'Streamed output could not be persisted')); }
     }, 16);
-    const advertised = [...(owner.catalogue?.tools ?? this.availableTools(owner).map(({ name, description, inputSchema }) => ({ name, description, inputSchema })))];
+    const advertised = [...this.advertisedSchemas(owner)];
     const tools = structuredClone(advertised);
     let iterator: AsyncIterator<ProviderEvent> | undefined;
     try {
@@ -1208,20 +1221,21 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         ...(owner.run.config.reasoningEffort !== undefined ? { reasoningEffort: owner.run.config.reasoningEffort } : {}),
       };
       const contextRevisionId = this.options.getContextRevisionId?.(owner.run.sessionId);
+      const assertDispatchCurrent = (message: string) => {
+        this.assertLive(owner);
+        if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
+        if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', message);
+      };
       const before = await this.lifecycle(owner, 'before-model', `${owner.turn!.id}:before-model`, { providerId: provider.id, modelId: request.modelId, turnIndex, turnId: owner.turn!.id,
-        ...(contextRevisionId ? { contextRevisionId } : {}), contextBytes: Buffer.byteLength(JSON.stringify({ messages: request.messages, tools: request.tools })), toolCount: tools.length, requestSha256: createHash('sha256').update(JSON.stringify(request)).digest('hex') });
+        ...(contextRevisionId ? { contextRevisionId } : {}), contextBytes: Buffer.byteLength(JSON.stringify({ messages: request.messages, tools: request.tools })), toolCount: tools.length, requestSha256: sha256(JSON.stringify(request)) });
       if (before?.action === 'deny') throw new EngineError('LIFECYCLE_DENIED', 'A host lifecycle hook denied model dispatch');
-      this.assertLive(owner);
-      if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
-      if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during the model lifecycle boundary');
+      assertDispatchCurrent('Context changed during the model lifecycle boundary');
       if (this.options.assertContextFresh) {
-        const observedRequest = structuredClone(request), requestHash = createHash('sha256').update(JSON.stringify(observedRequest)).digest('hex');
+        const observedRequest = structuredClone(request), requestHash = sha256(JSON.stringify(observedRequest));
         await abortable(() => this.options.assertContextFresh!(observedRequest, owner.abort.signal), owner.abort.signal, 'Context dispatch freshness');
-        if (createHash('sha256').update(JSON.stringify(observedRequest)).digest('hex') !== requestHash) throw new EngineError('CONTEXT_REQUEST_MUTATED', 'Context freshness observer altered the frozen logical request');
+        if (sha256(JSON.stringify(observedRequest)) !== requestHash) throw new EngineError('CONTEXT_REQUEST_MUTATED', 'Context freshness observer altered the frozen logical request');
       }
-      this.assertLive(owner);
-      if (owner.catalogue) this.options.toolRuntime!.assertCatalogueCurrent(owner.catalogue);
-      if (this.options.getContextRevisionId?.(owner.run.sessionId) !== contextRevisionId) throw new EngineError('CONTEXT_REVISION_STALE', 'Context changed during source freshness validation');
+      assertDispatchCurrent('Context changed during source freshness validation');
       this.options.beforeProviderDispatch?.(owner.run);
       iterator = owner.turn!.stream(provider, request, owner.abort.signal)[Symbol.asyncIterator]();
       while (true) {
@@ -1262,23 +1276,18 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
             break;
           }
           case 'usage': {
-            const usage: JsonObject = { turnIndex, ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) };
+            const counts: ProviderUsageSnapshot = {};
             for (const key of ['inputTokens', 'outputTokens', 'cachedInputTokens', 'reasoningOutputTokens'] as const) {
               const count = event[key];
               if (count === undefined) continue;
               if (!Number.isSafeInteger(count) || count < 0) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage must be non-negative integer counts');
-              usage[key] = count;
+              counts[key] = count;
             }
-            if (event.cachedInputTokens !== undefined && event.inputTokens !== undefined && event.cachedInputTokens > event.inputTokens || event.reasoningOutputTokens !== undefined && event.outputTokens !== undefined && event.reasoningOutputTokens > event.outputTokens) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage details exceed inclusive totals');
+            const { inputTokens, outputTokens, cachedInputTokens, reasoningOutputTokens } = counts;
+            if (cachedInputTokens !== undefined && inputTokens !== undefined && cachedInputTokens > inputTokens || reasoningOutputTokens !== undefined && outputTokens !== undefined && reasoningOutputTokens > outputTokens) throw new EngineError('PROVIDER_PROTOCOL_ERROR', 'Provider usage details exceed inclusive totals');
             // Missing usage remains absent; a zero count is a supplied value.
-            if (owner.turn?.attemptId && owner.turn.records?.putAttemptUsage) {
-              const { inputTokens, outputTokens, cachedInputTokens, reasoningOutputTokens } = event;
-              owner.turn.records.putAttemptUsage(owner.turn.attemptId, {
-                ...(inputTokens === undefined ? {} : { inputTokens }), ...(outputTokens === undefined ? {} : { outputTokens }),
-                ...(cachedInputTokens === undefined ? {} : { cachedInputTokens }), ...(reasoningOutputTokens === undefined ? {} : { reasoningOutputTokens }),
-              });
-            }
-            this.options.store.commit(owner.run.id, 'run.usage', usage);
+            if (owner.turn?.attemptId && owner.turn.records?.putAttemptUsage) owner.turn.records.putAttemptUsage(owner.turn.attemptId, counts);
+            this.options.store.commit(owner.run.id, 'run.usage', { turnIndex, ...this.turnRefs(owner), ...counts });
             break;
           }
           case 'reasoning.delta': {
@@ -1378,13 +1387,19 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
   private setTool(owner: Owner, tool: ToolCallRecord, state: ToolCallRecord['state'], fields: Partial<Pick<ToolCallRecord, 'output' | 'error'>> = {}): void {
     Object.assign(tool, { state }, fields);
     this.options.store.commit(owner.run.id, `tool.${state}`, { toolCallId: tool.id, name: tool.name, state, ...fields }, { tool: { ...tool } });
-    if(['run_command_job','command_job_input','wait_command_job'].includes(tool.name)&&state==='interrupted')this.options.onCommandLifetimeToolSettled?.(tool);
-    if(tool.name==='execute_code'&&state==='interrupted')(owner.interruptedCodeModeTools??=[]).push(tool);
-    if (tool.name === 'run_command' && state === 'interrupted') {
-      if (process.platform === 'win32') (owner.interruptedWindowsCommands ??= []).push(tool);
+    if (state === 'interrupted') this.notifySettled(owner, tool, true);
+  }
+
+  /** An interrupted Windows command or code-mode tool is observed only after Turn.fail. */
+  private notifySettled(owner: Owner, tool: ToolCallRecord, interrupted: boolean): void {
+    if (COMMAND_LIFETIME_TOOLS.has(tool.name)) this.options.onCommandLifetimeToolSettled?.(tool);
+    else if (tool.name === 'run_command') {
+      if (interrupted && process.platform === 'win32') (owner.interruptedWindowsCommands ??= []).push(tool);
       else this.options.onOwnedCommandToolSettled?.(tool);
-    }
-    if(tool.name==='merge_workflow_stage' && state==='interrupted')this.options.onWorkflowToolSettled?.(tool);
+    } else if (tool.name === 'execute_code') {
+      if (interrupted) (owner.interruptedCodeModeTools ??= []).push(tool);
+      else this.options.onCodeModeToolSettled?.(tool);
+    } else if (tool.name === 'merge_workflow_stage') this.options.onWorkflowToolSettled?.(tool);
   }
 
   private context(owner: Owner, record: ToolCallRecord, workspace: ToolContext['workspace'], signal: AbortSignal, allowCheckpoint: () => boolean): ToolContext {
@@ -1392,7 +1407,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       workspace, sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
       signal, limits: { ...owner.run.config.limits, maxOutputBytes: this.toolOutputBudget(owner) }, artifactDir: this.options.artifactDir,
       budgets: { ...owner.budget.budgets, ...(owner.effectArtifactShare!==undefined?{maxArtifactBytes:owner.effectArtifactShare}:{}) },
-      ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
+      ...this.turnRefs(owner),
       ...(this.options.executionLockPath ? { executionLockPath: this.options.executionLockPath } : {}),
       recordCheckpoint: (checkpoint: Checkpoint) => {
         // Cleanup may record observed effects after abort, until this operation settles.
@@ -1420,7 +1435,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     this.toolOwners.capture(context, owner, record, execute, signal, () => inProgress, approval);
     if (execute) context.mcpExecutionObserver = createMcpExecutionObserver(this.options.store, executionRecords(this.options.store), {
       sessionId: owner.run.sessionId, workspaceId: workspace.id, runId: owner.run.id, toolCallId: record.id, toolName: record.name,
-      ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}),
+      ...this.turnRefs(owner),
       ...(approval ? { approval } : {}),
     });
     // Command cleanup joins its native owner and captures the after-image.
@@ -1448,14 +1463,14 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       if (!tool) return this.toolResult(owner, record, call, this.toolError(owner, 'UNKNOWN_TOOL', `Unknown tool: ${call.name}`));
       const commandLease=this.workspaceLeases.get(workspace.id);
       if(commandLease?.commandRunId===owner.run.id&&!['command_job_input','wait_command_job'].includes(call.name)&&!['read','state'].includes(tool.effectClass??'unknown'))return this.toolResult(owner,record,call,this.toolError(owner,'WORKSPACE_BUSY','An independently owned command lifetime retains this workspace effect lease'));
-      const originalInput = JSON.stringify(call.input), originalInputSha256 = createHash('sha256').update(originalInput).digest('hex');
+      const originalInput = JSON.stringify(call.input), originalInputSha256 = sha256(originalInput);
       const transform = await this.lifecycle(owner, 'tool-prepare', `${record.id}:prepare`, { toolCallId: record.id, toolName: call.name,
         inputSha256: originalInputSha256, inputBytes: Buffer.byteLength(originalInput),
         ...(owner.catalogue ? { registryRevision: owner.catalogue.revision, policyVersion: owner.catalogue.policyVersion } : {}),
-        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) });
+        ...this.turnRefs(owner) });
       if (transform?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied tool preparation'), 'denied');
       const effectiveInput = transform?.inputRewrite ? structuredClone(transform.inputRewrite.input) : call.input;
-      const effectiveEncoded = JSON.stringify(effectiveInput), effectiveSha256 = createHash('sha256').update(effectiveEncoded).digest('hex');
+      const effectiveEncoded = JSON.stringify(effectiveInput), effectiveSha256 = sha256(effectiveEncoded);
       if (clientRead && knowledgeHash(effectiveInput) !== knowledgeHash(call.input)) {
         throw new EngineError('BACKEND_CLIENT_READ_REWRITE_UNSUPPORTED', 'A client file read must preserve its requested path and line range');
       }
@@ -1478,21 +1493,18 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       const policyReceipt = this.options.toolRuntime?.getPolicyDecisionReceipt(prepared);
       if (policyReceipt) {
         const payload: JsonObject = { toolCallId: record.id, toolName: call.name, preparedFingerprint: prepared.fingerprint, receipt: JSON.parse(JSON.stringify(policyReceipt)) as JsonObject, authority: 'observation-only' };
-        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
-        if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'tool.policy_decision', payload, refs);
-        else this.options.store.commit(owner.run.id, 'tool.policy_decision', payload);
+        this.observe(owner, 'tool.policy_decision', payload);
       }
       preparedFingerprint = prepared.fingerprint;
       if (clientRead) {
         clientRead.fingerprint = preparedFingerprint;
         const payload: JsonObject = { toolCallId: record.id, providerToolCallId: call.id, toolName: call.name,
           preparedFingerprint, requiresApproval: prepared.requiresApproval, inputSha256: knowledgeHash(record.input) };
-        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
         if (!this.options.store.commitRunObservation) throw new EngineError('BACKEND_NATIVE_OBSERVATION_REQUIRED', 'Client reads require the native preparation journal');
-        this.options.store.commitRunObservation(owner.run.id, 'tool.prepared', payload, refs);
+        this.options.store.commitRunObservation(owner.run.id, 'tool.prepared', payload, this.turnRefs(owner));
       }
       const before = await this.lifecycle(owner, 'tool-prepared', `${record.id}:prepared`, { toolCallId: record.id, toolName: call.name, fingerprint: prepared.fingerprint, requiresApproval: prepared.requiresApproval,
-        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), ...(tool.effectClass ? { effectClass: tool.effectClass } : {}), inputSha256: createHash('sha256').update(JSON.stringify(prepared.input)).digest('hex'), previewSha256: createHash('sha256').update(JSON.stringify(prepared.preview)).digest('hex') });
+        ...this.turnRefs(owner), ...(tool.effectClass ? { effectClass: tool.effectClass } : {}), inputSha256: sha256(JSON.stringify(prepared.input)), previewSha256: sha256(JSON.stringify(prepared.preview)) });
       if (JSON.stringify(prepared) !== binding) throw new EngineError('PREPARED_TOOL_CHANGED', 'Prepared request changed during the lifecycle boundary');
       if (before?.action === 'deny') return this.toolResult(owner, record, call, this.toolError(owner, 'LIFECYCLE_DENIED', 'A host lifecycle hook denied this prepared tool'), 'denied');
       let sourceReadKey: string | null | undefined;
@@ -1530,9 +1542,8 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         }, codeNested?.signal??owner.abort.signal), codeNested?.signal??owner.abort.signal, 'Approval wait');
         this.assertLive(owner);
         if (![...owner.activeTools.values()].some(other => other.id !== record.id && other.state === 'awaiting_approval')) this.options.store.commit(owner.run.id, 'run.resumed', { toolCallId: record.id }, { run: { state: 'running' } });
-        const current = this.options.store.getApproval(decision.id);
-        const matches = (approval: typeof current) => approval.runId === owner.run.id && approval.sessionId === owner.run.sessionId && approval.toolCallId === record.id && approval.toolName === prepared.name && approval.fingerprint === prepared.fingerprint && approval.status === 'allowed';
-        if (!matches(current) || !matches(decision)) {
+        const current = this.options.store.getApproval(decision.id), scope = { runId: owner.run.id, sessionId: owner.run.sessionId, toolCallId: record.id, toolName: prepared.name };
+        if (!approvalAllows(current, prepared.fingerprint, scope) || !approvalAllows(decision, prepared.fingerprint, scope)) {
           return this.toolResult(owner, record, call, this.toolError(owner, 'APPROVAL_DENIED', 'Tool approval was denied, expired, or did not match the prepared request'), 'denied');
         }
         approval = Object.freeze({ id: current.id, fingerprint: current.fingerprint });
@@ -1542,7 +1553,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
       if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
       if (clientRead?.approved) { clientRead.approved(approval); await clientRead.gate!(); this.assertLive(owner); }
       this.setTool(owner, record, 'running');
-      if(clientRead?.approved){const refs=owner.turn?{turnId:owner.turn.id,...(owner.turn.attemptId?{attemptId:owner.turn.attemptId}:{})}:{};this.options.store.commitRunObservation?.(owner.run.id,'backend.client_effect_dispatched',{toolCallId:record.id,providerToolCallId:call.id,inputSha256:knowledgeHash(record.input),preparedFingerprint},refs);clientRead.dispatched?.();}
+      if(clientRead?.approved){this.options.store.commitRunObservation?.(owner.run.id,'backend.client_effect_dispatched',{toolCallId:record.id,providerToolCallId:call.id,inputSha256:knowledgeHash(record.input),preparedFingerprint},this.turnRefs(owner));clientRead.dispatched?.();}
       if (prepared.requiresApproval || effectful) owner.readonlyCalls.clear();
       const result = await this.toolOperation(owner, record, workspace, true, async (context) => {
         if(batch){await batch.controller.enter(batch.index,context,approval);batchCleanup=null;}
@@ -1566,9 +1577,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         const fingerprint = deniedReceipt.roleResource?.preparedFingerprint ?? deniedReceipt.commandPreflight?.preparedFingerprint;
         if (!fingerprint) throw new EngineError('INVALID_POLICY_RECEIPT', 'Owned policy failure has no producer fingerprint');
         const payload: JsonObject = { toolCallId: record.id, toolName: call.name, preparedFingerprint: fingerprint, fingerprintScope: 'producer-prepared-denied', receipt: JSON.parse(JSON.stringify(deniedReceipt)) as JsonObject, authority: 'observation-only' };
-        const refs = owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {};
-        if (this.options.store.commitRunObservation) this.options.store.commitRunObservation(owner.run.id, 'tool.policy_decision', payload, refs);
-        else this.options.store.commit(owner.run.id, 'tool.policy_decision', payload);
+        this.observe(owner, 'tool.policy_decision', payload);
       }
       if(clientRead?.approved&&clientRead.signal?.aborted&&!owner.abort.signal.aborted&&call.name==='run_command'&&clientRead.result?.data&&typeof clientRead.result.data==='object'&&!Array.isArray(clientRead.result.data)&&clientRead.result.data.cleanupConfirmed===true){return this.toolResult(owner,record,call,{...clientRead.result,isError:true});}
       if(batch&&!uncertain(error))batchCleanup=true;
@@ -1580,7 +1589,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         : original;
       if (owner.abort.signal.aborted || failure.code.startsWith('LIFECYCLE_') || ['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT', 'CONTEXT_LIMIT', 'OUTPUT_LIMIT'].includes(failure.code)) {
         terminalFailure = failure;
-        if (!['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) this.setTool(owner, record, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
+        if (!TERMINAL_TOOL_STATES.includes(record.state)) this.setTool(owner, record, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
         throw failure;
       }
       // A narrowed code scope may cancel its own approval without cancelling the Root Run.
@@ -1595,7 +1604,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         if (checkpoints.length) {
           try {
             await abortable(() => Promise.resolve(this.options.onToolCheckpoint!({ workspace: structuredClone(workspace), run: structuredClone(this.options.store.getRun(owner.run.id)), toolCallId: record.id,
-              ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}), checkpoints: structuredClone(checkpoints), signal: owner.abort.signal })), AbortSignal.timeout(2_000), 'Workspace checkpoint observation');
+              ...this.turnRefs(owner), checkpoints: structuredClone(checkpoints), signal: owner.abort.signal })), AbortSignal.timeout(2_000), 'Workspace checkpoint observation');
           } catch {
             // Observer/LSP delivery is metadata. Durable checkpoint ownership and
             // the tool's real effect/cleanup result remain authoritative.
@@ -1604,9 +1613,9 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
         }
       }
       try {
-        if (!owner.abort.signal.aborted && ['completed', 'failed', 'denied', 'interrupted'].includes(record.state)) {
+        if (!owner.abort.signal.aborted && TERMINAL_TOOL_STATES.includes(record.state)) {
           try { await this.lifecycle(owner, 'tool-settled', `${record.id}:settled`, { toolCallId: record.id, toolName: record.name, outcome: record.state as 'completed' | 'failed' | 'denied' | 'interrupted', outputBytes: Buffer.byteLength(record.output ?? ''),
-            ...(preparedFingerprint ? { fingerprint: preparedFingerprint } : {}), ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) }, !terminalFailure); }
+            ...(preparedFingerprint ? { fingerprint: preparedFingerprint } : {}), ...this.turnRefs(owner) }, !terminalFailure); }
           catch (error) { if (!terminalFailure) throw error; }
         }
       } finally { try { batch?.controller.finish(batch.index,record,[...owner.checkpoints.values()].filter(c=>c.toolCallId===record.id).map(c=>({id:c.id,sha256:knowledgeHash(c)})),batchCleanup); } finally { owner.activeTools.delete(record.id); } }
@@ -1618,7 +1627,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     const structured = result.structuredResult ? validateToolResultEnvelope(result.structuredResult) : undefined;
     if (structured?.artifactRefs.length) {
       const identity = { sessionId: owner.run.sessionId, runId: owner.run.id, toolCallId: record.id,
-        ...(owner.turn ? { turnId: owner.turn.id, ...(owner.turn.attemptId ? { attemptId: owner.turn.attemptId } : {}) } : {}) };
+        ...this.turnRefs(owner) };
       const checkpoints = [...owner.checkpoints.values()].filter(checkpoint => checkpoint.toolCallId === record.id);
       try {
         if (structured.artifactRefs.length > 32 || structured.artifactRefs.some(ref => Object.keys(identity).some(key => ref.identity[key as keyof typeof ref.identity] !== identity[key as keyof typeof identity]) || Object.keys(ref.identity).some(key => ref.identity[key as keyof typeof ref.identity] !== identity[key as keyof typeof identity]))) throw new EngineError('CHECKPOINT_ARTIFACT_MISMATCH', 'Tool artifacts must match the active execution identity');
@@ -1659,10 +1668,7 @@ reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
     }
     this.options.store.commit(owner.run.id, `tool.${finalState}`, payload, { tool: { ...record }, message });
     owner.turn?.toolResult(record.id, { output: output.content, isError: result.isError ?? false, truncated: output.truncated }, finalState !== 'completed');
-    if(['run_command_job','command_job_input','wait_command_job'].includes(record.name))this.options.onCommandLifetimeToolSettled?.(record);
-    if (record.name === 'run_command') this.options.onOwnedCommandToolSettled?.(record);
-    if(record.name==='execute_code')this.options.onCodeModeToolSettled?.(record);
-    if(record.name==='merge_workflow_stage')this.options.onWorkflowToolSettled?.(record);
+    this.notifySettled(owner, record, false);
     const clientRead = this.clientEffects.capture(record.id);
     if (clientRead) clientRead.result = structuredClone(result);
     if (output.truncated) throw new EngineError('OUTPUT_LIMIT', 'Run output byte budget was exceeded');

@@ -10,8 +10,8 @@ import {
   type BackendClientEffectInput, type BackendClientPermissionProof, type BackendClientReadInput, type BackendClientReadProof,
 } from '../agent-backends/client-effects.js';
 import type { ChildBudget } from '../child-tasks/index.js';
-import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
-import { checkAbort, uncertain } from './abort.js';
+import { immutableKnowledgeJson, knowledgeHash, sha256, withKnowledgeHash } from '../knowledge/validation.js';
+import { checkAbort, TERMINAL_TOOL_STATES, uncertain } from './abort.js';
 import type { Owner } from './index.js';
 import type { ApprovedMcpToolOwner } from './mcp-execution-observer.js';
 
@@ -49,6 +49,18 @@ export interface ClientEffectsPort {
   remainingChildBudget(owner: Owner): ChildBudget;
   message(owner: Owner, role: 'assistant'): Message;
   executeTool(owner: Owner, call: ProviderToolCall, workspace: ToolContext['workspace']): Promise<string>;
+}
+
+/** The original request identity, in persisted proof key order. */
+function requestScope(proof: ProviderRequestOwner) {
+  return { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId };
+}
+
+/** Settled native tool fields shared by read and effect completions, in persisted key order. */
+function settledTool(proof: ProviderRequestOwner, toolCallId: string, providerToolCallId: string, preparedFingerprint: string | undefined, record: ToolCallRecord) {
+  return { ...requestScope(proof), toolCallId, providerToolCallId, preparedFingerprint: preparedFingerprint ?? null,
+    state: (TERMINAL_TOOL_STATES.includes(record.state) ? record.state : 'interrupted') as BackendClientReadProof['state'],
+    inputSha256: knowledgeHash(record.input), outputSha256: sha256(record.output ?? ''), outputBytes: Buffer.byteLength(record.output ?? '') };
 }
 
 /** Reject a write whose nearest existing parent resolves outside the workspace. */
@@ -148,13 +160,9 @@ export class ProviderClientEffects {
       && data.truncated === false && data.outputTruncated === false && data.hasMore === false && data.partialFirstLine === false && data.partialLastLine === false;
     const errorCode = failure instanceof EngineError ? failure.code : failure ? 'BACKEND_CLIENT_READ_FAILED'
       : record.state === 'denied' ? 'APPROVAL_DENIED' : record.state !== 'completed' ? 'BACKEND_CLIENT_READ_FAILED' : !complete ? 'BACKEND_CLIENT_READ_PARTIAL' : null;
-    const resultBody = { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
-      toolCallId, providerToolCallId: call.id, preparedFingerprint: readCapture.fingerprint ?? null,
-      state: (['completed', 'failed', 'denied', 'interrupted'].includes(record.state) ? record.state : 'interrupted') as BackendClientReadProof['state'],
-      inputSha256: knowledgeHash(record.input), outputSha256: createHash('sha256').update(record.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(record.output ?? ''),
+    const completion: BackendClientReadProof = withKnowledgeHash({ ...settledTool(proof, toolCallId, call.id, readCapture.fingerprint, record),
       content: complete ? (data as JsonObject).content as string : null, errorCode,
-      cleanupConfirmed: !uncertain(failure) && !['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT'].includes(errorCode ?? '') };
-    const completion: BackendClientReadProof = immutableKnowledgeJson({ ...resultBody, sha256: knowledgeHash(resultBody) });
+      cleanupConfirmed: !uncertain(failure) && !['CLEANUP_UNCERTAIN', 'TOOL_TIMEOUT'].includes(errorCode ?? '') });
     const original = Object.freeze({}); this.clientReadCompletions.set(original, completion); this.retainedClientReads.add(original);
     return original;
   }
@@ -190,13 +198,11 @@ export class ProviderClientEffects {
     const toolCallId = randomUUID(), call: ProviderToolCall = { id: input.callId, name, input: toolInput }, message = this.port.message(owner, 'assistant');
     owner.callIds.add(call.id);
     owner.invocations.set(call.id, toolCallId);
-    this.options.store.commit(owner.run.id, 'backend.client_effect_proposed', {
-      toolCallId, providerToolCallId: call.id, effectMethod: input.method, input: input as unknown as JsonValue, turnId: proof.turnId, attemptId: proof.attemptId,
-    }, { message });
+    const refs = { turnId: proof.turnId, attemptId: proof.attemptId };
+    const proposed: JsonObject = { toolCallId, providerToolCallId: call.id, effectMethod: input.method, input: input as unknown as JsonValue, ...refs };
+    this.options.store.commit(owner.run.id, 'backend.client_effect_proposed', proposed, { message });
     owner.turn!.toolProposal(message.id, toolCallId, call);
-    this.options.store.commitRunObservation?.(owner.run.id, 'backend.client_effect_proposed', {
-      toolCallId, providerToolCallId: call.id, effectMethod: input.method, input: input as unknown as JsonValue, turnId: proof.turnId, attemptId: proof.attemptId,
-    }, { turnId: proof.turnId, attemptId: proof.attemptId });
+    this.options.store.commitRunObservation?.(owner.run.id, 'backend.client_effect_proposed', proposed, refs);
     const abort = new AbortController(), effectSignal = AbortSignal.any([signal, abort.signal]);
     let release!: () => void, ready!: () => void;
     const gate = new Promise<void>(resolve => (release = resolve)), admitted = new Promise<void>(resolve => (ready = resolve));
@@ -204,6 +210,8 @@ export class ProviderClientEffects {
     const started = new Promise<void>(resolve => (actualStart = resolve));
     let permission: BackendClientPermissionProof | undefined;
     let terminalCompletion: BackendClientReadProof | undefined;
+    const permissionProof = (allowed: boolean, inputSha256: string, approvalId: string | null): BackendClientPermissionProof => withKnowledgeHash({ ...requestScope(proof),
+      toolCallId, providerToolCallId: call.id, inputSha256, preparedFingerprint: capture.fingerprint ?? null, approvalId, allowed });
     const capture: ClientReadCapture = {
       signal: effectSignal,
       dispatched: actualStart,
@@ -218,11 +226,9 @@ export class ProviderClientEffects {
         this.port.originalProviderRequest(request, 'dispatch');
       },
       approved: approval => {
-        const body = { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
-          toolCallId, providerToolCallId: call.id, inputSha256: knowledgeHash(toolInput), preparedFingerprint: capture.fingerprint ?? null, approvalId: approval?.id ?? null, allowed: true };
-        const granted: BackendClientPermissionProof = immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
+        const granted = permissionProof(true, knowledgeHash(toolInput), approval?.id ?? null);
         if (!this.options.store.commitRunObservation) throw new EngineError('BACKEND_NATIVE_OBSERVATION_REQUIRED', 'Native permission journal is required');
-        this.options.store.commitRunObservation(owner.run.id, 'backend.client_permission', { permission: granted as unknown as JsonValue }, { turnId: proof.turnId, attemptId: proof.attemptId });
+        this.options.store.commitRunObservation(owner.run.id, 'backend.client_permission', { permission: granted as unknown as JsonValue }, refs);
         permission = granted;
         ready();
       },
@@ -237,10 +243,8 @@ export class ProviderClientEffects {
       const record = capture.record;
       if (!record) throw failure ?? new EngineError('BACKEND_CLIENT_EFFECT_FAILED', 'Native effect was not admitted');
       if (!permission) {
-        const body = { workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
-          toolCallId, providerToolCallId: call.id, inputSha256: knowledgeHash(record.input), preparedFingerprint: capture.fingerprint ?? null, approvalId: null, allowed: false };
-        const denied: BackendClientPermissionProof = immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
-        this.options.store.commitRunObservation?.(owner.run.id, 'backend.client_permission', { permission: denied as unknown as JsonValue }, { turnId: proof.turnId, attemptId: proof.attemptId });
+        const denied = permissionProof(false, knowledgeHash(record.input), null);
+        this.options.store.commitRunObservation?.(owner.run.id, 'backend.client_permission', { permission: denied as unknown as JsonValue }, refs);
         permission = denied;
         ready();
       }
@@ -259,19 +263,15 @@ export class ProviderClientEffects {
       const errorCode = failure instanceof EngineError ? failure.code : failure ? 'BACKEND_CLIENT_EFFECT_FAILED'
         : record.state === 'denied' ? 'APPROVAL_DENIED' : record.state !== 'completed' ? 'BACKEND_CLIENT_EFFECT_FAILED' : result === null ? 'BACKEND_CLIENT_EFFECT_LIMIT' : null;
       const actualCheckpoint = [...owner.checkpoints.values()].find(cp => cp.toolCallId === toolCallId);
-      const body = {
+      const completion: BackendClientReadProof = withKnowledgeHash({
         checkpoint: actualCheckpoint ? { id: actualCheckpoint.id, sha256: knowledgeHash(actualCheckpoint) } : null,
-        workspaceId: proof.workspaceId, sessionId: proof.sessionId, runId: proof.runId, turnId: proof.turnId, attemptId: proof.attemptId,
-        toolCallId, providerToolCallId: call.id, preparedFingerprint: capture.fingerprint ?? null,
-        state: (['completed', 'failed', 'denied', 'interrupted'].includes(record.state) ? record.state : 'interrupted') as BackendClientReadProof['state'],
-        inputSha256: knowledgeHash(record.input), outputSha256: createHash('sha256').update(record.output ?? '').digest('hex'), outputBytes: Buffer.byteLength(record.output ?? ''),
+        ...settledTool(proof, toolCallId, call.id, capture.fingerprint, record),
         content: null, errorCode,
         cleanupConfirmed: !uncertain(failure) && (!result || typeof result !== 'object' || Array.isArray(result) || result.cleanupConfirmed !== false),
         effectMethod: input.method, result,
-      };
-      const completion: BackendClientReadProof = immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
+      });
       if (!this.options.store.commitRunObservation) throw new EngineError('BACKEND_NATIVE_OBSERVATION_REQUIRED', 'Client effects require a native completion anchor');
-      this.options.store.commitRunObservation(owner.run.id, 'backend.client_effect_closed', { completion: completion as unknown as JsonValue }, { turnId: proof.turnId, attemptId: proof.attemptId });
+      this.options.store.commitRunObservation(owner.run.id, 'backend.client_effect_closed', { completion: completion as unknown as JsonValue }, refs);
       terminalCompletion = completion;
       const original = Object.freeze({});
       this.clientReadCompletions.set(original, completion);
@@ -290,10 +290,14 @@ export class ProviderClientEffects {
     return original;
   }
 
-  readPermission(original: object): BackendClientPermissionProof {
+  private handle(original: object, message = 'Original effect is required'): ClientEffectHandle {
     const handle = this.clientEffectHandles.get(original);
-    if (!handle) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'Original prepared effect is required');
-    return structuredClone(handle.proof);
+    if (!handle) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', message);
+    return handle;
+  }
+
+  readPermission(original: object): BackendClientPermissionProof {
+    return structuredClone(this.handle(original, 'Original prepared effect is required').proof);
   }
 
   async dispatchEffect(original: object): Promise<void> {
@@ -306,8 +310,7 @@ export class ProviderClientEffects {
   }
 
   readRequest(original: object): TurnRequest {
-    const handle = this.clientEffectHandles.get(original);
-    if (!handle) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'Original effect is required');
+    const handle = this.handle(original);
     this.port.originalProviderRequest(handle.request, 'dispatch');
     return handle.request;
   }
@@ -327,9 +330,7 @@ export class ProviderClientEffects {
   }
 
   waitEffect(original: object): Promise<object> {
-    const handle = this.clientEffectHandles.get(original);
-    if (!handle) throw new EngineError('BACKEND_ORIGINAL_REQUIRED', 'Original effect is required');
-    return handle.done;
+    return this.handle(original).done;
   }
 
   cancelEffect(original: object): void {

@@ -2,6 +2,7 @@ import { EngineError, isTerminal, type AcceptInput, type InputReceipt, type Inpu
 import { normalizeAcceptInput, normalizeEngineBudgets } from '@moodcode/contracts/validation';
 import type { SessionEngineStore } from '../ports.js';
 import type { RunCoordinator } from './index.js';
+import { AMBIGUOUS_DISPATCH_ERRORS } from './turn-executor.js';
 
 interface Flight { sessionId: string; workspaceId: string; done: Promise<void>; resolve(): void; reject(error: unknown): void; running: boolean; queued: boolean }
 export interface InputSchedulerOptions {
@@ -25,7 +26,7 @@ export class InputScheduler {
       cancelled: run => { options.store.setSessionPaused(run.sessionId, true, 'run_cancelled'); },
       settled: run => {
         if (run.state !== 'completed') {
-          const uncertain = !isTerminal(run.state) || run.state === 'interrupted' || ['CLEANUP_UNCERTAIN', 'PROVIDER_TIMEOUT', 'PROVIDER_TRANSPORT_ERROR', 'PROVIDER_REQUEST_TIMEOUT', 'PROVIDER_INACTIVITY_TIMEOUT'].includes(run.error?.code ?? '');
+          const uncertain = !isTerminal(run.state) || run.state === 'interrupted' || AMBIGUOUS_DISPATCH_ERRORS.includes(run.error?.code ?? '');
           options.store.setSessionPaused(run.sessionId, true, uncertain ? 'recovery_required' : 'run_cancelled');
         }
         if (!this.closing) void this.wake(run.sessionId).catch(() => {});
@@ -62,16 +63,16 @@ export class InputScheduler {
   cancelInput(inputId: string): InputRecord { this.assertOpen(); return this.options.store.cancelInput(inputId); }
   wake(sessionId: string): Promise<void> {
     try {
-    this.assertOpen();
-    const known = this.flights.get(sessionId);
-    if (known) { this.schedule(); return known.done; }
-    const session = this.options.store.getSession(sessionId);
-    let resolve!: () => void, reject!: (error: unknown) => void;
-    const done = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
-    void done.catch(() => {});
-    const flight: Flight = { sessionId, workspaceId: session.workspaceId, done, resolve, reject, running: false, queued: true };
-    this.flights.set(sessionId, flight); this.ready.push(sessionId); this.schedule();
-    return done;
+      this.assertOpen();
+      const known = this.flights.get(sessionId);
+      if (known) { this.schedule(); return known.done; }
+      const session = this.options.store.getSession(sessionId);
+      let resolve!: () => void, reject!: (error: unknown) => void;
+      const done = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+      void done.catch(() => {});
+      const flight: Flight = { sessionId, workspaceId: session.workspaceId, done, resolve, reject, running: false, queued: true };
+      this.flights.set(sessionId, flight); this.ready.push(sessionId); this.schedule();
+      return done;
     } catch (error) { return Promise.reject(error); }
   }
   waitForSession(sessionId: string): Promise<void> { return this.flights.get(sessionId)?.done ?? Promise.resolve(); }
@@ -110,9 +111,9 @@ export class InputScheduler {
         if (this.busyWorkspaces.has(flight.workspaceId)) { this.enqueue(flight); continue; }
         const active = this.options.coordinator.activeRun(sessionId);
         if (active) { this.run(flight, this.options.coordinator.waitForRun(active.id)); continue; }
-        if (!this.options.store.pendingInputs(sessionId, undefined, 1).length) { this.finish(flight); continue; }
+        const [input] = this.options.store.pendingInputs(sessionId, undefined, 1);
+        if (!input) { this.finish(flight); continue; }
         this.options.coordinator.assertWorkspaceAvailable(flight.workspaceId);
-        const input = this.options.store.pendingInputs(sessionId, undefined, 1)[0]!;
         this.options.beforePromotion?.(input);
         const promoted = this.options.store.promoteInput(input.id);
         this.run(flight, this.options.coordinator.startPromoted(promoted.run.id));

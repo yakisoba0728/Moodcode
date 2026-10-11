@@ -1,4 +1,6 @@
-import { EngineError } from '@moodcode/contracts';
+import { EngineError, type ToolCallRecord } from '@moodcode/contracts';
+
+export const TERMINAL_TOOL_STATES: readonly ToolCallRecord['state'][] = ['completed', 'failed', 'denied', 'interrupted'];
 
 const UNSAFE_EFFECT_ERRORS = new Set([
   'CLEANUP_UNCERTAIN', 'PROCESS_CLEANUP_FAILED', 'COMMAND_CLEANUP_UNCERTAIN',

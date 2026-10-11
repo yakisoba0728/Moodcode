@@ -45,6 +45,7 @@ import {
 import {
   workflowJson,
   workflowIdentifier,
+  WORKFLOW_MODEL_NAMES,
   WORKFLOW_READ_TOOLS,
 } from "./spec.js";
 import {
@@ -57,12 +58,7 @@ import {
   type WorkflowDeliveryTargetProof,
   type WorkflowEffectStorage,
 } from "./effects-records.js";
-export const WORKFLOW_MODEL_NAMES = [
-  "request_workflow_stage",
-  "observe_workflow_stage",
-  "merge_workflow_stage",
-  "deliver_workflow_result",
-] as const;
+export { WORKFLOW_MODEL_NAMES };
 /** A missing, replaced or changing file is WORKFLOW_SOURCE_STALE; growth past 1 MiB while reading is WORKFLOW_EFFECT_LIMIT. */
 function filePin(path: string): WorkflowFilePin {
   const stale = (): never => effectFail("WORKFLOW_SOURCE_STALE");

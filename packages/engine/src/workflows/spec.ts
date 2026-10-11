@@ -35,6 +35,12 @@ export const WORKFLOW_LIMITS = Object.freeze({
   tools: 64,
 });
 export const WORKFLOW_READ_TOOLS = DELEGATION_READ_TOOLS;
+export const WORKFLOW_MODEL_NAMES = [
+  "request_workflow_stage",
+  "observe_workflow_stage",
+  "merge_workflow_stage",
+  "deliver_workflow_result",
+] as const;
 export function workflowError(code = "INVALID_WORKFLOW_SPEC"): never {
   throw new EngineError(
     code,
