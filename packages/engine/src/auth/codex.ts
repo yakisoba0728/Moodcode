@@ -26,34 +26,26 @@ export interface CodexModelMetadata {
 export async function getCodexModelCatalog(options: CodexAuthOptions = {}): Promise<CodexModelMetadata[]> {
   cancelled(options.signal);
   const { home, now } = settings(options);
-  let secrets: readonly string[] = [];
-  try { secrets = (await credential(home, now, options.signal, value => { secrets = value; })).secrets; }
-  catch (error) { if (isCancellation(error)) throw error; }
-  try {
-    const cache = json(await readLocalFile(join(home, 'models_cache.json'), CACHE_BYTES, options.signal));
-    if (!Array.isArray(cache.models) || cache.models.length > 4096) return [];
-    const models: CodexModelMetadata[] = [];
-    const seen = new Set<string>();
-    for (const value of cache.models) {
-      if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
-      const item = value as Record<string, unknown>;
-      const id = modelSlug(item.slug, secrets);
-      if (!id || seen.has(id) || item.visibility === 'hide') continue;
-      const name = item.display_name;
-      const displayName = typeof name === 'string' && name.length > 0 && Buffer.byteLength(name) <= 256
-        && !/[\u0000-\u001f\u007f]/u.test(name) && !secrets.some(secret => name.includes(secret)) ? name : id;
-      const reasoningEfforts = Array.isArray(item.supported_reasoning_levels)
-        ? [...new Set(item.supported_reasoning_levels.slice(0, 32).flatMap(level => {
-          const effort = level && typeof level === 'object' ? (level as Record<string, unknown>).effort : undefined;
-          return REASONING_EFFORTS.includes(effort as ReasoningEffort) ? [effort as ReasoningEffort] : [];
-        }))] : [];
-      const defaultEffort = reasoningEfforts.includes(item.default_reasoning_level as ReasoningEffort) ? item.default_reasoning_level as ReasoningEffort : undefined;
-      models.push({ id, displayName, reasoningEfforts, ...(defaultEffort ? { defaultEffort } : {}) });
-      seen.add(id);
-      if (models.length === 128) break;
-    }
-    return models;
-  } catch (error) { if (isCancellation(error)) throw error; return []; }
+  const { secrets } = await observedSecrets(home, now, options.signal);
+  const models: CodexModelMetadata[] = [];
+  const seen = new Set<string>();
+  for (const item of await modelCacheEntries(home, options.signal)) {
+    const id = modelSlug(item.slug, secrets);
+    if (!id || seen.has(id) || item.visibility === 'hide') continue;
+    const name = item.display_name;
+    const displayName = typeof name === 'string' && name.length > 0 && Buffer.byteLength(name) <= 256
+      && !/[\u0000-\u001f\u007f]/u.test(name) && !secrets.some(secret => name.includes(secret)) ? name : id;
+    const reasoningEfforts = Array.isArray(item.supported_reasoning_levels)
+      ? [...new Set(item.supported_reasoning_levels.slice(0, 32).flatMap(level => {
+        const effort = level && typeof level === 'object' ? (level as Record<string, unknown>).effort : undefined;
+        return REASONING_EFFORTS.includes(effort as ReasoningEffort) ? [effort as ReasoningEffort] : [];
+      }))] : [];
+    const defaultEffort = reasoningEfforts.includes(item.default_reasoning_level as ReasoningEffort) ? item.default_reasoning_level as ReasoningEffort : undefined;
+    models.push({ id, displayName, reasoningEfforts, ...(defaultEffort ? { defaultEffort } : {}) });
+    seen.add(id);
+    if (models.length === 128) break;
+  }
+  return models;
 }
 
 /** Internal transport data. This type and its reader are not facade exports. */
@@ -86,6 +78,9 @@ function cancelled(signal?: AbortSignal): void {
 function isCancellation(error: unknown): boolean {
   return error instanceof EngineError && error.code === 'PROVIDER_CANCELLED';
 }
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
 /** Bounded descriptor reads reject links, non-files, replacement and in-place writes. */
 async function readLocalFile(path: string, maximum: number, signal?: AbortSignal): Promise<string> {
   const text = await readBoundedTextFile(path, maximum, {
@@ -112,8 +107,8 @@ function json(text: string): Record<string, unknown> {
   let value: unknown;
   try { value = JSON.parse(text); } catch { throw authError('invalid'); }
   plain(value);
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw authError('invalid');
-  return value as Record<string, unknown>;
+  if (!isRecord(value)) throw authError('invalid');
+  return value;
 }
 function bearer(value: unknown, optional = false): string | undefined {
   if (optional && (value === undefined || value === null)) return undefined;
@@ -163,14 +158,11 @@ function settings(options: CodexAuthOptions): { home: string; now: () => number 
 async function credential(home: string, now: () => number, signal?: AbortSignal, observeSecrets?: (secrets: readonly string[]) => void): Promise<CodexCredential> {
   const auth = json(await readLocalFile(join(home, 'auth.json'), AUTH_BYTES, signal));
   cancelled(signal);
-  if (auth.tokens && typeof auth.tokens === 'object' && !Array.isArray(auth.tokens)) {
-    const source = auth.tokens as Record<string, unknown>;
-    observeSecrets?.(['access_token', 'refresh_token', 'id_token', 'account_id'].map(key => source[key]).filter((value): value is string => typeof value === 'string' && value.length > 0 && value.length <= 32_768));
-  }
+  const tokens = isRecord(auth.tokens) ? auth.tokens : undefined;
+  if (tokens) observeSecrets?.(['access_token', 'refresh_token', 'id_token', 'account_id'].map(key => tokens[key]).filter((value): value is string => typeof value === 'string' && value.length > 0 && value.length <= 32_768));
   if (typeof auth.auth_mode !== 'string') throw authError('invalid');
   if (auth.auth_mode !== 'chatgpt') throw authError('unsupported');
-  if (!auth.tokens || typeof auth.tokens !== 'object' || Array.isArray(auth.tokens)) throw authError('invalid');
-  const tokens = auth.tokens as Record<string, unknown>;
+  if (!tokens) throw authError('invalid');
   const accessToken = bearer(tokens.access_token)!;
   const refreshToken = bearer(tokens.refresh_token, true);
   const idToken = bearer(tokens.id_token, true);
@@ -197,6 +189,21 @@ export function createCodexCredentialReader(options: CodexAuthOptions = {}): Cod
   });
 }
 
+/** Credential secrets, including those seen before a failed check, so local metadata never echoes them. */
+async function observedSecrets(home: string, now: () => number, signal?: AbortSignal): Promise<{ secrets: readonly string[]; error?: unknown }> {
+  let secrets: readonly string[] = [];
+  try { return { secrets: (await credential(home, now, signal, value => { secrets = value; })).secrets }; } catch (error) {
+    if (isCancellation(error)) throw error;
+    return { secrets, error };
+  }
+}
+/** Object entries of a bounded models_cache.json; empty when it is missing, unsafe or malformed. */
+async function modelCacheEntries(home: string, signal?: AbortSignal): Promise<Record<string, unknown>[]> {
+  try {
+    const cache = json(await readLocalFile(join(home, 'models_cache.json'), CACHE_BYTES, signal));
+    return Array.isArray(cache.models) && cache.models.length <= 4096 ? cache.models.filter(isRecord) : [];
+  } catch (error) { if (isCancellation(error)) throw error; return []; }
+}
 function modelSlug(value: unknown, secrets: readonly string[]): string | undefined {
   if (typeof value !== 'string' || value.length > 128 || !/^(?:gpt-|codex-|chatgpt-|o[0-9])[a-z0-9._-]*$/.test(value)) return undefined;
   if (secrets.some(secret => value.includes(secret))) return undefined;
@@ -219,17 +226,10 @@ async function localModel(home: string, secrets: readonly string[], signal?: Abo
     const selected = configModel(await readLocalFile(join(home, 'config.toml'), CONFIG_BYTES, signal), secrets);
     if (selected) return selected;
   } catch (error) { if (isCancellation(error)) throw error; }
-  try {
-    const cache = json(await readLocalFile(join(home, 'models_cache.json'), CACHE_BYTES, signal));
-    if (Array.isArray(cache.models) && cache.models.length <= 4096) {
-      for (const entry of cache.models) {
-        if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
-          const selected = modelSlug((entry as Record<string, unknown>).slug, secrets);
-          if (selected) return selected;
-        }
-      }
-    }
-  } catch (error) { if (isCancellation(error)) throw error; }
+  for (const entry of await modelCacheEntries(home, signal)) {
+    const selected = modelSlug(entry.slug, secrets);
+    if (selected) return selected;
+  }
   return undefined;
 }
 
@@ -239,14 +239,13 @@ export async function getCodexAuthStatus(options: CodexAuthOptions = {}): Promis
   let home: string;
   let now: () => number;
   try { ({ home, now } = settings(options)); } catch { return { state: 'invalid' }; }
+  const observed = await observedSecrets(home, now, options.signal);
   let state: CodexAuthStatus['state'] = 'ready';
-  let secrets: readonly string[] = [];
-  try { secrets = (await credential(home, now, options.signal, value => { secrets = value; })).secrets; } catch (error) {
-    if (isCancellation(error)) throw error;
-    const code = error instanceof EngineError ? error.code : '';
+  if ('error' in observed) {
+    const code = observed.error instanceof EngineError ? observed.error.code : '';
     const known = Object.keys(AUTH_MESSAGES).find(candidate => code === `CODEX_AUTH_${candidate.toUpperCase()}`);
     state = known ? known as AuthState : 'unreadable';
   }
-  const modelId = await localModel(home, secrets, options.signal);
+  const modelId = await localModel(home, observed.secrets, options.signal);
   return modelId ? { state, modelId } : { state };
 }

@@ -3,7 +3,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition } from '../../ports.js';
 import { boundedJson } from '../../artifacts/validation.js';
 import { createToolResultEnvelope } from '../../artifacts/result.js';
-import { SessionTaskService } from '../../session-state/index.js';
+import { SessionTaskService, TASK_STATUSES } from '../../session-state/index.js';
 
 function identity(context: ToolContext): string { return JSON.stringify([context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId]); }
 export function createSessionTaskTools(service: SessionTaskService): ToolDefinition[] {
@@ -16,7 +16,7 @@ export function createSessionTaskTools(service: SessionTaskService): ToolDefinit
         type: 'object', additionalProperties: false, required: ['expectedRevision', 'tasks'],
         properties: { expectedRevision: { type: 'integer', minimum: 0 }, tasks: { type: 'array', maxItems: 128, items: {
           type: 'object', additionalProperties: false, required: ['id', 'title', 'status'], properties: {
-            id: { type: 'string' }, title: { type: 'string' }, status: { enum: ['pending', 'in_progress', 'completed', 'cancelled'] },
+            id: { type: 'string' }, title: { type: 'string' }, status: { enum: [...TASK_STATUSES] },
           },
         } } },
       },

@@ -7,7 +7,8 @@ export interface SessionDocumentStore {
   getSessionDocument(sessionId: string, kind: string): SessionDocument | null;
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument;
 }
-export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'cancelled';
+export const TASK_STATUSES = ['pending', 'in_progress', 'completed', 'cancelled'] as const;
+export type TaskStatus = typeof TASK_STATUSES[number];
 export interface SessionTask { id: string; title: string; status: TaskStatus }
 export interface SessionTasks { revision: number; tasks: SessionTask[] }
 
@@ -29,7 +30,7 @@ export class SessionTaskService {
       const { id, title, status } = entry;
       if (typeof id !== 'string' || !/^[A-Za-z0-9_.-]{1,128}$/.test(id) || ids.has(id)
         || typeof title !== 'string' || !title.trim() || Buffer.byteLength(title) > 1024 || /[\u0000-\u001f\u007f]/.test(title)
-        || typeof status !== 'string' || !['pending', 'in_progress', 'completed', 'cancelled'].includes(status)) throw new EngineError('INVALID_TASKS', 'Invalid or duplicate task entry');
+        || typeof status !== 'string' || !(TASK_STATUSES as readonly string[]).includes(status)) throw new EngineError('INVALID_TASKS', 'Invalid or duplicate task entry');
       ids.add(id);
       return { id, title, status };
     });
