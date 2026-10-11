@@ -29,11 +29,11 @@ import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
 import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeRunConfig, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
-import type { PreparedTool, ProviderAdapter, ProviderEvent, ToolContext, ToolDefinition } from './ports.js';
+import type { PreparedTool, ProviderAdapter, ProviderEvent, ProviderMessage, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
-import { VerificationController, verificationContinuationMessage } from './verification/controller.js';
+import { VerificationController, verificationContinuationMessage, type VerificationControllerInput } from './verification/controller.js';
 import { createLifecycleContinuationPort } from './lifecycle/continuation.js';
 import type { KnowledgeStorage } from './knowledge/store.js';
 import type { KnowledgeHostAdapter, KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
@@ -347,22 +347,17 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
       let providerEntered = false, confirmedDone = false;
       const initialize = () => initialization ??= (async () => {
         if (request.resolvedImages !== undefined || request.resolvedDocuments !== undefined || request.resolvedMedia !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Input bytes must be resolved by the engine');
-        const refs = new Map<string, InputImageAttachment>();
-        const documentRefs = new Map<string, InputDocumentAttachment>();
-        const segmentRefs = new Map<string,InputMediaAttachment>();
-        for (const message of request.messages) for (const ref of message.attachments ?? []) {
-          if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Image references belong to user messages');
-          const previous = refs.get(ref.id);
-          if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting image references');
-          refs.set(ref.id, ref);
-        }
-        for (const message of request.messages) for (const ref of message.documents ?? []) {
-          if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', 'Document references belong to user messages');
-          const previous = documentRefs.get(ref.id);
-          if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Conflicting document references');
-          documentRefs.set(ref.id, ref);
-        }
-        for(const message of request.messages)for(const ref of message.media??[]){if(message.role!=='user')throw new EngineError('PROVIDER_INVALID_REQUEST','Media references belong to user inputs');const old=segmentRefs.get(ref.id);if(old&&JSON.stringify(old)!==JSON.stringify(ref))throw new EngineError('PROVIDER_INVALID_REQUEST','Conflicting media references');segmentRefs.set(ref.id,ref);}
+        const collect = <T extends { id: string }>(pick: (message: ProviderMessage) => readonly T[] | undefined, noun: string) => {
+          const collected = new Map<string, T>();
+          for (const message of request.messages) for (const ref of pick(message) ?? []) {
+            if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', `${noun} references belong to user messages`);
+            const previous = collected.get(ref.id);
+            if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', `Conflicting ${noun.toLowerCase()} references`);
+            collected.set(ref.id, ref);
+          }
+          return collected;
+        };
+        const refs = collect(message => message.attachments, 'Image'), documentRefs = collect(message => message.documents, 'Document'), segmentRefs = collect(message => message.media, 'Media');
         assertSegmentSupport(provider,models,request.modelId,[...segmentRefs.values()],allowMediaCost);
         let resolved = request;
         if (refs.size || documentRefs.size || segmentRefs.size) {
@@ -570,7 +565,9 @@ private readonly workflowRecords: WorkflowStorage;
     if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
     if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
-    for (const flag of [options.prFeedback,options.prFeedbackLoopback]) if (flag!==undefined&&typeof flag!=='boolean') throw new EngineError('INVALID_CONFIG','PR feedback requires explicit host boolean opt-in');
+    this.assertOptionalBoolean(options, 'prFeedback', 'PR feedback requires explicit host boolean opt-in');
+    this.assertOptionalBoolean(options, 'prFeedbackLoopback', 'PR feedback requires explicit host boolean opt-in');
+    this.assertOptionalBoolean(options, 'gitCommits', 'gitCommits must be an explicit boolean');
     this.assertOptionalBoolean(options, 'verificationTools', 'Verification tool exposure must be an explicit boolean');
     this.verificationEnabled = options.verificationTools === true;
     this.assertOptionalBoolean(options, 'knowledgeGeneration', 'Knowledge generation requires an explicit host boolean');
@@ -663,13 +660,14 @@ private readonly workflowRecords: WorkflowStorage;
         database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : { memory: randomUUID() },
         artifacts: physicalIdentity(this.storagePaths.artifactDir),
       };
+      const storageUnchanged = () => JSON.stringify({
+        database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database,
+        artifacts: physicalIdentity(this.storagePaths.artifactDir),
+      }) === JSON.stringify(storageBinding);
       this.childStorageIdentity = storageBinding;
       this.verifyChildStorageIdentity = () => {
-        try {
-          const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
-          const artifacts = physicalIdentity(this.storagePaths.artifactDir);
-          if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new Error('changed');
-        } catch { throw new EngineError('CHILD_STORAGE_HOST_CHANGED', 'Child storage inspection requires the unchanged host storage identity'); }
+        try { if (!storageUnchanged()) throw new Error('changed'); }
+        catch { throw new EngineError('CHILD_STORAGE_HOST_CHANGED', 'Child storage inspection requires the unchanged host storage identity'); }
       };
       const knowledgeBinding = (workspaceId: string) => {
         this.verifyChildStorageIdentity();
@@ -774,9 +772,7 @@ private readonly workflowRecords: WorkflowStorage;
       }, this.hostResources.signal);
       this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
       const recoveryBinding = (workspaceId: string) => {
-        const database = canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database;
-        const artifacts = physicalIdentity(this.storagePaths.artifactDir);
-        if (JSON.stringify({ database, artifacts }) !== JSON.stringify(storageBinding)) throw new EngineError('SUMMARY_RECOVERY_STORAGE_CHANGED', 'Summary recovery storage identity changed during this engine lifetime');
+        if (!storageUnchanged()) throw new EngineError('SUMMARY_RECOVERY_STORAGE_CHANGED', 'Summary recovery storage identity changed during this engine lifetime');
         const workspace = this.store.getWorkspace(workspaceId);
         return createHash('sha256').update(JSON.stringify({ ...storageBinding, workspace: { id: workspace.id, root: workspace.root, gitRoot: workspace.gitRoot } })).digest('hex');
       };
@@ -824,9 +820,16 @@ private readonly workflowRecords: WorkflowStorage;
       this.verificationPlans = new VerificationPlanService(this.store, this.verificationChecks);
       this.verificationReceipts = new VerificationReceiptService(this.verificationPlans);
       this.verificationHost = new VerificationHostService(this.store, this.verificationPlans, this.repository);
+      const profileIdentity = (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; };
+      const observeRun = (run: Run, signal: AbortSignal, workspace = this.store.getWorkspace(run.workspaceId)) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace }, signal);
+      const evaluateVerification = (run: Run, boundary: VerificationControllerInput['boundary'], source: VerificationControllerInput['source'], signal: AbortSignal) => {
+        const verification = this.verificationPlans.get(run.sessionId, run.id);
+        return this.verificationController.evaluate(run.sessionId, run.id, this.verificationController.get(run.sessionId, run.id)?.revision ?? 0,
+          { boundary, source, verificationRevision: verification?.revision ?? 0, planSha256: verification?.plans.at(-1)?.planSha256 ?? null }, signal);
+      };
       this.verificationController = new VerificationController(this.store, this.verificationPlans, {
-        observeSource: (run, signal) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace: this.store.getWorkspace(run.workspaceId) }, signal),
-        readCurrentProfile: run => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : null; },
+        observeSource: (run, signal) => observeRun(run, signal),
+        readCurrentProfile: profileIdentity,
         readRemainingBudget: run => this.coordinator.verificationRemainingBudget(run),
         readExecutionBlocker: run => {
           if (this.store.hasDeniedVerificationTool(run.id)) return 'verification_denied';
@@ -848,7 +851,7 @@ private readonly workflowRecords: WorkflowStorage;
       });
       this.formatters = new FormatterRegistry();
       this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(realpathSync(artifactDir), 'children'), value => {
+      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(this.storagePaths.artifactDir, 'children'), value => {
         bindChildTeamModelCatalogue(value, this.teamModelDefinitions);
         return new MoodcodeEngine(value);
       }, storageBinding, (child,sessionId,parent,parentRunId,allocation)=>{this.conversationForkHost.inheritChild(parent,child,sessionId,parentRunId,allocation);if(options.osSandbox)parent.sandboxHost.inherit(child.sandboxHost,sessionId,parentRunId);});
@@ -957,7 +960,7 @@ this.codingBatches = new CodingBatchHost(
         workflowChildren,
         this.codingBatchesEnabled,
       );
-terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'terminals.sqlite'));
+terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
         const session = this.store.getSession(owner.sessionId);
@@ -967,9 +970,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       const allowMediaCost=options.allowUnknownMediaTokenCost===true;
       const models = new ModelRegistry();
       for (const spec of options.modelSpecs ?? []) models.put(spec);
-      this.images = new ImageAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-media'), documents: this.store });
-      this.segments=new MediaSegmentStore({directory:join(realpathSync(artifactDir),'input-segments'),documents:this.store});
-      this.documents = new DocumentAttachmentStore({ directory: join(realpathSync(artifactDir), 'input-documents'), documents: this.store });
+      this.images = new ImageAttachmentStore({ directory: join(this.storagePaths.artifactDir, 'input-media'), documents: this.store });
+      this.segments=new MediaSegmentStore({directory:join(this.storagePaths.artifactDir,'input-segments'),documents:this.store});
+      this.documents = new DocumentAttachmentStore({ directory: join(this.storagePaths.artifactDir, 'input-documents'), documents: this.store });
       let artifacts: Promise<ArtifactStore> | undefined;
       const artifactBudgets = normalizeEngineBudgets(this.defaults.budgets);
       this.managedArtifacts = () => artifacts ??= ArtifactStore.open({ directory: join(realpathSync(artifactDir), 'managed'), limits: {
@@ -1035,25 +1038,27 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
           return operation(signal);
         }),
       });
+      const contextProfile = (run: Run) => profileIdentity(run) ?? undefined;
+      const assertContextOwnerCurrent = (code: string, messages: readonly [string, string, string, string], workspaceId: string, owner: { sessionId: string; runId: string | null; profile: unknown }) => {
+        const session = this.store.getSession(owner.sessionId);
+        if (session.workspaceId !== workspaceId) throw new EngineError(code, messages[0]);
+        if (owner.runId === null) {
+          if (owner.profile !== null) throw new EngineError(code, messages[1]);
+          return;
+        }
+        const run = this.store.getRun(owner.runId);
+        if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling') throw new EngineError(code, messages[2]);
+        if (knowledgeHash(owner.profile) !== knowledgeHash(profileIdentity(run))) throw new EngineError(code, messages[3]);
+      };
       const knowledgeContext = knowledgePolicy ? {
         policy: knowledgePolicy,
-        getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; },
+        getProfile: contextProfile,
         source: this.store.createKnowledgeContextSource({
           checkBinding: knowledgeBinding,
-          assertOwnerCurrent: (workspaceId, owner) => {
-            const session = this.store.getSession(owner.sessionId);
-            if (session.workspaceId !== workspaceId) throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context session belongs to another workspace');
-            if (owner.runId === null) {
-              if (owner.profile !== null) throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Profile selection requires its admitted Run owner');
-              return;
-            }
-            const run = this.store.getRun(owner.runId);
-            if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling')
-              throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context requires its original active Run and session');
-            const profile = this.profiles.forRun(run.sessionId, run.config);
-            if (knowledgeHash(owner.profile) !== knowledgeHash(profile ? { id: profile.id, revision: profile.revision } : null))
-              throw new EngineError('KNOWLEDGE_CONTEXT_STALE', 'Knowledge context profile differs from its admitted host configuration');
-          },
+          assertOwnerCurrent: (workspaceId, owner) => assertContextOwnerCurrent('KNOWLEDGE_CONTEXT_STALE', [
+            'Knowledge context session belongs to another workspace', 'Profile selection requires its admitted Run owner',
+            'Knowledge context requires its original active Run and session', 'Knowledge context profile differs from its admitted host configuration',
+          ], workspaceId, owner),
           isPaused: workspaceId => this.workspaceKnowledge.isImportPaused(workspaceId),
           getDocumentHead: (workspaceId, key) => this.knowledgePublications.getDocumentHead(workspaceId, key),
           getDocumentRevision: (workspaceId, id) => this.knowledgePublications.getDocumentRevision(workspaceId, id),
@@ -1075,20 +1080,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
         getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
         readBlobText: reference => this.store.readProposalBlobText(reference),
         assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrent(binding, manifest, signal),
-        assertOwnerCurrent: (workspaceId, owner) => {
-          const session = this.store.getSession(owner.sessionId);
-          if (session.workspaceId !== workspaceId) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context belongs to another workspace');
-          if (owner.runId === null) {
-            if (owner.profile !== null) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Profile selection requires its original Run');
-            return;
-          }
-          const run = this.store.getRun(owner.runId);
-          if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context requires its original active Run');
-          const profile = this.profiles.forRun(run.sessionId, run.config);
-          if (knowledgeHash(owner.profile) !== knowledgeHash(profile ? { id: profile.id, revision: profile.revision } : null)) throw new EngineError('PROPOSAL_CONTEXT_STALE', 'Proposal context profile differs from its admitted configuration');
-        } });
-      const proposalContext = proposalPolicy ? { source: this.proposalOverlay, policy: proposalPolicy,
-        getProfile: (run: Run) => { const profile = this.profiles.forRun(run.sessionId, run.config); return profile ? { id: profile.id, revision: profile.revision } : undefined; } } : undefined;
+        assertOwnerCurrent: (workspaceId, owner) => assertContextOwnerCurrent('PROPOSAL_CONTEXT_STALE', [
+          'Proposal context belongs to another workspace', 'Profile selection requires its original Run',
+          'Proposal context requires its original active Run', 'Proposal context profile differs from its admitted configuration',
+        ], workspaceId, owner) });
+      const proposalContext = proposalPolicy ? { source: this.proposalOverlay, policy: proposalPolicy, getProfile: contextProfile } : undefined;
       this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
         conversationFork: { prepare:(sessionId,config)=>this.conversationForkHost.context(sessionId,config), assertFresh:(sessionId,sha,config)=>this.conversationForkHost.assertContext(sessionId,sha,config) },
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
@@ -1111,11 +1107,12 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.childToolNames = Object.freeze([...(options.tools ?? allCoreTools.filter(tool => tool.name !== 'delegate_task' && !lifetimeTools.includes(tool))).map(tool => tool.name), ...(this.verificationEnabled ? ['verify_changes'] : []), ...(toolDiscoveryPolicy ? ['discover_tools'] : []), ...(this.teamModelToolsEnabled ? TEAM_MODEL_TOOL_NAMES : [])]);
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
-      const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined);
+      const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined)
+        .flatMap(path => [path, `${path}-wal`, `${path}-shm`, `${path}-journal`]);
       const source = new WorkspaceExecutionSource({ checkWorkspaceBinding: workspace => {
         this.verifyChildStorageIdentity();
         if (JSON.stringify(this.store.getWorkspace(workspace.id)) !== JSON.stringify(workspace)) throw new EngineError('EXECUTION_OBSERVATION_STALE', 'Observed workspace binding changed');
-      }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storagePaths.artifactDir, kind: 'directory' }, ...nativeFiles.flatMap(path => [path, `${path}-wal`, `${path}-shm`, `${path}-journal`].map(path => ({ path, kind: 'file' as const })))] });
+      }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storagePaths.artifactDir, kind: 'directory' }, ...nativeFiles.map(path => ({ path, kind: 'file' as const }))] });
       this.executionObserver = new EngineExecutionObserver(this.store, source, () => this.toolRuntime);
       const workspaceSourceTools = options.tools ? [] : coreTools.filter(tool => ['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'apply_patch', 'edit_file', 'rename_file', 'delete_file', 'run_command'].includes(tool.name));
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store),
@@ -1210,24 +1207,8 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
                 store: this.store,
                 controller: this.verificationController,
                 plans: this.verificationPlans,
-                observeSource: (run, signal) =>
-                  this.verificationHost.observe(
-                    {
-                      sessionId: run.sessionId,
-                      runId: run.id,
-                      workspace: this.store.getWorkspace(run.workspaceId),
-                    },
-                    signal,
-                  ),
-                readCurrentProfile: (run) => {
-                  const profile = this.profiles.forRun(
-                    run.sessionId,
-                    run.config,
-                  );
-                  return profile
-                    ? { id: profile.id, revision: profile.revision }
-                    : null;
-                },
+                observeSource: (run, signal) => observeRun(run, signal),
+                readCurrentProfile: profileIdentity,
                 assertBoundaryCurrent: (run, boundary) =>
                   this.coordinator.assertVerificationBoundaryCurrent(
                     run,
@@ -1258,25 +1239,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
                       throw error;
                   }
                 }
-                const source = await this.verificationHost.observe(
-                    { sessionId: run.sessionId, runId: run.id, workspace },
-                    signal,
-                  ),
-                  verification = this.verificationPlans.get(
-                    run.sessionId,
-                    run.id,
-                  );
-                const result = await this.verificationController.evaluate(
-                  run.sessionId,
-                  run.id,
-                  this.verificationController.get(run.sessionId, run.id)
-                    ?.revision ?? 0,
-                  {
-                    boundary,
-                    source,
-                    verificationRevision: verification?.revision ?? 0,
-                    planSha256: verification?.plans.at(-1)?.planSha256 ?? null,
-                  },
+                const source = await observeRun(run, signal, workspace);
+                const result = await evaluateVerification(
+                  run,
+                  boundary,
+                  source,
                   signal,
                 );
                 const content = verificationContinuationMessage(result);
@@ -1291,26 +1258,11 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
                   : null;
               },
               verificationBeforeProvider: async (run, boundary, signal) => {
-                const workspace = this.store.getWorkspace(run.workspaceId),
-                  source = await this.verificationHost.observe(
-                    { sessionId: run.sessionId, runId: run.id, workspace },
-                    signal,
-                  ),
-                  verification = this.verificationPlans.get(
-                    run.sessionId,
-                    run.id,
-                  );
-                const result = await this.verificationController.evaluate(
-                  run.sessionId,
-                  run.id,
-                  this.verificationController.get(run.sessionId, run.id)
-                    ?.revision ?? 0,
-                  {
-                    boundary,
-                    source,
-                    verificationRevision: verification?.revision ?? 0,
-                    planSha256: verification?.plans.at(-1)?.planSha256 ?? null,
-                  },
+                const source = await observeRun(run, signal);
+                const result = await evaluateVerification(
+                  run,
+                  boundary,
+                  source,
                   signal,
                 );
                 if (result.result.action === "stop")
@@ -1447,7 +1399,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.store.validateEffectBatches();
       this.store.recoverEffectBatches();
       this.store.recoverOwnedCommandJobs();
-      this.sandboxHost = new SandboxHost(this,this.store.createSandboxStorage(),{enabled:options.osSandbox===true,binding:knowledgeBinding,excluded:[this.storagePaths.artifactDir,...nativeFiles.flatMap(path=>[path,`${path}-wal`,`${path}-shm`,`${path}-journal`])],active:()=>!this.closing});
+      this.sandboxHost = new SandboxHost(this,this.store.createSandboxStorage(),{enabled:options.osSandbox===true,binding:knowledgeBinding,excluded:[this.storagePaths.artifactDir,...nativeFiles],active:()=>!this.closing});
       this.hostCommands = new HostCommandService(this, this.store.createHostCommandStorage(), knowledgeBinding, { enabled: () => options.hostCommands === true && !this.closing, unsupportedPolicy: Boolean(options.commandPreflight || options.roleResourcePolicy || options.roleResourcePolicyRegistry || options.resolveRoleResources), artifactDir:this.storagePaths.artifactDir, executionLockPath:this.executionLockPath, lifetime:this.hostResources.signal, ...(options.osSandbox?{sandbox:(ws:string,session:string)=>this.sandboxHost.hostLaunch(ws,session)}:{}) });
       this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
       this.store.validateOwnedCommandDeliveries();
@@ -1478,7 +1430,7 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
       this.store.validatePrFeedback();
       this.prFeedbackHost = new PrFeedbackHost(this,this.store.createPrFeedbackStorage(),knowledgeBinding,this.verificationHost,()=>options.prFeedback===true&&this.verificationEnabled&&!this.closing,options.prFeedbackLoopback===true,this.hostResources.signal);
       const recoveredRestores = this.reviewJournal.recoverPending();
-      const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: realpathSync(artifactDir) }) : [];
+      const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: this.storagePaths.artifactDir }) : [];
       for (const operation of recoveredRestores) {
         const run = this.store.getRun(operation.runId);
         if (run.workspaceId !== operation.workspaceId || run.sessionId !== operation.sessionId

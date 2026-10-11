@@ -160,6 +160,9 @@ test('facade preserves an uncertain effect marker after its owner releases the O
 
 for (const [flag, message] of [
   ['lifecycleContinuation', 'Lifecycle continuation requires an explicit host boolean'],
+  ['prFeedback', 'PR feedback requires explicit host boolean opt-in'],
+  ['prFeedbackLoopback', 'PR feedback requires explicit host boolean opt-in'],
+  ['gitCommits', 'gitCommits must be an explicit boolean'],
   ['verificationTools', 'Verification tool exposure must be an explicit boolean'],
   ['knowledgeGeneration', 'Knowledge generation requires an explicit host boolean'],
   ['knowledgePublication', 'Knowledge publication requires an explicit host boolean'],
