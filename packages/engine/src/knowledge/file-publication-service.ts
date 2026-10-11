@@ -193,6 +193,15 @@ function hostInput(
     "File publication rejects unknown fields, accessors and symbols",
   );
 }
+function stale(message: string): never {
+  return fail("KNOWLEDGE_FILE_STALE", message);
+}
+function overLimit(message: string): never {
+  return fail("KNOWLEDGE_FILE_LIMIT", message);
+}
+function invalidPreview(message: string): never {
+  return fail("KNOWLEDGE_FILE_PREVIEW_INVALID", message);
+}
 function sync(result: unknown): void {
   if (result !== undefined)
     fail(
@@ -285,10 +294,7 @@ export class KnowledgeFilePublicationService {
     if (
       !same(knowledgePublicationProvenance(historical), preview.pins.provenance)
     )
-      fail(
-        "KNOWLEDGE_FILE_STALE",
-        "File publication historical output changed",
-      );
+      stale("File publication historical output changed");
     if (preview.operation === "publish") {
       const trust = validateTrustRevision(
         this.#ports.getTrust(preview.workspaceId),
@@ -328,10 +334,7 @@ export class KnowledgeFilePublicationService {
         current.operation !== "publish" ||
         !same(current, original)
       )
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "Revocation requires its exact completed publication",
-        );
+        stale("Revocation requires its exact completed publication");
     }
   }
   private async issue(
@@ -341,7 +344,7 @@ export class KnowledgeFilePublicationService {
     expiry?: string,
   ): Promise<KnowledgeFilePublicationPreview> {
     if (this.#active.size >= MAX_PREVIEWS)
-      fail("KNOWLEDGE_FILE_LIMIT", "Release old file publication previews");
+      overLimit("Release old file publication previews");
     const candidate = historical.candidate;
     if (candidate.target.kind !== "workspace-file")
       fail(
@@ -367,15 +370,12 @@ export class KnowledgeFilePublicationService {
         target.workspaceId !== candidate.workspaceId ||
         !sameFileHead(target.observation, physical.observation)
       )
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "File observation and native target revision disagree",
-        );
+        stale("File observation and native target revision disagree");
       if (
         operation === "publish" &&
         !candidateMatchesFileTarget(candidate, target)
       )
-        fail("KNOWLEDGE_FILE_STALE", "File candidate target preimage changed");
+        stale("File candidate target preimage changed");
       if (
         operation === "revoke" &&
         (!existing ||
@@ -386,10 +386,7 @@ export class KnowledgeFilePublicationService {
             expectedTarget: target,
           }))
       )
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "File revoke requires the exact published physical postimage",
-        );
+        stale("File revoke requires the exact published physical postimage");
       const now = this.now(),
         requested =
           expiry === undefined ? now + 60000 : Date.parse(stamp(expiry));
@@ -415,10 +412,7 @@ export class KnowledgeFilePublicationService {
         body !== null &&
         Buffer.byteLength(body) > KNOWLEDGE_FILE_PUBLICATION_LIMITS.bodyBytes
       )
-        fail(
-          "KNOWLEDGE_FILE_LIMIT",
-          "Whole file publication body exceeds 16KiB",
-        );
+        overLimit("Whole file publication body exceeds 16KiB");
       const pins: ApprovalPins = immutableKnowledgeJson({
         workspaceId: candidate.workspaceId,
         operation,
@@ -453,10 +447,7 @@ export class KnowledgeFilePublicationService {
         expiresAt: pins.expiresAt,
       };
       if (Buffer.byteLength(JSON.stringify(base)) > MAX_PREVIEW_BYTES)
-        fail(
-          "KNOWLEDGE_FILE_LIMIT",
-          "Whole original approval preview exceeds its bound",
-        );
+        overLimit("Whole original approval preview exceeds its bound");
       const preview = filePublicationJson(
         { ...base, sha256: knowledgeHash(base) },
         MAX_PREVIEW_BYTES,
@@ -466,10 +457,7 @@ export class KnowledgeFilePublicationService {
       this.assertApprovalCurrent(preview);
       abort(originalSignal);
       if (this.#active.size >= MAX_PREVIEWS)
-        fail(
-          "KNOWLEDGE_FILE_LIMIT",
-          "Concurrent original file preview cap reached",
-        );
+        overLimit("Concurrent original file preview cap reached");
       this.#previews.set(preview, { preview, physical, used: false });
       this.#active.add(preview);
       return preview;
@@ -531,16 +519,12 @@ export class KnowledgeFilePublicationService {
       types.isProxy(preview) ||
       !this.#active.has(preview)
     )
-      fail(
-        "KNOWLEDGE_FILE_PREVIEW_INVALID",
+      invalidPreview(
         "File preview is copied, foreign, released or never issued",
       );
     return (
       this.#previews.get(preview) ??
-      fail(
-        "KNOWLEDGE_FILE_PREVIEW_INVALID",
-        "File preview has no original owner",
-      )
+      invalidPreview("File preview has no original owner")
     );
   }
   releasePreview(preview: KnowledgeFilePublicationPreview): void {
@@ -572,10 +556,7 @@ export class KnowledgeFilePublicationService {
           ),
       )
     )
-      fail(
-        "KNOWLEDGE_FILE_PREVIEW_INVALID",
-        "Native file owner has no original approved capture",
-      );
+      invalidPreview("Native file owner has no original approved capture");
     this.assertApprovalCurrent(owner.state.preview);
     if (phase === "dispatch") {
       abort(owner.signal);
@@ -590,10 +571,7 @@ export class KnowledgeFilePublicationService {
       record.path,
     );
     if (!same(target ?? record.expectedTarget, record.expectedTarget))
-      fail(
-        "KNOWLEDGE_FILE_STALE",
-        "Native file target changed during original publication",
-      );
+      stale("Native file target changed during original publication");
     const expected =
         phase === "dispatch"
           ? owner.state.physical.observation
@@ -606,10 +584,7 @@ export class KnowledgeFilePublicationService {
         expected,
       )
     )
-      fail(
-        "KNOWLEDGE_FILE_STALE",
-        "Physical file does not match the exact execution boundary",
-      );
+      stale("Physical file does not match the exact execution boundary");
     if (
       phase === "complete" &&
       (!owner.dispatched ||
@@ -649,10 +624,7 @@ export class KnowledgeFilePublicationService {
       workspaceId !== state.preview.workspaceId ||
       operation !== state.preview.operation
     )
-      fail(
-        "KNOWLEDGE_FILE_PREVIEW_INVALID",
-        "File effect requires original exact operator approval",
-      );
+      invalidPreview("File effect requires original exact operator approval");
     if (input.signal !== undefined) signal(input.signal);
     const budget = immutableKnowledgeJson(input.budget ?? {});
     hostInput(budget, [], ["maxDurationMs"]);
@@ -662,10 +634,7 @@ export class KnowledgeFilePublicationService {
       maxDurationMs < 1 ||
       maxDurationMs > 30000
     )
-      fail(
-        "KNOWLEDGE_FILE_LIMIT",
-        "File operation duration must be 1..30000ms",
-      );
+      overLimit("File operation duration must be 1..30000ms");
     const budgetSha256 = knowledgeHash({ maxDurationMs });
     if (
       state.request &&
@@ -706,10 +675,7 @@ export class KnowledgeFilePublicationService {
     const combined = this.serviceSignal(input.signal);
     abort(combined);
     if (this.#reserved >= MAX_OPERATIONS)
-      fail(
-        "KNOWLEDGE_FILE_LIMIT",
-        "Too many original file effects are pending",
-      );
+      overLimit("Too many original file effects are pending");
     state.used = true;
     state.request = request;
     state.budgetSha256 = budgetSha256;

@@ -20,15 +20,14 @@ import {
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { EngineError } from "@moodcode/contracts";
+import { stableStat } from "../shared/fs.js";
 import type { KnowledgeHostBinding } from "./types.js";
 import type {
   FileParentPin,
   FilePhysicalObservation,
   FilePublicationCheckpoint,
 } from "./file-publication-types.js";
-import {
-  KNOWLEDGE_FILE_PUBLICATION_LIMITS,
-} from "./file-publication-validation.js";
+import { KNOWLEDGE_FILE_PUBLICATION_LIMITS } from "./file-publication-validation.js";
 import {
   assertKnowledgeSignal,
   exactKnowledgePath,
@@ -87,6 +86,15 @@ interface CaptureState {
 }
 const MAX_BODY = KNOWLEDGE_FILE_PUBLICATION_LIMITS.bodyBytes,
   MAX_CAPTURES = 128;
+function stale(message: string): never {
+  return fail("KNOWLEDGE_FILE_STALE", message);
+}
+function unsafe(message: string): never {
+  return fail("KNOWLEDGE_FILE_UNSAFE", message);
+}
+function invalidFile(message: string): never {
+  return fail("INVALID_KNOWLEDGE_FILE", message);
+}
 function check(signal?: AbortSignal, deadline?: number): void {
   if (signal?.aborted)
     fail("KNOWLEDGE_FILE_CANCELLED", "File publication was cancelled");
@@ -106,15 +114,7 @@ function metadata(value: BigIntStats) {
   };
 }
 function stable(a: BigIntStats, b: BigIntStats): boolean {
-  return (
-    a.dev === b.dev &&
-    a.ino === b.ino &&
-    a.size === b.size &&
-    a.mode === b.mode &&
-    a.nlink === b.nlink &&
-    a.mtimeNs === b.mtimeNs &&
-    a.ctimeNs === b.ctimeNs
-  );
+  return stableStat(a, b, ["size", "mode", "nlink", "mtime", "ctime"]);
 }
 function absent(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
@@ -143,7 +143,6 @@ function observableFile(value: BigIntStats): boolean {
 function physicalPin(selected: string, value: BigIntStats): FileParentPin {
   return Object.freeze({ path: selected, ...metadata(value) });
 }
-/** Every parent directory of `relative` below the root, outermost first. */
 function parentPrefixes(relative: string): string[] {
   const components = relative.split("/");
   if (components.length > 64)
@@ -192,10 +191,10 @@ function observedBody(
     !stable(after, current) ||
     current.isSymbolicLink()
   )
-    fail("KNOWLEDGE_FILE_STALE", messages.changed);
+    stale(messages.changed);
   const body = raw.toString("utf8");
   if (!Buffer.from(body).equals(raw) || body.includes("\0"))
-    fail("KNOWLEDGE_FILE_UNSAFE", messages.text);
+    unsafe(messages.text);
   return {
     body,
     observation: {
@@ -248,8 +247,7 @@ export class FileKnowledgePublicationHost {
       typeof ports.readTargetRevision !== "function" ||
       typeof ports.acquireExecutionGuard !== "function"
     )
-      fail(
-        "INVALID_KNOWLEDGE_FILE",
+      invalidFile(
         "File host requires actual binding, native revision and execution guard ports",
       );
     this.#ports = Object.freeze({ ...ports });
@@ -283,10 +281,7 @@ export class FileKnowledgePublicationHost {
   private revision(binding: KnowledgeHostBinding, relative: string): number {
     const value = this.#ports.readTargetRevision(binding, relative);
     if (!Number.isSafeInteger(value) || value < 0)
-      fail(
-        "INVALID_KNOWLEDGE_FILE",
-        "Native file revision must be a nonnegative safe integer",
-      );
+      invalidFile("Native file revision must be a nonnegative safe integer");
     return value;
   }
   /** Synchronous observation for in-transaction currentness checks; never calls readTargetRevision. */
@@ -318,10 +313,7 @@ export class FileKnowledgePublicationHost {
       try {
         const value = lstatSync(absolute, { bigint: true });
         if (!plainDirectory(value) || realpathSync(absolute) !== absolute)
-          fail(
-            "KNOWLEDGE_FILE_UNSAFE",
-            "File parent must be an ordinary canonical directory",
-          );
+          unsafe("File parent must be an ordinary canonical directory");
         parentPins.push(physicalPin(selected, value));
       } catch (error) {
         if (!absent(error)) throw error;
@@ -345,10 +337,7 @@ export class FileKnowledgePublicationHost {
       }
       if (initial) {
         if (!observableFile(initial) || realpathSync(absolute) !== absolute)
-          fail(
-            "KNOWLEDGE_FILE_UNSAFE",
-            "File must be bounded ordinary single-link text",
-          );
+          unsafe("File must be bounded ordinary single-link text");
         const descriptor = openSync(
           absolute,
           constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
@@ -356,10 +345,7 @@ export class FileKnowledgePublicationHost {
         try {
           const before = fstatSync(descriptor, { bigint: true });
           if (!stable(initial, before))
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "File changed before descriptor opened",
-            );
+            stale("File changed before descriptor opened");
           const buffer = Buffer.alloc(MAX_BODY + 1);
           let bytes = 0;
           while (bytes < buffer.length) {
@@ -393,7 +379,7 @@ export class FileKnowledgePublicationHost {
     }
     this.current(binding);
     if (!same(root, physicalRoot()))
-      fail("KNOWLEDGE_FILE_STALE", "Physical root changed during observation");
+      stale("Physical root changed during observation");
     for (const pin of parentPins.slice(1)) {
       const absolute = path.join(binding.root, pin.path),
         value = lstatSync(absolute, { bigint: true });
@@ -402,10 +388,7 @@ export class FileKnowledgePublicationHost {
         realpathSync(absolute) !== absolute ||
         !same(pin, physicalPin(pin.path, value))
       )
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "Physical parent changed during observation",
-        );
+        stale("Physical parent changed during observation");
     }
     return immutableKnowledgeJson(observation);
   }
@@ -431,8 +414,7 @@ export class FileKnowledgePublicationHost {
       try {
         const value = await lstat(absolute, { bigint: true });
         if (!plainDirectory(value) || (await realpath(absolute)) !== absolute)
-          fail(
-            "KNOWLEDGE_FILE_UNSAFE",
+          unsafe(
             "File publication parent must be an ordinary canonical directory",
           );
         parentPins.push(physicalPin(selected, value));
@@ -459,8 +441,7 @@ export class FileKnowledgePublicationHost {
       }
       if (initial) {
         if (!observableFile(initial) || (await realpath(absolute)) !== absolute)
-          fail(
-            "KNOWLEDGE_FILE_UNSAFE",
+          unsafe(
             "File publication requires a bounded ordinary file with one link",
           );
         const handle = await open(
@@ -470,10 +451,7 @@ export class FileKnowledgePublicationHost {
         try {
           const before = await handle.stat({ bigint: true });
           if (!stable(initial, before))
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "File identity changed before descriptor observation",
-            );
+            stale("File identity changed before descriptor observation");
           const buffer = Buffer.alloc(MAX_BODY + 1);
           let bytes = 0;
           for (;;) {
@@ -509,8 +487,7 @@ export class FileKnowledgePublicationHost {
     }
     check(signal);
     const endRoot = await this.root(binding);
-    if (!same(root, endRoot))
-      fail("KNOWLEDGE_FILE_STALE", "Root changed during capture");
+    if (!same(root, endRoot)) stale("Root changed during capture");
     for (const pin of parentPins.slice(1)) {
       const absolute = path.join(binding.root, pin.path),
         value = await lstat(absolute, { bigint: true });
@@ -519,7 +496,7 @@ export class FileKnowledgePublicationHost {
         (await realpath(absolute)) !== absolute ||
         !same(pin, physicalPin(pin.path, value))
       )
-        fail("KNOWLEDGE_FILE_STALE", "Parent changed during capture");
+        stale("Parent changed during capture");
     }
     return { observation: immutableKnowledgeJson(observation), beforeContent };
   }
@@ -543,10 +520,7 @@ export class FileKnowledgePublicationHost {
         observed = await this.observe(binding, relative, signal);
       check(signal);
       if (this.revision(binding, relative) !== revision)
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "Native target revision changed during capture",
-        );
+        stale("Native target revision changed during capture");
       const capture = Object.freeze({ id: randomUUID() });
       this.#captures.set(capture, {
         observation: observed.observation,
@@ -599,22 +573,15 @@ export class FileKnowledgePublicationHost {
       this.revision(state.observation.binding, state.observation.path) !==
         state.revision
     )
-      fail(
-        "KNOWLEDGE_FILE_STALE",
-        "Original approved file, parent or native revision changed",
-      );
+      stale("Original approved file, parent or native revision changed");
   }
   releaseCapture(capture: FileKnowledgePublicationCapture): void {
     this.owned(capture);
     this.#active.delete(capture);
     this.#captures.delete(capture);
   }
-  /**
-   * Node has no portable openat/renameat compare-and-swap. Parent and preimage guards
-   * narrow each effect boundary; the final hash check cannot detect an external edit
-   * overwritten between the last preimage read and rename/unlink. New targets use
-   * link(EXCL semantics), so an appeared destination is never overwritten.
-   */
+  /** Without openat/renameat CAS, parent and preimage guards narrow each effect; an edit overwritten between
+   * the last preimage read and rename/unlink is undetectable. New targets use link (EXCL), never overwriting. */
   async apply(
     capture: FileKnowledgePublicationCapture,
     input: FileKnowledgePublicationApplyInput,
@@ -644,8 +611,7 @@ export class FileKnowledgePublicationHost {
       data.deadline < 0 ||
       typeof beforeEffect !== "function"
     )
-      fail(
-        "INVALID_KNOWLEDGE_FILE",
+      invalidFile(
         "File effect must use one bounded exact operation and original deadline",
       );
     identifier(data.publicationId);
@@ -655,10 +621,7 @@ export class FileKnowledgePublicationHost {
       binding = original.binding,
       relative = original.path;
     if (data.operation === "revoke" && !original.present)
-      fail(
-        "KNOWLEDGE_FILE_STALE",
-        "Revocation requires its original existing file",
-      );
+      stale("Revocation requires its original existing file");
     if (
       original.missingParents.length &&
       !/^\.moodcode\/skills\/[A-Za-z0-9][A-Za-z0-9_-]{0,63}\/SKILL\.md$/.test(
@@ -681,10 +644,7 @@ export class FileKnowledgePublicationHost {
     );
     ordinary(guard, ["release"], ["recordGroup"]);
     if (typeof guard.release !== "function")
-      fail(
-        "INVALID_KNOWLEDGE_FILE",
-        "Execution guard must expose original synchronous release",
-      );
+      invalidFile("Execution guard must expose original synchronous release");
     const handles = new Set<Awaited<ReturnType<typeof open>>>(),
       effects = {
         createdParents: [] as string[],
@@ -713,10 +673,7 @@ export class FileKnowledgePublicationHost {
       const target = absolute(selected),
         value = await lstat(target, { bigint: true });
       if (!plainDirectory(value) || (await realpath(target)) !== target)
-        fail(
-          "KNOWLEDGE_FILE_UNSAFE",
-          "File effect parent ceased to be an ordinary directory",
-        );
+        unsafe("File effect parent ceased to be an ordinary directory");
       return physicalPin(selected, value);
     };
     const refresh = async (selected: string) => {
@@ -730,10 +687,7 @@ export class FileKnowledgePublicationHost {
           old.inode !== next.inode ||
           old.mode !== next.mode)
       )
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "Parent physical identity changed across the owned effect",
-        );
+        stale("Parent physical identity changed across the owned effect");
       expected.set(selected, next);
     };
     const directories = async () => {
@@ -742,10 +696,7 @@ export class FileKnowledgePublicationHost {
       for (const [selected, pin] of expected) {
         const actual = await directoryPin(selected);
         if (!same(pin, actual))
-          fail(
-            "KNOWLEDGE_FILE_STALE",
-            "Parent changed before the next file effect",
-          );
+          stale("Parent changed before the next file effect");
       }
       alive();
     };
@@ -762,10 +713,7 @@ export class FileKnowledgePublicationHost {
         ctimeNs: v.ctimeNs,
       });
       if (!same(file(current), file(original)))
-        fail(
-          "KNOWLEDGE_FILE_STALE",
-          "Original file preimage changed before publication",
-        );
+        stale("Original file preimage changed before publication");
       alive();
     };
     const close = async (handle: Awaited<ReturnType<typeof open>>) => {
@@ -794,10 +742,7 @@ export class FileKnowledgePublicationHost {
           value.dev.toString() !== pin.device ||
           value.ino.toString() !== pin.inode
         )
-          fail(
-            "KNOWLEDGE_FILE_STALE",
-            "Directory descriptor belongs to another parent",
-          );
+          stale("Directory descriptor belongs to another parent");
         await handle.sync();
       } finally {
         await close(handle);
@@ -874,10 +819,7 @@ export class FileKnowledgePublicationHost {
             value.dev !== initial.dev ||
             value.ino !== initial.ino
           )
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "Owned temporary file changed during write",
-            );
+            stale("Owned temporary file changed during write");
         } finally {
           await close(handle);
         }
@@ -951,10 +893,7 @@ export class FileKnowledgePublicationHost {
           for (const [selected, pin] of expected) {
             const actual = await directoryPin(selected);
             if (actual.device !== pin.device || actual.inode !== pin.inode)
-              fail(
-                "KNOWLEDGE_FILE_STALE",
-                "Cleanup parent physical identity changed",
-              );
+              stale("Cleanup parent physical identity changed");
           }
           const value = await lstat(absolute(temp), { bigint: true });
           if (
@@ -963,10 +902,7 @@ export class FileKnowledgePublicationHost {
             value.dev.toString() !== tempIdentity.device ||
             value.ino.toString() !== tempIdentity.inode
           )
-            fail(
-              "KNOWLEDGE_FILE_STALE",
-              "Temporary path no longer belongs to this effect",
-            );
+            stale("Temporary path no longer belongs to this effect");
           await unlink(absolute(temp));
           effects.removedFiles.push(temp);
           temp = undefined;

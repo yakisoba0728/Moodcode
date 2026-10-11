@@ -40,6 +40,9 @@ import {
   sameKnowledge as equal,
 } from "./validation.js";
 
+function invalidEvidence(message: string): never {
+  return filePublicationError("KNOWLEDGE_FILE_EVIDENCE_INVALID", message);
+}
 /** Streaming metadata-first semantic archive validation; no filesystem effect or rebind. */
 export function validateKnowledgeFilePublicationDatabase(
   db: DatabaseSync,
@@ -58,64 +61,57 @@ export function validateKnowledgeFilePublicationDatabase(
       recordId,
     ]);
     if (!row)
-      filePublicationError(
-        "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+      invalidEvidence(
         "Native file relation refers to a missing workspace-scoped record",
       );
     return decode(row, table) as T;
   };
-  const historical = <T>(
-    table: string,
-    workspaceId: string,
-    recordId: string,
-  ): T => {
-    check();
-    const metadata = db
-      .prepare(
-        `SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE workspace_id=? AND id=?`,
+  const historical =
+    <T>(table: string) =>
+    (workspaceId: string, recordId: string): T => {
+      check();
+      const metadata = db
+        .prepare(
+          `SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE workspace_id=? AND id=?`,
+        )
+        .get(workspaceId, recordId);
+      if (
+        !metadata ||
+        !Number.isSafeInteger(metadata.bytes) ||
+        Number(metadata.bytes) < 2 ||
+        Number(metadata.bytes) > 65536
       )
-      .get(workspaceId, recordId);
-    if (
-      !metadata ||
-      !Number.isSafeInteger(metadata.bytes) ||
-      Number(metadata.bytes) < 2 ||
-      Number(metadata.bytes) > 65536
-    )
-      filePublicationError(
-        "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-        "Historical producer relation is missing or exceeds its original native row cap",
-      );
-    const row = db
-      .prepare(`SELECT data FROM ${table} WHERE workspace_id=? AND id=?`)
-      .get(workspaceId, recordId);
-    if (
-      !row ||
-      typeof row.data !== "string" ||
-      Buffer.byteLength(row.data) !== metadata.bytes
-    )
-      filePublicationError(
-        "KNOWLEDGE_FILE_RECORD_CHANGED",
-        "Historical producer changed during bounded file validation",
-      );
-    try {
-      return JSON.parse(row.data) as T;
-    } catch {
-      return filePublicationError(
-        "KNOWLEDGE_FILE_RECORD_INVALID",
-        "Historical native producer contains malformed bounded JSON",
-      );
-    }
-  };
+        invalidEvidence(
+          "Historical producer relation is missing or exceeds its original native row cap",
+        );
+      const row = db
+        .prepare(`SELECT data FROM ${table} WHERE workspace_id=? AND id=?`)
+        .get(workspaceId, recordId);
+      if (
+        !row ||
+        typeof row.data !== "string" ||
+        Buffer.byteLength(row.data) !== metadata.bytes
+      )
+        filePublicationError(
+          "KNOWLEDGE_FILE_RECORD_CHANGED",
+          "Historical producer changed during bounded file validation",
+        );
+      try {
+        return JSON.parse(row.data) as T;
+      } catch {
+        return filePublicationError(
+          "KNOWLEDGE_FILE_RECORD_INVALID",
+          "Historical native producer contains malformed bounded JSON",
+        );
+      }
+    };
   const requireCompleted = (owner: KnowledgeFilePublicationRecord): void => {
     if (
       owner.state !== "completed" ||
       owner.checkpointId === null ||
       owner.targetRevisionId === null
     )
-      filePublicationError(
-        "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-        "File receipt requires its completed owner",
-      );
+      invalidEvidence("File receipt requires its completed owner");
     const checkpoint = requireRow<KnowledgeFileCheckpointRecord>(
         "knowledge_file_checkpoints",
         owner.workspaceId,
@@ -133,17 +129,13 @@ export function validateKnowledgeFilePublicationDatabase(
       [owner.workspaceId, owner.id],
     );
     if (!receiptRow)
-      filePublicationError(
-        "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-        "Completed file owner has no exact receipt",
-      );
+      invalidEvidence("Completed file owner has no exact receipt");
     const receipt = decode(
       receiptRow,
       "knowledge_file_publication_receipts",
     ) as KnowledgeFilePublicationReceipt;
     if (!isCompletedFileEvidence(owner, checkpoint, target, receipt))
-      filePublicationError(
-        "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+      invalidEvidence(
         "File receipt/checkpoint/target differs from the exact completed native approval",
       );
   };
@@ -177,8 +169,7 @@ export function validateKnowledgeFilePublicationDatabase(
             )
             .get(workspaceId, observation.path)
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+          invalidEvidence(
             "Native physical observation has no current workspace head",
           );
         if (observation.previousId !== null) {
@@ -191,8 +182,7 @@ export function validateKnowledgeFilePublicationDatabase(
             previous.path !== observation.path ||
             previous.revision + 1 !== observation.revision
           )
-            filePublicationError(
-              "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+            invalidEvidence(
               "File observation predecessor is not the exact prior monotonic revision",
             );
         }
@@ -206,8 +196,7 @@ export function validateKnowledgeFilePublicationDatabase(
             owner.state !== "completed" ||
             owner.targetRevisionId !== observation.id
           )
-            filePublicationError(
-              "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+            invalidEvidence(
               "Published observation lacks its exact completed owner",
             );
         }
@@ -228,36 +217,28 @@ export function validateKnowledgeFilePublicationDatabase(
           current.revision !== head.revision ||
           latest?.id !== current.id
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+          invalidEvidence(
             "File head is not the exact latest monotonic observation",
           );
       } else if (table === "knowledge_file_publications") {
         const owner = value as KnowledgeFilePublicationRecord;
         const history = readKnowledgePublicationHistory(
           {
-            getCandidate: (ws, id) =>
-              historical<KnowledgeCandidate>("knowledge_candidates", ws, id),
-            getPlan: (ws, id) =>
-              historical<KnowledgeGenerationPlan>(
-                "knowledge_generation_plans",
-                ws,
-                id,
-              ),
-            getGeneration: (ws, id) =>
-              historical<KnowledgeGenerationRecord>(
-                "knowledge_generations",
-                ws,
-                id,
-              ),
-            getAttempt: (ws, id) =>
-              historical<KnowledgeGenerationAttempt>(
-                "knowledge_generation_attempts",
-                ws,
-                id,
-              ),
-            getTrustRevision: (ws, id) =>
-              historical<TrustRevision>("workspace_trust_revisions", ws, id),
+            getCandidate: historical<KnowledgeCandidate>(
+              "knowledge_candidates",
+            ),
+            getPlan: historical<KnowledgeGenerationPlan>(
+              "knowledge_generation_plans",
+            ),
+            getGeneration: historical<KnowledgeGenerationRecord>(
+              "knowledge_generations",
+            ),
+            getAttempt: historical<KnowledgeGenerationAttempt>(
+              "knowledge_generation_attempts",
+            ),
+            getTrustRevision: historical<TrustRevision>(
+              "workspace_trust_revisions",
+            ),
           },
           workspaceId,
           owner.provenance.candidateId,
@@ -268,10 +249,7 @@ export function validateKnowledgeFilePublicationDatabase(
           history.candidate.target.kind !== "workspace-file" ||
           history.candidate.target.path !== owner.path
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-            "File owner historical producer pins differ",
-          );
+          invalidEvidence("File owner historical producer pins differ");
         if (
           owner.operation === "publish" &&
           (history.candidate.body !== owner.body ||
@@ -281,8 +259,7 @@ export function validateKnowledgeFilePublicationDatabase(
               owner.expectedTarget,
             ))
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+          invalidEvidence(
             "File owner candidate differs from its approved preimage/body",
           );
         if (owner.operation === "revoke") {
@@ -292,8 +269,7 @@ export function validateKnowledgeFilePublicationDatabase(
             owner.existingPublicationId!,
           );
           if (!revokesCompletedPublish(original, owner))
-            filePublicationError(
-              "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+            invalidEvidence(
               "Revocation lacks the exact completed active postimage",
             );
         }
@@ -306,8 +282,7 @@ export function validateKnowledgeFilePublicationDatabase(
             .get(workspaceId, owner.id) ||
           owner.targetRevisionId !== null
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+          invalidEvidence(
             "Incomplete file owner cannot have a successful effect receipt",
           );
       } else if (table === "knowledge_file_checkpoints") {
@@ -324,10 +299,7 @@ export function validateKnowledgeFilePublicationDatabase(
           checkpoint.beforeContent !== owner.beforeContent ||
           checkpoint.cleanupConfirmed !== owner.cleanupConfirmed
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-            "Effect checkpoint lacks its exact native owner",
-          );
+          invalidEvidence("Effect checkpoint lacks its exact native owner");
       } else if (table === "knowledge_file_publication_receipts")
         requireCompleted(
           requireRow<KnowledgeFilePublicationRecord>(
@@ -345,8 +317,7 @@ export function validateKnowledgeFilePublicationDatabase(
             pin.id,
           );
           if (owner.state !== "uncertain" || owner.sha256 !== pin.sha256)
-            filePublicationError(
-              "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+            invalidEvidence(
               "Recovery acknowledgment rewrites or mismatches an original uncertain owner",
             );
         }
@@ -354,10 +325,7 @@ export function validateKnowledgeFilePublicationDatabase(
           ack.frontierSha256 !== knowledgeHash(ack.ownerHashes) ||
           (ack.operation === "resume" && ack.ownerHashes.length)
         )
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
-            "Recovery decision frontier is not exact",
-          );
+          invalidEvidence("Recovery decision frontier is not exact");
       } else {
         const barrier = value as KnowledgeFileWorkspaceBarrier;
         if (barrier.acknowledgmentId !== null) {
@@ -374,13 +342,11 @@ export function validateKnowledgeFilePublicationDatabase(
                 : true) ||
             !equal(ack.binding, barrier.binding)
           )
-            filePublicationError(
-              "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+            invalidEvidence(
               "Workspace barrier does not describe its exact explicit recovery decision",
             );
         } else if (barrier.state !== "blocked")
-          filePublicationError(
-            "KNOWLEDGE_FILE_EVIDENCE_INVALID",
+          invalidEvidence(
             "A resumed workspace requires its original decision receipt",
           );
       }

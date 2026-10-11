@@ -42,10 +42,7 @@ export interface KnowledgeGraphOptions<Table extends string> {
   readonly invalid: (fault: KnowledgeGraphFault) => never;
 }
 
-/**
- * Bounded historical row reader for archive relation validators. Statements are cached per
- * reader by SQL text, so a `headers()` iteration must not nest another with the same SQL.
- */
+/** Bounded archive row reader. Statements are cached by SQL text: never nest headers() iterations of the same SQL. */
 export function createKnowledgeGraphReader<Table extends string>(
   db: DatabaseSync,
   check: () => void,

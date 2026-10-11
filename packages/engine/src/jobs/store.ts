@@ -8,16 +8,14 @@ import {
   type RevisionJournal,
   type RevisionJournalProfile,
 } from "../storage/revision-journal.js";
-import type {
-  JobAcceptedInputProof,
-  JobDeliveryTargetProof,
-} from "./delivery.js";
 import {
   formatJobResult,
   isDeliverableJob,
   jobResultDeliveryId,
   jobResultInputRequestId,
   parseJobResultInputRequestId,
+  type JobAcceptedInputProof,
+  type JobDeliveryTargetProof,
 } from "./delivery.js";
 import {
   JOB_LIMITS,
@@ -56,10 +54,6 @@ import {
   targetProof,
   validateRecord,
 } from "./store-proofs.js";
-export type {
-  JobAcceptedInputProof,
-  JobDeliveryTargetProof,
-} from "./delivery.js";
 /** Operations that may use the headroom ordinary writes leave for every job and delivery head. */
 const RESERVED_OPERATIONS = new Set([
   "settle",
@@ -412,7 +406,6 @@ export class JobStorage {
       fail("JOB_INPUT_INVALID");
     return d;
   }
-  /** Entity IDs of the delivery heads whose head revision belongs to `jobId`. */
   private deliveryHeadsForJob(
     ws: string,
     jobId: string,
@@ -425,7 +418,6 @@ export class JobStorage {
       .all(ws, jobId, limit)
       .map((h) => String(h.entity_id));
   }
-  /** The pair an earlier identical request wrote, or else the result of `run`. */
   private once<T extends JobRecord>(
     kind: JobJournalKind,
     eid: string,
@@ -612,12 +604,11 @@ export class JobStorage {
         )
           fail("JOB_OUTPUT_STALE");
         assertOutputProgress(before.cursor, p);
-        const ox = { ...x, expectedRevision: 0 };
         const output = this.append<JobOutputRevision>(
           "output",
           x.outputId,
           "output",
-          ox,
+          { ...x, expectedRevision: 0 },
           undefined,
           {
             outputId: x.outputId,
@@ -1045,43 +1036,31 @@ export class JobStorage {
         )
           fail();
       }
-      if (r.kind === "job") {
-        const admission = records.get(r.sourceRevisionId);
+      if (r.kind !== "delivery") {
+        const admission = records.get(
+          r.kind === "job" ? r.sourceRevisionId : r.jobRevisionId,
+        );
         if (
           !admission ||
           admission.kind !== "job" ||
           admission.revision !== 1 ||
-          admission.state !== "attached" ||
+          (r.kind === "job" && admission.state !== "attached") ||
           admission.jobId !== r.jobId ||
           admission.sourceSha256 !== r.sourceSha256 ||
           admission.owner.sha256 !== r.owner.sha256
         )
           fail();
-        if (t.operation === "output") {
-          const o = outputs.get(
-            JSON.stringify([r.workspaceId, r.lastOutputId]),
-          );
-          if (
-            !o ||
-            o.jobId !== r.jobId ||
-            o.page.nextCursor.sha256 !== r.cursor?.sha256 ||
-            o.sourceSha256 !== r.sourceSha256
-          )
-            fail();
-          assertOutputProgress((before as CommandJob).cursor, o.page);
-        }
       }
-      if (r.kind === "output") {
-        const admission = records.get(r.jobRevisionId);
+      if (r.kind === "job" && t.operation === "output") {
+        const o = outputs.get(JSON.stringify([r.workspaceId, r.lastOutputId]));
         if (
-          !admission ||
-          admission.kind !== "job" ||
-          admission.revision !== 1 ||
-          admission.jobId !== r.jobId ||
-          admission.sourceSha256 !== r.sourceSha256 ||
-          admission.owner.sha256 !== r.owner.sha256
+          !o ||
+          o.jobId !== r.jobId ||
+          o.page.nextCursor.sha256 !== r.cursor?.sha256 ||
+          o.sourceSha256 !== r.sourceSha256
         )
           fail();
+        assertOutputProgress((before as CommandJob).cursor, o.page);
       }
       if (r.kind === "delivery") {
         const settled = records.get(r.settledRevisionId);
@@ -1177,7 +1156,11 @@ export class JobStorage {
   }
 
   recoverInterrupted(): number {
-    return this.ports.writeTx(() => recoverInterruptedJobs(this.db));
+    return this.ports.writeTx(() =>
+      transaction(this.db, () =>
+        new JobStorage(this.db, metadataPorts()).rewriteLocal("recover"),
+      ),
+    );
   }
 }
 
@@ -1216,11 +1199,6 @@ export function validateJobDatabase(
   options.check?.();
   new JobStorage(db, metadataPorts()).validateGraph();
   options.check?.();
-}
-function recoverInterruptedJobs(db: DatabaseSync): number {
-  return transaction(db, () =>
-    new JobStorage(db, metadataPorts()).rewriteLocal("recover"),
-  );
 }
 export function markImportedJobsPaused(
   db: DatabaseSync,
