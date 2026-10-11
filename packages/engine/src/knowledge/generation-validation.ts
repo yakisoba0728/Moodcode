@@ -32,7 +32,6 @@ export const KNOWLEDGE_GENERATION_TABLES = Object.freeze([
   "knowledge_generation_recovery_acknowledgments",
   "knowledge_generation_workspace_barriers",
 ] as const);
-/** SQL columns that mirror native generation body fields. */
 export const KNOWLEDGE_GENERATION_COLUMNS: Readonly<
   Record<KnowledgeGenerationTable, Readonly<Record<string, string>>>
 > = Object.freeze({
@@ -68,6 +67,13 @@ const STATES = new Set([
   "completed",
   "failed",
   "cancelled",
+  "uncertain",
+]);
+const DISPATCHED = new Set([
+  "dispatched",
+  "streaming",
+  "output-finished",
+  "completed",
   "uncertain",
 ]);
 export function exact(
@@ -259,16 +265,7 @@ export function validateRecord(value: unknown): KnowledgeGenerationRecord {
       "INVALID_KNOWLEDGE_GENERATION",
       "Unknown native candidate state",
     );
-  if (
-    r.attemptId === null &&
-    [
-      "dispatched",
-      "streaming",
-      "output-finished",
-      "completed",
-      "uncertain",
-    ].includes(r.state)
-  )
+  if (r.attemptId === null && DISPATCHED.has(r.state))
     knowledgeError(
       "INVALID_KNOWLEDGE_GENERATION",
       "Dispatched or completed native work needs its actual attempt",
@@ -374,14 +371,7 @@ export function validateAttempt(value: unknown): KnowledgeGenerationAttempt {
     );
   if (
     (r.state === "prepared" && r.dispatchedAt !== null) ||
-    ([
-      "dispatched",
-      "streaming",
-      "output-finished",
-      "completed",
-      "uncertain",
-    ].includes(r.state) &&
-      r.dispatchedAt === null)
+    (DISPATCHED.has(r.state) && r.dispatchedAt === null)
   )
     knowledgeError(
       "INVALID_KNOWLEDGE_GENERATION",
@@ -546,7 +536,6 @@ export function validateKnowledgeGenerationArchiveRow(
     );
   return row;
 }
-/** The attempt shares its generation's id, plan, runtime epoch and state. */
 export function attemptBelongsTo(
   g: KnowledgeGenerationRecord,
   a: KnowledgeGenerationAttempt,
@@ -558,7 +547,6 @@ export function attemptBelongsTo(
     a.state === g.state
   );
 }
-/** Candidate plan, request and body hash match the generation and its attempt. */
 export function candidateMatchesOutput(
   candidate: Pick<
     KnowledgeCandidate,

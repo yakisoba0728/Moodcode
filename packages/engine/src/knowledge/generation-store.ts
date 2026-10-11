@@ -124,6 +124,28 @@ type AttemptHandle = {
   record: KnowledgeGenerationAttempt;
   owner: KnowledgeGenerationCapture;
 };
+function advance<
+  T extends KnowledgeGenerationRecord | KnowledgeGenerationAttempt,
+>(record: T, updatedAt: string, patch: Partial<Omit<T, "sha256">> = {}): T {
+  const next = { ...patch, revision: record.revision + 1, updatedAt };
+  return updated(record, next as Partial<Omit<T, "sha256">>);
+}
+function readBarrier(
+  db: DatabaseSync,
+  workspaceId: string,
+): KnowledgeGenerationWorkspaceBarrier | undefined {
+  const row = db
+    .prepare(
+      "SELECT * FROM knowledge_generation_workspace_barriers WHERE workspace_id=?",
+    )
+    .get(workspaceId) as Row | undefined;
+  return row
+    ? (decode(
+        row,
+        "knowledge_generation_workspace_barriers",
+      ) as KnowledgeGenerationWorkspaceBarrier)
+    : undefined;
+}
 function decode(
   row: Row,
   table: KnowledgeGenerationTable,
@@ -219,22 +241,17 @@ export function hasKnowledgeGenerationBlocker(
 ): boolean {
   identifier(workspaceId);
   const imported = importedUncertaintyResolver(db, workspaceId);
-  const barrier = db
-    .prepare(
-      "SELECT * FROM knowledge_generation_workspace_barriers WHERE workspace_id=?",
+  const barrier = readBarrier(db, workspaceId);
+  if (
+    barrier &&
+    barrier.state !== "clear" &&
+    !imported.resolved(
+      "generation-barrier",
+      barrier.workspaceId,
+      barrier.sha256,
     )
-    .get(workspaceId) as Row | undefined;
-  if (barrier) {
-    const value = decode(
-      barrier,
-      "knowledge_generation_workspace_barriers",
-    ) as KnowledgeGenerationWorkspaceBarrier;
-    if (
-      value.state !== "clear" &&
-      !imported.resolved("generation-barrier", value.workspaceId, value.sha256)
-    )
-      return true;
-  }
+  )
+    return true;
   return (
     unresolvedGenerations(db, workspaceId, imported).generations.length > 0
   );
@@ -280,6 +297,9 @@ export class KnowledgeGenerationStorage {
     const value = this.#ports.now?.() ?? Date.now();
     integer(value, 8_640_000_000_000_000);
     return Math.max(floor, value);
+  }
+  private after(updatedAt: string): string {
+    return new Date(this.now(Date.parse(updatedAt))).toISOString();
   }
   private binding(workspaceId: string): KnowledgeHostBinding {
     identifier(workspaceId);
@@ -689,9 +709,7 @@ export class KnowledgeGenerationStorage {
         );
       this.fresh(generation);
       this.active(capture);
-      const time = new Date(
-        this.now(Date.parse(generation.updatedAt)),
-      ).toISOString();
+      const time = this.after(generation.updatedAt);
       const record = validateAttempt(
         hashRecord({
           id: value.id,
@@ -721,11 +739,7 @@ export class KnowledgeGenerationStorage {
           errorCode: null,
         }),
       );
-      const next = updated(generation, {
-        attemptId: record.id,
-        revision: generation.revision + 1,
-        updatedAt: time,
-      });
+      const next = advance(generation, time, { attemptId: record.id });
       this.#db
         .prepare(
           "INSERT INTO knowledge_generation_attempts(id,workspace_id,generation_id,plan_id,state,revision,data) VALUES(?,?,?,?,?,?,?)",
@@ -782,20 +796,12 @@ export class KnowledgeGenerationStorage {
         );
       this.fresh(current.generation);
       this.active(owner, attempt);
-      const time = new Date(
-        this.now(Date.parse(current.generation.updatedAt)),
-      ).toISOString();
-      const nextAttempt = updated(old, {
+      const time = this.after(current.generation.updatedAt);
+      const nextAttempt = advance(old, time, {
         state: "dispatched",
-        revision: old.revision + 1,
         dispatchedAt: time,
-        updatedAt: time,
       });
-      const next = updated(current.generation, {
-        state: "dispatched",
-        revision: current.generation.revision + 1,
-        updatedAt: time,
-      });
+      const next = advance(current.generation, time, { state: "dispatched" });
       this.saveAttempt(old, nextAttempt);
       this.saveGeneration(current.generation, next);
       return { generation: next, attempt: nextAttempt };
@@ -932,15 +938,13 @@ export class KnowledgeGenerationStorage {
           "KNOWLEDGE_GENERATION_BINDING_MISMATCH",
           "Provider request identity changed within one native attempt",
         );
-      const time = new Date(this.now(Date.parse(g.updatedAt))).toISOString(),
+      const time = this.after(g.updatedAt),
         state =
           value.finishReason !== undefined || old.finishReason !== null
             ? "output-finished"
             : "streaming";
-      const nextAttempt = updated(old, {
+      const nextAttempt = advance(old, time, {
         state,
-        revision: old.revision + 1,
-        updatedAt: time,
         output,
         outputSha256: sha256(output),
         outputBytes: Buffer.byteLength(output),
@@ -953,11 +957,7 @@ export class KnowledgeGenerationStorage {
         finishReason: value.finishReason ?? old.finishReason,
         streamDone: value.streamDone ?? old.streamDone,
       });
-      const next = updated(g, {
-        state,
-        revision: g.revision + 1,
-        updatedAt: time,
-      });
+      const next = advance(g, time, { state });
       this.saveAttempt(old, nextAttempt);
       this.saveGeneration(g, next);
       return { generation: next, attempt: nextAttempt };
@@ -1048,7 +1048,7 @@ export class KnowledgeGenerationStorage {
           "INVALID_KNOWLEDGE_GENERATION",
           "Terminal outcome cannot confer inconsistent output authority",
         );
-      const time = new Date(this.now(Date.parse(g.updatedAt))).toISOString(),
+      const time = this.after(g.updatedAt),
         errorCode =
           state === "completed"
             ? null
@@ -1067,20 +1067,12 @@ export class KnowledgeGenerationStorage {
                     ? value.candidate.reason
                     : errorCode!,
               };
-      const nextAttempt = updated(old, {
+      const nextAttempt = advance(old, time, {
         state,
-        revision: old.revision + 1,
-        updatedAt: time,
         cleanup: observedCleanup,
         errorCode,
       });
-      const next = updated(g, {
-        state,
-        revision: g.revision + 1,
-        updatedAt: time,
-        errorCode,
-        candidate,
-      });
+      const next = advance(g, time, { state, errorCode, candidate });
       this.saveAttempt(old, nextAttempt);
       this.saveGeneration(g, next);
       if (state === "uncertain") this.setBarrier(g.workspaceId, "blocked");
@@ -1101,7 +1093,7 @@ export class KnowledgeGenerationStorage {
           "KNOWLEDGE_GENERATION_STALE",
           "Only work without provider intent may fail as prepared",
         );
-      const time = new Date(this.now(Date.parse(g.updatedAt))).toISOString(),
+      const time = this.after(g.updatedAt),
         state = errorCode.includes("CANCEL") ? "cancelled" : "failed";
       let attempt: KnowledgeGenerationAttempt | null = null;
       if (g.attemptId) {
@@ -1111,19 +1103,15 @@ export class KnowledgeGenerationStorage {
             "KNOWLEDGE_GENERATION_STALE",
             "Prepared failure cannot erase provider intent",
           );
-        attempt = updated(old, {
+        attempt = advance(old, time, {
           state,
-          revision: old.revision + 1,
-          updatedAt: time,
           cleanup: { confirmed: true, method: "not-dispatched", reason: null },
           errorCode,
         });
         this.saveAttempt(old, attempt);
       }
-      const next = updated(g, {
+      const next = advance(g, time, {
         state,
-        revision: g.revision + 1,
-        updatedAt: time,
         errorCode,
         candidate: { state: "withheld", candidateId: null, reason: errorCode },
       });
@@ -1207,11 +1195,7 @@ export class KnowledgeGenerationStorage {
             "Actual candidate does not match exact native output",
           );
       }
-      const next = updated(g, {
-        revision: g.revision + 1,
-        updatedAt: new Date(this.now(Date.parse(g.updatedAt))).toISOString(),
-        candidate,
-      });
+      const next = advance(g, this.after(g.updatedAt), { candidate });
       this.saveGeneration(g, next);
       return next;
     });
@@ -1300,21 +1284,15 @@ export class KnowledgeGenerationStorage {
           "Cannot abandon another epoch native owner",
         );
       const a = this.getAttempt(g.workspaceId, current.attemptId!);
-      const time = new Date(
-          this.now(Date.parse(current.updatedAt)),
-        ).toISOString(),
+      const time = this.after(current.updatedAt),
         errorCode = "KNOWLEDGE_GENERATION_SETTLEMENT_UNCERTAIN";
-      const nextAttempt = updated(a, {
+      const nextAttempt = advance(a, time, {
         state: "uncertain",
-        revision: a.revision + 1,
-        updatedAt: time,
         cleanup: { confirmed: false, method: "unknown", reason: errorCode },
         errorCode,
       });
-      const next = updated(current, {
+      const next = advance(current, time, {
         state: "uncertain",
-        revision: current.revision + 1,
-        updatedAt: time,
         errorCode,
         candidate: { state: "withheld", candidateId: null, reason: errorCode },
       });
@@ -1340,8 +1318,7 @@ export class KnowledgeGenerationStorage {
         "KNOWLEDGE_GENERATION_HANDLE_INVALID",
         "Attempt capture is foreign or released",
       );
-    const a = this.#attempts.get(attempt)!;
-    this.abandon(a.owner);
+    this.abandon(this.#attempts.get(attempt)!.owner);
     this.#attempts.delete(attempt);
   }
   hasBlocker(workspaceId: string): boolean {
@@ -1351,17 +1328,7 @@ export class KnowledgeGenerationStorage {
     workspaceId: string,
   ): KnowledgeGenerationWorkspaceBarrier | undefined {
     identifier(workspaceId);
-    const row = this.#db
-      .prepare(
-        "SELECT * FROM knowledge_generation_workspace_barriers WHERE workspace_id=?",
-      )
-      .get(workspaceId) as Row | undefined;
-    return row
-      ? (decode(
-          row,
-          "knowledge_generation_workspace_barriers",
-        ) as KnowledgeGenerationWorkspaceBarrier)
-      : undefined;
+    return readBarrier(this.#db, workspaceId);
   }
   private frontier(workspaceId: string): {
     generations: KnowledgeGenerationRecord[];
@@ -1502,14 +1469,12 @@ export class KnowledgeGenerationStorage {
             errorCode = intended
               ? "KNOWLEDGE_GENERATION_INTERRUPTED_UNCERTAIN"
               : "KNOWLEDGE_GENERATION_INTERRUPTED_NOT_DISPATCHED",
-            time = new Date(this.now(Date.parse(g.updatedAt))).toISOString();
+            time = this.after(g.updatedAt);
           if (a)
             this.saveAttempt(
               a,
-              updated(a, {
+              advance(a, time, {
                 state,
-                revision: a.revision + 1,
-                updatedAt: time,
                 errorCode,
                 cleanup: {
                   confirmed: !intended,
@@ -1520,10 +1485,8 @@ export class KnowledgeGenerationStorage {
             );
           this.saveGeneration(
             g,
-            updated(g, {
+            advance(g, time, {
               state,
-              revision: g.revision + 1,
-              updatedAt: time,
               errorCode,
               candidate: {
                 state: "withheld",
@@ -1649,7 +1612,7 @@ export class KnowledgeGenerationStorage {
       previewSha256: preview.sha256,
       ...value,
     });
-    const result = this.write(() => {
+    return this.write(() => {
       this.assertBinding(preview.binding);
       const duplicate = this.receipt(
         preview.workspaceId,
@@ -1706,7 +1669,6 @@ export class KnowledgeGenerationStorage {
       );
       return { acknowledgment, barrier: next };
     });
-    return result;
   }
   resumeWorkspace(input: {
     workspaceId: string;

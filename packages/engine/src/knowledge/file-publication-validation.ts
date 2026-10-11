@@ -158,6 +158,13 @@ function decimal(value: unknown, signed = false): void {
       "Physical file metadata must be bounded decimal text",
     );
 }
+function physicalIdentity(v: Record<string, unknown>): void {
+  decimal(v.device);
+  decimal(v.inode);
+  integer(v.mode, 0o177777);
+  decimal(v.mtimeNs, true);
+  decimal(v.ctimeNs, true);
+}
 export function filePath(value: unknown): string {
   const path = exactKnowledgePath(value);
   if (
@@ -221,11 +228,7 @@ export function validateFilePhysicalObservation(
     );
   if (v.present) {
     fileDigest(v.sha256);
-    decimal(v.device);
-    decimal(v.inode);
-    integer(v.mode, 0o177777);
-    decimal(v.mtimeNs, true);
-    decimal(v.ctimeNs, true);
+    physicalIdentity(v);
     if (v.missingParents.length)
       knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
@@ -255,11 +258,7 @@ export function validateFilePhysicalObservation(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "Parent observations must follow the exact canonical path",
       );
-    decimal(pin.device);
-    decimal(pin.inode);
-    integer(pin.mode, 0o177777);
-    decimal(pin.mtimeNs, true);
-    decimal(pin.ctimeNs, true);
+    physicalIdentity(pin);
   }
   const parentCount = v.parentPins.length;
   if (
@@ -331,19 +330,14 @@ export function validateFilePublicationCheckpoint(
   input: unknown,
 ): FilePublicationCheckpoint {
   const v = filePublicationJson(input);
-  fileFields(v, [
+  const lists = [
     "createdParents",
     "createdFiles",
     "removedFiles",
     "replacedFiles",
-    "partial",
-  ]);
-  for (const key of [
-    "createdParents",
-    "createdFiles",
-    "removedFiles",
-    "replacedFiles",
-  ] as const) {
+  ] as const;
+  fileFields(v, [...lists, "partial"]);
+  for (const key of lists) {
     const values = v[key];
     if (
       !Array.isArray(values) ||

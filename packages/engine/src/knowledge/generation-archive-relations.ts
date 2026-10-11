@@ -50,12 +50,8 @@ function invalid(message: string): never {
   return knowledgeError("KNOWLEDGE_GENERATION_RELATION_INVALID", message);
 }
 
-/**
- * Validate persisted historical producer relationships without issuing host capabilities.
- * Call inside a stable database read/transaction. `check` supplies the caller's cancellation,
- * archive deadline and whole-database limits. Every body is bounded before SQLite returns it;
- * metadata and independent relations are streamed, never accumulated into a database-sized array.
- */
+/** Validates historical producer relations inside the caller's stable read transaction, issuing no host capability.
+ * `check` enforces cancellation, deadline and whole-database limits; bodies are bounded and relations streamed. */
 export function validateKnowledgeGenerationDatabase(
   db: DatabaseSync,
   check: () => void,
@@ -166,8 +162,7 @@ export function validateKnowledgeGenerationDatabase(
       a.cleanup.method !== "not-dispatched"
     )
       invalid("Undispatched native attempt cannot claim iterator cleanup");
-    // Failed/uncertain outcomes preserve their last real overflow observation. Only completed
-    // output may assert that every original charge, event and completion time stayed in budget.
+    // Failed/uncertain outcomes keep their last real overflow; only completed output must have stayed in budget.
     if (
       g.state === "completed" &&
       (a.observedTextBytes > g.budget.maxOutputBytes ||
@@ -217,8 +212,7 @@ export function validateKnowledgeGenerationDatabase(
       invalid(
         "Knowledge candidate is not the exact completed native owner output and provenance",
       );
-    // The candidate append and native marker use separate durable transactions. A crash between
-    // them legitimately leaves an exact candidate with a pending/withheld marker; never promote it.
+    // Append and marker commit separately: a crash may leave an exact candidate under a pending/withheld marker; never promote it.
   }
 
   for (const header of headers("knowledge_generations", "ORDER BY id")) {
@@ -235,8 +229,7 @@ export function validateKnowledgeGenerationDatabase(
     pair(generation, attempt);
     candidateFor(generation, attempt, plan);
   }
-  // Also reject orphan or hidden attempts even when foreign-key enforcement was disabled by
-  // an archive author. Looking up an exact generation remains bounded and uses its primary key.
+  // Reject orphan attempts even when an archive author disabled foreign keys; each lookup is a bounded primary-key read.
   for (const header of headers(
     "knowledge_generation_attempts",
     "ORDER BY id",

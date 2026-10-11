@@ -293,16 +293,7 @@ export function validateKnowledgeFilePublicationArchiveRow(
           "Native file owner original request changed",
         );
       identifier(v.runtimeEpoch);
-      if (
-        integer(v.revision) < 1 ||
-        ![
-          "prepared",
-          "dispatched",
-          "completed",
-          "cancelled",
-          "uncertain",
-        ].includes(String(v.state))
-      )
+      if (integer(v.revision) < 1 || !Object.hasOwn(FRONTIER, String(v.state)))
         filePublicationError(
           "INVALID_KNOWLEDGE_FILE_PUBLICATION",
           "Invalid native file owner state",
@@ -906,17 +897,13 @@ export class KnowledgeFilePublicationStorage {
     input: PrepareKnowledgeFilePublication,
   ): KnowledgeFilePublicationRecord | undefined {
     const request = validatePrepareKnowledgeFilePublication(input);
-    const row = this.row(
+    const record = this.get<KnowledgeFilePublicationRecord>(
       "knowledge_file_publications",
       "workspace_id=? AND request_id=?",
-      [request.workspaceId, request.requestId],
+      request.workspaceId,
+      request.requestId,
     );
-    if (!row) return undefined;
-    const record = decode(
-      row,
-      "knowledge_file_publications",
-    ) as KnowledgeFilePublicationRecord;
-    if (record.requestSha256 !== knowledgeHash(request))
+    if (record && record.requestSha256 !== knowledgeHash(request))
       filePublicationError(
         "KNOWLEDGE_FILE_REQUEST_CONFLICT",
         "Request identity is already bound to another immutable file publication",
@@ -1666,16 +1653,13 @@ export class KnowledgeFilePublicationStorage {
         "Explicit exact workspace recovery approval and reason are required",
       );
     return this.write(() => {
-      const duplicate = this.row(
+      const previous = this.get<KnowledgeFileRecoveryAcknowledgment>(
         "knowledge_file_recovery_acknowledgments",
         "workspace_id=? AND request_id=?",
-        [request.workspaceId, request.requestId],
+        request.workspaceId,
+        request.requestId,
       );
-      if (duplicate) {
-        const previous = decode(
-          duplicate,
-          "knowledge_file_recovery_acknowledgments",
-        ) as KnowledgeFileRecoveryAcknowledgment;
+      if (previous) {
         if (
           previous.operation !== operation ||
           previous.frontierSha256 !== preview.frontierSha256 ||
@@ -1829,17 +1813,14 @@ function fileFrontier(
       "SELECT id FROM knowledge_file_recovery_acknowledgments WHERE workspace_id=? AND operation='acknowledge' ORDER BY id",
     )
     .iterate(workspaceId)) {
-    const row = rawRow(
-      db,
-      "knowledge_file_recovery_acknowledgments",
-      "workspace_id=? AND id=?",
-      [workspaceId, String(metadata.id)],
-    )!;
-    const ack = decode(
-      row,
-      "knowledge_file_recovery_acknowledgments",
-    ) as KnowledgeFileRecoveryAcknowledgment;
-    resolved.push(...ack.ownerHashes);
+    const table = "knowledge_file_recovery_acknowledgments";
+    const row = rawRow(db, table, "workspace_id=? AND id=?", [
+      workspaceId,
+      String(metadata.id),
+    ])!;
+    resolved.push(
+      ...(decode(row, table) as KnowledgeFileRecoveryAcknowledgment).ownerHashes,
+    );
   }
   const rows = db
     .prepare(UNRESOLVED_FILE_OWNERS_SQL)
@@ -1853,20 +1834,18 @@ function fileFrontier(
       "KNOWLEDGE_FILE_RECOVERY_LIMIT",
       "File effect frontier exceeds its original bounded native read",
     );
-  const owners: KnowledgeFilePublicationRecord[] = [];
-  for (const metadata of rows) {
+  const owners = rows.map((metadata) => {
     const row = rawRow(
       db,
       "knowledge_file_publications",
       "workspace_id=? AND id=?",
       [workspaceId, String(metadata.id)],
     )!;
-    const owner = decode(
+    return decode(
       row,
       "knowledge_file_publications",
     ) as KnowledgeFilePublicationRecord;
-    owners.push(owner);
-  }
+  });
   return Object.freeze({
     owners: Object.freeze(owners),
     sha256: knowledgeHash(

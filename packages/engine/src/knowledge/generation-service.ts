@@ -261,16 +261,19 @@ export class KnowledgeGenerationService {
       if (duplicate)
         return Promise.resolve(this.get(workspaceId, duplicate.id, true));
       const provider = this.#ports.provider(plan.providerId);
+      const owned = (generationId: string, attemptId: string) =>
+        validateHostGenerationRequest({
+          ...built.payload,
+          owner: {
+            kind: 'host-generation',
+            workspaceId,
+            generationId,
+            attemptId,
+          },
+        });
       // Validate complete owned-envelope size before any native generation is admitted.
-      validateHostGenerationRequest({
-        ...built.payload,
-        owner: {
-          kind: 'host-generation',
-          workspaceId,
-          generationId: '00000000-0000-0000-0000-000000000000',
-          attemptId: '00000000-0000-0000-0000-000000000000',
-        },
-      });
+      const nil = '00000000-0000-0000-0000-000000000000';
+      owned(nil, nil);
       if (this.#reserved >= MAX_LIVE_GENERATIONS)
         throw new EngineError(
           'KNOWLEDGE_GENERATION_LIMIT',
@@ -296,22 +299,11 @@ export class KnowledgeGenerationService {
             const owner = admission.capture,
               abort = new AbortController();
             const signal = AbortSignal.any([signalBeforeOwner, abort.signal]);
-            this.#live.set(admission.record.id, {
-              workspaceId,
-              abort,
-            });
+            this.#live.set(admission.record.id, { workspaceId, abort });
             let attempt: KnowledgeGenerationAttemptCapture | undefined;
             try {
               const attemptId = randomUUID(),
-                dispatch = validateHostGenerationRequest({
-                  ...built.payload,
-                  owner: {
-                    kind: 'host-generation',
-                    workspaceId,
-                    generationId: admission.record.id,
-                    attemptId,
-                  },
-                });
+                dispatch = owned(admission.record.id, attemptId);
               const encoded = canonicalKnowledge(dispatch);
               attempt = this.#ports.native.prepareAttempt(owner, {
                 id: attemptId,

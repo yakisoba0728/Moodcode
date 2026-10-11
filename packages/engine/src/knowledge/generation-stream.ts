@@ -247,6 +247,13 @@ async function until<T>(
     );
   });
 }
+function cleanupOf(
+  confirmed: boolean,
+  method: KnowledgeGenerationCleanup["method"],
+  reason: string | null,
+): KnowledgeGenerationCleanup {
+  return Object.freeze({ confirmed, method, reason });
+}
 async function returnCleanup(
   iterator: AsyncIterator<unknown>,
   deadline: number,
@@ -256,28 +263,15 @@ async function returnCleanup(
   let operation: Promise<unknown>;
   try {
     const close = method(iterator, "return");
-    if (!close)
-      return Object.freeze({
-        confirmed: false,
-        method: "unknown",
-        reason: "iterator_return_missing",
-      });
+    if (!close) return cleanupOf(false, "unknown", "iterator_return_missing");
     operation = Promise.resolve(close.call(iterator));
   } catch {
-    return Object.freeze({
-      confirmed: false,
-      method: "iterator-return",
-      reason: "iterator_return_rejected",
-    });
+    return cleanupOf(false, "iterator-return", "iterator_return_rejected");
   }
   const remaining = Math.max(0, cleanupDeadline - Date.now());
   if (!remaining) {
     void operation.catch(() => {});
-    return Object.freeze({
-      confirmed: false,
-      method: "iterator-return",
-      reason: "cleanup_deadline",
-    });
+    return cleanupOf(false, "iterator-return", "cleanup_deadline");
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -291,31 +285,23 @@ async function returnCleanup(
       }),
     ]);
     if (Date.now() >= cleanupDeadline)
-      return Object.freeze({
-        confirmed: false,
-        method: "iterator-return",
-        reason: "cleanup_deadline",
-      });
+      return cleanupOf(false, "iterator-return", "cleanup_deadline");
     try {
-      const actual = iteratorResult(result);
-      return Object.freeze({
-        confirmed: actual.done,
-        method: "iterator-return",
-        reason: actual.done ? null : "iterator_return_not_done",
-      });
+      const { done } = iteratorResult(result);
+      return cleanupOf(
+        done,
+        "iterator-return",
+        done ? null : "iterator_return_not_done",
+      );
     } catch {
-      return Object.freeze({
-        confirmed: false,
-        method: "iterator-return",
-        reason: "iterator_return_malformed",
-      });
+      return cleanupOf(false, "iterator-return", "iterator_return_malformed");
     }
   } catch {
-    return Object.freeze({
-      confirmed: false,
-      method: "iterator-return",
-      reason: "iterator_return_rejected_or_timeout",
-    });
+    return cleanupOf(
+      false,
+      "iterator-return",
+      "iterator_return_rejected_or_timeout",
+    );
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -578,18 +564,8 @@ export async function streamKnowledgeGeneration(
     if (inactivityTimer !== undefined) clearTimeout(inactivityTimer);
     options.signal.removeEventListener("abort", abort);
   }
-  if (streamDone)
-    cleanup = Object.freeze({
-      confirmed: true,
-      method: "iterator-complete",
-      reason: null,
-    });
-  else if (!providerEntered)
-    cleanup = Object.freeze({
-      confirmed: true,
-      method: "not-dispatched",
-      reason: null,
-    });
+  if (streamDone) cleanup = cleanupOf(true, "iterator-complete", null);
+  else if (!providerEntered) cleanup = cleanupOf(true, "not-dispatched", null);
   else {
     controller.abort(
       new EngineError(
@@ -599,19 +575,11 @@ export async function streamKnowledgeGeneration(
     );
     cleanup = iterator
       ? await returnCleanup(iterator, deadline, budget.cleanupTimeoutMs)
-      : Object.freeze({
-          confirmed: false,
-          method: "unknown",
-          reason: "iterator_unavailable",
-        });
+      : cleanupOf(false, "unknown", "iterator_unavailable");
   }
   // An adapter may own transport cleanup behind its iterator; its explicit failure cannot be erased by a later closed generator.
   if (errorCode === "CLEANUP_UNCERTAIN")
-    cleanup = Object.freeze({
-      confirmed: false,
-      method: cleanup.method,
-      reason: "adapter_cleanup_uncertain",
-    });
+    cleanup = cleanupOf(false, cleanup.method, "adapter_cleanup_uncertain");
   if (callbackFailed) errorCode = "KNOWLEDGE_OBSERVATION_FAILED";
   if (errorCode === undefined && options.signal.aborted)
     errorCode = "KNOWLEDGE_GENERATION_CANCELLED";
