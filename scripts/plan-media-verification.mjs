@@ -37,6 +37,8 @@ const sources = [
   "packages/engine/src/runner/turn-executor.ts",
   "packages/engine/src/artifacts/store.ts",
   "packages/engine/src/engine.ts",
+  "packages/engine/src/media/engine-input.ts",
+  "packages/engine/src/engine-commands.ts",
 ];
 const providers = [
   "codex",
