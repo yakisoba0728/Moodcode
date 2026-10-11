@@ -47,12 +47,7 @@ export class EngineHostCommandDeliverySource {
     }
   }
   readSettledSource(original: object): HostCommandSettlementPin {
-    if (types.isProxy(original))
-      throw new EngineError(
-        "JOB_ORIGINAL_REQUIRED",
-        "Original host source required",
-      );
-    const s = this.originals.get(original);
+    const s = !types.isProxy(original) && this.originals.get(original);
     if (!s)
       throw new EngineError(
         "JOB_ORIGINAL_REQUIRED",

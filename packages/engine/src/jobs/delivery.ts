@@ -59,7 +59,6 @@ export interface ActualJobInputPort {
   release(original: object): void;
 }
 
-/** A settled job whose cleanup was confirmed, the only kind whose result may be delivered. */
 export function isDeliverableJob(
   job: Pick<CommandJob, "state" | "outcome">,
 ): boolean {
@@ -68,7 +67,6 @@ export function isDeliverableJob(
     job.outcome?.cleanupConfirmed === true
   );
 }
-/** Delivery entity ID of one settled job revision's result. */
 export function jobResultDeliveryId(
   workspaceId: string,
   jobId: string,
@@ -81,14 +79,13 @@ export function jobResultDeliveryId(
     settledSha256,
   ]);
 }
-/** Input request ID that queues one settled job revision's result. */
 export function jobResultInputRequestId(
   jobId: string,
   settledSha256: string,
 ): string {
   return `job-result:${jobId}:${settledSha256}`;
 }
-/** Parts of a job-result input request ID; null for any other request ID and undefined for a malformed one. */
+/** null for any other request ID; undefined for a malformed job-result one. */
 export function parseJobResultInputRequestId(
   requestId: string,
 ):
@@ -228,15 +225,18 @@ export class JobDelivery {
       throw error;
     }
   }
-  readTarget(original: object): JobDeliveryTargetProof {
-    this.open();
+  private expected(original: object): JobDeliveryTargetProof {
     const expected = this.targets.get(original);
     if (!expected)
       throw new EngineError(
         "JOB_ORIGINAL_REQUIRED",
         "Job delivery requires its original fixed target",
       );
-    this.ports.input.assertTargetCurrent(original, expected);
+    return expected;
+  }
+  readTarget(original: object): JobDeliveryTargetProof {
+    this.open();
+    this.ports.input.assertTargetCurrent(original, this.expected(original));
     return structuredClone(this.ports.input.readTarget(original));
   }
   deliver(
@@ -256,12 +256,7 @@ export class JobDelivery {
         "JOB_APPROVAL_REQUIRED",
         "Explicit job result delivery requires approval of its original target",
       );
-    const expected = this.targets.get(input.target);
-    if (!expected)
-      throw new EngineError(
-        "JOB_ORIGINAL_REQUIRED",
-        "Job delivery requires its original fixed target",
-      );
+    const expected = this.expected(input.target);
     const key = JSON.stringify([input.workspaceId, input.requestId]);
     const sha256 = knowledgeHash({
       workspaceId: input.workspaceId,

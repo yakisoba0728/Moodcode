@@ -75,20 +75,14 @@ export interface OwnedCommandJobRecord {
   readonly updatedAt: string;
   readonly sha256: string;
 }
-export interface OwnedCommandJobWriteDocument {
-  (
+export interface OwnedCommandJobControlOptions {
+  /** Native putSessionDocument in the caller's existing primary transaction. */
+  readonly writeDocument: (
     sessionId: string,
     kind: string,
     expectedRevision: number,
     data: JsonObject,
-  ): SessionDocument;
-}
-export interface OwnedCommandJobValidationOptions {
-  readonly check?: () => void;
-}
-export interface OwnedCommandJobControlOptions {
-  /** Native putSessionDocument in the caller's existing primary transaction. */
-  readonly writeDocument: OwnedCommandJobWriteDocument;
+  ) => SessionDocument;
 }
 
 export const OWNED_COMMAND_JOB_LIMITS = Object.freeze({
@@ -807,18 +801,14 @@ export function readOwnedCommandJob(
 }
 export function validateOwnedCommandJobDatabase(
   db: DatabaseSync,
-  options: OwnedCommandJobValidationOptions = {},
+  options: { readonly check?: () => void } = {},
 ): void {
   for (const h of headers(db)) {
     options.check?.();
     read(db, h);
   }
 }
-/**
- * Admission deletes the oldest completed, failed or cancelled job documents
- * until the new job fits, keeping retained (live handle), delivered and agent
- * backend client-effect jobs. Their immutable events and anchors remain.
- */
+/** Deletes the oldest settled unheld, undelivered, non-client-effect job documents until one more fits; events and anchors remain. */
 export function reclaimOwnedCommandJobs(
   db: DatabaseSync,
   retained: ReadonlySet<string>,

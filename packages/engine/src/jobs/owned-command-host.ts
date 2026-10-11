@@ -346,6 +346,10 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
       !["starting", "running", "settling"].includes(entry.record.state)
     )
       return;
+    const uncertain = {
+      state: "uncertain",
+      errorCode: "COMMAND_JOB_NATIVE_RESULT_UNCERTAIN",
+    } as const;
     try {
       if (tool.state === "interrupted") {
         const completion = entry.record.completion;
@@ -356,17 +360,12 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
           (completion.outcome.cancelled || completion.outcome.timedOut) &&
           !completion.observationFailure
         ) {
-          // artifacts() re-hashes both sealed streams; write() then revalidates
-          // the approval/source, closed receipt, checkpoint and now-interrupted
-          // native Tool/Part through putOwnedCommandJob.
+          // putOwnedCommandJob revalidates the source, receipt, checkpoint and interrupted Tool/Part.
           this.artifacts(completion);
           this.write(entry, { state: "cancelled", errorCode: null });
           return;
         }
-        this.write(entry, {
-          state: "uncertain",
-          errorCode: "COMMAND_JOB_NATIVE_RESULT_UNCERTAIN",
-        });
+        this.write(entry, uncertain);
         return;
       }
       if (entry.record.state !== "settling") return;
@@ -381,13 +380,9 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
             : "failed";
       this.write(entry, { state });
     } catch {
-      // The actual Tool/Part has already settled. Do not write a second result
-      // when the independent observation receipt cannot be committed.
+      // The Tool/Part already settled; an uncommitted receipt never writes a second result.
       try {
-        this.write(entry, {
-          state: "uncertain",
-          errorCode: "COMMAND_JOB_NATIVE_RESULT_UNCERTAIN",
-        });
+        this.write(entry, uncertain);
       } catch {
         /* Persistent journal faults remain unresolved until recovery. */
       }

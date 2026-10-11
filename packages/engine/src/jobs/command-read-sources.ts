@@ -23,9 +23,7 @@ function adapter<J extends { jobId: string; state: string }>(
 ): CommandReadSource {
   return {
     ...source,
-    assertCurrent: () => {
-      current();
-    },
+    assertCurrent: () => void current(),
     summary: () => {
       const j = current();
       return jobJson({

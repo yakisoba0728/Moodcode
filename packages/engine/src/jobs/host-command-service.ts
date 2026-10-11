@@ -576,8 +576,7 @@ export class HostCommandService {
         jobHostAbort(signal);
         this.current(p);
         const snapshot = checkpointBefore(before);
-        // Bind the committed crash marker before the native owner opens a job.
-        // Its process-group update is intentionally rolled back on a crash.
+        // Bind the committed crash marker before the owner opens a job; a crash rolls back its process-group update.
         const record = this.appendInitial(
           input,
           p,
@@ -723,13 +722,7 @@ export class HostCommandService {
         throw uncertain;
       }
     });
-    void done
-      .catch((error) => {
-        reject(error);
-      })
-      .finally(() => {
-        this.pending.delete(key);
-      });
+    void done.catch(reject).finally(() => this.pending.delete(key));
     return structuredClone(await admitted);
   }
   async wait(input: {
@@ -904,13 +897,7 @@ export class HostCommandService {
       seq = s.snapshot.oldestSeq;
       offset = 0;
     }
-    const fragments: {
-      seq: number;
-      stream: CommandOutputStream;
-      data: string;
-      bytes: number;
-      byteOffset: number;
-    }[] = [];
+    const fragments: HostCommandOutputPage["fragments"][number][] = [];
     let bytes = 0,
       encodedTextBytes = 0;
     for (const event of s.snapshot.output) {
