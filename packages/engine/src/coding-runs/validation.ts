@@ -1,9 +1,10 @@
 import { join } from "node:path";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { plainRecord } from "../shared/data.js";
 import { readStableFile } from "../shared/fs.js";
-import { workflowHostRecord } from "../workflows/host.js";
 import {
+  workflowError,
   workflowJson,
   workflowIdentifier,
   validateWorkflowSpec,
@@ -21,6 +22,10 @@ const LIMIT_CAPS = {
   maxCostMicros: 1000000000,
   costPerRequestMicros: Number.MAX_SAFE_INTEGER,
 } as const;
+const inputRecord = (value: unknown, required: readonly string[]) =>
+  plainRecord(value, required, [], () =>
+    workflowError("INVALID_WORKFLOW_INPUT"),
+  );
 export function batchFail(code = "CODING_BATCH_INVALID"): never {
   throw new EngineError(
     code,
@@ -34,7 +39,7 @@ export function signBatch<T extends object>(value: T): T & { sha256: string } {
   };
 }
 export function validateBatch(input: CodingBatchInput): CodingBatchInput {
-  workflowHostRecord(input, [
+  inputRecord(input, [
     "workspaceId",
     "rootSessionId",
     "parentRunId",
@@ -57,7 +62,7 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
     new Set(v.cases.map((c) => c.id)).size !== v.cases.length
   )
     batchFail("CODING_BATCH_LIMIT");
-  workflowHostRecord(v.limits, Object.keys(LIMIT_CAPS));
+  inputRecord(v.limits, Object.keys(LIMIT_CAPS));
   for (const [key, max] of Object.entries(LIMIT_CAPS)) {
     const n = v.limits[key as keyof typeof LIMIT_CAPS];
     if (!Number.isSafeInteger(n) || n < 1 || n > max)
@@ -65,7 +70,7 @@ export function validateBatch(input: CodingBatchInput): CodingBatchInput {
   }
   const roots = new Set<string>();
   for (const c of v.cases) {
-    workflowHostRecord(c, ["id", "spec", "stageWorktrees", "sourcePaths"]);
+    inputRecord(c, ["id", "spec", "stageWorktrees", "sourcePaths"]);
     workflowIdentifier(c.id);
     const spec = validateWorkflowSpec(c.spec);
     if (

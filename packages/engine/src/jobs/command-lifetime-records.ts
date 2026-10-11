@@ -427,19 +427,76 @@ function assertLifetimeOrigin(db: DatabaseSync, head: CommandLifetimeRecord) {
   )
     fail();
 }
-export function validateCommandLifetimeDatabase(
-  db: DatabaseSync,
-  check: () => void = () => {},
-): void {
+const LIFETIME_JOURNAL = {
+  events: 4096,
+  bytes: 33554432,
+  eventBytes: 20000,
+  ordinaryEvents: 3840,
+  ordinaryBytes: 29360128,
+} as const;
+const ORDINARY_OPERATIONS: readonly string[] = [
+  "admit",
+  "started",
+  "transfer",
+  "input-intent",
+  "input-ack",
+];
+function lifetimeEventBounds(db: DatabaseSync): {
+  n: number;
+  bytes: number;
+  largest: number;
+} {
   const bounds = db
     .prepare(
       "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes,coalesce(max(length(CAST(data AS BLOB))),0) largest FROM session_events WHERE type='command.lifetime.revision'",
     )
     .get()!;
+  return {
+    n: Number(bounds.n),
+    bytes: Number(bounds.bytes),
+    largest: Number(bounds.largest),
+  };
+}
+/** Ordinary writes stop short of the journal limits, leaving headroom for terminal, recovery and import revisions. */
+export function assertCommandLifetimeCapacity(
+  db: DatabaseSync,
+  r: CommandLifetimeRecord,
+): void {
+  const bounds = lifetimeEventBounds(db),
+    ordinary = ORDINARY_OPERATIONS.includes(r.operation.kind);
+  // Other writes keep one import revision per unpaused lifetime and one recovery revision per live one.
+  const reserve =
+    r.operation.kind === "recover" || r.operation.kind === "import"
+      ? 0
+      : Number(
+          db
+            .prepare(
+              "SELECT coalesce(sum((json_extract(data,'$.state')<>'paused-import')+(json_extract(data,'$.state') IN ('starting','running'))),0) n FROM session_documents WHERE kind GLOB 'command.lifetime.*' AND NOT (session_id=? AND kind=?)",
+            )
+            .get(r.sessionId, lifetimeKind(r.jobId))!.n,
+        ) +
+        Number(r.state !== "paused-import") +
+        Number(r.state === "starting" || r.state === "running");
   if (
-    Number(bounds.n) > 4096 ||
-    Number(bounds.bytes) > 33554432 ||
-    Number(bounds.largest) > 20000
+    bounds.n + reserve >=
+      (ordinary ? LIFETIME_JOURNAL.ordinaryEvents : LIFETIME_JOURNAL.events) ||
+    bounds.bytes + Buffer.byteLength(JSON.stringify(r)) >
+      (ordinary ? LIFETIME_JOURNAL.ordinaryBytes : LIFETIME_JOURNAL.bytes)
+  )
+    throw new EngineError(
+      "COMMAND_LIFETIME_LIMIT",
+      "Native lifetime capacity preserves terminal, recovery and import headroom",
+    );
+}
+export function validateCommandLifetimeDatabase(
+  db: DatabaseSync,
+  check: () => void = () => {},
+): void {
+  const bounds = lifetimeEventBounds(db);
+  if (
+    bounds.n > LIFETIME_JOURNAL.events ||
+    bounds.bytes > LIFETIME_JOURNAL.bytes ||
+    bounds.largest > LIFETIME_JOURNAL.eventBytes
   )
     fail();
   for (const head of readCommandLifetimes(db)) {

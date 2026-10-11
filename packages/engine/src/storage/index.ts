@@ -1,4 +1,4 @@
-import {readCommandLifetimes,validateCommandLifetimeRecord,validateCommandLifetimeDatabase,pauseCommandLifetimes,lifetimeKind,type CommandLifetimeRecord} from '../jobs/command-lifetime-records.js';
+import {readCommandLifetimes,validateCommandLifetimeRecord,validateCommandLifetimeDatabase,assertCommandLifetimeCapacity,pauseCommandLifetimes,lifetimeKind,type CommandLifetimeRecord} from '../jobs/command-lifetime-records.js';
 import {writeEffectBatch,hasKnownEffectBatchMarker,hasUncertainEffectBatches,listEffectBatches,readEffectBatch,validateEffectBatchDatabase,pauseEffectBatches,type EffectBatchWritePorts} from '../effect-batches/storage.js';
 import type {EffectBatchRecord} from '../effect-batches/types.js';
 import {CodeModeStorage, type CodeModeRecordPorts} from '../code-mode/records.js';
@@ -606,11 +606,7 @@ export class SqliteStore implements SessionEngineStore {
   putCommandLifetime(record:CommandLifetimeRecord,expectedRevision:number):void{
     this.nestedTx(()=>{
       const r=validateCommandLifetimeRecord(record),kind=lifetimeKind(r.jobId);
-      const stats=this.db.prepare("SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM session_events WHERE type='command.lifetime.revision'").get()!;
-      const ordinary=['admit','started','transfer','input-intent','input-ack'].includes(r.operation.kind);
-      // Other writes keep one import revision per unpaused lifetime and one recovery revision per live one.
-      const reserve=r.operation.kind==='recover'||r.operation.kind==='import'?0:Number(this.db.prepare("SELECT coalesce(sum((json_extract(data,'$.state')<>'paused-import')+(json_extract(data,'$.state') IN ('starting','running'))),0) n FROM session_documents WHERE kind GLOB 'command.lifetime.*' AND NOT (session_id=? AND kind=?)").get(r.sessionId,kind)!.n)+Number(r.state!=='paused-import')+Number(r.state==='starting'||r.state==='running');
-      if(Number(stats.n)+reserve>=(ordinary?3840:4096)||Number(stats.bytes)+Buffer.byteLength(JSON.stringify(r))>(ordinary?29360128:33554432))throw new EngineError('COMMAND_LIFETIME_LIMIT','Native lifetime capacity preserves terminal, recovery and import headroom');
+      assertCommandLifetimeCapacity(this.db,r);
       this.executionRecords.putSessionDocument(r.sessionId,kind,expectedRevision,r as unknown as JsonObject);
       this.native.appendEvent(r.sessionId,'command.lifetime.revision',{record:r as unknown as JsonObject});
       validateCommandLifetimeDatabase(this.db);

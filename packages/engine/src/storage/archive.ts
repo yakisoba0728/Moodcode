@@ -18,7 +18,7 @@ import { streamStableFile, symlinkFreeDirectorySync, syncDirectory, within } fro
 import { SqliteStore } from './index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexReport } from './input-index.js';
 import { attachments as documentAttachments, sameAttachment as sameDocumentAttachment, validateDocumentBytes } from '../documents/validation.js';
-import type { ManagedWorktree } from '../worktrees/index.js';
+import { relocateArchivedWorktreeJournal, WORKTREE_JOURNAL } from '../worktrees/journal.js';
 import { childStoragePhysicalIdentity, readChildStorageSelection, validateChildStorageRecord, type ChildStorageHostIdentity, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { createArchiveDocumentReadFrame, createChildDocumentReadFrame, openChildDocumentReader, validateArchiveDocumentBudgetMs } from './child-document-reader.js';
 import { buildArchivedChildDocumentStorageReport, validateArchivedChildDocumentStorageRequest,
@@ -616,22 +616,13 @@ export async function importEngineArchive(options: ImportEngineArchiveOptions): 
     const artifactDir = join(destination, 'data', 'artifacts');
     const store = new SqliteStore(join(staging, databaseFiles.primary)); let sessionsPaused = 0, worktreesRelocated = 0,childSessionsPaused=0;
     try { for (const workspace of store.listWorkspaces()) { store.pauseImportedWorkspaceKnowledge(workspace.id, archive.manifestSha256, { importId: randomUUID(), sourcePrimaryLogicalSha256: primary.logicalHash, sourceStorageBindingSha256: knowledgeHash(historicalHost(archive.manifest)) }); for (const session of store.listSessions(workspace.id)) {
-      const document = store.getSessionDocument(session.id, 'engine.worktrees');
+      const document = store.getSessionDocument(session.id, WORKTREE_JOURNAL.kind);
       if (document) {
-        const records = document.data.records;
-        if (document.data.schemaVersion !== 1 || !Array.isArray(records) || records.length > 128) fail('ARCHIVE_WORKTREE_BINDING_INVALID', 'Archived worktree journal is invalid');
-        const relocated = records.map(value => {
-          const record = value as unknown as ManagedWorktree;
-          if (!record || record.sessionId !== session.id || !/^worktree_[a-f0-9]{32}$/u.test(record.id)
-            || record.root !== join(archive.manifest.source.artifactDir, 'children', 'worktrees', record.id)
-            || !Number.isSafeInteger(record.revision) || record.revision < 1 || record.revision >= Number.MAX_SAFE_INTEGER) fail('ARCHIVE_WORKTREE_BINDING_INVALID', 'Archived worktree path cannot be mapped to the default owned artifact tree');
-          worktreesRelocated++;
-          return { ...record, root: join(artifactDir, 'children', 'worktrees', record.id), revision: record.revision + 1,
-            state: record.state === 'removed' ? 'removed' : 'uncertain', errorCode: 'WORKTREE_ARCHIVE_RELOCATION',
-            relocation: { archiveId: archive.manifest.archiveId, manifestSha256: archive.manifestSha256, originalRoot: record.root, ownershipVerified: false },
-          } as unknown as import('@moodcode/contracts').JsonObject;
-        });
-        store.putSessionDocument(session.id, 'engine.worktrees', document.revision, { ...document.data, records: relocated });
+        const journal = relocateArchivedWorktreeJournal(document.data, session.id,
+          { fromArtifacts: archive.manifest.source.artifactDir, toArtifacts: artifactDir, archiveId: archive.manifest.archiveId, manifestSha256: archive.manifestSha256 },
+          message => fail('ARCHIVE_WORKTREE_BINDING_INVALID', message));
+        worktreesRelocated += journal.relocated;
+        store.putSessionDocument(session.id, WORKTREE_JOURNAL.kind, document.revision, journal.data);
       }
       store.setSessionPaused(session.id, true, 'recovery_required'); sessionsPaused++;
     } } }
