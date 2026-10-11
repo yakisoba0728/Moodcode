@@ -1,10 +1,7 @@
 import {COMMAND_LIFETIME_TOOLS,CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-lifetime.js';
 import {EffectBatchHost} from './effect-batches/host.js';
 import {CodeModeHost, createExecuteCodeTool} from './code-mode/host.js';
-import {jobJson} from './jobs/validation.js';
 import { plainRecord } from './shared/data.js';
-import { MediaSegmentStore } from './media/segment-store.js';
-import { providerSegments } from './media/segment-provider.js';
 import { PrFeedbackHost } from './pr-feedback/host.js';
 import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
 import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
@@ -25,54 +22,38 @@ import { HostCommandService } from './jobs/host-command-service.js';
 import { GitCommitHost } from './git/commit-host.js';
 import { ConversationForkHost } from './sessions/fork-host.js';
 import type { CaptureForkPreviewInput, ForkCommitInput } from './sessions/fork-types.js';
-import { constants, lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { constants, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-import { types } from 'node:util';
-import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonObject, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2, type ToolCallRecord } from '@moodcode/contracts';
-import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeRunConfig, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
-import type { PreparedTool, ProviderAdapter, ProviderEvent, ProviderMessage, RunParticipant, ToolContext, ToolDefinition } from './ports.js';
+import { EngineError, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type ReasoningEffort, type Run, type RunConfig, type SessionCommandResult, type SessionEventV2, type ToolCallRecord } from '@moodcode/contracts';
+import { normalizeEngineBudgets } from '@moodcode/contracts/validation';
+import type { PreparedTool, ProviderAdapter, RunParticipant, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
 import type { SummaryAttemptListOptions } from './storage/summary-attempts.js';
 import { RunCoordinator } from './runner/index.js';
-import { VerificationController, verificationContinuationMessage, type VerificationControllerInput } from './verification/controller.js';
-import { createLifecycleContinuationPort } from './lifecycle/continuation.js';
+import type { VerificationController } from './verification/controller.js';
 import type { KnowledgeStorage } from './knowledge/store.js';
-import type { KnowledgeHostAdapter, KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
+import type { KnowledgeSourceProjection, KnowledgeSourceSelection } from './knowledge/host.js';
 import type { PrepareKnowledgeGeneration } from './knowledge/types.js';
-import { knowledgeHash, validateGenerationInput } from './knowledge/validation.js';
-import { buildKnowledgeGenerationRequest } from './knowledge/generation-request.js';
-import { assertKnowledgeGenerationHostInput, KnowledgeGenerationService, type WorkspaceKnowledgeGenerationInput } from './knowledge/generation-service.js';
-import type { KnowledgeGenerationStorage } from './knowledge/generation-store.js';
+import { knowledgeHash } from './knowledge/validation.js';
+import type { WorkspaceKnowledgeGenerationInput } from './knowledge/generation-service.js';
 import type { KnowledgeGenerationRecoveryPreview } from './knowledge/generation-types.js';
 import type { KnowledgePublicationStorage } from './knowledge/publication-store.js';
-import { KnowledgePublicationService } from './knowledge/publication-service.js';
-import { KnowledgeFilePublicationService } from './knowledge/file-publication-service.js';
+import type { KnowledgePublicationService } from './knowledge/publication-service.js';
+import type { KnowledgeFilePublicationService } from './knowledge/file-publication-service.js';
 import type { KnowledgeFilePublicationStorage } from './knowledge/file-publication-store.js';
 import type { KnowledgeFileRecoveryPreview } from './knowledge/file-publication-types.js';
-import { FileKnowledgePublicationHost } from './knowledge/file-publication-fs.js';
-import type { KnowledgeFileExecutionGuards } from './knowledge/file-execution-guards.js';
-import type { KnowledgeImportRecoveryStorage } from './knowledge/import-recovery-store.js';
-import { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
-import { ProposalSourceCaptureHost } from './proposals/source-capture.js';
-import { ProposalHostService, type CreateProposalSetInput } from './proposals/host.js';
-import { ProposalOverlayContextSource, proposalContextPolicy, type ProposalContextPolicy } from './proposals/overlay.js';
-import type { ProposalStorage } from './proposals/store.js';
-import type { ProposalApplyStorage } from './proposals/apply-store.js';
-import type { ProposalApplyCapture, ProposalApplyCleanup, ProposalApplyRecoveryPreview } from './proposals/apply-types.js';
-import type { ProposalApplyExecutionGuards } from './proposals/execution-guards.js';
-import { ProposalApplyService } from './proposals/apply-service.js';
-import { PhysicalPatchProducer } from './tools/patch/physical.js';
-import { knowledgeContextPolicy } from './knowledge/context-source.js';
-import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
-import { WorkspaceTrustService, assertWorkspaceTrustSourcesCurrent } from './workspace/trust.js';
-import { LifecycleHookRegistry, type LifecycleHookRegistration } from './lifecycle/index.js';
+import type { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
+import type { ProposalHostService, CreateProposalSetInput } from './proposals/host.js';
+import type { ProposalApplyRecoveryPreview } from './proposals/apply-types.js';
+import type { ProposalApplyService } from './proposals/apply-service.js';
+import type { WorkspaceTrustService } from './workspace/trust.js';
+import type { LifecycleHookRegistry, LifecycleHookRegistration } from './lifecycle/index.js';
 import { exportTrajectory, validateTrajectoryOptions, type JournalProjection, type TrajectoryOptions } from './diagnostics/trajectory.js';
 import { createCodingEvidenceManifest, validateCodingEvidenceOptions, type CodingEvidenceManifest, type CodingEvidenceOptions } from './diagnostics/attempt-manifest.js';
 import { getTrajectoryStallObservation, type StallObservation, type StallOptions } from './diagnostics/stall.js';
 import { EngineExecutionObserver } from './diagnostics/execution-observer.js';
-import { WorkspaceExecutionSource, type WorkspaceExecutionSourceLimits } from './diagnostics/execution-source.js';
+import { WorkspaceExecutionSource } from './diagnostics/execution-source.js';
 import type { DiagnosticExecutionPageOptions } from './diagnostics/execution-observation-types.js';
 import { readNativeCodingEvidence, type NativeCodingEvidenceOptions } from './diagnostics/native-attempt-manifest.js';
 import { InputScheduler } from './runner/input-scheduler.js';
@@ -80,31 +61,24 @@ import { waitChildProviderAdmission } from './child-tasks/provider-admission.js'
 import { bindChildTeamModelCatalogue, consumeChildTeamModelCatalogue } from './teams/model-tool-catalogue.js';
 import { EngineTeamModelToolHost, type BindTeamModelToolsInput, type TeamModelToolsBinding } from './teams/model-tool-host.js';
 import { createTeamModelTools, TEAM_MODEL_TOOL_NAMES } from './teams/model-tools.js';
-import { ScriptedProvider } from './provider/index.js';
-import { validateHostGenerationRequest, type HostGenerationProviderPort, type HostGenerationRequest } from './provider/generation.js';
 import { ApprovalManager } from './permission/index.js';
-import { openWorkspace } from './workspace/index.js';
-import { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './workspace/presentation.js';
 import { ContextService } from './context/service.js';
-import { ModelRegistry, type ModelSpec } from './context/model-spec.js';
 import { createReadTools } from './tools/read/index.js';
 import { createPatchTool } from './tools/patch/index.js';
 import { createCommandTool } from './tools/command/index.js';
 import type { CommandExecutionCompletion } from './tools/command/observation.js';
 import { commandBackendCapability } from './tools/command/backends.js';
-import { registerCredentialEnvNames } from './tools/command/process-control.js';
 import { createExactEditTool } from './tools/edit/index.js';
 import { createFileActionTools } from './tools/file-actions/index.js';
 import { createPatternSearchTools } from './tools/search/index.js';
-import { declaredToolRegistration, ScopedToolRuntime, type ScopedToolRuntimeOptions, type RuntimeCommandPreflightOptions, type ToolRegistrationCapture } from './tools/runtime/index.js';
-import type { RoleResourcePolicy, RoleResourcePolicySnapshot } from './permission/role-resources.js';
-import { RoleResourcePolicyRegistry } from './permission/role-policy-registry.js';
+import { declaredToolRegistration, ScopedToolRuntime, type ToolRegistrationCapture } from './tools/runtime/index.js';
+import type { RoleResourcePolicySnapshot } from './permission/role-resources.js';
+import type { RoleResourcePolicyRegistry } from './permission/role-policy-registry.js';
 import { readPolicyDecisionReceipts, type PolicyDecisionReceiptPage } from './permission/decision-receipts.js';
-import { validateToolDiscoveryPolicy, type ToolDiscoveryPolicy } from './tools/runtime/discovery.js';
 import { createToolDiscoveryTool } from './runner/tool-discovery.js';
-import { ToolPolicy, type ToolPolicyRule } from './permission/policy.js';
+import { ToolPolicy } from './permission/policy.js';
 import { ScopedToolGrants } from './permission/grants.js';
-import { QuestionManager, type QuestionAnswer } from './questions/index.js';
+import { QuestionManager } from './questions/index.js';
 import { SessionTaskService } from './session-state/index.js';
 import { createSessionTaskTools } from './tools/session/index.js';
 import { createQuestionTool } from './tools/session/question.js';
@@ -113,8 +87,8 @@ import { createArtifactReadTool } from './tools/session/artifact.js';
 import { ArtifactStore } from './artifacts/store.js';
 import { EnginePluginManager, type EnginePlugin, type ActivePlugin } from './plugins/index.js';
 import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
-import { AgentProfiles, profilePin, type AgentProfileSpec } from './agents/index.js';
-import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
+import { AgentProfiles } from './agents/index.js';
+import { TerminalService, SqliteTerminalJournal } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
 import type { EngineRuntime } from './engine-runtime.js';
 import { EngineTeamOwners } from './teams/engine-owners.js';
@@ -126,7 +100,7 @@ import { EngineScheduleProducer } from './schedules/engine-producer.js';
 import { ScheduleHost } from './schedules/host.js';
 import { ScheduleDispatcher } from './schedules/dispatcher.js';
 import type { ScheduleStorage } from './schedules/store.js';
-import { EngineAgentBackendProducer, type CaptureAgentBackendTarget, type AgentBackendSecretResolver } from './agent-backends/engine-producer.js';
+import { EngineAgentBackendProducer, type CaptureAgentBackendTarget } from './agent-backends/engine-producer.js';
 import { AgentBackendStorage, type RegisterAgentBackendInput, type DisableAgentBackendInput } from './agent-backends/store.js';
 import { OwnedBackendProcesses } from './agent-backends/process.js';
 import { AgentBackendHost } from './agent-backends/host.js';
@@ -142,174 +116,47 @@ import { TeamHostService } from './teams/host.js';
 import { TeamService } from './teams/service.js';
 import type { TeamStorage } from './teams/store.js';
 import type { ChildTeamTarget, ChildTeamInputEvidence } from './child-tasks/team-bridge.js';
-import type { ChildStorageHostIdentity } from './child-tasks/storage-binding.js';
-import type { ChildTaskManager, ChildTaskRecord } from './child-tasks/index.js';
-import type { WorktreeManager } from './worktrees/index.js';
 import { createChildMergeTool } from './child-tasks/merge.js';
 import { LspManager, type LspFactory } from './lsp/index.js';
 import { FormatterRegistry, createFormatTool, createLspFormatTool } from './formatters/index.js';
-import { WorkspaceChangeHub, type WorkspaceChangeWatch, type WorkspaceFileChange } from './workspace/changes.js';
-import { assertExecutionLockAvailable, inspectExecutionLock, acquireExecutionLock, reserveExecutionLock, readExecutionLockReservation } from './tools/command/execution-lock.js';
-import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
-import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
+import { WorkspaceChangeHub, type WorkspaceChangeWatch } from './workspace/changes.js';
+import { inspectExecutionLock } from './tools/command/execution-lock.js';
 import { RecoveryGate } from './recovery/gate.js';
 import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
 import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type ProviderRecoveryReceipt } from './recovery/provider.js';
-import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
-import { ImageAttachmentStore } from './media/index.js';
-import { providerImages } from './media/provider.js';
-import { DocumentAttachmentStore } from './documents/store.js';
-import { providerDocuments } from './documents/provider.js';
+import { ReviewJournal } from './review/audit.js';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
-import { validateMediaHistoryPolicy, type MediaHistoryPolicy } from './context/media-history.js';
-import { validateActivePrefixPolicy, type ActivePrefixPolicy } from './context/active-prefix.js';
-import { validateDocumentHistoryPolicy, type DocumentHistoryPolicy } from './context/document-history.js';
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';
 import { validateChildDocumentStorageRequest, inspectChildDocumentStorage, type ChildDocumentStorageRequest, type ChildDocumentStorageReport } from './diagnostics/child-document-storage.js';
 import { createChildDocumentReadFrame } from './storage/child-document-reader.js';
 import { RepositoryContextService, type RepositoryQuery, type RepositorySnapshot } from './repository/index.js';
 import { createRepositoryContextTool } from './repository/tool.js';
-import { VerificationCheckRegistry, VerificationPlanService, VerificationReceiptService, type VerificationCheckRegistration } from './verification/index.js';
-import { VerificationHostService, type VerificationSessionPolicy } from './verification/host.js';
-import { createVerificationTool } from './verification/tool.js';
-import { RepositoryContextSource, repositoryContextPolicy, type RepositoryContextPolicy } from './context/repository-contributions.js';
+import type { VerificationCheckRegistry, VerificationPlanService, VerificationReceiptService, VerificationCheckRegistration } from './verification/index.js';
+import type { VerificationSessionPolicy } from './verification/host.js';
+import { RepositoryContextSource } from './context/repository-contributions.js';
+import { EngineLifetime, EngineStorage } from './engine-kernel.js';
+import { resolveEngineOptions, type EngineFeatures, type EngineOptions } from './engine-options.js';
+import { EngineCommands, NATIVE_COMMANDS_ENABLED } from './engine-commands.js';
+import { EngineKnowledge } from './engine-knowledge.js';
+import { EngineProposals } from './engine-proposals.js';
+import { EngineVerification } from './engine-verification.js';
+import { WorkspaceLanguageSync } from './engine-language-sync.js';
+import { EngineRestore } from './engine-restore.js';
+import { EngineInputMedia } from './media/engine-input.js';
 
 export interface EngineStorageUsageOptions { signal?: AbortSignal; limits?: Partial<StorageUsageLimits> }
 export type EngineStorageUsageReport = StorageUsageReport;
 export type EngineChildDocumentStorageOptions = ChildDocumentStorageRequest;
 export type EngineChildDocumentStorageReport = ChildDocumentStorageReport;
 
-export type RestoreCommandResult = RestoreResult & {
-  operationId: string;
-  duplicate: boolean;
-  recordMetadataError?: { code: string; message: string };
-};
-
-export interface ReviewHistoryResult {
-  runId: string;
-  operations: RestoreOperation[];
-}
-
-function metadataFailure(): { code: string; message: string } {
-  return { code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' };
-}
+export type { RestoreCommandResult, ReviewHistoryResult } from './engine-restore.js';
+export type { EngineOptions } from './engine-options.js';
 
 /** Fence order decides which error surfaces first, so promotion and provider dispatch keep their own orders. */
 export const RUN_PARTICIPANT_ORDER = Object.freeze({
   promotion: ['schedule', 'job', 'ownedCommand', 'prFeedback', 'hostCommandDelivery', 'conversationFork', 'workflow'],
   dispatch: ['resident', 'sandbox', 'prFeedback', 'hostCommandDelivery', 'codingBatch', 'schedule', 'job', 'ownedCommand', 'conversationFork', 'workflow', 'commandLifetime', 'codeMode'],
 } as const);
-
-const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
-
-export interface EngineOptions {
-  /** Actual Darwin kernel sandbox, explicit grants, never a host fallback. */
-  osSandbox?:boolean;
-  /** Actual OS-isolated closed JSON runtime, with individual nested native approvals. */
-  codeMode?:boolean;
-  /** Original producer observations; bounded physical reads are disabled by default. */
-  diagnosticObservations?: boolean;
-  diagnosticSourceLimits?: Partial<WorkspaceExecutionSourceLimits>;
-  dbPath: string;
-  /** Host credential variable names stripped from every child environment of this process, besides the built-in list. */
-  credentialEnvNames?: readonly string[];
-  artifactDir?: string;
-  providers?: ProviderAdapter[];
-  tools?: ToolDefinition[];
-  defaults?: RunConfigInput;
-  toolPolicy?: readonly ToolPolicyRule[];
-  /** Explicit Run-local schema discovery; default provider exposure remains eager. */
-  toolDiscoveryPolicy?: ToolDiscoveryPolicy;
-  /** Explicit read-only repository navigation; the default core catalogue is unchanged. */
-  repositoryContextTools?: boolean;
-  repositoryContextPolicy?: RepositoryContextPolicy;
-  /** Host-registered checks only; command/profile approval remains mandatory. */
-  verificationTools?: boolean;
-  /** Idle host Git commits require an exact Original preview and actual verification. */
-  gitCommits?: boolean;
-  prFeedback?: boolean;
-  prFeedbackLoopback?: boolean;
-  /** Explicit tools-free host extraction into pending workspace knowledge candidates. */
-  knowledgeGeneration?: boolean;
-  /** Explicit host-approved publication to native workspace document revisions. */
-  knowledgePublication?: boolean;
-  /** Explicit exact-approved physical workspace-file and skill publication. */
-  knowledgeFilePublication?: boolean;
-  /** Explicit host recovery and per-document activation after an archive import. */
-  knowledgeImportRecovery?: boolean;
-  /** Host-selected current approved documents, consumed as bounded read-only data. */
-  knowledgeContextPolicy?: KnowledgeContextPolicy;
-  /** Host-authored pending proposals, saved separately from physical application. */
-  proposals?: boolean;
-  /** Separate exact-approved idle host file application. */
-  proposalApply?: boolean;
-  /** Explicit host team membership, native mailbox/board and current child input delivery. */
-  teams?: boolean;
-  /** Fixed tool catalogue; host must separately bind an actual selected team member. */
-  teamModelTools?: boolean;
-  /** Explicit readonly catalogue plus separately host-bound job aliases; children do not inherit. */
-  commandJobModelTools?: boolean;
-  residentTeams?: boolean;
-  /** Explicit host workflow orchestration through isolated actual child executions. */
-  workflows?: boolean;
-  codingBatches?: boolean;
-  /** Explicit root lifetime and durable queue-only scheduled input admission. */
-  schedules?: boolean;
-  /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
-  agentBackends?: boolean;
-  agentBackendClientEffects?: boolean;
-  /** Explicit read-only observation of existing user-owned terminals as native jobs. */
-  jobs?: boolean;
-  /** Exact prepared-resource parallel effects; root opt-in, children remain serial. */
-  effectBatches?: boolean;
-  /** Explicit independent idle-workspace command owner; disabled by default. */
-  hostCommands?: boolean;
-  commandLifetimes?: boolean;
-  /** Exact host-approved bounded conversation forks; execution approvals are never inherited. */
-  conversationForks?: boolean;
-  /** Explicit audience-bound runtime secrets; bodies never enter native backend journals. */
-  agentBackendSecrets?: AgentBackendSecretResolver;
-  /** Exact host-selected pending proposals projected as read-only model data. */
-  proposalContextPolicy?: ProposalContextPolicy;
-  /** Explicit trusted host callbacks; no workspace hook discovery or shell execution. */
-  lifecycleHooks?: readonly LifecycleHookRegistration[];
-  /** Shared host policy registry for owned child engines. Captures remain Run-bound. */
-  lifecycleHookRegistry?: LifecycleHookRegistry;
-  /** Whole bounded host data reserved before optional history and source context. */
-  lifecycleContextSlotBytes?: number;
-  /** At most one extra turn, bound to actual current passed native verification. */
-  lifecycleContinuation?: boolean;
-  /** Optional host policy narrowing for persisted agent profiles and exact resources. */
-  roleResourcePolicy?: RoleResourcePolicy;
-  roleResourcePolicyRegistry?: RoleResourcePolicyRegistry;
-  resolveRoleResources?: ScopedToolRuntimeOptions['resolveRoleResources'];
-  commandPreflight?: RuntimeCommandPreflightOptions;
-  /** Trusted host policy shared by an owned child; grants remain local to each engine. */
-  toolPolicyInstance?: ToolPolicy;
-  modelSpecs?: readonly ModelSpec[];
-  outputTokenReserve?: number;
-  /** Explicit host policy; original transcript and image references remain durable. */
-  mediaHistoryPolicy?: MediaHistoryPolicy;
-  /** Bounded derived observations from completed exchanges of a still-active Run. */
-  activePrefixPolicy?: ActivePrefixPolicy;
-  /** PDF page/text token cost is opaque. The default refuses this unknown cost. */
-  allowUnknownDocumentTokenCost?: boolean;
-  /** Explicitly admit media whose token cost remains unknown. */
-  allowUnknownMediaTokenCost?: boolean;
-  documentHistoryPolicy?: DocumentHistoryPolicy;
-  agentProfiles?: readonly AgentProfileSpec[];
-  allowedToolNames?: readonly string[];
-  ptyBackend?: PtyBackend;
-  worktreeDirectory?: string;
-  /** Root task namespace for a host-owned nested engine. No additional tools or grants. */
-  childTaskScope?: { tasks: ChildTaskManager; worktrees: WorktreeManager; sessionId: string };
-  configureChild?: (engine: MoodcodeEngine, task: Readonly<ChildTaskRecord>) => void;
-}
-function json(value: unknown): JsonValue {
-  const encoded = JSON.stringify(value);
-  if (encoded === undefined) return null;
-  return JSON.parse(encoded) as JsonValue;
-}
 
 /** Own function properties that call the target's current method of the same name. */
 function forward<T extends object, K extends keyof T>(target: T, keys: readonly K[]): Pick<T, K> {
@@ -326,108 +173,6 @@ function atomicPorts<S, P extends CommandDeliveryTargetProof<S>>(producer: Engin
   };
 }
 
-/** The commandId of a failed command, echoed only when it satisfies the contract ID rule. */
-function echoCommandId(value: unknown): string {
-  if (!value || typeof value !== 'object') return '';
-  try {
-    const descriptor = Object.getOwnPropertyDescriptor(value, 'commandId');
-    if (descriptor && 'value' in descriptor && typeof descriptor.value === 'string'
-      && descriptor.value.trim().length > 0 && descriptor.value.length <= 256
-      && !/[\u0000-\u001f\u007f]/u.test(descriptor.value)
-      && Buffer.byteLength(descriptor.value) <= 256) return descriptor.value;
-  } catch { /* Invalid object traps must not escape the command result boundary. */ }
-  return '';
-}
-
-function commandFailure(error: unknown, fallback: string): { code: string; message: string; details?: JsonObject } {
-  return error instanceof EngineError ? { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } : { code: 'INTERNAL_ERROR', message: fallback };
-}
-
-function assertDocumentSupport(provider: ProviderAdapter | undefined, models: ModelRegistry, config: Pick<RunConfig, 'providerId' | 'modelId'>, allowUnknownTokenCost: boolean): void {
-  if (!provider?.inputFileTypes?.includes('application/pdf') || !models.get(config.providerId, config.modelId).inputFileTypes?.includes('application/pdf')
-    || provider.supportsInputFile?.(config.modelId, 'application/pdf') === false) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider and model require explicit PDF support');
-  if (!allowUnknownTokenCost || provider.allowUnknownDocumentTokenCost !== true) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF token cost is unknown; host and provider must explicitly permit this cost');
-}
-
-function assertMediaCommandData(value:unknown):void{
-  if(types.isProxy(value))throw new EngineError('INVALID_INPUT','command must be an inspectable JSON object',{path:'command'});if(!value||typeof value!=='object')return;const p=Object.getOwnPropertyDescriptor(value,'payload');if(!p||!('value'in p)||!p.value||typeof p.value!=='object')return;if(types.isProxy(p.value))throw new EngineError('INVALID_INPUT','payload must be an inspectable JSON object',{path:'payload'});const m=Object.getOwnPropertyDescriptor(p.value,'media');if(m&&'value'in m)jobJson(m.value,65536);
-}
-
-function assertSegmentSupport(provider:ProviderAdapter|undefined,models:ModelRegistry,modelId:string,refs:readonly InputMediaAttachment[],allowUnknown:boolean):void{
-  const caps=provider?models.get(provider.id,modelId).mediaCapabilities:null;
-  for(const ref of refs)if(provider?.supportsInputMedia?.(modelId,ref.kind)!==true||(ref.kind==='audio'?caps?.audioInput:caps?.videoFrames)!==true)throw new EngineError('PROVIDER_UNSUPPORTED_INPUT','Selected provider and exact model require verified media support');
-  if(provider?.requestedOutputMedia?.(modelId)&&caps?.audioOutput!==true)throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT','Selected exact model requires verified audio output support');
-  if((refs.length||provider?.requestedOutputMedia?.(modelId))&&!allowUnknown)throw new EngineError('MEDIA_TOKEN_COST_UNKNOWN','Media token cost is unknown and requires explicit host policy');
-}
-
-function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore, documents: DocumentAttachmentStore, segments:MediaSegmentStore, store: SqliteStore, models: ModelRegistry, allowUnknownTokenCost: boolean, allowMediaCost:boolean): ProviderAdapter {
-  return { id: provider.id,
-    ...(provider.supportsInputMedia?{supportsInputMedia:(modelId:string,kind:'audio'|'video')=>provider.supportsInputMedia!(modelId,kind)}:{}),
-    ...(provider.requestedOutputMedia?{requestedOutputMedia:(modelId:string)=>provider.requestedOutputMedia!(modelId)}:{}), ...(provider.replayProtocol ? { replayProtocol: provider.replayProtocol } : {}),
-    ...(provider.retryableHttpStatuses ? { retryableHttpStatuses: provider.retryableHttpStatuses } : {}),
-    ...(provider.inputModalities ? { inputModalities: provider.inputModalities } : {}),
-    ...(provider.inputFileTypes ? { inputFileTypes: provider.inputFileTypes } : {}),
-    ...(provider.allowUnknownDocumentTokenCost === undefined ? {} : { allowUnknownDocumentTokenCost: provider.allowUnknownDocumentTokenCost }),
-    ...(provider.supportsInputFile ? { supportsInputFile: (modelId: string, mimeType: 'application/pdf') => provider.supportsInputFile!(modelId, mimeType) } : {}),
-    ...(provider.streamGeneration ? { streamGeneration(request: HostGenerationRequest, signal: AbortSignal) {
-      return provider.streamGeneration!(validateHostGenerationRequest(request), signal);
-    } } : {}),
-    streamTurn(request, signal) {
-      let iterator: AsyncIterator<ProviderEvent> | undefined, initialization: Promise<void> | undefined;
-      let providerEntered = false, confirmedDone = false;
-      const initialize = () => initialization ??= (async () => {
-        if (request.resolvedImages !== undefined || request.resolvedDocuments !== undefined || request.resolvedMedia !== undefined) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Input bytes must be resolved by the engine');
-        const collect = <T extends { id: string }>(pick: (message: ProviderMessage) => readonly T[] | undefined, noun: string) => {
-          const collected = new Map<string, T>();
-          for (const message of request.messages) for (const ref of pick(message) ?? []) {
-            if (message.role !== 'user') throw new EngineError('PROVIDER_INVALID_REQUEST', `${noun} references belong to user messages`);
-            const previous = collected.get(ref.id);
-            if (previous && JSON.stringify(previous) !== JSON.stringify(ref)) throw new EngineError('PROVIDER_INVALID_REQUEST', `Conflicting ${noun.toLowerCase()} references`);
-            collected.set(ref.id, ref);
-          }
-          return collected;
-        };
-        const refs = collect(message => message.attachments, 'Image'), documentRefs = collect(message => message.documents, 'Document'), segmentRefs = collect(message => message.media, 'Media');
-        assertSegmentSupport(provider,models,request.modelId,[...segmentRefs.values()],allowMediaCost);
-        let resolved = request;
-        if (refs.size || documentRefs.size || segmentRefs.size) {
-          const run = store.getRun(request.runId);
-          if (request.sessionId !== run.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Input request belongs to another session');
-          if (documentRefs.size) assertDocumentSupport(provider, models, { providerId: provider.id, modelId: request.modelId }, allowUnknownTokenCost);
-          if (refs.size) {
-            const modalities = models.get(provider.id, request.modelId).modalities;
-            if (!provider.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
-            resolved = { ...resolved, resolvedImages: await images.resolve(run.sessionId, [...refs.values()], signal) };
-          }
-          if (documentRefs.size) resolved = { ...resolved, resolvedDocuments: await documents.resolve(run.sessionId, [...documentRefs.values()], signal) };
-          if(segmentRefs.size)resolved={...resolved,resolvedMedia:await segments.resolve(run.sessionId,[...segmentRefs.values()],signal)};
-          const decoded=providerSegments(resolved,kind=>provider.supportsInputMedia?.(request.modelId,kind)===true,signal);
-          const assetBytes=[...decoded.values()].reduce((sum,v)=>sum+v.assets.reduce((n,a)=>n+a.bytes.length,0),0);
-          if([...refs.values()].reduce((sum,v)=>sum+v.bytes,0)+[...documentRefs.values()].reduce((sum,v)=>sum+v.bytes,0)+assetBytes>INPUT_MEDIA_LIMITS.maxTotalBytes)throw new EngineError('INPUT_MEDIA_LIMIT','Combined input media wire budget exceeded');
-          providerImages(resolved, true, signal);
-          if (documentRefs.size) providerDocuments(resolved, true, signal);
-        }
-        if (signal.aborted) throw signal.reason ?? new EngineError('CANCELLED', 'Provider request was cancelled');
-        providerEntered = true;
-        iterator = provider.streamTurn(resolved, signal)[Symbol.asyncIterator]();
-      })();
-      // Forward the real cleanup result. An async-generator wrapper can become
-      // closed after inner next() throws and falsely report return().done=true.
-      const stream: AsyncIterableIterator<ProviderEvent> = {
-        [Symbol.asyncIterator]() { return stream; },
-        async next() { await initialize(); const result = await iterator!.next(); if (result.done === true) confirmedDone = true; return result; },
-        async return() {
-          if (initialization) await initialization.catch(() => {});
-          if (!providerEntered || confirmedDone) return { done: true, value: undefined };
-          if (!iterator?.return) throw new EngineError('CLEANUP_UNCERTAIN', 'Underlying provider has no cleanup operation');
-          const result = await iterator.return(); if (result.done === true) confirmedDone = true; return result;
-        },
-      };
-      return stream;
-    },
-  };
-}
-
 export class MoodcodeEngine implements EngineRuntime {
   readonly store: SqliteStore;
   readonly coordinator: RunCoordinator;
@@ -437,19 +182,18 @@ export class MoodcodeEngine implements EngineRuntime {
   readonly questions: QuestionManager;
   readonly tasks: SessionTaskService;
   readonly context: ContextService;
-  private readonly images: ImageAttachmentStore;
-  private readonly segments:MediaSegmentStore;
-  private readonly mediaCapabilities:(providerId:string,modelId:string)=>{audioInput:boolean;videoFrames:boolean;audioOutput:boolean;unknownTokenCostAllowed:boolean;tokenCost:null;source:ModelSpec['source']};
-  private readonly validateSegmentInput:(sessionId:string,config:RunConfig,refs:InputMediaAttachment[])=>Promise<void>;
-  private readonly documents: DocumentAttachmentStore;
-  private readonly pending = new Set<Promise<unknown>>();
-  private readonly storagePaths: { artifactDir: string; dbPath?: string };
+  private readonly lifetime = new EngineLifetime();
+  private readonly enabled: EngineFeatures;
+  private readonly storage: EngineStorage;
   private readonly ownedArtifactDir: string | undefined;
-  private readonly childStorageIdentity: ChildStorageHostIdentity;
-  private readonly verifyChildStorageIdentity: () => void;
+  private readonly media: EngineInputMedia;
+  private readonly knowledge: EngineKnowledge;
+  private readonly proposals: EngineProposals;
+  private readonly verification: EngineVerification;
+  private readonly languageSync: WorkspaceLanguageSync;
+  private readonly restorer: EngineRestore;
+  private readonly commands: EngineCommands;
   private readonly executionObserver: EngineExecutionObserver;
-  private readonly validateImageInput: (sessionId: string, config: RunConfig, refs: InputImageAttachment[]) => Promise<void>;
-  private readonly validateDocumentInput: (sessionId: string, config: RunConfig, refs: InputDocumentAttachment[]) => Promise<void>;
   private readonly managedArtifacts: () => Promise<ArtifactStore>;
   readonly plugins: EnginePluginManager;
   readonly profiles: AgentProfiles;
@@ -467,44 +211,13 @@ export class MoodcodeEngine implements EngineRuntime {
   readonly verificationController: VerificationController;
   readonly workspaceKnowledge: KnowledgeStorage;
   readonly workspaceTrust: WorkspaceTrustService;
-  private readonly knowledgeHost: KnowledgeHostAdapter;
-  private readonly knowledgeGenerationEnabled: boolean;
-  private readonly knowledgeGenerations: KnowledgeGenerationStorage;
-  private readonly knowledgeGenerationService: KnowledgeGenerationService;
-  private readonly knowledgePublicationEnabled: boolean;
-  private readonly knowledgePublications: KnowledgePublicationStorage;
-  private readonly knowledgePublicationService: KnowledgePublicationService;
-  private readonly knowledgeFilePublicationEnabled: boolean;
-  private readonly knowledgeFilePublications: KnowledgeFilePublicationStorage;
-  private readonly knowledgeFileHost: FileKnowledgePublicationHost;
-  private readonly knowledgeFilePublicationService: KnowledgeFilePublicationService;
-  private readonly knowledgeFileExecutionGuards: KnowledgeFileExecutionGuards;
-  private readonly knowledgeFileRecoveryPreviews = new WeakMap<KnowledgeFileRecoveryPreview, string>();
-  private readonly knowledgeImportRecoveryEnabled: boolean;
-  private readonly knowledgeImports: KnowledgeImportRecoveryStorage;
-  private readonly knowledgeImportService: KnowledgeImportRecoveryService;
-  private readonly proposalsEnabled: boolean;
-  private readonly proposalRecords: ProposalStorage;
-  private readonly proposalSource: ProposalSourceCaptureHost;
-  private readonly proposalService: ProposalHostService;
-  private readonly proposalOverlay: ProposalOverlayContextSource;
-  private readonly proposalApplyEnabled: boolean;
-  private readonly proposalApplies: ProposalApplyStorage;
-  private readonly proposalApplyService: ProposalApplyService;
-  private readonly proposalApplyGuards: ProposalApplyExecutionGuards;
-  private readonly proposalApplyCleanups = new WeakMap<object, { capture: ProposalApplyCapture; proof: ProposalApplyCleanup }>();
-  private readonly proposalApplyRecoveryPreviews = new WeakMap<object, string>();
-  private readonly teamsEnabled: boolean;
   private readonly teamRecords: TeamStorage;
   private readonly teamHost: TeamHostService;
   private readonly teamService: TeamService;
-  private readonly teamModelToolsEnabled: boolean;
   private readonly commandJobModelHost: CommandJobModelHost;
   private readonly commandJobModelDefinitions: readonly ToolDefinition[];
   private readonly teamModelHost: EngineTeamModelToolHost;
   private readonly teamModelDefinitions: readonly ToolDefinition[];
-  private readonly workflowsEnabled: boolean;
-  private readonly codingBatchesEnabled: boolean;
   private readonly codingBatches: CodingBatchHost;
   private codingBatchDispatchGuard?: () => void;
   private codingBatchCharge?: () => void;
@@ -513,19 +226,15 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly workflowService: WorkflowService;
   private readonly workflowEffects:WorkflowEffects;
   private readonly workflowModelTools:WorkflowModelTools;
-  private readonly schedulesEnabled: boolean;
   private readonly scheduleRecords: ScheduleStorage;
   private readonly scheduleProducer: EngineScheduleProducer;
   private readonly scheduleDispatcher: ScheduleDispatcher;
-  private readonly agentBackendsEnabled: boolean;
   private readonly backendProducer: EngineAgentBackendProducer;
   private readonly backendRecords: AgentBackendStorage;
   private readonly backendProcesses: OwnedBackendProcesses;
   private readonly backendHost: AgentBackendHost;
   private readonly codeModeHost:CodeModeHost;
-  private readonly jobsEnabled: boolean;
   private readonly conversationForkHost: ConversationForkHost;
-  private readonly conversationForksEnabled: boolean;
   private readonly jobProducer: EngineJobProducer;
   private readonly jobRecords: JobStorage;
   private readonly jobHost: JobHost;
@@ -537,29 +246,17 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly hostCommandDeliveryProducer: EngineHostCommandDeliveryProducer;
   private readonly hostCommandDelivery: HostCommandDelivery;
   private readonly sandboxHost:SandboxHost;
-  private readonly sandboxEnabled:boolean;
   private readonly ownedCommandProducer: EngineOwnedCommandDeliveryProducer;
   private readonly ownedCommandDelivery: OwnedCommandDelivery;
   private readonly runtimeProviders: Map<string, ProviderAdapter>;
   private readonly backendProviderIds = new Set<string>();
-  private readonly knowledgeRecoveryPreviews = new WeakMap<KnowledgeGenerationRecoveryPreview, string>();
-  private readonly liveKnowledgeRecoveryPreviews = new Map<string, KnowledgeGenerationRecoveryPreview>();
-  private readonly verificationHost: VerificationHostService;
-  private readonly verificationEnabled: boolean;
   readonly formatters: FormatterRegistry;
   readonly changes: WorkspaceChangeHub;
-  private readonly watchConsumers = new Map<string, { seq: number; running: boolean; done: Promise<void> }>();
-  private readonly languageServers = new Map<string, (path: string) => string | null>();
-  private readonly languageServerRevisions = new Map<string, string>();
-  private readonly lspChanges = new Map<string, { version: number; done: Promise<void> }>();
-  private readonly observationFailures = new Map<string, string>();
   private readonly terminalJournal: SqliteTerminalJournal;
-  private readonly hostResources = new AbortController();
   private readonly mcp = new Map<string, McpRegistration>();
   private readonly pendingMcp = new Map<string, Promise<McpRegistration>>();
   private readonly mcpClients = new Map<string, McpClient>();
   readonly reviewJournal: ReviewJournal;
-  private closing = false;
   private closePromise?: Promise<void>;
   private readonly defaults: RunConfig;
   private readonly hostAllowedTools?: readonly string[];
@@ -568,107 +265,14 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly prFeedbackHost: PrFeedbackHost;
   private readonly executionLockPath: string;
   private readonly recoveryGate: RecoveryGate;
-  private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
 
   constructor(options: EngineOptions) {
-    this.sandboxEnabled=options.osSandbox===true;
-    if (!options || typeof options.dbPath !== 'string' || options.dbPath.length === 0) {
-      throw new EngineError('INVALID_CONFIG', 'dbPath must be a non-empty string');
-    }
-    const credentialEnvNames: unknown = options.credentialEnvNames;
-    if (credentialEnvNames !== undefined) {
-      const names = Array.isArray(credentialEnvNames) && credentialEnvNames.length <= 256 ? Array.from(credentialEnvNames as unknown[]) : undefined;
-      if (!names?.every((name): name is string => typeof name === 'string' && /^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(name)))
-        throw new EngineError('INVALID_CONFIG', 'credentialEnvNames must list at most 256 environment variable names');
-      registerCredentialEnvNames(names);
-    }
-    const repositoryPolicy = options.repositoryContextPolicy !== undefined ? repositoryContextPolicy(options.repositoryContextPolicy) : undefined;
-    const knowledgePolicy = options.knowledgeContextPolicy === undefined ? undefined : knowledgeContextPolicy(options.knowledgeContextPolicy);
-    const proposalPolicy = options.proposalContextPolicy === undefined ? undefined : proposalContextPolicy(options.proposalContextPolicy);
-    if (options.lifecycleHookRegistry !== undefined && !(options.lifecycleHookRegistry instanceof LifecycleHookRegistry)) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Shared hook registry requires an explicit trusted host registry');
-    if (options.lifecycleHookRegistry && options.lifecycleHooks !== undefined) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Specify one host registry or initial hook registrations');
-    this.lifecycleHooks = options.lifecycleHookRegistry ?? new LifecycleHookRegistry();
-    if (options.lifecycleContextSlotBytes !== undefined && (!Number.isSafeInteger(options.lifecycleContextSlotBytes) || options.lifecycleContextSlotBytes < 128 || options.lifecycleContextSlotBytes > 16_384))
-      throw new EngineError('INVALID_LIFECYCLE_CONTEXT', 'Lifecycle context slot must be between 128 and 16384 bytes');
-    this.assertOptionalBoolean(options, 'lifecycleContinuation', 'Lifecycle continuation requires an explicit host boolean');
-    if (options.roleResourcePolicyRegistry !== undefined && !(options.roleResourcePolicyRegistry instanceof RoleResourcePolicyRegistry)) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Shared role policy requires a trusted host registry');
-    if (options.roleResourcePolicyRegistry && options.roleResourcePolicy) throw new EngineError('INVALID_ROLE_POLICY_CONFIGURATION', 'Specify one role policy registry or immutable role policy');
+    const resolved = resolveEngineOptions(options);
+    const { repositoryPolicy, knowledgePolicy, proposalPolicy, mediaHistoryPolicy, activePrefixPolicy, documentHistoryPolicy, toolDiscoveryPolicy } = resolved;
+    this.enabled = resolved.enabled;
+    this.lifecycleHooks = resolved.lifecycleHooks;
     this.roleResourcePolicyRegistry = options.roleResourcePolicyRegistry;
-    this.assertOptionalBoolean(options, 'prFeedback', 'PR feedback requires explicit host boolean opt-in');
-    this.assertOptionalBoolean(options, 'prFeedbackLoopback', 'PR feedback requires explicit host boolean opt-in');
-    this.assertOptionalBoolean(options, 'gitCommits', 'gitCommits must be an explicit boolean');
-    this.assertOptionalBoolean(options, 'verificationTools', 'Verification tool exposure must be an explicit boolean');
-    this.verificationEnabled = options.verificationTools === true;
-    this.assertOptionalBoolean(options, 'knowledgeGeneration', 'Knowledge generation requires an explicit host boolean');
-    this.knowledgeGenerationEnabled = options.knowledgeGeneration === true;
-    this.assertOptionalBoolean(options, 'knowledgePublication', 'Knowledge publication requires an explicit host boolean');
-    this.knowledgePublicationEnabled = options.knowledgePublication === true;
-    this.assertOptionalBoolean(options, 'knowledgeFilePublication', 'Knowledge file publication requires an explicit host boolean');
-    this.knowledgeFilePublicationEnabled = options.knowledgeFilePublication === true;
-    this.assertOptionalBoolean(options, 'knowledgeImportRecovery', 'knowledgeImportRecovery must be an explicit boolean');
-    this.knowledgeImportRecoveryEnabled = options.knowledgeImportRecovery === true;
-    this.assertOptionalBoolean(options, 'proposals', 'proposals must be an explicit boolean');
-    this.assertOptionalBoolean(options, 'teams', 'teams must be an explicit boolean');
-    this.teamsEnabled = options.teams === true;
-    this.assertOptionalBoolean(options, 'teamModelTools', 'teamModelTools must be an explicit boolean');
-    this.teamModelToolsEnabled = options.teamModelTools === true;
-    this.assertOptionalBoolean(options, 'commandJobModelTools', 'commandJobModelTools must be an explicit boolean');
-    this.assertOptionalBoolean(options, 'residentTeams', 'residentTeams requires explicit boolean');
-    if(options.residentTeams===true&&(!this.teamModelToolsEnabled||options.teams!==true))throw new EngineError('INVALID_CONFIG','Resident teams require teams and team model tools');
-    this.assertOptionalBoolean(options, 'workflows', 'workflows must be an explicit boolean');
-    this.workflowsEnabled = options.workflows === true;
-
-    this.assertOptionalBoolean(options, 'codingBatches', 'codingBatches must be explicit boolean');
-    this.codingBatchesEnabled = options.codingBatches === true;
-    if (
-      this.codingBatchesEnabled &&
-      (!this.workflowsEnabled ||
-        options.verificationTools !== true ||
-        options.tools)
-    )
-      throw new EngineError(
-        "CODING_BATCH_UNSUPPORTED",
-        "Coding batches require core workflow and verification tools",
-      );
-    this.assertOptionalBoolean(options, 'schedules', 'schedules must be an explicit boolean');
-    this.schedulesEnabled = options.schedules === true;
-    this.assertOptionalBoolean(options, 'agentBackends', 'agentBackends requires an explicit root host boolean');
-    if (options.agentBackendSecrets !== undefined && (!options.agentBackendSecrets || typeof options.agentBackendSecrets.resolve !== 'function')) throw new EngineError('INVALID_CONFIG', 'Backend secrets require an explicit trusted host resolver');
-    this.agentBackendsEnabled = options.agentBackends === true;
-    this.assertOptionalBoolean(options, 'agentBackendClientEffects', 'ACP client effects require explicit host opt-in');
-    if(options.agentBackendClientEffects&&!this.agentBackendsEnabled)throw new EngineError("INVALID_CONFIG","ACP effects require agentBackends opt-in");
-    this.assertOptionalBoolean(options, 'jobs', 'jobs requires an explicit root host boolean');
-    this.assertOptionalBoolean(options, 'codeMode', 'codeMode requires an explicit boolean');
-    if(options.codeMode&&options.tools)throw new EngineError('CODE_MODE_CUSTOM_TOOLS_UNSUPPORTED','Restricted code mode requires the actual engine core tool producers');
-    this.jobsEnabled = options.jobs === true;
-    this.assertOptionalBoolean(options, 'effectBatches', 'effectBatches requires an explicit boolean');
-    this.assertOptionalBoolean(options, 'conversationForks', 'conversationForks must be an explicit boolean');
-    this.conversationForksEnabled = options.conversationForks === true;
-    if (this.teamModelToolsEnabled && !this.teamsEnabled) throw new EngineError('INVALID_CONFIG', 'Model team tools require explicit host teams');
-    this.proposalsEnabled = options.proposals === true;
-    this.assertOptionalBoolean(options, 'proposalApply', 'proposalApply must be an explicit boolean');
-    this.proposalApplyEnabled = options.proposalApply === true;
-    this.assertOptionalBoolean(options, 'diagnosticObservations', 'Execution observations require an explicit host boolean');
-    if (this.verificationEnabled && options.tools !== undefined) throw new EngineError('INVALID_VERIFICATION_CONFIG', 'Verification requires the engine-owned command producer and core registrations');
-    this.assertOptionalBoolean(options, 'osSandbox', 'osSandbox must be an explicit boolean');
-    if(options.osSandbox && (options.repositoryContextTools||options.verificationTools||options.lifecycleHooks?.length||options.lifecycleHookRegistry?.list().length))throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Repository/verification or host lifecycle callbacks require a separately sandbox-bound producer');
-    if(options.osSandbox && options.tools)throw new EngineError('SANDBOX_CUSTOM_TOOLS_UNSUPPORTED','Custom effects cannot assert OS sandbox enforcement');
-    this.assertOptionalBoolean(options, 'commandLifetimes', 'commandLifetimes requires an explicit host boolean');
-    if(options.osSandbox && options.commandLifetimes===true)throw new EngineError('SANDBOX_COMMAND_LIFETIME_UNSUPPORTED','Interactive ownership transfer requires a separately sandbox-bound command lifetime producer');
-    if(options.commandLifetimes===true&&(!this.jobsEnabled||options.hostCommands!==true))throw new EngineError('INVALID_CONFIG','commandLifetimes requires jobs and hostCommands');
-    this.assertOptionalBoolean(options, 'hostCommands', 'hostCommands must be an explicit boolean');
-    this.assertOptionalBoolean(options, 'allowUnknownMediaTokenCost', 'Media token cost policy must be a boolean');
-    this.assertOptionalBoolean(options, 'allowUnknownDocumentTokenCost', 'Document token cost policy must be a boolean');
-    this.assertOptionalBoolean(options, 'repositoryContextTools', 'Repository tool exposure must be an explicit boolean');
-    if (options.lifecycleHooks !== undefined) {
-      if (!Array.isArray(options.lifecycleHooks) || options.lifecycleHooks.length > this.lifecycleHooks.limits.maxHooks) throw new EngineError('INVALID_LIFECYCLE_HOOK', 'Initial lifecycle hooks must be a bounded explicit host list');
-      for (const hook of options.lifecycleHooks) this.lifecycleHooks.register(hook);
-    }
-    this.defaults = normalizeRunConfig(options.defaults ?? {});
-    const mediaHistoryPolicy = options.mediaHistoryPolicy === undefined ? undefined : validateMediaHistoryPolicy(options.mediaHistoryPolicy);
-    const activePrefixPolicy = options.activePrefixPolicy === undefined ? undefined : validateActivePrefixPolicy(options.activePrefixPolicy);
-    const documentHistoryPolicy = options.documentHistoryPolicy === undefined ? undefined : validateDocumentHistoryPolicy(options.documentHistoryPolicy);
-    const toolDiscoveryPolicy = options.toolDiscoveryPolicy === undefined ? undefined : validateToolDiscoveryPolicy(options.toolDiscoveryPolicy);
+    this.defaults = resolved.defaults;
     const dbPath = options.dbPath === ':memory:' ? options.dbPath : resolve(options.dbPath);
     this.ownedArtifactDir = options.artifactDir === undefined && dbPath === ':memory:' ? mkdtempSync(join(tmpdir(), 'moodcode-memory-artifacts-')) : undefined;
     const artifactDir = options.artifactDir !== undefined ? resolve(options.artifactDir) : this.ownedArtifactDir ?? resolve(`${options.dbPath}.artifacts`);
@@ -679,144 +283,21 @@ export class MoodcodeEngine implements EngineRuntime {
     let terminalJournal: SqliteTerminalJournal | undefined;
     try {
       this.store = store = new SqliteStore(dbPath, this.defaults.budgets);
-      const canonicalDbPath = dbPath === ':memory:' ? undefined : realpathSync(dbPath);
-      this.storagePaths = { artifactDir: realpathSync(artifactDir), ...(canonicalDbPath ? { dbPath: canonicalDbPath } : {}) };
-      const physicalIdentity = (path: string) => {
-        const stat = statSync(path, { bigint: true });
-        return { path: realpathSync(path), dev: stat.dev.toString(), ino: stat.ino.toString() };
-      };
-      const storageBinding = {
-        database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : { memory: randomUUID() },
-        artifacts: physicalIdentity(this.storagePaths.artifactDir),
-      };
-      const storageUnchanged = () => JSON.stringify({
-        database: canonicalDbPath ? physicalIdentity(canonicalDbPath) : storageBinding.database,
-        artifacts: physicalIdentity(this.storagePaths.artifactDir),
-      }) === JSON.stringify(storageBinding);
-      this.childStorageIdentity = storageBinding;
-      this.verifyChildStorageIdentity = () => {
-        try { if (!storageUnchanged()) throw new Error('changed'); }
-        catch { throw new EngineError('CHILD_STORAGE_HOST_CHANGED', 'Child storage inspection requires the unchanged host storage identity'); }
-      };
-      const knowledgeBinding = (workspaceId: string) => {
-        this.verifyChildStorageIdentity();
-        for (const storagePath of [this.storagePaths.dbPath, this.storagePaths.artifactDir]) if (storagePath && (lstatSync(storagePath).isSymbolicLink() || realpathSync(storagePath) !== storagePath)) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Workspace knowledge requires the unchanged physical database and artifact owner');
-        const workspace = this.store.getWorkspace(workspaceId), root = lstatSync(workspace.root, { bigint: true });
-        if (!root.isDirectory() || root.isSymbolicLink() || realpathSync(workspace.root) !== workspace.root) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Workspace knowledge requires its canonical physical root');
-        return { workspaceId, root: workspace.root, rootDevice: root.dev.toString(), rootInode: root.ino.toString(), storageBindingSha256: knowledgeHash(storageBinding) };
-      };
-      this.knowledgeFilePublications = this.store.createKnowledgeFilePublicationStorage({ checkBinding: knowledgeBinding,
-        getCandidate: (workspaceId, candidateId) => this.workspaceKnowledge.getCandidate(workspaceId, candidateId),
-        assertCommitCurrent: (record, phase) => this.knowledgeFilePublicationService.assertCommitCurrent(record, phase),
-        beforeRecoveryDecision: (workspaceId, operation) => {
-          if (operation === 'acknowledge') this.knowledgeFileExecutionGuards.reconcile(workspaceId, this.executionLockPath);
-          this.recoveryGate.assertIdle();
-          if (operation === 'resume') this.recoveryGate.assertCertain('knowledgeFileResume', workspaceId);
-        } });
-      this.knowledgeFileExecutionGuards = this.store.createKnowledgeFileExecutionGuards({ checkBinding: knowledgeBinding,
-        getOwner: (workspaceId, id) => { const owner = this.knowledgeFilePublications.getOwner(workspaceId, id); if (!owner) throw new EngineError('KNOWLEDGE_FILE_NOT_FOUND', 'Physical publication owner does not exist in this workspace'); return owner; } });
-      this.knowledgeFileHost = new FileKnowledgePublicationHost({ checkBinding: knowledgeBinding,
-        readTargetRevision: (binding, path) => this.knowledgeFilePublications.getCurrentTarget(binding.workspaceId, path)?.revision ?? 0,
-        acquireExecutionGuard: (binding, publicationId) => {
-          // A busy lock found here leaves no guard row, so the owner settles as cancelled, not uncertain.
-          assertExecutionLockAvailable(this.executionLockPath);
-          const reservation = reserveExecutionLock(this.executionLockPath);
-          this.knowledgeFileExecutionGuards.reserve(binding, publicationId, this.executionLockPath, readExecutionLockReservation(reservation));
-          try { return acquireExecutionLock(this.executionLockPath, reservation); }
-          catch { throw new EngineError('KNOWLEDGE_FILE_CLEANUP_UNCERTAIN', 'File execution marker may stay committed after a failed lock acquisition'); }
-        } });
-      this.knowledgeHost = this.store.createKnowledgeHostAdapter({ checkHostBinding: knowledgeBinding,
-        ...(this.knowledgeFilePublicationEnabled ? { readFileTargetRevision: (binding: ReturnType<typeof knowledgeBinding>, path: string) =>
-          this.knowledgeFilePublications.captureTarget(binding, this.knowledgeFileHost.observeTargetSync(binding, path)).revision } : {}),
-        readWorkspaceDocumentTarget: (binding, key) => this.knowledgePublications.captureDocumentTarget(binding.workspaceId, key) });
-      this.workspaceKnowledge = this.store.createKnowledgeStorage({ checkHostBinding: knowledgeBinding, assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source), assertTargetCurrent: (binding, target) => this.knowledgeHost.assertTargetCurrent(binding, target),
-        readGenerationEvidence: (plan, ownerId) => this.knowledgeGenerations.readEvidence(plan, ownerId) });
-      this.knowledgeGenerations = this.store.createKnowledgeGenerationStorage({ checkBinding: knowledgeBinding,
-        getPlan: (workspaceId, planId) => this.workspaceKnowledge.getGenerationPlan(workspaceId, planId),
-        assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan) });
-      this.knowledgePublications = this.store.createKnowledgePublicationStorage({ checkBinding: knowledgeBinding,
-        getCandidate: (workspaceId, candidateId) => this.workspaceKnowledge.getCandidate(workspaceId, candidateId),
-        assertCommitCurrent: record => this.knowledgePublicationService.assertCommitCurrent(record) });
-      this.knowledgeImports = this.store.createKnowledgeImportRecoveryStorage({ checkBinding: knowledgeBinding,
-        assertCommitCurrent: preview => this.knowledgeImportService.assertCommitCurrent(preview) });
-      this.proposalSource = new ProposalSourceCaptureHost({ checkBinding: knowledgeBinding });
-      this.proposalRecords = this.store.createProposalStorage({ checkBinding: knowledgeBinding,
-        readSourceCapture: original => this.proposalSource.read(original),
-        assertSourcesCurrent: (native, original) => this.proposalService.assertCommitCurrent(native, original) });
-      this.proposalService = new ProposalHostService(this.proposalRecords, this.proposalSource,
-        operation => this.store.readExecutionObservationEvidence(operation), reference => this.store.readProposalBlobText(reference),
-        this.hostResources.signal);
-      this.proposalApplies = this.store.createProposalApplyStorage({ checkBinding: knowledgeBinding,
-        getRevision: (workspaceId, id) => this.proposalRecords.getRevision(workspaceId, id),
-        getHead: (workspaceId, id) => this.proposalRecords.getSet(workspaceId, id),
-        readApprovedCapture: (original, input) => this.proposalApplyService.readApprovedCapture(original, input),
-        assertCurrent: (original, capture, phase) => this.proposalApplyService.assertCurrent(original, capture, phase),
-        readPhysicalResult: (capture, original) => this.proposalApplyService.assertPhysicalResult(capture, original),
-        readExecutionGuard: (capture, original) => { const guard = this.proposalApplyGuards.readOriginal(original);
-          if (guard.ownerId !== capture.ownerId || guard.workspaceId !== capture.workspaceId) throw new EngineError('PROPOSAL_APPLY_GUARD_INVALID', 'Execution guard belongs to another original apply owner'); return guard; },
-        getExecutionGuard: (workspaceId, ownerId) => this.proposalApplyGuards.get(workspaceId, ownerId),
-        assertCleanup: (capture, original) => { const cleanup = this.proposalApplyCleanups.get(original);
-          if (!cleanup || cleanup.capture !== capture) throw new EngineError('PROPOSAL_APPLY_CLEANUP_INVALID', 'Cleanup requires its original apply owner and actual lock release'); return cleanup.proof; },
-        beforeRecoveryDecision: (workspaceId, operation) => {
-          if (operation === 'acknowledge') this.proposalApplyGuards.reconcile(workspaceId, this.executionLockPath);
-          this.recoveryGate.assertIdle();
-          if (operation === 'resume') this.recoveryGate.assertCertain('proposalApplyResume', workspaceId);
-        } });
-      this.proposalApplyGuards = this.store.createProposalApplyExecutionGuards({ checkBinding: knowledgeBinding,
-        getOwner: (workspaceId, id) => { const owner = this.proposalApplies.getOwner(workspaceId, id);
-          if (!owner) throw new EngineError('PROPOSAL_APPLY_NOT_FOUND', 'Native proposal apply owner is absent'); return owner; } });
-      this.proposalApplyService = new ProposalApplyService(this.proposalApplies, {
-        readTx: operation => this.store.readExecutionObservationEvidence(operation), checkBinding: knowledgeBinding,
-        getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
-        readBlobText: reference => this.store.readProposalBlobText(reference),
-        assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
-        assertIdleAndNoExecutionUncertainty: workspaceId => { this.coordinator.assertWorkspaceCleanupConfirmed(workspaceId); this.recoveryGate.assertIdle(); },
-        assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrentSync(binding, manifest, signal),
-        withWorkspaceLease: (workspaceId, signal, operation) => this.coordinator.withHostProposalApplyLease(workspaceId,
-          lease => operation(AbortSignal.any([signal, lease, this.hostResources.signal]))),
-        physical: new PhysicalPatchProducer(),
-        acquireExecutionGuard: async capture => {
-          const owner = this.proposalApplies.getOwner(capture.workspaceId, capture.ownerId);
-          if (!owner) throw new EngineError('PROPOSAL_APPLY_NOT_FOUND', 'Native proposal apply owner is absent');
-          // A busy lock found here leaves no guard row, so the owner settles as cancelled, not uncertain.
-          assertExecutionLockAvailable(this.executionLockPath);
-          const reservation = reserveExecutionLock(this.executionLockPath);
-          const originalGuard = this.proposalApplies.claim(capture, () =>
-            this.proposalApplyGuards.reserve(owner.binding, owner.id, this.executionLockPath, readExecutionLockReservation(reservation)));
-          let lock;
-          try { lock = acquireExecutionLock(this.executionLockPath, reservation); }
-          catch (error) { this.proposalApplies.uncertain(capture, error instanceof EngineError ? error.code : 'PROPOSAL_APPLY_LOCK_FAILED'); throw error; }
-          let released = false;
-          return { guard: originalGuard, release: cleanupConfirmed => {
-            if (released) throw new EngineError('PROPOSAL_APPLY_CLEANUP_INVALID', 'Original execution lease was already released'); released = true;
-            let confirmed = false;
-            if (cleanupConfirmed) confirmed = this.proposalApplyService.readCurrentPhysicalOutcome(capture).cleanupConfirmed;
-            lock.release(confirmed);
-            if (confirmed) this.recoveryGate.assertIdle();
-            const guard = this.proposalApplyGuards.readOriginal(originalGuard), original = Object.freeze({ id: owner.id });
-            this.proposalApplyCleanups.set(original, { capture, proof: { confirmed, guardSha256: guard.sha256 } }); return original;
-          } };
-        },
-      }, this.hostResources.signal);
-      this.workspaceTrust = new WorkspaceTrustService(this.workspaceKnowledge);
-      const recoveryBinding = (workspaceId: string) => {
-        if (!storageUnchanged()) throw new EngineError('SUMMARY_RECOVERY_STORAGE_CHANGED', 'Summary recovery storage identity changed during this engine lifetime');
-        const workspace = this.store.getWorkspace(workspaceId);
-        return createHash('sha256').update(JSON.stringify({ ...storageBinding, workspace: { id: workspace.id, root: workspace.root, gitRoot: workspace.gitRoot } })).digest('hex');
-      };
-      this.store.configureSummaryRecovery(recoveryBinding);
-      this.store.configureProviderRecovery(workspaceId => {
-        try { return recoveryBinding(workspaceId); }
-        catch { throw new EngineError('PROVIDER_RECOVERY_STORAGE_CHANGED', 'Provider recovery storage identity changed during this engine lifetime'); }
-      });
-      this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
-      this.recoveryGate = new RecoveryGate({ store: this.store, executionLockPath: this.executionLockPath, closed: this.hostResources.signal,
+      const storage = this.storage = new EngineStorage(store, dbPath, artifactDir);
+      const knowledgeBinding = storage.knowledgeBinding;
+      this.executionLockPath = storage.executionLockPath;
+      this.recoveryGate = new RecoveryGate({ store: this.store, executionLockPath: this.executionLockPath, closed: this.lifetime.signal,
         lease: (workspaceId, operation) => this.coordinator.withRecoveryDecisionLease(workspaceId, operation), hold: workspaceId => this.scheduler.holdRecoveryWorkspace(workspaceId) });
+      const profileIdentity = (run: Run) => this.profiles.pinForRun(run.sessionId, run.config);
+      this.knowledge = new EngineKnowledge(store, storage, this.recoveryGate, this.lifetime, this.enabled, this, () => this.runtimeProviders);
+      this.workspaceKnowledge = this.knowledge.records;
+      this.proposals = new EngineProposals(store, storage, this.recoveryGate, this.lifetime, this.enabled, this, this.knowledge.records, profileIdentity);
+      this.workspaceTrust = this.knowledge.trust;
+      storage.bindRecovery();
       const interruptedFileOwners: string[] = [];
       try { this.recoveryGate.assertIdle(); }
-      catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
-        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) {
+      catch (error) { const known = this.knowledge.fileGuards.matching(this.executionLockPath);
+        if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposals.applyGuards.matching(this.executionLockPath)) {
           const marker = inspectExecutionLock(this.executionLockPath);
           // A native Windows owner crash leaves its marker active after the job
           // handle has closed. Permit inspection of the exactly bound journal;
@@ -828,62 +309,33 @@ export class MoodcodeEngine implements EngineRuntime {
           if (marker.status !== 'uncertain' || !knownWindowsHost && !this.store.hasKnownGitCommitSupervisor(marker.marker.ownerPid) &&
             !this.store.hasKnownEffectBatchMarker(marker.marker, this.executionLockPath)) throw error;
         } }
-      reviewJournal = new ReviewJournal(canonicalDbPath === undefined ? resolve(artifactDir, 'review.sqlite') : `${canonicalDbPath}.review.sqlite`);
+      reviewJournal = new ReviewJournal(storage.reviewJournalPath);
       this.reviewJournal = reviewJournal;
       this.store.recoverInterrupted();
       this.store.validateGitCommits();
       this.store.createGitCommitStorage().recover();
-      this.knowledgeGenerations.recoverInterruptedOwners();
-      this.knowledgePublications.recoverInterruptedOwners();
-      this.knowledgeFilePublications.recoverInterruptedOwners(interruptedFileOwners);
-      this.proposalApplies.recoverInterruptedOwners();
+      this.knowledge.generations.recoverInterruptedOwners();
+      this.knowledge.publications.recoverInterruptedOwners();
+      this.knowledge.filePublications.recoverInterruptedOwners(interruptedFileOwners);
+      this.proposals.applies.recoverInterruptedOwners();
       this.approvals = new ApprovalManager(this.store);
       this.questions = new QuestionManager(this.store);
       this.tasks = new SessionTaskService(this.store);
       this.profiles = new AgentProfiles(this.store, options.agentProfiles);
       this.lsp = new LspManager();
-      this.repository = new RepositoryContextService(this.lsp, path => {
-        const matches = [...this.languageServers].map(([serverId, select]) => ({ serverId, languageId: select(path), revision: this.languageServerRevisions.get(serverId)! })).filter(item => item.languageId !== null);
-        if (matches.length > 1) throw new EngineError('REPOSITORY_SERVER_AMBIGUOUS', 'More than one host server supports this path; narrow the host language routing');
-        return matches[0] as { serverId: string; languageId: string; revision: string } | undefined ?? null;
-      });
-      this.verificationChecks = new VerificationCheckRegistry();
-      this.verificationPlans = new VerificationPlanService(this.store, this.verificationChecks);
-      this.verificationReceipts = new VerificationReceiptService(this.verificationPlans);
-      this.verificationHost = new VerificationHostService(this.store, this.verificationPlans, this.repository);
-      const profileIdentity = (run: Run) => this.profiles.pinForRun(run.sessionId, run.config);
-      const observeRun = (run: Run, signal: AbortSignal, workspace = this.store.getWorkspace(run.workspaceId)) => this.verificationHost.observe({ sessionId: run.sessionId, runId: run.id, workspace }, signal);
-      const evaluateVerification = (run: Run, boundary: VerificationControllerInput['boundary'], source: VerificationControllerInput['source'], signal: AbortSignal) => {
-        const verification = this.verificationPlans.get(run.sessionId, run.id);
-        return this.verificationController.evaluate(run.sessionId, run.id, this.verificationController.get(run.sessionId, run.id)?.revision ?? 0,
-          { boundary, source, verificationRevision: verification?.revision ?? 0, planSha256: verification?.plans.at(-1)?.planSha256 ?? null }, signal);
-      };
-      this.verificationController = new VerificationController(this.store, this.verificationPlans, {
-        observeSource: (run, signal) => observeRun(run, signal),
-        readCurrentProfile: profileIdentity,
-        readRemainingBudget: run => this.coordinator.verificationRemainingBudget(run),
-        readExecutionBlocker: run => {
-          if (this.store.hasDeniedVerificationTool(run.id)) return 'verification_denied';
-          const profile = this.profiles.forRun(run.sessionId, run.config);
-          const catalogue = this.toolRuntime.catalogue('engine', run.config.mode, this.allowedTools(profile?.tools), profilePin(profile) ?? undefined);
-          if (!catalogue.tools.some(tool => tool.name === 'verify_changes') || !catalogue.tools.some(tool => tool.name === 'run_command')) return 'verification_denied';
-          const checks = this.verificationPlans.get(run.sessionId, run.id)?.plans.at(-1)?.checks ?? [];
-          if (!checks.length) for (const id of this.verificationHost.configuration(run.sessionId)?.checkIds ?? []) {
-            try { this.verificationChecks.capture(id); }
-            catch (error) { if (error instanceof EngineError && error.code === 'VERIFICATION_CHECK_NOT_FOUND') return 'check_stale'; throw error; }
-          }
-          if (checks.some(check => this.toolRuntime.policy.evaluate({ toolName: 'run_command', effect: 'execute', mode: run.config.mode, requiresApproval: true, resources: [`command:${check.command}`, `path:${check.cwd}`] }).decision === 'deny')) return 'verification_denied';
-          return null;
-        },
-        assertBoundaryCurrent: (run, boundary) => this.coordinator.assertVerificationBoundaryCurrent(run, boundary),
-        commitCurrent: (runId, kind, revision, data, verificationRevision) => this.store.putActiveVerificationControllerDocument(runId, kind, revision, data, verificationRevision),
-      });
       this.formatters = new FormatterRegistry();
-      this.changes = new WorkspaceChangeHub({ signal: this.hostResources.signal });
-      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(this.storagePaths.artifactDir, 'children'), value => {
+      this.changes = new WorkspaceChangeHub({ signal: this.lifetime.signal });
+      this.languageSync = new WorkspaceLanguageSync(store, this.lsp, this.changes, this.lifetime);
+      this.repository = new RepositoryContextService(this.lsp, path => this.languageSync.route(path));
+      this.verification = new EngineVerification(store, this.repository, this.profiles, this, tools => this.allowedTools(tools), this.lifetime, this.enabled.verification);
+      this.verificationChecks = this.verification.checks;
+      this.verificationPlans = this.verification.plans;
+      this.verificationReceipts = this.verification.receipts;
+      this.verificationController = this.verification.controller;
+      this.children = new EngineChildren(this, { ...options, ...(repositoryPolicy ? { repositoryContextPolicy: repositoryPolicy } : {}), ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy } : {}) }, options.worktreeDirectory ?? join(this.storage.paths.artifactDir, 'children'), value => {
         bindChildTeamModelCatalogue(value, this.teamModelDefinitions);
         return new MoodcodeEngine(value);
-      }, storageBinding, (child,sessionId,parent,parentRunId,allocation)=>{this.conversationForkHost.inheritChild(parent,child,sessionId,parentRunId,allocation);if(options.osSandbox)parent.sandboxHost.inherit(child.sandboxHost,sessionId,parentRunId);});
+      }, this.storage.identity, (child,sessionId,parent,parentRunId,allocation)=>{this.conversationForkHost.inheritChild(parent,child,sessionId,parentRunId,allocation);if(options.osSandbox)parent.sandboxHost.inherit(child.sandboxHost,sessionId,parentRunId);});
       const teamOwners = new EngineTeamOwners(this);
       this.teamRecords = this.store.createTeamStorage({ checkBinding: knowledgeBinding,
         readMemberOwner: original => this.teamHost.readMemberOwner(original),
@@ -923,15 +375,15 @@ export class MoodcodeEngine implements EngineRuntime {
         assertOwnerUnquarantined: (workspaceId,owner) => nativeTeams.assertOwnerUnquarantined(workspaceId,owner),
         resolveExecution: proof => {
           const actual = proof.kind === 'root' ? this : this.children.resolveTeamModelExecution(proof);
-          return { currentRunId: proof.kind==='child'?this.children.currentTeamRunId(proof):proof.runId, store: actual.store, coordinator: actual.coordinator, executionLockPath: actual.executionLockPath, artifactDir: actual.storagePaths.artifactDir };
+          return { currentRunId: proof.kind==='child'?this.children.currentTeamRunId(proof):proof.runId, store: actual.store, coordinator: actual.coordinator, executionLockPath: actual.executionLockPath, artifactDir: actual.storage.paths.artifactDir };
         }, assertEnabled: () => {
           this.assertTeamsEnabled();
-          if (!this.teamModelToolsEnabled) throw new EngineError('TEAM_MODEL_DISABLED', 'Model team tools require explicit host opt-in');
+          if (!this.enabled.teamModelTools) throw new EngineError('TEAM_MODEL_DISABLED', 'Model team tools require explicit host opt-in');
         },
       });
-      this.teamModelDefinitions = this.teamModelToolsEnabled ? createTeamModelTools(this.teamModelHost.port()) : consumeChildTeamModelCatalogue(options);
-      this.commandJobModelHost=new CommandJobModelHost(this,()=>options.commandJobModelTools===true&&this.jobsEnabled&&!this.closing,(selection,workspaceId)=>captureCommandReadSource(this,this.jobProducer,selection,workspaceId));
-      this.commandJobModelDefinitions=options.commandJobModelTools===true&&this.jobsEnabled?createCommandJobModelTools(this.commandJobModelHost):[];
+      this.teamModelDefinitions = this.enabled.teamModelTools ? createTeamModelTools(this.teamModelHost.port()) : consumeChildTeamModelCatalogue(options);
+      this.commandJobModelHost=new CommandJobModelHost(this,()=>options.commandJobModelTools===true&&this.enabled.jobs&&!this.lifetime.closing,(selection,workspaceId)=>captureCommandReadSource(this,this.jobProducer,selection,workspaceId));
+      this.commandJobModelDefinitions=options.commandJobModelTools===true&&this.enabled.jobs?createCommandJobModelTools(this.commandJobModelHost):[];
       const workflowOwners = new EngineWorkflowOwners(this, knowledgeBinding);
       const workflowChildren = this.children.workflowObservationPort(workflowOwners);
       this.workflowRecords = this.store.createWorkflowStorage({
@@ -943,7 +395,7 @@ export class MoodcodeEngine implements EngineRuntime {
         readChildAdmission: original => workflowChildren.readAdmission(original),
         readChildCompletion: original => workflowChildren.readCompletion(original),
       });
-      this.workflowEffects=new WorkflowEffects(this,knowledgeBinding,()=>this.workflowService,workflowOwners,workflowChildren,!options.tools&&this.verificationEnabled,this.workflowsEnabled);
+      this.workflowEffects=new WorkflowEffects(this,knowledgeBinding,()=>this.workflowService,workflowOwners,workflowChildren,!options.tools&&this.enabled.verification,this.enabled.workflows);
       const effectNative=this.store.createWorkflowEffectStorage({readEffect:o=>this.workflowEffects.readEffect(o),assertEffect:o=>this.workflowEffects.assertEffect(o),readTarget:o=>this.workflowEffects.readTarget(o),assertTarget:o=>this.workflowEffects.assertTarget(o),accept:(o,i)=>this.workflowEffects.accept(o,i)});
       this.workflowEffects.install(effectNative);
       this.workflowModelTools=new WorkflowModelTools(this,this.workflowEffects,()=>this.workflowService,workflowOwners);
@@ -972,139 +424,32 @@ export class MoodcodeEngine implements EngineRuntime {
         this.store.createCodingBatchStorage(),
         this.workflowEffects,
         workflowChildren,
-        this.codingBatchesEnabled,
+        this.enabled.codingBatches,
       );
-      terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 'terminals.sqlite'));
+      terminalJournal = new SqliteTerminalJournal(join(this.storage.paths.artifactDir, 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
         const session = this.store.getSession(owner.sessionId);
         if (session.workspaceId !== owner.workspaceId) throw new EngineError('TERMINAL_AUTHORITY', 'Terminal session belongs to a different workspace');
         return { sessionId: session.id, workspaceId: session.workspaceId, root: this.store.getWorkspace(session.workspaceId).root };
       } });
-      const allowMediaCost=options.allowUnknownMediaTokenCost===true;
-      const models = new ModelRegistry();
-      for (const spec of options.modelSpecs ?? []) models.put(spec);
-      this.images = new ImageAttachmentStore({ directory: join(this.storagePaths.artifactDir, 'input-media'), documents: this.store });
-      this.segments=new MediaSegmentStore({directory:join(this.storagePaths.artifactDir,'input-segments'),documents:this.store});
-      this.documents = new DocumentAttachmentStore({ directory: join(this.storagePaths.artifactDir, 'input-documents'), documents: this.store });
       let artifacts: Promise<ArtifactStore> | undefined;
       const artifactBudgets = normalizeEngineBudgets(this.defaults.budgets);
       this.managedArtifacts = () => artifacts ??= ArtifactStore.open({ directory: join(realpathSync(artifactDir), 'managed'), limits: {
         maxArtifactBytes: artifactBudgets.maxArtifactBytes, maxProducerBytes: artifactBudgets.maxProducerBytes,
       } });
-      const providers = new Map<string, ProviderAdapter>([['scripted', new ScriptedProvider()]]);
-      this.runtimeProviders = providers;
-      for (const provider of options.providers ?? []) providers.set(provider.id, provider);
-      this.validateImageInput = async (sessionId, config, refs) => {
-        const modalities = models.get(config.providerId, config.modelId).modalities;
-        if (!providers.get(config.providerId)?.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
-        await this.images.resolve(sessionId, refs, this.hostResources.signal);
-        this.assertOpen();
-      };
-      this.validateDocumentInput = async (sessionId, config, refs) => {
-        assertDocumentSupport(providers.get(config.providerId), models, config, options.allowUnknownDocumentTokenCost === true);
-        await this.documents.resolve(sessionId, refs, this.hostResources.signal);
-        this.assertOpen();
-      };
-      this.mediaCapabilities=(providerId,modelId)=>{const spec=models.get(providerId,modelId),provider=providers.get(providerId);return{audioInput:spec.mediaCapabilities?.audioInput===true&&provider?.supportsInputMedia?.(modelId,'audio')===true,videoFrames:spec.mediaCapabilities?.videoFrames===true&&provider?.supportsInputMedia?.(modelId,'video')===true,audioOutput:spec.mediaCapabilities?.audioOutput===true&&provider?.requestedOutputMedia?.(modelId)==='audio/wav',unknownTokenCostAllowed:allowMediaCost,tokenCost:null,source:spec.source};};
-      this.validateSegmentInput=async(sessionId,config,refs)=>{assertSegmentSupport(providers.get(config.providerId),models,config.modelId,refs,allowMediaCost);await this.segments.resolve(sessionId,refs,this.hostResources.signal);};
-      for (const [id, provider] of providers) providers.set(id, withInputMedia(provider, this.images, this.documents, this.segments,this.store, models, options.allowUnknownDocumentTokenCost === true,allowMediaCost));
-      this.knowledgeGenerationService = new KnowledgeGenerationService({ native: this.knowledgeGenerations, knowledge: this.workspaceKnowledge, host: this.knowledgeHost,
-        provider: id => this.knowledgeGenerationProvider(id), assertPlanCurrent: plan => this.workspaceKnowledge.assertGenerationPlanCurrent(plan),
-        withLease: (workspaceId, operation) => this.coordinator.withHostGenerationLease(workspaceId, operation) });
-      this.knowledgePublicationService = new KnowledgePublicationService({ native: this.knowledgePublications,
-        getCandidate: (workspaceId, candidateId) => this.workspaceKnowledge.getCandidate(workspaceId, candidateId),
-        getPlan: (workspaceId, planId) => this.workspaceKnowledge.getGenerationPlan(workspaceId, planId),
-        getGeneration: (workspaceId, generationId) => this.knowledgeGenerations.getGeneration(workspaceId, generationId),
-        getAttempt: (workspaceId, attemptId) => this.knowledgeGenerations.getAttempt(workspaceId, attemptId),
-        getTrust: workspaceId => this.workspaceKnowledge.getTrust(workspaceId),
-        getTrustRevision: (workspaceId, revisionId) => this.workspaceKnowledge.getTrustRevision(workspaceId, revisionId),
-        checkBinding: knowledgeBinding, assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
-        assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
-        withLease: (workspaceId, operation) => this.coordinator.withWorkspaceLease(workspaceId, operation) });
-      this.knowledgeFilePublicationService = new KnowledgeFilePublicationService({ native: this.knowledgeFilePublications, host: this.knowledgeFileHost,
-        getCandidate: (workspaceId, id) => this.workspaceKnowledge.getCandidate(workspaceId, id),
-        getPlan: (workspaceId, id) => this.workspaceKnowledge.getGenerationPlan(workspaceId, id),
-        getGeneration: (workspaceId, id) => this.knowledgeGenerations.getGeneration(workspaceId, id),
-        getAttempt: (workspaceId, id) => this.knowledgeGenerations.getAttempt(workspaceId, id),
-        getTrust: workspaceId => this.workspaceKnowledge.getTrust(workspaceId),
-        getTrustRevision: (workspaceId, id) => this.workspaceKnowledge.getTrustRevision(workspaceId, id),
-        checkBinding: knowledgeBinding, assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
-        assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
-        signal: this.hostResources.signal, withLease: (workspaceId, operation) => this.coordinator.withHostFilePublicationLease(workspaceId, operation) });
-      this.knowledgeImportService = new KnowledgeImportRecoveryService({ native: this.knowledgeImports,
-        readTx: operation => this.store.readExecutionObservationEvidence(operation), checkBinding: knowledgeBinding,
-        readActivationProof: (workspaceId, key) => this.store.readKnowledgeImportDocumentProof(workspaceId, key),
-        assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-        assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
-        assertNoExecutionUncertainty: workspaceId => {
-          this.recoveryGate.assertIdle();
-          this.recoveryGate.assertCertain('knowledgeImportActivation', workspaceId);
-          if (this.knowledgeImports.getFrontier(workspaceId)?.head.state === 'resumed') this.recoveryGate.assertCertain('knowledgeImportSuccessors', workspaceId);
-        },
-        withWorkspaceLease: (workspaceId, operation) => this.recoveryGate.lease(workspaceId, signal => {
-          this.recoveryGate.assertOpen(signal, 'Engine closed during import recovery');
-          this.recoveryGate.assertIdle();
-          return operation(signal);
-        }),
-      });
-      const contextProfile = (run: Run) => profileIdentity(run) ?? undefined;
-      const assertContextOwnerCurrent = (code: string, messages: readonly [string, string, string, string], workspaceId: string, owner: { sessionId: string; runId: string | null; profile: unknown }) => {
-        const session = this.store.getSession(owner.sessionId);
-        if (session.workspaceId !== workspaceId) throw new EngineError(code, messages[0]);
-        if (owner.runId === null) {
-          if (owner.profile !== null) throw new EngineError(code, messages[1]);
-          return;
-        }
-        const run = this.store.getRun(owner.runId);
-        if (run.sessionId !== session.id || run.workspaceId !== workspaceId || isTerminal(run.state) || run.state === 'cancelling') throw new EngineError(code, messages[2]);
-        if (knowledgeHash(owner.profile) !== knowledgeHash(profileIdentity(run))) throw new EngineError(code, messages[3]);
-      };
-      const knowledgeContext = knowledgePolicy ? {
-        policy: knowledgePolicy,
-        getProfile: contextProfile,
-        source: this.store.createKnowledgeContextSource({
-          checkBinding: knowledgeBinding,
-          assertOwnerCurrent: (workspaceId, owner) => assertContextOwnerCurrent('KNOWLEDGE_CONTEXT_STALE', [
-            'Knowledge context session belongs to another workspace', 'Profile selection requires its admitted Run owner',
-            'Knowledge context requires its original active Run and session', 'Knowledge context profile differs from its admitted host configuration',
-          ], workspaceId, owner),
-          isPaused: workspaceId => this.workspaceKnowledge.isImportPaused(workspaceId),
-          getDocumentHead: (workspaceId, key) => this.knowledgePublications.getDocumentHead(workspaceId, key),
-          getDocumentRevision: (workspaceId, id) => this.knowledgePublications.getDocumentRevision(workspaceId, id),
-          getPublication: (workspaceId, id) => this.knowledgePublications.getPublication(workspaceId, id),
-          getReceipt: (workspaceId, requestId) => this.knowledgePublications.getReceipt(workspaceId, requestId),
-          getCandidate: (workspaceId, id) => this.workspaceKnowledge.getCandidate(workspaceId, id),
-          getGeneration: (workspaceId, id) => this.knowledgeGenerations.getGeneration(workspaceId, id),
-          getAttempt: (workspaceId, id) => this.knowledgeGenerations.getAttempt(workspaceId, id),
-          getPlan: (workspaceId, id) => this.workspaceKnowledge.getGenerationPlan(workspaceId, id),
-          getTrust: workspaceId => this.workspaceKnowledge.getTrust(workspaceId),
-          getTrustRevision: (workspaceId, id) => this.workspaceKnowledge.getTrustRevision(workspaceId, id),
-          assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
-          assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
-        }),
-      } : undefined;
-      this.proposalOverlay = new ProposalOverlayContextSource({ checkBinding: knowledgeBinding,
-        readTx: operation => this.store.readExecutionObservationEvidence(operation),
-        getSet: (workspaceId, id) => this.proposalRecords.getSet(workspaceId, id),
-        getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
-        readBlobText: reference => this.store.readProposalBlobText(reference),
-        assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrent(binding, manifest, signal),
-        assertOwnerCurrent: (workspaceId, owner) => assertContextOwnerCurrent('PROPOSAL_CONTEXT_STALE', [
-          'Proposal context belongs to another workspace', 'Profile selection requires its original Run',
-          'Proposal context requires its original active Run', 'Proposal context profile differs from its admitted configuration',
-        ], workspaceId, owner) });
-      const proposalContext = proposalPolicy ? { source: this.proposalOverlay, policy: proposalPolicy, getProfile: contextProfile } : undefined;
-      this.context = new ContextService(this.store, models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
+      this.media = new EngineInputMedia(store, storage.paths.artifactDir, options, this.lifetime, this.managedArtifacts);
+      const providers = this.runtimeProviders = this.media.providers;
+      const knowledgeContext = knowledgePolicy ? this.knowledge.context(knowledgePolicy, profileIdentity) : undefined;
+      const proposalContext = proposalPolicy ? this.proposals.context(proposalPolicy, profileIdentity) : undefined;
+      this.context = new ContextService(this.store, this.media.models, options.outputTokenReserve, id => providers.get(id), { lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
         conversationFork: { prepare:(sessionId,config)=>this.conversationForkHost.context(sessionId,config), assertFresh:(sessionId,sha,config)=>this.conversationForkHost.assertContext(sessionId,sha,config) },
         ...(options.lifecycleContextSlotBytes === undefined ? {} : { lifecycleContextSlotBytes: options.lifecycleContextSlotBytes }),
         ...(mediaHistoryPolicy ? { mediaHistoryPolicy } : {}), ...(activePrefixPolicy ? { activePrefixPolicy } : {}), ...(documentHistoryPolicy ? { documentHistoryPolicy } : {}), ...(repositoryPolicy ? { repositoryContext: { source: new RepositoryContextSource(this.repository), policy: repositoryPolicy } } : {}), ...(knowledgeContext ? { knowledgeContext } : {}), ...(proposalContext ? { proposalContext } : {}) });
       if (options.toolPolicy && options.toolPolicyInstance) throw new EngineError('INVALID_TOOL_POLICY', 'Specify rules or one trusted policy instance');
-      const commandObserver = (this.jobsEnabled || options.osSandbox) ? {
+      const commandObserver = (this.enabled.jobs || options.osSandbox) ? {
         beforeSpawn:(context:ToolContext,prepared:PreparedTool)=>{
-          const own= this.jobsEnabled ? this.ownedCommandHost.beforeSpawn(context,prepared) : undefined;
+          const own= this.enabled.jobs ? this.ownedCommandHost.beforeSpawn(context,prepared) : undefined;
           const sandbox= options.osSandbox ? this.sandboxHost.beforeSpawn(context,prepared) : undefined;
           return Object.freeze({own,sandbox});
         },
@@ -1116,15 +461,13 @@ export class MoodcodeEngine implements EngineRuntime {
       const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:ToolContext)=>this.sandboxHost.launch(context)}:{}});
       const lifetimeTools = options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[];
       const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...lifetimeTools, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
-      this.childToolNames = Object.freeze([...(options.tools ?? allCoreTools.filter(tool => tool.name !== 'delegate_task' && !lifetimeTools.includes(tool))).map(tool => tool.name), ...(this.verificationEnabled ? ['verify_changes'] : []), ...(toolDiscoveryPolicy ? ['discover_tools'] : []), ...(this.teamModelToolsEnabled ? TEAM_MODEL_TOOL_NAMES : [])]);
+      this.childToolNames = Object.freeze([...(options.tools ?? allCoreTools.filter(tool => tool.name !== 'delegate_task' && !lifetimeTools.includes(tool))).map(tool => tool.name), ...(this.enabled.verification ? ['verify_changes'] : []), ...(toolDiscoveryPolicy ? ['discover_tools'] : []), ...(this.enabled.teamModelTools ? TEAM_MODEL_TOOL_NAMES : [])]);
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
-      const nativeFiles = [canonicalDbPath, canonicalDbPath ? `${canonicalDbPath}.owner.sqlite` : undefined, this.executionLockPath, canonicalDbPath ? `${canonicalDbPath}.review.sqlite` : undefined].filter((path): path is string => path !== undefined)
-        .flatMap(path => [path, `${path}-wal`, `${path}-shm`, `${path}-journal`]);
       const source = new WorkspaceExecutionSource({ checkWorkspaceBinding: workspace => {
-        this.verifyChildStorageIdentity();
+        this.storage.verify();
         if (JSON.stringify(this.store.getWorkspace(workspace.id)) !== JSON.stringify(workspace)) throw new EngineError('EXECUTION_OBSERVATION_STALE', 'Observed workspace binding changed');
-      }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storagePaths.artifactDir, kind: 'directory' }, ...nativeFiles.map(path => ({ path, kind: 'file' as const }))] });
+      }, ...(options.diagnosticSourceLimits ? { limits: options.diagnosticSourceLimits } : {}), excludedPaths: [{ path: this.storage.paths.artifactDir, kind: 'directory' }, ...this.storage.nativeFiles.map(path => ({ path, kind: 'file' as const }))] });
       this.executionObserver = new EngineExecutionObserver(this.store, source, () => this.toolRuntime);
       const workspaceSourceTools = options.tools ? [] : coreTools.filter(tool => ['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'apply_patch', 'edit_file', 'rename_file', 'delete_file', 'run_command'].includes(tool.name));
       this.toolRuntime = new ScopedToolRuntime({ policy: options.toolPolicyInstance ?? new ToolPolicy(options.toolPolicy), grants: new ScopedToolGrants(Date.now, this.store),
@@ -1136,15 +479,8 @@ export class MoodcodeEngine implements EngineRuntime {
         ...(options.roleResourcePolicy ? { roleResources: options.roleResourcePolicy } : {}), ...(options.roleResourcePolicyRegistry ? { roleResourcePolicyRegistry: options.roleResourcePolicyRegistry } : {}), ...(options.resolveRoleResources ? { resolveRoleResources: options.resolveRoleResources } : {}), ...(options.commandPreflight ? { commandPreflight: options.commandPreflight } : {}) });
       let commandRegistration: ToolRegistrationCapture | undefined;
       const repositoryTools = options.repositoryContextTools ? [createRepositoryContextTool(this.repository)] : [];
-      const verificationTools = this.verificationEnabled ? [createVerificationTool({ plans: this.verificationPlans, receipts: this.verificationReceipts, getRun: id => this.store.getRun(id), ensurePlan: (context, signal) => this.verificationHost.ensurePlan(context, signal), sourceObservation: (context, signal) => this.verificationHost.observe(context, AbortSignal.any([signal, this.hostResources.signal])), commandRuntime: this.toolRuntime, captureCatalogue: context => this.coordinator.captureToolCatalogue(context),
-        executeCommand: (outer,nested,prepared) => this.coordinator.withVerificationCommandContext(outer,nested,()=>{ const execute = () => this.toolRuntime.execute(prepared,nested); return options.diagnosticObservations === true ? this.executionObserver.nested(outer,prepared,execute) : execute(); }),
-        consumedSettlementWriter: (context, kind, revision, data) => this.coordinator.commitConsumedVerificationSettlement(context, kind, revision, data),
-        commandCapability: (_context, catalogue) => {
-          if (!commandRegistration) throw new EngineError('TOOL_PRODUCER_MISMATCH', 'The original engine command producer is unavailable');
-          this.toolRuntime.assertRegistrationCurrent(catalogue, commandRegistration);
-          return Object.freeze({ producer: 'engine-owned-run-command' as const, platform: process.platform, supported: commandBackendCapability().available, catalogueRevision: catalogue.revision });
-        }, artifacts: this.managedArtifacts })] : [];
-      const modelTools = [...coreTools, ...(options.codeMode ? [createExecuteCodeTool(() => this.codeModeHost)] : []), ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.workflowsEnabled ? this.workflowModelTools.tools() : [])];
+      const verificationTools = this.enabled.verification ? [this.verification.tool(() => options.diagnosticObservations === true ? this.executionObserver : undefined, this.managedArtifacts, () => commandRegistration)] : [];
+      const modelTools = [...coreTools, ...(options.codeMode ? [createExecuteCodeTool(() => this.codeModeHost)] : []), ...repositoryTools, ...this.teamModelDefinitions, ...this.commandJobModelDefinitions, ...(this.enabled.workflows ? this.workflowModelTools.tools() : [])];
       const availableTools = [...modelTools, ...(toolDiscoveryPolicy ? [createToolDiscoveryTool({
         identity: context => this.coordinator.toolDiscoveryIdentity(context),
         stage: (context, query, limit, expected, action) => this.coordinator.stageToolDiscovery(context, query, limit, expected, action),
@@ -1156,7 +492,7 @@ export class MoodcodeEngine implements EngineRuntime {
         const current = await tool.prepare(prepared.input, context);
         if (current.fingerprint !== prepared.fingerprint || JSON.stringify(current.preview) !== JSON.stringify(prepared.preview)) throw new EngineError('TOOL_APPROVAL_STALE', 'Tool resources changed since scoped authorization');
       } }));
-      if (this.verificationEnabled && tools.includes(coreCommand)) commandRegistration = this.toolRuntime.captureRegistration('engine', 'run_command', coreCommand);
+      if (this.enabled.verification && tools.includes(coreCommand)) commandRegistration = this.toolRuntime.captureRegistration('engine', 'run_command', coreCommand);
       this.plugins = new EnginePluginManager(this.toolRuntime);
       const commandCapability = commandBackendCapability();
       this.capabilities = {
@@ -1170,7 +506,7 @@ export class MoodcodeEngine implements EngineRuntime {
       const settles = (names: readonly string[], get: () => { toolSettled(record: ToolCallRecord): void } | undefined) => (record: ToolCallRecord) => { if (names.includes(record.name)) get()?.toolSettled(record); };
       const participants: Record<(typeof RUN_PARTICIPANT_ORDER.dispatch)[number], RunParticipant> = {
         resident: { beforeProviderDispatch: run => assertResidentProviderDispatch(this, run) },
-        sandbox: { beforeProviderDispatch: () => { if (this.sandboxEnabled && this.lifecycleHooks.list().length) throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED', 'New host lifecycle effects require a fresh supported producer'); } },
+        sandbox: { beforeProviderDispatch: () => { if (this.enabled.sandbox && this.lifecycleHooks.list().length) throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED', 'New host lifecycle effects require a fresh supported producer'); } },
         prFeedback: fences(() => this.prFeedbackHost),
         hostCommandDelivery: fences(() => this.hostCommandDeliveryProducer),
         codingBatch: { beforeProviderDispatch: () => this.codingBatchDispatchGuard?.() },
@@ -1185,7 +521,7 @@ export class MoodcodeEngine implements EngineRuntime {
         codeMode: { toolSettled: settles(['execute_code'], () => this.codeModeHost) },
       };
       this.coordinator = new RunCoordinator({
-        ...(options.effectBatches===true?{effectBatches:new EffectBatchHost({save:record=>this.store.writeEffectBatch(record),memberSettled:(record,index)=>this.store.recordEffectBatchMember(record,index),assertOpen:()=>{if(this.closing)throw new EngineError('ENGINE_CLOSED','Effect batch host closed');this.verifyChildStorageIdentity();}})}:{}),
+        ...(options.effectBatches===true?{effectBatches:new EffectBatchHost({save:record=>this.store.writeEffectBatch(record),memberSettled:(record,index)=>this.store.recordEffectBatchMember(record,index),assertOpen:()=>{if(this.lifetime.closing)throw new EngineError('ENGINE_CLOSED','Effect batch host closed');this.storage.verify();}})}:{}),
         onCommandLifetimesSettling:(runId,outcome)=>this.commandLifetimes?.runSettling(runId,outcome)??Promise.resolve(),
         participants: RUN_PARTICIPANT_ORDER.dispatch.map(name => participants[name]),
         beforeActualProviderRequest: (original) => {
@@ -1202,84 +538,13 @@ export class MoodcodeEngine implements EngineRuntime {
               signal.reason ??
               new EngineError("CANCELLED", "Run initialization was cancelled")
             );
-          if (this.verificationEnabled)
-            await this.verificationHost.start(run, signal);
+          if (this.enabled.verification)
+            await this.verification.host.start(run, signal);
         },
         ...(options.diagnosticObservations === true
           ? { executionObserver: this.executionObserver }
           : {}),
-        ...(options.lifecycleContinuation === true
-          ? {
-              lifecycleContinuation: createLifecycleContinuationPort({
-                store: this.store,
-                controller: this.verificationController,
-                plans: this.verificationPlans,
-                observeSource: (run, signal) => observeRun(run, signal),
-                readCurrentProfile: profileIdentity,
-                assertBoundaryCurrent: (run, boundary) =>
-                  this.coordinator.assertVerificationBoundaryCurrent(
-                    run,
-                    boundary,
-                  ),
-                readRemainingBudget: (run) =>
-                  this.coordinator.verificationRemainingBudget(run),
-              }),
-            }
-          : {}),
-        ...(this.verificationEnabled
-          ? {
-              verificationStop: async (run, boundary, signal) => {
-                if (!this.verificationHost.configuration(run.sessionId))
-                  return null;
-                const workspace = this.store.getWorkspace(run.workspaceId);
-                if (!this.verificationPlans.get(run.sessionId, run.id)) {
-                  try {
-                    await this.verificationHost.ensurePlan(
-                      { sessionId: run.sessionId, runId: run.id, workspace },
-                      signal,
-                    );
-                  } catch (error) {
-                    if (
-                      !(error instanceof EngineError) ||
-                      error.code !== "VERIFICATION_CHECK_NOT_FOUND"
-                    )
-                      throw error;
-                  }
-                }
-                const source = await observeRun(run, signal, workspace);
-                const result = await evaluateVerification(
-                  run,
-                  boundary,
-                  source,
-                  signal,
-                );
-                const content = verificationContinuationMessage(result);
-                return content && result.result.stageId
-                  ? {
-                      stageId: result.result.stageId,
-                      message: {
-                        role: "user" as const,
-                        content: `[Moodcode verification control v1]\n${content}`,
-                      },
-                    }
-                  : null;
-              },
-              verificationBeforeProvider: async (run, boundary, signal) => {
-                const source = await observeRun(run, signal);
-                const result = await evaluateVerification(
-                  run,
-                  boundary,
-                  source,
-                  signal,
-                );
-                if (result.result.action === "stop")
-                  throw new EngineError(
-                    "VERIFICATION_CONTINUATION_BLOCKED",
-                    `Verification continuation stopped (${result.result.reason})`,
-                  );
-              },
-            }
-          : {}),
+        ...this.verification.coordinatorHooks(options.lifecycleContinuation === true),
         lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
         store: this.store,
         providers, providerArtifacts:this.managedArtifacts,
@@ -1334,11 +599,11 @@ export class MoodcodeEngine implements EngineRuntime {
             runId: observation.run.id,
           });
           await Promise.all(
-            changes.map((change) => this.syncLanguageServers(change)),
+            changes.map((change) => this.languageSync.sync(change)),
           );
         },
       });
-      this.scheduleProducer = new EngineScheduleProducer(this, knowledgeBinding, () => this.scheduleRecords, () => this.closing, () => this.schedulesEnabled);
+      this.scheduleProducer = new EngineScheduleProducer(this, knowledgeBinding, () => this.scheduleRecords, () => this.lifetime.closing, () => this.enabled.schedules);
       this.scheduleRecords = this.store.createScheduleStorage({
         readWorker: original => this.scheduleProducer.readWorker(original),
         assertWorkerCurrent: (original, expected, phase) => this.scheduleProducer.assertWorkerCurrent(original, expected, phase),
@@ -1353,11 +618,11 @@ export class MoodcodeEngine implements EngineRuntime {
       });
       this.scheduleRecords.recoverInterrupted();
       this.scheduler = new InputScheduler({ store: this.store, coordinator: this.coordinator, participants: RUN_PARTICIPANT_ORDER.promotion.map(name => participants[name]) });
-      this.conversationForkHost = new ConversationForkHost(this,knowledgeBinding,id=>providers.get(id),this.conversationForksEnabled);
+      this.conversationForkHost = new ConversationForkHost(this,knowledgeBinding,id=>providers.get(id),this.enabled.conversationForks);
       const scheduleHost = new ScheduleHost({ native: this.scheduleRecords, input: this.scheduleProducer.inputPort() });
       this.scheduleDispatcher = new ScheduleDispatcher({ native: this.scheduleRecords, host: scheduleHost });
-      this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.closing,
-        () => this.agentBackendsEnabled, this.executionLockPath, options.agentBackendSecrets, ()=>options.agentBackendClientEffects===true, ()=>options.agentBackendClientEffects===true&&this.jobsEnabled);
+      this.backendProducer = new EngineAgentBackendProducer(this, knowledgeBinding, () => this.backendRecords, () => this.lifetime.closing,
+        () => this.enabled.agentBackends, this.executionLockPath, options.agentBackendSecrets, ()=>options.agentBackendClientEffects===true, ()=>options.agentBackendClientEffects===true&&this.enabled.jobs);
       this.backendProcesses = new OwnedBackendProcesses(this.backendProducer);
       this.backendRecords = this.store.createAgentBackendStorage({
         readOwner: original => this.backendProducer.readOwner(original),
@@ -1373,9 +638,9 @@ export class MoodcodeEngine implements EngineRuntime {
         readDisposal: original => this.backendProcesses.readDisposal(original),
       });
       this.backendRecords.recoverInterrupted();
-      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.hostResources.signal });
+      this.backendHost = new AgentBackendHost({ store: this.backendRecords, processes: this.backendProcesses, clientReads: this.backendProducer.clientReadPort(), turns: this.backendProducer, lifetime: this.lifetime.signal });
       this.codeModeHost=new CodeModeHost(this,this.store.createCodeModeStorage((original,record,revision)=>this.codeModeHost.assertRecordOwner(original,record,revision)),knowledgeBinding,options.codeMode===true);
-      this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.closing, () => this.jobsEnabled, this.storagePaths.artifactDir);
+      this.jobProducer = new EngineJobProducer(this, knowledgeBinding, () => this.jobRecords, () => this.lifetime.closing, () => this.enabled.jobs, this.storage.paths.artifactDir);
       this.jobRecords = this.store.createJobStorage({
         readOwner: original => this.jobProducer.readOwner(original),
         assertOwnerCurrent: (original, expected) => this.jobProducer.assertOwnerCurrent(original, expected),
@@ -1390,41 +655,36 @@ export class MoodcodeEngine implements EngineRuntime {
         releaseAtomicInput: original => this.jobProducer.release(original),
       });
       this.jobRecords.recoverInterrupted();
-      this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.hostResources.signal });
-      this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.hostResources.signal });
+      this.jobHost = new JobHost({ native: this.jobRecords, source: this.jobProducer.sourcePort(), lifetime: this.lifetime.signal });
+      this.jobDelivery = new JobDelivery({ native: this.jobRecords, input: this.jobProducer.inputPort(), lifetime: this.lifetime.signal });
       this.store.validateEffectBatches();
       this.store.recoverEffectBatches();
       this.store.recoverOwnedCommandJobs();
-      this.sandboxHost = new SandboxHost(this,this.store.createSandboxStorage(),{enabled:options.osSandbox===true,binding:knowledgeBinding,excluded:[this.storagePaths.artifactDir,...nativeFiles],active:()=>!this.closing});
-      this.hostCommands = new HostCommandService(this, this.store.createHostCommandStorage(), knowledgeBinding, { enabled: () => options.hostCommands === true && !this.closing, unsupportedPolicy: Boolean(options.commandPreflight || options.roleResourcePolicy || options.roleResourcePolicyRegistry || options.resolveRoleResources), artifactDir:this.storagePaths.artifactDir, executionLockPath:this.executionLockPath, lifetime:this.hostResources.signal, ...(options.osSandbox?{sandbox:(ws:string,session:string)=>this.sandboxHost.hostLaunch(ws,session)}:{}) });
-      this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
+      this.sandboxHost = new SandboxHost(this,this.store.createSandboxStorage(),{enabled:options.osSandbox===true,binding:knowledgeBinding,excluded:[this.storage.paths.artifactDir,...this.storage.nativeFiles],active:()=>!this.lifetime.closing});
+      this.hostCommands = new HostCommandService(this, this.store.createHostCommandStorage(), knowledgeBinding, { enabled: () => options.hostCommands === true && !this.lifetime.closing, unsupportedPolicy: Boolean(options.commandPreflight || options.roleResourcePolicy || options.roleResourcePolicyRegistry || options.resolveRoleResources), artifactDir:this.storage.paths.artifactDir, executionLockPath:this.executionLockPath, lifetime:this.lifetime.signal, ...(options.osSandbox?{sandbox:(ws:string,session:string)=>this.sandboxHost.hostLaunch(ws,session)}:{}) });
+      this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.enabled.jobs && !this.lifetime.closing);
       this.store.validateOwnedCommandDeliveries();
-      this.ownedCommandProducer = new EngineOwnedCommandDeliveryProducer(this, knowledgeBinding, () => this.jobsEnabled && !this.closing, this.ownedCommandHost);
+      this.ownedCommandProducer = new EngineOwnedCommandDeliveryProducer(this, knowledgeBinding, () => this.enabled.jobs && !this.lifetime.closing, this.ownedCommandHost);
       this.ownedCommandDelivery = new OwnedCommandDelivery({ input: this.ownedCommandProducer.inputPort(),
-        native: { deliver: (original, input) => this.store.deliverOwnedCommandResultAtomic(original, input, atomicPorts(this.ownedCommandProducer)) }, lifetime: this.hostResources.signal });
-      this.commandLifetimes=new CommandLifetimeService(this,this.hostCommands,()=>options.commandLifetimes===true&&this.jobsEnabled&&!this.closing);
+        native: { deliver: (original, input) => this.store.deliverOwnedCommandResultAtomic(original, input, atomicPorts(this.ownedCommandProducer)) }, lifetime: this.lifetime.signal });
+      this.commandLifetimes=new CommandLifetimeService(this,this.hostCommands,()=>options.commandLifetimes===true&&this.enabled.jobs&&!this.lifetime.closing);
       this.store.validateHostCommandDeliveries();
       this.hostCommandDeliverySource=new EngineHostCommandDeliverySource(this);
-      this.hostCommandDeliveryProducer = new EngineHostCommandDeliveryProducer(this, knowledgeBinding, () => options.hostCommands===true && this.jobsEnabled && !this.closing, this.hostCommandDeliverySource);
+      this.hostCommandDeliveryProducer = new EngineHostCommandDeliveryProducer(this, knowledgeBinding, () => options.hostCommands===true && this.enabled.jobs && !this.lifetime.closing, this.hostCommandDeliverySource);
       this.hostCommandDelivery = new HostCommandDelivery({ input: this.hostCommandDeliveryProducer.inputPort(),
-        native: { deliver: (original, input) => this.store.deliverHostCommandResultAtomic(original, input, atomicPorts(this.hostCommandDeliveryProducer)) }, lifetime: this.hostResources.signal });
-      this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verificationHost,
-        binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.verificationEnabled && !this.closing,
+        native: { deliver: (original, input) => this.store.deliverHostCommandResultAtomic(original, input, atomicPorts(this.hostCommandDeliveryProducer)) }, lifetime: this.lifetime.signal });
+      this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verification.host,
+        binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.enabled.verification && !this.lifetime.closing,
         lease:(workspaceId,operation)=>this.coordinator.withWorkspaceLease(workspaceId,operation),
         recoveryLease:(workspaceId,operation)=>this.recoveryGate.lease(workspaceId,operation),
-        executionLockPath:this.executionLockPath,artifactDir:this.storagePaths.artifactDir,lifetime:this.hostResources.signal });
+        executionLockPath:this.executionLockPath,artifactDir:this.storage.paths.artifactDir,lifetime:this.lifetime.signal });
       this.store.validatePrFeedback();
-      this.prFeedbackHost = new PrFeedbackHost(this,this.store.createPrFeedbackStorage(),knowledgeBinding,this.verificationHost,()=>options.prFeedback===true&&this.verificationEnabled&&!this.closing,options.prFeedbackLoopback===true,this.hostResources.signal);
-      const recoveredRestores = this.reviewJournal.recoverPending();
-      const recoveryAcknowledgments = canonicalDbPath ? readRecoveryAcknowledgments({ dbPath: canonicalDbPath, artifactDir: this.storagePaths.artifactDir }) : [];
-      for (const operation of recoveredRestores) {
-        const run = this.store.getRun(operation.runId);
-        if (run.workspaceId !== operation.workspaceId || run.sessionId !== operation.sessionId
-          || !this.store.listCheckpoints(run.id).some((checkpoint) => checkpoint.id === operation.checkpointId && checkpoint.runId === run.id)) {
-          throw new EngineError('REVIEW_OPERATION_BINDING_MISMATCH', 'Interrupted restoration does not match the primary run and checkpoint');
-        }
-        if (!isRestoreAcknowledged(operation, recoveryAcknowledgments)) this.coordinator.quarantineWorkspace(operation.workspaceId);
-      }
+      this.prFeedbackHost = new PrFeedbackHost(this,this.store.createPrFeedbackStorage(),knowledgeBinding,this.verification.host,()=>options.prFeedback===true&&this.enabled.verification&&!this.lifetime.closing,options.prFeedbackLoopback===true,this.lifetime.signal);
+      this.restorer = new EngineRestore(store, reviewJournal, this, this.languageSync, this.changes, this.executionLockPath);
+      this.restorer.quarantineInterrupted(storage.paths);
+      this.commands = new EngineCommands({ store, scheduler: this.scheduler, coordinator: this.coordinator, approvals: this.approvals, questions: this.questions,
+        tasks: this.tasks, context: this.context, profiles: this.profiles, defaults: this.defaults, lifetime: this.lifetime, media: this.media,
+        restorer: this.restorer, languageSync: this.languageSync, managedArtifacts: this.managedArtifacts, getCapabilities: () => this.getCapabilities() });
     } catch (error) {
       try { terminalJournal?.close(); }
       finally { try { reviewJournal?.close(); }
@@ -1438,309 +698,23 @@ export class MoodcodeEngine implements EngineRuntime {
     if (this.ownedArtifactDir) try { rmSync(this.ownedArtifactDir, { recursive: true, force: true, maxRetries: 3 }); } catch {}
   }
 
-  private applyProfile(input: { sessionId: string; requestId: string; config: RunConfig }): void {
-    const admitted = input.config.agentProfileId ? this.store.findInputByRequest(input.sessionId, input.requestId)?.config : undefined;
-    input.config = this.profiles.apply(input.sessionId, input.config, admitted);
-  }
-
-  private assertOptionalBoolean(options: EngineOptions, key: keyof EngineOptions, message: string): void {
-    if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new EngineError('INVALID_CONFIG', message);
-  }
-
-  private assertOpen(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-  }
-
-  private assertEnabled(enabled: boolean, code: string, message: string): void {
-    this.assertOpen();
-    if (!enabled) throw new EngineError(code, message);
-  }
-
-  private rejecting<T>(operation: () => Promise<T>): Promise<T> {
-    try { return operation(); } catch (error) { return Promise.reject(error); }
-  }
-
   private allowedTools(profileTools: readonly string[] | undefined): readonly string[] | undefined {
     return this.hostAllowedTools ? (profileTools ? profileTools.filter(name => this.hostAllowedTools!.includes(name)) : this.hostAllowedTools) : profileTools;
   }
 
-  private hostSignal(signal?: AbortSignal): AbortSignal {
-    return signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal;
-  }
-
-  private track<T>(operation: Promise<T>): Promise<T> {
-    this.pending.add(operation);
-    void operation.then(() => this.pending.delete(operation), () => this.pending.delete(operation));
-    return operation;
-  }
-
-  private async validateFreshMediaInput(input: Pick<ReturnType<typeof normalizeSubmitInput>, 'sessionId' | 'config' | 'attachments' | 'documents' | 'media'>): Promise<void> {
-    assertInputMediaBudget(input.attachments, input.documents);
-    if (input.media?.length) await this.validateSegmentInput(input.sessionId, input.config, input.media);
-    if (input.documents?.length) await this.validateDocumentInput(input.sessionId, input.config, input.documents);
-    if (input.attachments?.length) await this.validateImageInput(input.sessionId, input.config, input.attachments);
-  }
-
   /** Native inbox/session commands have their own explicit protocol and journal. */
-  async dispatchSession(value: unknown): Promise<SessionCommandResult> {
-    let commandId = '';
-    try {
-      assertMediaCommandData(value);
-      const command = validateSessionCommand(value, { defaults: this.defaults, enabledCommands: NATIVE_COMMANDS_ENABLED });
-      commandId = command.commandId;
-      this.assertOpen();
-      const payload = command.payload;
-      let result: unknown;
-      switch (command.type) {
-        case 'engine.getCapabilities': result = this.getCapabilities(); break;
-        case 'input.accept': {
-          const input = normalizeAcceptInput(payload, this.defaults);
-          this.applyProfile(input);
-          if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupInputReceipt(input)) {
-            await this.validateFreshMediaInput(input);
-          }
-          result = this.scheduler.accept(input); break;
-        }
-        case 'input.list': result = this.store.listInputs(payload.sessionId as string, payload.cursor as unknown as InputCursor | undefined, payload.limit as number); break;
-        case 'input.cancel': {
-          const input = this.store.getInput(payload.inputId as string);
-          if (input.sessionId !== payload.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Input belongs to a different session');
-          result = this.scheduler.cancelInput(input.id); break;
-        }
-        case 'session.pause': result = this.scheduler.pause(payload.sessionId as string); break;
-        case 'session.resume': result = this.scheduler.resume(payload.sessionId as string); break;
-        case 'session.events': {
-          this.store.getSession(payload.sessionId as string);
-          result = { sessionId: payload.sessionId, stream: 'session-v2', afterSeq: payload.afterSeq }; break;
-        }
-        case 'session.getTasks': result = this.tasks.get(payload.sessionId as string); break;
-        case 'session.getContext': result = this.context.diagnostics(payload.sessionId as string); break;
-        case 'session.getDiagnostics': {
-          const session = this.store.getSession(payload.sessionId as string);
-          result = { metrics: this.store.getNativeMetrics(session.id), context: this.context.diagnostics(session.id), workspaceObservation: { failure: this.observationFailures.get(session.workspaceId) ?? null, active: this.watchConsumers.get(session.workspaceId)?.running === true } }; break;
-        }
-        case 'session.searchHistory': result = this.store.searchHistory(payload.sessionId as string, { query: payload.query as string, beforeMessageId: payload.beforeMessageId as string | undefined, limit: payload.limit as number, maxBytes: payload.maxBytes as number }); break;
-        case 'session.setTasks': result = this.tasks.replace(payload.sessionId as string, payload.expectedRevision as number, payload.tasks); break;
-        case 'question.list': result = this.questions.list(payload.sessionId as string); break;
-        case 'question.answer': result = this.questions.answer(payload.sessionId as string, payload.questionId as string, payload.version as number, payload.answer as unknown as QuestionAnswer); break;
-        case 'question.reject': result = this.questions.reject(payload.sessionId as string, payload.questionId as string, payload.version as number); break;
-        case 'run.getTurns': result = this.store.listTurnsPage(payload.runId as string, payload.afterTurnId as string | undefined, payload.limit as number); break;
-        case 'turn.getParts': result = this.store.listPartsPage(payload.turnId as string, payload.afterPartId as string | undefined, payload.limit as number); break;
-        case 'artifact.get': {
-          const run = this.store.getRun(payload.runId as string);
-          if (run.sessionId !== payload.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Artifact run belongs to a different session');
-          const page = await (await this.managedArtifacts()).read(payload.artifactId as string, { identity: {
-            sessionId: payload.sessionId as string, runId: run.id, toolCallId: payload.toolCallId as string,
-            ...(payload.turnId ? { turnId: payload.turnId as string } : {}), ...(payload.attemptId ? { attemptId: payload.attemptId as string } : {}),
-          }, offset: payload.offset as number, limit: payload.limit as number });
-          result = { reference: page.reference, offset: page.offset, ...(page.nextOffset !== undefined ? { nextOffset: page.nextOffset } : {}), encoding: 'base64', content: Buffer.from(page.bytes).toString('base64') }; break;
-        }
-        default: throw new EngineError('UNKNOWN_COMMAND', 'Unknown session command');
-      }
-      return { schemaVersion: SESSION_SCHEMA_VERSION, commandId, ok: true, result: json(result) };
-    } catch (error) {
-      if (!commandId) commandId = echoCommandId(value);
-      return { schemaVersion: SESSION_SCHEMA_VERSION, commandId, ok: false, error: commandFailure(error, 'Session command failed') };
-    }
-  }
+  dispatchSession(value: unknown): Promise<SessionCommandResult> { return this.commands.dispatchSession(value); }
 
-  async dispatch(value: CommandEnvelope | unknown): Promise<CommandResult> {
-    let commandId = '';
-    try {
-      assertMediaCommandData(value);
-      const command = validateCommand(value, this.defaults);
-      commandId = command.commandId;
-      this.assertOpen();
-      const payload = command.payload;
-      let result: unknown;
-      switch (command.type) {
-        case 'engine.getCapabilities':
-          result = this.getCapabilities();
-          break;
-        case 'workspace.open': {
-          const workspace = await openWorkspace(payload.path as string);
-          result = this.store.putWorkspace(workspace);
-          break;
-        }
-        case 'workspace.getStatus':
-          result = await getWorkspaceStatus(this.store.getWorkspace(payload.workspaceId as string));
-          break;
-        case 'file.list':
-          result = await listWorkspaceFiles(this.store.getWorkspace(payload.workspaceId as string), payload.path as string | undefined, { ...(payload.limit === undefined ? {} : { limit: payload.limit as number }), ...(payload.continuation === undefined ? {} : { continuation: payload.continuation as string }) });
-          break;
-        case 'file.read':
-          result = await readWorkspaceFile(this.store.getWorkspace(payload.workspaceId as string), payload.path as string);
-          break;
-        case 'session.create': {
-          const workspaceId = payload.workspaceId as string;
-          this.store.getWorkspace(workspaceId);
-          const session: Session = { id: randomUUID(), workspaceId, title: (payload.title as string | undefined) ?? 'New session', createdAt: new Date().toISOString() };
-          result = this.store.createSession(session);
-          break;
-        }
-        case 'session.list': {
-          this.store.getWorkspace(payload.workspaceId as string);
-          result = this.store.listSessions(payload.workspaceId as string);
-          break;
-        }
-        case 'session.getSnapshot':
-          result = this.store.getSnapshot(payload.sessionId as string);
-          break;
-        case 'session.getHistory':
-          result = this.store.getHistory(payload.sessionId as string, payload.beforeRunId as string | undefined, payload.limit as number | undefined);
-          break;
-        case 'session.getMetrics':
-          result = this.store.getMetrics(payload.sessionId as string);
-          break;
-        case 'run.submit':
-          {
-            const input = normalizeSubmitInput(payload);
-            this.applyProfile(input);
-            if ((input.attachments?.length || input.documents?.length || input.media?.length) && !this.store.lookupRunReceipt(input)) {
-              await this.validateFreshMediaInput(input);
-            }
-            result = this.scheduler.submitLegacy(input);
-          }
-          break;
-        case 'run.cancel':
-          result = this.coordinator.cancel(payload.runId as string);
-          break;
-        case 'approval.decide':
-          result = this.approvals.decide(payload.approvalId as string, payload.decision as 'allow' | 'deny', payload.fingerprint as string);
-          break;
-        case 'review.getDiff':
-          result = await getReviewDiff(this.store, payload.runId as string);
-          break;
-        case 'review.previewRestore': {
-          const run = this.restoreRun(payload.runId as string, payload.checkpointId as string);
-          result = await previewRestoreCheckpoint(this.store, this.store.getWorkspace(run.workspaceId), payload.checkpointId as string, { executionLockPath: this.executionLockPath });
-          break;
-        }
-        case 'review.restore':
-          result = await this.restore(command.commandId, payload.runId as string, payload.checkpointId as string, payload.previewFingerprint as string);
-          break;
-        case 'review.history': {
-          const run = this.store.getRun(payload.runId as string);
-          result = { runId: run.id, operations: this.reviewJournal.list(run.id) } satisfies ReviewHistoryResult;
-          break;
-        }
-        case 'events.subscribe':
-          this.store.getSession(payload.sessionId as string);
-          result = { sessionId: payload.sessionId, afterSeq: payload.afterSeq ?? 0 };
-          break;
-        default:
-          throw new EngineError('UNKNOWN_COMMAND', 'Unknown engine command');
-      }
-      return { schemaVersion: SCHEMA_VERSION, commandId, ok: true, result: json(result) };
-    } catch (error) {
-      if (!commandId) commandId = echoCommandId(value);
-      return { schemaVersion: SCHEMA_VERSION, commandId, ok: false, error: commandFailure(error, 'Unexpected engine error') };
-    }
-  }
-
-  private restoreRun(runId: string, checkpointId: string): Run {
-    const run = this.store.getRun(runId);
-    if (!this.store.listCheckpoints(runId).some((checkpoint) => checkpoint.id === checkpointId && checkpoint.runId === runId)) {
-      throw new EngineError('CHECKPOINT_RUN_MISMATCH', 'Checkpoint does not belong to the requested run');
-    }
-    return run;
-  }
-
-  private restoreReply(operation: RestoreOperation): RestoreCommandResult {
-    if (operation.state === 'completed' && operation.result) return { ...operation.result, operationId: operation.id, duplicate: true };
-    if (operation.state === 'started') throw new EngineError('RESTORE_PENDING', 'Restoration has already started and has no recorded final outcome; effects will not be replayed');
-    if (operation.error) throw new EngineError(operation.error.code, operation.error.message);
-    throw new EngineError('RESTORE_INTERRUPTED', 'Restoration has no confirmed outcome; effects will not be replayed');
-  }
-
-  private restore(commandId: string, runId: string, checkpointId: string, fingerprint: string): Promise<RestoreCommandResult> {
-    const sameRequest = (binding: RestoreOperationInput): boolean => binding.runId === runId && binding.checkpointId === checkpointId && binding.fingerprint === fingerprint;
-    const conflict = (): never => { throw new EngineError('REVIEW_JOURNAL_OPERATION_CONFLICT', 'Operation ID is already bound to a different restore request'); };
-    const inFlight = this.restoreRequests.get(commandId);
-    if (inFlight) {
-      if (!sameRequest(inFlight.binding)) conflict();
-      return inFlight.promise.then((result) => ({ ...result, duplicate: true }));
-    }
-    const existing = this.reviewJournal.get(commandId);
-    if (existing) {
-      if (!sameRequest(existing)) conflict();
-      const recordedRun = this.restoreRun(runId, checkpointId);
-      if (existing.sessionId !== recordedRun.sessionId || existing.workspaceId !== recordedRun.workspaceId) conflict();
-      return Promise.resolve(this.restoreReply(existing));
-    }
-    const run = this.restoreRun(runId, checkpointId);
-    if (!isTerminal(run.state)) throw new EngineError('RUN_NOT_TERMINAL', 'An active run cannot be restored');
-    const workspace = this.store.getWorkspace(run.workspaceId);
-    const binding: RestoreOperationInput = { id: commandId, runId, checkpointId, fingerprint, sessionId: run.sessionId, workspaceId: run.workspaceId };
-    let observed: RestoreCommandResult | undefined;
-    const lease = this.coordinator.withWorkspaceLease(workspace.id, async (signal) => {
-      // All audit writes stay inside the lease so close cannot release either
-      // SQLite connection while a restoration is still recording its outcome.
-      try {
-        // The public journal may have been updated after synchronous dispatch
-        // admission but before this microtask. Never execute a known operation.
-        const previous = this.reviewJournal.get(commandId);
-        if (previous) {
-          if ((Object.keys(binding) as (keyof RestoreOperationInput)[]).some((key) => previous[key] !== binding[key])) conflict();
-          observed = this.restoreReply(previous);
-          return observed;
-        }
-        this.reviewJournal.start(binding);
-      }
-      catch (error) {
-        if (error instanceof EngineError) throw error;
-        throw new EngineError('REVIEW_RECORD_FAILED', 'Restoration could not start because audit recording failed');
-      }
-      let restored: RestoreResult;
-      try { restored = await restoreCheckpoint(this.store, workspace, checkpointId, { signal, executionLockPath: this.executionLockPath, previewFingerprint: fingerprint }); }
-      catch (error) {
-        const failure = error instanceof EngineError ? error : new EngineError('RESTORE_FAILED', 'Checkpoint restoration failed');
-        try { this.reviewJournal.finish(commandId, { error: { code: failure.code, message: failure.message } }); }
-        catch {
-          this.coordinator.quarantineWorkspace(workspace.id);
-          throw new EngineError(failure.code, failure.message, { ...(failure.details ?? {}), recordMetadataError: metadataFailure() });
-        }
-        throw failure;
-      }
-      observed = { ...restored, operationId: commandId, duplicate: false };
-      if (restored.effectsUncertain || restored.executionBlocked) this.coordinator.quarantineWorkspace(workspace.id);
-      if (restored.restored.length) {
-        const checkpoint = this.store.listCheckpoints(run.id).find(item => item.id === checkpointId)!;
-        try {
-          await this.watchWorkspace(workspace.id);
-          const restoredPaths = new Set(restored.restored);
-          const changes = await this.changes.recordCheckpoint({ workspace, sessionId: run.sessionId, runId: run.id, toolCallId: checkpoint.toolCallId, signal,
-            checkpoints: [{ ...checkpoint, id: `restore_${createHash('sha256').update(commandId).digest('hex')}`, createdAt: new Date().toISOString(), files: checkpoint.files.filter(file => restoredPaths.has(file.path)).map(file => ({ ...file, before: file.after, after: file.before, beforeHash: file.afterHash, afterHash: file.beforeHash })) }] });
-          await Promise.all(changes.map(change => this.syncLanguageServers(change)));
-        } catch { observed.warnings.push('Restoration effects were recorded, but workspace observation or language-service delivery could not be confirmed.'); }
-      }
-      try { this.reviewJournal.finish(commandId, restored); }
-      catch {
-        this.coordinator.quarantineWorkspace(workspace.id);
-        observed.recordMetadataError = metadataFailure();
-        observed.warnings = [...observed.warnings, observed.recordMetadataError.message];
-      }
-      return observed;
-    });
-    const pending = lease.catch((error: unknown) => {
-      // A returned service result retains its observed partial effects even
-      // when the coordinator refuses to claim confirmed cleanup.
-      if (observed && error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN') return observed;
-      throw error;
-    }).finally(() => { this.restoreRequests.delete(commandId); });
-    this.restoreRequests.set(commandId, { binding, promise: pending });
-    void pending.catch(() => {});
-    return pending;
-  }
+  dispatch(value: CommandEnvelope | unknown): Promise<CommandResult> { return this.commands.dispatch(value); }
 
   subscribe(sessionId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterable<EngineEvent> {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0) throw new EngineError('INVALID_CURSOR', 'afterSeq must be a non-negative safe integer');
     return this.store.subscribe(sessionId, afterSeq, signal);
   }
 
   subscribeSession(sessionId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterable<SessionEventV2> {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.subscribeSessionEvents(sessionId, afterSeq, signal);
   }
 
@@ -1755,30 +729,27 @@ export class MoodcodeEngine implements EngineRuntime {
   inspectResidentChildTask(sessionId:string,taskId:string){return this.children.inspectResident(sessionId,taskId);}
   stopResidentChildTask(sessionId:string,taskId:string){return this.children.stopResident(sessionId,taskId);}
   startChildTask(request: EngineChildRequest) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.children.start(request);
   }
 
   registerLanguageServer(serverId: string, factory: LspFactory, languageForPath: (path: string) => string | null, revision = '1'): void {
-    this.assertOpen();
-    if (typeof languageForPath !== 'function') throw new EngineError('INVALID_LSP_CONFIG', 'Host must explicitly select supported language paths');
-    if (!/^[A-Za-z0-9_.-]{1,64}$/.test(revision)) throw new EngineError('INVALID_LSP_CONFIG', 'Host language server revision must be bounded');
-    this.lsp.register(serverId, factory); this.languageServers.set(serverId, languageForPath); this.languageServerRevisions.set(serverId, revision);
+    this.languageSync.register(serverId, factory, languageForPath, revision);
   }
 
   getRepositoryContext(workspaceId: string, query: RepositoryQuery, signal?: AbortSignal): Promise<RepositorySnapshot> {
-    this.assertOpen();
-    return this.track(this.repository.query(this.store.getWorkspace(workspaceId), query, this.hostSignal(signal)));
+    this.lifetime.assertOpen();
+    return this.lifetime.track(this.repository.query(this.store.getWorkspace(workspaceId), query, this.lifetime.hostSignal(signal)));
   }
 
   registerLifecycleHook(hook: LifecycleHookRegistration): () => void {
-    this.assertOpen();
-    if(this.sandboxEnabled)throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Host lifecycle effects require their own sandbox-bound producer');
+    this.lifetime.assertOpen();
+    if(this.enabled.sandbox)throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Host lifecycle effects require their own sandbox-bound producer');
     return this.lifecycleHooks.register(hook);
   }
 
   getTrajectory(options: TrajectoryOptions): JournalProjection {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     validateTrajectoryOptions(options);
     if (options.runId !== undefined) {
       const run = this.store.getRun(options.runId);
@@ -1788,14 +759,14 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   getAttemptManifest(runId: string, options: CodingEvidenceOptions = {}): CodingEvidenceManifest {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     validateCodingEvidenceOptions(options);
     const run = this.store.getRun(runId), { source, ...page } = options;
     return createCodingEvidenceManifest(run, this.getTrajectory({ ...page, sessionId: run.sessionId, runId }), source);
   }
 
   getCodingEvidence(runId: string, options: NativeCodingEvidenceOptions = {}) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return readNativeCodingEvidence({ getRun: id => this.store.getRun(id), getSession: id => this.store.getSession(id),
       readSessionEvents: (sessionId, afterSeq, limit) => this.store.readSessionEvents(sessionId, afterSeq, limit),
       listExecutionObservations: (workspaceId, id, page) => this.executionObserver.storage.listRun(workspaceId, id, page),
@@ -1804,12 +775,12 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   inspectToolRegistration(toolName: string, scopeId = 'engine') {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.toolRuntime.inspectToolRegistration(scopeId, toolName);
   }
 
   getStallObservation(options: TrajectoryOptions, limits?: StallOptions): StallObservation {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => {
       const trajectory = this.getTrajectory(options), run = trajectory.runId ? this.store.getRun(trajectory.runId) : undefined;
       const toolCallIds = new Set(trajectory.events.flatMap(event => run && event.runId === run.id && event.tool?.toolCallId ? [event.tool.toolCallId] : []));
@@ -1819,7 +790,7 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   getExecutionObservations(input: { workspaceId: string; runId: string } & DiagnosticExecutionPageOptions) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     plainRecord(input, ['workspaceId', 'runId'], ['afterOrdinal', 'throughOrdinal', 'limit', 'maxBytes'], fault => {
       throw new EngineError('INVALID_EXECUTION_OBSERVATION', fault === 'shape' ? 'Observation queries require plain bounded data' : 'Observation queries require exact plain bounded data');
     });
@@ -1831,70 +802,29 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   getPolicyDecisionReceipts(options: TrajectoryOptions): PolicyDecisionReceiptPage {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     validateTrajectoryOptions(options);
     if (options.runId !== undefined && this.store.getRun(options.runId).sessionId !== options.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Decision Run belongs to another session');
     return readPolicyDecisionReceipts(this.store, options);
   }
 
-  async watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> {
-    this.assertOpen();
-    const workspace = this.store.getWorkspace(workspaceId), watch = await this.changes.watch(workspace, { signal: this.hostResources.signal });
-    const consumer = this.watchConsumers.get(workspaceId) ?? { seq: 0, running: false, done: Promise.resolve() };
-    if (!consumer.running) {
-      this.watchConsumers.set(workspaceId, consumer);
-      consumer.running = true;
-      consumer.done = this.consumeWorkspaceChanges(workspaceId, consumer);
-    }
-    return watch;
-  }
-
-  /** A failed consumer restarts on the next watch after its last processed event, or at the head when that replay no longer fits. */
-  private async consumeWorkspaceChanges(workspaceId: string, consumer: { seq: number; running: boolean }): Promise<void> {
-    try {
-      const from = this.changes.resumeCursor(workspaceId, consumer.seq);
-      if (from !== consumer.seq && !this.observationFailures.has(workspaceId)) this.observationFailures.set(workspaceId, 'WORKSPACE_CHANGE_CURSOR_EXPIRED');
-      consumer.seq = from;
-      for await (const event of this.changes.subscribe(workspaceId, from, this.hostResources.signal)) {
-        if (event.type === 'change') await this.syncLanguageServers(event.change);
-        else if (event.type === 'incomplete') this.observationFailures.set(workspaceId, event.code);
-        consumer.seq = event.seq;
-      }
-    } catch (error) { if (!this.hostResources.signal.aborted) this.observationFailures.set(workspaceId, error instanceof EngineError ? error.code : 'WORKSPACE_OBSERVATION_FAILED'); }
-    finally { consumer.running = false; }
-  }
-
-  private syncLanguageServers(change: WorkspaceFileChange): Promise<void> {
-    const workspace = this.store.getWorkspace(change.workspaceId);
-    return Promise.all([...this.languageServers].map(async ([serverId, selectLanguage]) => {
-      const language = selectLanguage(change.path); if (!language) return;
-      const key = JSON.stringify([workspace.id, serverId, change.path]), known = this.lspChanges.get(key);
-      if (known && known.version >= change.documentVersion) return known.done;
-      const done = this.lsp.fileChanged(workspace, serverId, change.path, language, change.kind, this.hostResources.signal).catch(error => {
-        this.observationFailures.set(workspace.id, error instanceof EngineError ? error.code : 'LSP_UPDATE_FAILED');
-        if (this.lspChanges.get(key)?.done === done) this.lspChanges.delete(key);
-      });
-      this.lspChanges.set(key, { version: change.documentVersion, done });
-      if (this.lspChanges.size > 256) this.lspChanges.delete(this.lspChanges.keys().next().value!);
-      return done;
-    })).then(() => {});
-  }
+  watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> { return this.languageSync.watch(workspaceId); }
 
   createWorktree(sessionId: string, requestId: string, reference?: string) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    if (this.lifetime.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     const session = this.store.getSession(sessionId), workspace = this.store.getWorkspace(session.workspaceId);
     this.children.recover(sessionId);
     return this.coordinator.withWorkspaceLease(workspace.id, signal => this.children.worktrees.create({ sessionId, requestId, workspace, ...(reference ? { reference } : {}) }, signal));
   }
 
   cleanupWorktree(sessionId: string, worktreeId: string) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    if (this.lifetime.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     const session = this.store.getSession(sessionId);
     return this.coordinator.withWorkspaceLease(session.workspaceId, signal => this.children.worktrees.cleanup(sessionId, worktreeId, signal));
   }
 
   prepareChildWorktree(sessionId: string, parentWorktreeId: string, requestId: string, reference?: string) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
+    if (this.lifetime.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
     const session = this.store.getSession(sessionId);
     this.children.recover(sessionId);
     return this.coordinator.withWorkspaceLease(session.workspaceId, async signal => {
@@ -1919,8 +849,8 @@ export class MoodcodeEngine implements EngineRuntime {
     return { schemaVersion, runtime, providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools], ...rest };
   }
 
-  private assertAgentBackendsEnabled(): void { this.assertEnabled(this.agentBackendsEnabled, 'AGENT_BACKENDS_DISABLED', 'Agent backends require explicit root host opt-in'); }
-  captureAgentBackendTarget(input: CaptureAgentBackendTarget): object { if(this.sandboxEnabled)throw new EngineError('SANDBOX_AGENT_BACKEND_UNSUPPORTED','ACP effect servers cannot bypass sandbox restrictions'); this.assertAgentBackendsEnabled(); return this.backendProducer.captureTarget(input); }
+  private assertAgentBackendsEnabled(): void { this.lifetime.assertEnabled(this.enabled.agentBackends, 'AGENT_BACKENDS_DISABLED', 'Agent backends require explicit root host opt-in'); }
+  captureAgentBackendTarget(input: CaptureAgentBackendTarget): object { if(this.enabled.sandbox)throw new EngineError('SANDBOX_AGENT_BACKEND_UNSUPPORTED','ACP effect servers cannot bypass sandbox restrictions'); this.assertAgentBackendsEnabled(); return this.backendProducer.captureTarget(input); }
   readAgentBackendTarget(original: object) { return this.backendProducer.readTargetPin(original); }
   registerAgentBackend(original: object, input: RegisterAgentBackendInput) {
     this.assertAgentBackendsEnabled();
@@ -1953,7 +883,7 @@ export class MoodcodeEngine implements EngineRuntime {
   readJobOutputPage(...args: Parameters<JobHost['readOutput']>) { return this.jobHost.readOutput(...args); }
   recordJobOutput(...args: Parameters<JobHost['recordJobOutput']>) { return this.jobHost.recordJobOutput(...args); }
   settleTerminalJob(...args: Parameters<JobHost['settleTerminalJob']>) { return this.jobHost.settleTerminalJob(...args); }
-  cancelCommandJobWatch(...args: Parameters<JobHost['cancelCommandJobWatch']>) { if (!this.jobsEnabled) throw new EngineError('JOBS_DISABLED', 'Job mutations require explicit root host opt-in'); return this.jobHost.cancelCommandJobWatch(...args); }
+  cancelCommandJobWatch(...args: Parameters<JobHost['cancelCommandJobWatch']>) { if (!this.enabled.jobs) throw new EngineError('JOBS_DISABLED', 'Job mutations require explicit root host opt-in'); return this.jobHost.cancelCommandJobWatch(...args); }
   getCommandJob(...args: Parameters<JobStorage['getJob']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.getJob(...args)); }
   inspectCommandJobs(...args: Parameters<JobStorage['inspectJobs']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.inspectJobs(...args)); }
   readCommandJobOutputs(...args: Parameters<JobStorage['readOutputs']>) { return this.store.readExecutionObservationEvidence(() => this.jobRecords.readOutputs(...args)); }
@@ -2018,7 +948,7 @@ export class MoodcodeEngine implements EngineRuntime {
   inspectOwnedCommandJobDeliveries(...args: Parameters<SqliteStore['inspectOwnedCommandJobDeliveries']>) { return this.store.inspectOwnedCommandJobDeliveries(...args); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     if (!this.roleResourcePolicyRegistry) throw new EngineError('ROLE_POLICY_UNSUPPORTED', 'Dynamic role policy requires an explicit host registry');
     return this.roleResourcePolicyRegistry.replace(expectedRegistryRevision, policy);
   }
@@ -2054,95 +984,62 @@ export class MoodcodeEngine implements EngineRuntime {
   getGitCommitReceipt(...args:Parameters<SqliteStore['getGitCommitReceipt']>) { return this.store.getGitCommitReceipt(...args); }
   inspectGitCommitReceipts(...args:Parameters<SqliteStore['inspectGitCommitReceipts']>) { return this.store.inspectGitCommitReceipts(...args); }
 
-  registerVerificationCheck(check: VerificationCheckRegistration): () => void {
-    this.assertEnabled(this.verificationEnabled, 'VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in');
-    this.store.getWorkspace(check.workspaceId);
-    return this.verificationChecks.register(check);
-  }
+  registerVerificationCheck(check: VerificationCheckRegistration): () => void { return this.verification.register(check); }
 
   configureVerificationSession(sessionId: string, expectedRevision: number, policy: VerificationSessionPolicy) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    if (!this.verificationEnabled) return Promise.reject(new EngineError('VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in'));
-    const session = this.store.getSession(sessionId);
-    return this.coordinator.withWorkspaceLease(session.workspaceId, signal => this.verificationHost.configure(sessionId, expectedRevision, policy, signal));
+    return this.verification.configure(sessionId, expectedRevision, policy);
   }
 
   getVerificationConfiguration(sessionId: string) {
-    this.assertOpen();
-    return this.verificationHost.configuration(sessionId);
+    this.lifetime.assertOpen();
+    return this.verification.host.configuration(sessionId);
   }
 
   getVerificationState(sessionId: string, runId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.verificationPlans.get(sessionId, runId);
   }
 
   getVerificationCompletion(sessionId: string, runId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.verificationController.get(sessionId, runId);
   }
 
-  previewWorkspaceTrust(workspaceId: string, paths: readonly string[]) {
-    this.assertOpen();
-    return this.workspaceTrust.preview(workspaceId, paths);
-  }
+  previewWorkspaceTrust(workspaceId: string, paths: readonly string[]) { return this.knowledge.previewTrust(workspaceId, paths); }
 
-  private assertKnowledgeImportRecoveryEnabled(): void { this.assertEnabled(this.knowledgeImportRecoveryEnabled, 'KNOWLEDGE_IMPORT_RECOVERY_DISABLED', 'Imported knowledge recovery requires explicit host opt-in'); }
-  previewWorkspaceKnowledgeImportAcknowledgment(input: Parameters<KnowledgeImportRecoveryService['previewAcknowledgment']>[0]) {
-    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewAcknowledgment(input);
-  }
-  previewWorkspaceKnowledgeImportRecovery(input: Parameters<KnowledgeImportRecoveryService['previewResume']>[0]) {
-    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewResume(input);
-  }
-  previewWorkspaceKnowledgeImportActivation(input: Parameters<KnowledgeImportRecoveryService['previewActivation']>[0]) {
-    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewActivation(input);
-  }
-  previewWorkspaceKnowledgeImportDeactivation(input: Parameters<KnowledgeImportRecoveryService['previewDeactivation']>[0]) {
-    this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewDeactivation(input);
-  }
-  acknowledgeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['acknowledge']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.acknowledge(input); });
-  }
-  resumeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['resume']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.resume(input); });
-  }
-  activateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['activate']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.activate(input); });
-  }
-  deactivateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['deactivate']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.deactivate(input); });
-  }
-  releaseWorkspaceKnowledgeImportPreview(preview: Parameters<KnowledgeImportRecoveryService['releasePreview']>[0]): void { this.knowledgeImportService.releasePreview(preview); }
-  getWorkspaceKnowledgeImportFrontier(workspaceId: string) {
-    this.assertOpen();
-    return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getFrontier(workspaceId));
-  }
-  getWorkspaceKnowledgeImportActivation(workspaceId: string, documentKey: string) {
-    this.assertOpen();
-    return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getActivation(workspaceId, documentKey));
-  }
+  previewWorkspaceKnowledgeImportAcknowledgment(input: Parameters<KnowledgeImportRecoveryService['previewAcknowledgment']>[0]) { return this.knowledge.previewImportAcknowledgment(input); }
+  previewWorkspaceKnowledgeImportRecovery(input: Parameters<KnowledgeImportRecoveryService['previewResume']>[0]) { return this.knowledge.previewImportRecovery(input); }
+  previewWorkspaceKnowledgeImportActivation(input: Parameters<KnowledgeImportRecoveryService['previewActivation']>[0]) { return this.knowledge.previewImportActivation(input); }
+  previewWorkspaceKnowledgeImportDeactivation(input: Parameters<KnowledgeImportRecoveryService['previewDeactivation']>[0]) { return this.knowledge.previewImportDeactivation(input); }
+  acknowledgeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['acknowledge']>[0]) { return this.knowledge.acknowledgeImport(input); }
+  resumeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['resume']>[0]) { return this.knowledge.resumeImport(input); }
+  activateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['activate']>[0]) { return this.knowledge.activateImport(input); }
+  deactivateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['deactivate']>[0]) { return this.knowledge.deactivateImport(input); }
+  releaseWorkspaceKnowledgeImportPreview(preview: Parameters<KnowledgeImportRecoveryService['releasePreview']>[0]): void { this.knowledge.importService.releasePreview(preview); }
+  getWorkspaceKnowledgeImportFrontier(workspaceId: string) { return this.knowledge.getImportFrontier(workspaceId); }
+  getWorkspaceKnowledgeImportActivation(workspaceId: string, documentKey: string) { return this.knowledge.getImportActivation(workspaceId, documentKey); }
 
-  private assertTeamsEnabled(): void { this.assertEnabled(this.teamsEnabled, 'TEAMS_DISABLED', 'Teams require explicit host opt-in'); }
-  private assertSchedulesEnabled(): void { this.assertEnabled(this.schedulesEnabled, 'SCHEDULES_DISABLED', 'Schedules require explicit root host opt-in'); }
+  private assertTeamsEnabled(): void { this.lifetime.assertEnabled(this.enabled.teams, 'TEAMS_DISABLED', 'Teams require explicit host opt-in'); }
+  private assertSchedulesEnabled(): void { this.lifetime.assertEnabled(this.enabled.schedules, 'SCHEDULES_DISABLED', 'Schedules require explicit root host opt-in'); }
   captureScheduleWorker(workspaceId: string): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureWorker(workspaceId); }
   captureScheduleTarget(input: Parameters<EngineScheduleProducer['captureTarget']>[0]): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureTarget(input); }
   readScheduleTarget(original: object) { this.assertSchedulesEnabled(); return this.scheduleProducer.targetPin(original); }
   registerSchedule(...args: Parameters<ScheduleStorage['registerSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.registerSchedule(...args); }
   disableSchedule(...args: Parameters<ScheduleStorage['disableSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.disableSchedule(...args); }
   getSchedule(...args: Parameters<ScheduleStorage['getSchedule']>) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getSchedule(...args));
   }
   inspectSchedules(workspaceId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectSchedules(workspaceId));
   }
   inspectScheduleOccurrences(...args: Parameters<ScheduleStorage['inspectOccurrences']>) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectOccurrences(...args));
   }
   getSchedulerLease(workspaceId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getLease(workspaceId));
   }
   acquireSchedulerLease(...args: Parameters<ScheduleStorage['acquireLease']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.acquireLease(...args); }
@@ -2161,7 +1058,7 @@ export class MoodcodeEngine implements EngineRuntime {
   releaseCommandJobModelTools(original: object): void { this.commandJobModelHost.release(original); }
 
   bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
-  private assertWorkflowsEnabled(): void { this.assertEnabled(this.workflowsEnabled, 'WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in'); }
+  private assertWorkflowsEnabled(): void { this.lifetime.assertEnabled(this.enabled.workflows, 'WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in'); }
 
   installCodingBatchDispatchGuard(guard: () => void, charge: () => void): void {
     if (this.codingBatchDispatchGuard)
@@ -2223,22 +1120,22 @@ export class MoodcodeEngine implements EngineRuntime {
   }
   registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.register(input); }
   getWorkflow(workspaceId: string, workflowId: string, revisionId?: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.getWorkflow(workspaceId, workflowId, revisionId));
   }
   async previewWorkflowStart(input: Parameters<WorkflowHost['previewStart']>[0]) {
     this.assertWorkflowsEnabled();
-    return await this.track(this.workflowHost.previewStart(input));
+    return await this.lifetime.track(this.workflowHost.previewStart(input));
   }
   startWorkflow(input: Parameters<WorkflowService['start']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.start(input); }
   startWorkflowStage(input: Parameters<WorkflowService['startStage']>[0]) {
-    return this.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.startStage(input); });
+    return this.lifetime.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.startStage(input); });
   }
   observeWorkflowStage(input: Parameters<WorkflowService['observeStage']>[0]) {
-    return this.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.observeStage(input); });
+    return this.lifetime.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.observeStage(input); });
   }
   inspectWorkflow(workspaceId: string, instanceId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.inspectWorkflow(workspaceId, instanceId));
   }
   bindWorkflowModelTools(input:Parameters<WorkflowModelTools['bind']>[0]){this.assertWorkflowsEnabled();return this.workflowModelTools.bind(input);}
@@ -2265,299 +1162,105 @@ export class MoodcodeEngine implements EngineRuntime {
   completeTeamTask(input: Parameters<TeamService['completeTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.completeTeamTask(input); }
   resumeChildTurn(input: Parameters<TeamService['resumeChildTurn']>[0]) { this.assertTeamsEnabled(); return this.teamService.resumeChildTurn(input); }
   getTeam(workspaceId: string, teamId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTeam(workspaceId, teamId));
   }
   getTeamMember(workspaceId: string, teamId: string, memberId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.getMember(workspaceId, teamId, memberId));
   }
   listTeamMembers(workspaceId: string, teamId: string, limit?: number) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.listMembers(workspaceId, teamId, limit));
   }
   getTeamTask(workspaceId: string, teamId: string, taskId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTask(workspaceId, teamId, taskId));
   }
   readTeamTaskPage(workspaceId: string, teamId: string, afterTaskId?: string, limit?: number) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasksPage(workspaceId, teamId, afterTaskId, limit));
   }
   listTeamTasks(workspaceId: string, teamId: string, limit?: number) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasks(workspaceId, teamId, limit));
   }
   getTeamDelivery(workspaceId: string, id: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.readExecutionObservationEvidence(() => {
       const record = this.teamRecords.getDelivery(workspaceId, id);
       return record ? { record, receipt: this.teamRecords.getDeliveryReceipt(workspaceId, id) ?? null } : undefined;
     });
   }
 
-  createProposalSet(input: CreateProposalSetInput) {
-    return this.rejecting(() => {
-      this.assertEnabled(this.proposalsEnabled, 'PROPOSALS_DISABLED', 'Creating pending proposals requires explicit host opt-in');
-      return this.proposalService.create(input);
-    });
-  }
-  previewProposalApply(input: Parameters<ProposalApplyService['preview']>[0]) {
-    return this.rejecting(() => { this.assertProposalApplyEnabled(); return this.proposalApplyService.preview(input); });
-  }
-  applyProposal(input: Parameters<ProposalApplyService['apply']>[0]) {
-    return this.rejecting(() => { this.assertProposalApplyEnabled(); return this.proposalApplyService.apply(input); });
-  }
-  releaseProposalApplyPreview(preview: Parameters<ProposalApplyService['releasePreview']>[0]): void { this.proposalApplyService.releasePreview(preview); }
-  getProposalApply(workspaceId: string, ownerId: string) {
-    this.assertOpen();
-    return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getHistory(workspaceId, ownerId));
-  }
-  getProposalApplyRequest(workspaceId: string, requestId: string) {
-    this.assertOpen();
-    return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getRequest(workspaceId, requestId));
-  }
-  previewProposalApplyRecovery(workspaceId: string): ProposalApplyRecoveryPreview {
-    this.assertProposalApplyEnabled();
-    const preview = this.store.readExecutionObservationEvidence(() => this.proposalApplies.previewRecovery(workspaceId));
-    this.proposalApplyRecoveryPreviews.set(preview, workspaceId); return preview;
-  }
+  createProposalSet(input: CreateProposalSetInput) { return this.proposals.create(input); }
+  previewProposalApply(input: Parameters<ProposalApplyService['preview']>[0]) { return this.proposals.previewApply(input); }
+  applyProposal(input: Parameters<ProposalApplyService['apply']>[0]) { return this.proposals.apply(input); }
+  releaseProposalApplyPreview(preview: Parameters<ProposalApplyService['releasePreview']>[0]): void { this.proposals.applyService.releasePreview(preview); }
+  getProposalApply(workspaceId: string, ownerId: string) { return this.proposals.getApply(workspaceId, ownerId); }
+  getProposalApplyRequest(workspaceId: string, requestId: string) { return this.proposals.getApplyRequest(workspaceId, requestId); }
+  previewProposalApplyRecovery(workspaceId: string): ProposalApplyRecoveryPreview { return this.proposals.previewApplyRecovery(workspaceId); }
   acknowledgeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    return this.proposalApplyRecoveryDecision('acknowledge', input);
+    return this.proposals.applyRecoveryDecision('acknowledge', input);
   }
   resumeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    return this.proposalApplyRecoveryDecision('resume', input);
+    return this.proposals.applyRecoveryDecision('resume', input);
   }
-  private assertProposalApplyEnabled(): void { this.assertEnabled(this.proposalApplyEnabled, 'PROPOSAL_APPLY_DISABLED', 'Applying proposals requires separate explicit host opt-in'); }
-  private proposalApplyRecoveryDecision(operation: 'acknowledge' | 'resume', input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    return this.rejecting(() => {
-      this.assertProposalApplyEnabled();
-      const { workspaceId, requestId, preview, reason } = plainRecord(input, ['workspaceId', 'requestId', 'preview', 'reason'], [], () => {
-        throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
-      }) as typeof input;
-      if (this.proposalApplyRecoveryPreviews.get(preview) !== workspaceId || typeof reason !== 'string' || !reason.trim()
-        || Buffer.byteLength(reason, 'utf8') > 512 || Buffer.from(reason, 'utf8').toString('utf8') !== reason) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires its original preview and bounded explicit reason');
-      return this.recoveryGate.decide(workspaceId, { closed: 'Engine closed during proposal recovery' }, () => operation === 'acknowledge'
-        ? this.proposalApplies.acknowledge(preview, { requestId, reason, approved: true }) : this.proposalApplies.resume(preview, { requestId, reason, approved: true }));
-    });
-  }
-  getProposalSet(workspaceId: string, proposalId: string) {
-    this.assertOpen();
-    return this.proposalService.get(workspaceId, proposalId);
-  }
-  listProposalSets(input: Parameters<ProposalHostService['list']>[0]) {
-    this.assertOpen();
-    return this.proposalService.list(input);
-  }
-  getProposalDiff(input: Parameters<ProposalHostService['diff']>[0]) {
-    return this.rejecting(() => {
-      this.assertOpen();
-      return this.proposalService.diff(input);
-    });
-  }
+  getProposalSet(workspaceId: string, proposalId: string) { return this.proposals.get(workspaceId, proposalId); }
+  listProposalSets(input: Parameters<ProposalHostService['list']>[0]) { return this.proposals.list(input); }
+  getProposalDiff(input: Parameters<ProposalHostService['diff']>[0]) { return this.proposals.diff(input); }
 
-  setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    this.store.getWorkspace(input.workspaceId);
-    return this.coordinator.withWorkspaceLease(input.workspaceId, async signal => { if (signal.aborted) throw signal.reason; return this.workspaceTrust.set(input); });
-  }
+  setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) { return this.knowledge.setTrust(input); }
 
-  captureWorkspaceKnowledgeSources(workspaceId: string, selection: readonly KnowledgeSourceSelection[]) {
-    this.assertOpen();
-    return this.knowledgeHost.captureSources({ workspaceId, selection });
-  }
+  captureWorkspaceKnowledgeSources(workspaceId: string, selection: readonly KnowledgeSourceSelection[]) { return this.knowledge.captureSources(workspaceId, selection); }
+  previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: ReasoningEffort }) { return this.knowledge.previewGeneration(input); }
+  releaseWorkspaceKnowledgeSources(projection: KnowledgeSourceProjection): void { this.knowledge.releaseSources(projection); }
+  prepareWorkspaceKnowledgeGeneration(input: Omit<PrepareKnowledgeGeneration, 'binding' | 'source'> & { projection: KnowledgeSourceProjection }) { return this.knowledge.prepareGeneration(input); }
+  captureWorkspaceKnowledgeTarget(workspaceId: string, path: string) { return this.knowledge.captureTarget(workspaceId, path); }
+  captureWorkspaceKnowledgeDocumentTarget(workspaceId: string, key: string) { return this.knowledge.captureDocumentTarget(workspaceId, key); }
 
-  previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: ReasoningEffort }) {
-    this.assertOpen();
-    assertKnowledgeGenerationHostInput(input, ['providerId', 'modelId', 'projection'], ['reasoningEffort']);
-    this.knowledgeGenerationProvider(input.providerId);
-    this.knowledgeHost.assertProjectionFresh(input.projection);
-    const request = buildKnowledgeGenerationRequest({ providerId: input.providerId, modelId: input.modelId, source: input.projection,
-      ...(input.reasoningEffort === undefined ? {} : { reasoningEffort: input.reasoningEffort }) });
-    // Store-issued generation and attempt UUIDs have this exact width; check the full envelope before native admission.
-    validateHostGenerationRequest({ ...request.payload, owner: { kind: 'host-generation', workspaceId: input.projection.workspaceId,
-      generationId: '00000000-0000-0000-0000-000000000000', attemptId: '00000000-0000-0000-0000-000000000000' } });
-    return request;
-  }
-
-  private knowledgeGenerationProvider(providerId: string): ProviderAdapter & HostGenerationProviderPort {
-    if (!this.knowledgeGenerationEnabled) throw new EngineError('KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in');
-    const provider = this.runtimeProviders.get(providerId);
-    if (!provider || typeof provider.streamGeneration !== 'function') throw new EngineError('KNOWLEDGE_PROVIDER_UNSUPPORTED', 'Provider does not support an independently owned tools-free generation');
-    return provider as ProviderAdapter & HostGenerationProviderPort;
-  }
-
-  releaseWorkspaceKnowledgeSources(projection: KnowledgeSourceProjection): void {
-    this.knowledgeHost.releaseProjection(projection);
-  }
-
-  prepareWorkspaceKnowledgeGeneration(input: Omit<PrepareKnowledgeGeneration, 'binding' | 'source'> & { projection: KnowledgeSourceProjection }) {
-    return this.rejecting(() => {
-      this.assertOpen();
-      assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedTrustRevision', 'target', 'providerId', 'modelId', 'requestSha256', 'requestBytes', 'maxOutputBytes', 'expiresAt', 'projection']);
-      const { projection, ...description } = input;
-      this.knowledgeHost.assertProjectionFresh(projection);
-      const plan = validateGenerationInput({ ...description, binding: projection.binding, source: projection.manifest });
-      if (plan.workspaceId !== projection.workspaceId) throw new EngineError('KNOWLEDGE_BINDING_MISMATCH', 'Pending generation and original source projection must share the workspace');
-      return this.coordinator.withWorkspaceLease(plan.workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason;
-        this.knowledgeHost.assertProjectionFresh(projection);
-        return this.workspaceKnowledge.prepareGeneration(plan);
-      });
-    });
-  }
-
-  captureWorkspaceKnowledgeTarget(workspaceId: string, path: string) {
-    this.assertOpen();
-    return this.knowledgeHost.captureFileTarget(workspaceId, path);
-  }
-  captureWorkspaceKnowledgeDocumentTarget(workspaceId: string, key: string) {
-    this.assertOpen();
-    return this.knowledgeHost.captureDocumentTarget(workspaceId, key);
-  }
-  private assertKnowledgePublicationEnabled(): void { this.assertEnabled(this.knowledgePublicationEnabled, 'KNOWLEDGE_PUBLICATION_DISABLED', 'Workspace publication requires explicit host opt-in'); }
-  private assertKnowledgeFilePublicationEnabled(): void { this.assertEnabled(this.knowledgeFilePublicationEnabled, 'KNOWLEDGE_FILE_PUBLICATION_DISABLED', 'Physical knowledge publication requires explicit host opt-in'); }
-  previewWorkspaceKnowledgeFilePublication(input: Parameters<KnowledgeFilePublicationService['previewPublish']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewPublish(input); });
-  }
-  previewWorkspaceKnowledgeFileRevocation(input: Parameters<KnowledgeFilePublicationService['previewRevoke']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewRevoke(input); });
-  }
-  publishWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['publish']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.publish(input); });
-  }
-  revokeWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['revoke']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.revoke(input); });
-  }
-  releaseWorkspaceKnowledgeFilePublicationPreview(preview: Parameters<KnowledgeFilePublicationService['releasePreview']>[0]): void { this.knowledgeFilePublicationService.releasePreview(preview); }
-  getWorkspaceKnowledgeFilePublication(workspaceId: string, id: string) { this.assertOpen(); return this.knowledgeFilePublications.getOwner(workspaceId, id); }
-  getWorkspaceKnowledgeFilePublicationReceipt(workspaceId: string, requestId: string) { this.assertOpen(); return this.knowledgeFilePublications.getReceipt(workspaceId, requestId); }
-  getWorkspaceKnowledgeFileTarget(workspaceId: string, path: string) { this.assertOpen(); return this.knowledgeFilePublications.getCurrentTarget(workspaceId, path); }
-  previewWorkspaceKnowledgeFileRecovery(workspaceId: string) {
-    this.assertKnowledgeFilePublicationEnabled();
-    const preview = this.knowledgeFilePublications.previewRecovery(workspaceId); this.knowledgeFileRecoveryPreviews.set(preview, workspaceId); return preview;
-  }
+  previewWorkspaceKnowledgeFilePublication(input: Parameters<KnowledgeFilePublicationService['previewPublish']>[0]) { return this.knowledge.previewFilePublication(input); }
+  previewWorkspaceKnowledgeFileRevocation(input: Parameters<KnowledgeFilePublicationService['previewRevoke']>[0]) { return this.knowledge.previewFileRevocation(input); }
+  publishWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['publish']>[0]) { return this.knowledge.publishFile(input); }
+  revokeWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['revoke']>[0]) { return this.knowledge.revokeFile(input); }
+  releaseWorkspaceKnowledgeFilePublicationPreview(preview: Parameters<KnowledgeFilePublicationService['releasePreview']>[0]): void { this.knowledge.filePublicationService.releasePreview(preview); }
+  getWorkspaceKnowledgeFilePublication(workspaceId: string, id: string) { return this.knowledge.getFilePublication(workspaceId, id); }
+  getWorkspaceKnowledgeFilePublicationReceipt(workspaceId: string, requestId: string) { return this.knowledge.getFilePublicationReceipt(workspaceId, requestId); }
+  getWorkspaceKnowledgeFileTarget(workspaceId: string, path: string) { return this.knowledge.getFileTarget(workspaceId, path); }
+  previewWorkspaceKnowledgeFileRecovery(workspaceId: string) { return this.knowledge.previewFileRecovery(workspaceId); }
   acknowledgeWorkspaceKnowledgeFileRecovery(input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    return this.fileRecoveryDecision('acknowledge', input);
+    return this.knowledge.fileRecoveryDecision('acknowledge', input);
   }
   resumeWorkspaceKnowledgeFileAfterRecovery(input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    return this.fileRecoveryDecision('resume', input);
+    return this.knowledge.fileRecoveryDecision('resume', input);
   }
-  private fileRecoveryDecision(operation: 'acknowledge' | 'resume', input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    return this.rejecting(() => {
-      this.assertKnowledgeFilePublicationEnabled(); assertKnowledgeGenerationHostInput(input, ['workspaceId','requestId','approved','preview','reason']);
-      const prepared = Object.freeze({ ...input }), workspaceId = this.knowledgeFileRecoveryPreviews.get(prepared.preview);
-      if (!workspaceId || workspaceId !== prepared.workspaceId || prepared.approved !== true) throw new EngineError('KNOWLEDGE_FILE_RECOVERY_PREVIEW_INVALID', 'Physical recovery requires the original host preview and explicit approval');
-      return this.recoveryGate.decide(workspaceId, { hold: true }, () => operation === 'acknowledge' ? this.knowledgeFilePublications.acknowledge(prepared) : this.knowledgeFilePublications.resume(prepared));
-    });
-  }
-  listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { this.assertOpen(); return this.knowledgeFilePublications.listPublications(workspaceId, options); }
-  previewWorkspaceKnowledgePublication(input: Parameters<KnowledgePublicationService['previewPublish']>[0]) {
-    this.assertKnowledgePublicationEnabled();
-    return this.knowledgePublicationService.previewPublish(input);
-  }
-  previewWorkspaceKnowledgeRevocation(input: Parameters<KnowledgePublicationService['previewRevoke']>[0]) {
-    this.assertKnowledgePublicationEnabled();
-    return this.knowledgePublicationService.previewRevoke(input);
-  }
-  publishWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['publish']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.publish(input); });
-  }
-  revokeWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['revoke']>[0]) {
-    return this.rejecting(() => { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.revoke(input); });
-  }
-  releaseWorkspaceKnowledgePublicationPreview(preview: Parameters<KnowledgePublicationService['releasePreview']>[0]): void {
-    this.knowledgePublicationService.releasePreview(preview);
-  }
-  getWorkspaceKnowledgePublication(workspaceId: string, publicationId: string) {
-    this.assertOpen();
-    const publication = this.knowledgePublications.getPublication(workspaceId, publicationId);
-    if (!publication) throw new EngineError('KNOWLEDGE_PUBLICATION_NOT_FOUND', 'Publication does not exist in this workspace');
-    if (publication.state === 'completed') {
-      const committed = this.knowledgePublications.getCommitted(workspaceId, publicationId);
-      if (!committed) throw new EngineError('KNOWLEDGE_PUBLICATION_CONFLICT', 'Completed publication has no original committed receipt');
-      return { ...committed, duplicate: true as const };
-    }
-    return { publication, document: null, head: null, receipt: null, duplicate: true as const };
-  }
-  getWorkspaceKnowledgePublicationRecord(workspaceId: string, publicationId: string) {
-    this.assertOpen();
-    return this.knowledgePublications.getPublication(workspaceId, publicationId);
-  }
-  getWorkspaceKnowledgeDocument(workspaceId: string, key: string) {
-    this.assertOpen();
-    return this.knowledgePublications.getCurrentDocument(workspaceId, key);
-  }
-  getWorkspaceKnowledgeDocumentRevision(workspaceId: string, revisionId: string) {
-    this.assertOpen();
-    return this.knowledgePublications.getDocumentRevision(workspaceId, revisionId);
-  }
-  getWorkspaceKnowledgePublicationReceipt(workspaceId: string, requestId: string) {
-    this.assertOpen();
-    return this.knowledgePublications.getReceipt(workspaceId, requestId);
-  }
-  listWorkspaceKnowledgePublications(workspaceId: string, options: Parameters<KnowledgePublicationStorage['listPublications']>[1] = {}) {
-    this.assertOpen();
-    return this.knowledgePublications.listPublications(workspaceId, options);
-  }
+  listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { return this.knowledge.listFilePublications(workspaceId, options); }
+
+  previewWorkspaceKnowledgePublication(input: Parameters<KnowledgePublicationService['previewPublish']>[0]) { return this.knowledge.previewPublication(input); }
+  previewWorkspaceKnowledgeRevocation(input: Parameters<KnowledgePublicationService['previewRevoke']>[0]) { return this.knowledge.previewRevocation(input); }
+  publishWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['publish']>[0]) { return this.knowledge.publish(input); }
+  revokeWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['revoke']>[0]) { return this.knowledge.revoke(input); }
+  releaseWorkspaceKnowledgePublicationPreview(preview: Parameters<KnowledgePublicationService['releasePreview']>[0]): void { this.knowledge.publicationService.releasePreview(preview); }
+  getWorkspaceKnowledgePublication(workspaceId: string, publicationId: string) { return this.knowledge.getPublication(workspaceId, publicationId); }
+  getWorkspaceKnowledgePublicationRecord(workspaceId: string, publicationId: string) { return this.knowledge.getPublicationRecord(workspaceId, publicationId); }
+  getWorkspaceKnowledgeDocument(workspaceId: string, key: string) { return this.knowledge.getDocument(workspaceId, key); }
+  getWorkspaceKnowledgeDocumentRevision(workspaceId: string, revisionId: string) { return this.knowledge.getDocumentRevision(workspaceId, revisionId); }
+  getWorkspaceKnowledgePublicationReceipt(workspaceId: string, requestId: string) { return this.knowledge.getPublicationReceipt(workspaceId, requestId); }
+  listWorkspaceKnowledgePublications(workspaceId: string, options: Parameters<KnowledgePublicationStorage['listPublications']>[1] = {}) { return this.knowledge.listPublications(workspaceId, options); }
   listWorkspaceKnowledgeDocumentRevisions(workspaceId: string, key: string, options: Parameters<KnowledgePublicationStorage['listDocumentRevisions']>[2] = {}) {
-    this.assertOpen();
-    return this.knowledgePublications.listDocumentRevisions(workspaceId, key, options);
+    return this.knowledge.listDocumentRevisions(workspaceId, key, options);
   }
 
-  generateWorkspaceKnowledge(input: WorkspaceKnowledgeGenerationInput) {
-    return this.rejecting(() => {
-      this.assertOpen();
-      return this.knowledgeGenerationService.generate(input);
-    });
-  }
-
-  getWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
-    this.assertOpen();
-    return this.knowledgeGenerationService.get(workspaceId, generationId);
-  }
-
-  finishWorkspaceKnowledgeCandidate(input: { workspaceId: string; generationId: string; requestId: string }) {
-    return this.rejecting(() => {
-      this.assertEnabled(this.knowledgeGenerationEnabled, 'KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in');
-      return this.knowledgeGenerationService.finish(input);
-    });
-  }
-
-  cancelWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
-    this.assertOpen();
-    return this.knowledgeGenerationService.cancel(workspaceId, generationId);
-  }
-
-  getWorkspaceKnowledgeRecoveryPreview(workspaceId: string) {
-    this.assertOpen();
-    const preview = this.knowledgeGenerations.getRecoveryPreview(workspaceId);
-    this.knowledgeRecoveryPreviews.set(preview, workspaceId);
-    this.liveKnowledgeRecoveryPreviews.set(workspaceId, preview);
-    return preview;
-  }
-
+  generateWorkspaceKnowledge(input: WorkspaceKnowledgeGenerationInput) { return this.knowledge.generate(input); }
+  getWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) { return this.knowledge.getGeneration(workspaceId, generationId); }
+  finishWorkspaceKnowledgeCandidate(input: { workspaceId: string; generationId: string; requestId: string }) { return this.knowledge.finishCandidate(input); }
+  cancelWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) { return this.knowledge.cancelGeneration(workspaceId, generationId); }
+  getWorkspaceKnowledgeRecoveryPreview(workspaceId: string) { return this.knowledge.recoveryPreview(workspaceId); }
   acknowledgeWorkspaceKnowledgeRecovery(input: { preview: KnowledgeGenerationRecoveryPreview; requestId: string; reason: string; acknowledged: true }) {
-    return this.rejecting(() => {
-      this.assertOpen();
-      assertKnowledgeGenerationHostInput(input, ['preview', 'requestId', 'reason', 'acknowledged']);
-      const { preview, requestId, reason, acknowledged } = input;
-      const workspaceId = this.knowledgeRecoveryPreviews.get(preview);
-      if (!workspaceId || acknowledged !== true) throw new EngineError('KNOWLEDGE_RECOVERY_PREVIEW_INVALID', 'Recovery requires the original host preview and explicit acknowledgment');
-      return this.recoveryGate.decide(workspaceId, { idle: true, hold: true }, () => this.knowledgeGenerations.acknowledgeRecovery(preview, { requestId, reason }));
-    });
+    return this.knowledge.acknowledgeRecovery(input);
   }
-
   resumeWorkspaceKnowledge(input: { workspaceId: string; requestId: string; expectedRevision: number; expectedFrontierSha256: string }) {
-    return this.rejecting(() => {
-      this.assertOpen();
-      assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedRevision', 'expectedFrontierSha256']);
-      const prepared = Object.freeze({ ...input });
-      return this.recoveryGate.decide(prepared.workspaceId, { idle: true, hold: true }, () => {
-        this.recoveryGate.assertCertain('knowledgeGenerationResume', prepared.workspaceId);
-        return this.knowledgeGenerations.resumeWorkspace(prepared);
-      });
-    });
+    return this.knowledge.resume(input);
   }
 
   private refreshToolScopes(): void {
@@ -2565,9 +1268,9 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   async activatePlugin(plugin: EnginePlugin, signal?: AbortSignal): Promise<ActivePlugin> {
-    this.assertOpen();
-    if(this.sandboxEnabled)throw new EngineError('SANDBOX_PLUGIN_UNSUPPORTED','Plugin effects cannot assert sandbox enforcement');
-    const active = await this.plugins.activate(plugin, this.hostSignal(signal));
+    this.lifetime.assertOpen();
+    if(this.enabled.sandbox)throw new EngineError('SANDBOX_PLUGIN_UNSUPPORTED','Plugin effects cannot assert sandbox enforcement');
+    const active = await this.plugins.activate(plugin, this.lifetime.hostSignal(signal));
     try { this.refreshToolScopes(); return active; }
     catch (error) { await this.plugins.deactivate(active.id); throw error; }
   }
@@ -2575,17 +1278,17 @@ export class MoodcodeEngine implements EngineRuntime {
   async deactivatePlugin(id: string): Promise<void> { await this.plugins.deactivate(id); this.refreshToolScopes(); }
 
   async connectMcp(client: McpClient, signal?: AbortSignal): Promise<{ id: string; scopeId: string; toolNames: string[]; resources: McpRegistration['resources'] }> {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     if (this.mcp.has(client.id) || this.pendingMcp.has(client.id)) throw new EngineError('MCP_ALREADY_CONNECTED', 'MCP ID is already connected or connecting');
     if (this.mcp.size + this.pendingMcp.size >= 32) throw new EngineError('MCP_CONNECTION_LIMIT', 'Too many engine MCP connections');
-    if(this.sandboxEnabled&&!this.sandboxHost.hasMcp(client))throw new EngineError('SANDBOX_MCP_UNSUPPORTED','Only actual sandbox-owned stdio transports are admitted');
-    const pending = registerMcp(client, this.toolRuntime, this.hostSignal(signal));
+    if(this.enabled.sandbox&&!this.sandboxHost.hasMcp(client))throw new EngineError('SANDBOX_MCP_UNSUPPORTED','Only actual sandbox-owned stdio transports are admitted');
+    const pending = registerMcp(client, this.toolRuntime, this.lifetime.hostSignal(signal));
     this.mcpClients.set(client.id, client);
     this.pendingMcp.set(client.id, pending);
     let connection: McpRegistration | undefined;
     try {
       connection = await pending;
-      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine closed during MCP connection');
+      if (this.lifetime.closing) throw new EngineError('ENGINE_CLOSED', 'Engine closed during MCP connection');
       this.mcp.set(client.id, connection); this.refreshToolScopes();
       return { id: client.id, scopeId: connection.scopeId, toolNames: connection.tools.map(tool => tool.name), resources: structuredClone(connection.resources) };
     } catch (error) { this.mcp.delete(client.id); this.mcpClients.delete(client.id); if (connection) await connection.close(); else await client.close(); throw error; }
@@ -2598,44 +1301,44 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   integrityCheck(): IntegrityCheckResult {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.integrityCheck();
   }
 
   /** Session-bound, bounded host observation; summaries are separate from ordinary Attempts. */
   getAttemptCleanup(sessionId: string, attemptId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getAttemptCleanup(attemptId, sessionId);
   }
 
   /** Exact session-bound MCP receipt observation; it grants no retry or recovery authority. */
   getMcpExecution(sessionId: string, toolCallId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getMcpExecution(toolCallId, sessionId);
   }
 
   getSummaryAttempt(sessionId: string, summaryAttemptId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getSummaryAttempt(summaryAttemptId, sessionId);
   }
 
   getSummaryUsage(sessionId: string, summaryAttemptId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getSummaryUsage(summaryAttemptId, sessionId);
   }
 
   listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.listSummaryAttempts(sessionId, options);
   }
 
   /** Host preview only; it never confirms cleanup, replays providers or changes session control. */
   getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.getSummaryRecoveryPreview(sessionId, summaryAttemptId);
   }
 
@@ -2645,7 +1348,7 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   getProviderRecoveryPreview(sessionId: string, attemptId: string) {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     return this.store.getProviderRecoveryPreview(sessionId, attemptId);
   }
 
@@ -2655,8 +1358,8 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   private acknowledgeRecovery<P extends { sessionId: string }, R>(prepare: () => P, find: (prepared: P) => R | null | undefined, acknowledge: (prepared: P) => R): Promise<R> {
-    return this.rejecting(() => {
-      this.assertOpen();
+    return this.lifetime.rejecting(() => {
+      this.lifetime.assertOpen();
       const prepared = prepare(), existing = find(prepared);
       if (existing) return Promise.resolve(existing);
       return this.recoveryGate.decide(this.store.getSession(prepared.sessionId).workspaceId, { idle: true, hold: true }, () => acknowledge(prepared));
@@ -2664,92 +1367,74 @@ export class MoodcodeEngine implements EngineRuntime {
   }
 
   backup(destination: string, options?: StoreBackupOptions): Promise<DatabaseBackup> {
-    return this.rejecting(() => {
-      this.assertOpen();
+    return this.lifetime.rejecting(() => {
+      this.lifetime.assertOpen();
       return this.store.backup(destination, options);
     });
   }
 
   /** Explicit host observation. Never scans files as a side effect of a model turn. */
   async getStorageUsage(options: EngineStorageUsageOptions = {}): Promise<EngineStorageUsageReport> {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => !['signal', 'limits'].includes(key))) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection accepts only signal and bounded limits');
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection requires an AbortSignal');
-    const signal = this.hostSignal(options.signal);
+    const signal = this.lifetime.hostSignal(options.signal);
     const imageIndex = this.store.inspectInputImageIndex({ signal });
     const documentIndex = this.store.inspectInputDocumentIndex({ signal });
-    return await this.track(inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex }));
+    return await this.lifetime.track(inspectEngineStorage({ ...this.storage.paths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex }));
   }
 
   /** Explicit bounded index observation of selected, durably bound managed children. */
   async getChildDocumentStorageUsage(value: EngineChildDocumentStorageOptions): Promise<EngineChildDocumentStorageReport> {
-    this.assertOpen();
+    this.lifetime.assertOpen();
     const options = validateChildDocumentStorageRequest(value);
-    const signal = this.hostSignal(options.signal);
+    const signal = this.lifetime.hostSignal(options.signal);
     const operation = (async () => {
       const { maxReportBytes: _maxReportBytes, ...readLimits } = options.limits;
       const frame = createChildDocumentReadFrame({ signal, limits: readLimits });
       frame.check();
-      this.verifyChildStorageIdentity();
+      this.storage.verify();
       const sources = this.store.inspectChildDocumentStorageSources({
         sessionId: options.sessionId, sourceRunId: options.sourceRunId, taskIds: options.taskIds,
-        hostIdentity: this.childStorageIdentity, childrenDirectory: this.children.getStorageDirectory(), signal,
+        hostIdentity: this.storage.identity, childrenDirectory: this.children.getStorageDirectory(), signal,
       }, frame);
       const report = await inspectChildDocumentStorage({ ...sources, frame, limits: options.limits });
       if (signal.aborted) throw new EngineError('CANCELLED', 'Child storage inspection was cancelled');
-      this.verifyChildStorageIdentity();
+      this.storage.verify();
       return report;
     })();
-    try { return await this.track(operation); }
+    try { return await this.lifetime.track(operation); }
     catch (error) {
       if (signal.aborted) throw new EngineError('CANCELLED', 'Child storage inspection was cancelled');
       throw error;
     }
   }
 
-  private trackMediaImport<T>(factory: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    return this.track(factory(this.hostSignal(signal)));
-  }
-
   importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
-    return this.trackMediaImport(lifetime => this.images.import(sessionId, data, mimeType, lifetime), signal);
+    return this.media.importImage(sessionId, data, mimeType, signal);
   }
 
   /** Host-only bounded import. References carry no path, filename or raw bytes. */
   importDocument(sessionId: string, data: Uint8Array, signal?: AbortSignal): Promise<InputDocumentAttachment> {
-    return this.trackMediaImport(lifetime => this.documents.import(sessionId, data, lifetime), signal);
+    return this.media.importDocument(sessionId, data, signal);
   }
 
   /** Host-only read of a native media Part; archive/reopened DATA never dispatches a provider. */
-  async readMediaOutput(input: { sessionId: string; partId: string; offset?: number; limit?: number; signal?: AbortSignal }) {
-    this.assertOpen();
-    const fields = plainRecord(input, ['sessionId', 'partId'], ['offset', 'limit', 'signal'], fault => {
-      throw new EngineError('MEDIA_INVALID_READ', fault === 'shape' ? 'Read options must be ordinary data' : fault === 'fields' ? 'Bounded native media read options are required' : 'Read options cannot contain accessors');
-    });
-    const { signal, ...raw } = Object.assign(Object.create(null), fields) as typeof input;
-    const safe = jobJson(raw, 4096);
-    if (typeof safe.sessionId !== 'string' || typeof safe.partId !== 'string' || safe.offset !== undefined && (!Number.isSafeInteger(safe.offset) || safe.offset < 0)
-      || safe.limit !== undefined && (!Number.isSafeInteger(safe.limit) || safe.limit < 1 || safe.limit > 65536)) throw new EngineError('MEDIA_INVALID_READ', 'Bounded native media read options are required');
-    const part = this.store.readProviderMediaPart(safe.sessionId, safe.partId);
-    return await this.track((await this.managedArtifacts()).read(part.artifact.id, {
-      identity: part.artifact.identity, ...(safe.offset === undefined ? {} : { offset: safe.offset }), limit: safe.limit ?? 8192, signal: this.hostSignal(signal),
-    }));
-  }
-  getMediaCapabilities(providerId:string,modelId:string){return this.mediaCapabilities(providerId,modelId);}
+  readMediaOutput(input: { sessionId: string; partId: string; offset?: number; limit?: number; signal?: AbortSignal }) { return this.media.readOutput(input); }
+  getMediaCapabilities(providerId:string,modelId:string){return this.media.capabilities(providerId,modelId);}
 
   importMedia(sessionId:string,data:Uint8Array,mimeType:InputMediaAttachment['mimeType'],segments:readonly InputMediaSegment[],signal?:AbortSignal):Promise<InputMediaAttachment>{
-    return this.trackMediaImport(lifetime => this.segments.import(sessionId, data, mimeType, segments, lifetime), signal);
+    return this.media.importMedia(sessionId, data, mimeType, segments, signal);
   }
 
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
-    this.closing = true;
+    this.lifetime.closing = true;
     const closed = Promise.withResolvers<void>();
     this.closePromise = closed.promise;
     void (async () => {
       try {
-        this.hostResources.abort();
+        this.lifetime.resources.abort();
         this.questions.close();
         this.teamService.close();
         this.teamModelHost.close();
@@ -2760,21 +1445,21 @@ export class MoodcodeEngine implements EngineRuntime {
         this.jobDelivery.close();
         this.ownedCommandDelivery.close();
         this.hostCommandDelivery.close();
-        // Both calls synchronously stop admissions before either awaits active work.
+        // Every closer below is invoked while this array is built, before any is awaited;
+        // scheduler.close() and coordinator.close() stop admissions in that synchronous step.
         const outcomes = await Promise.allSettled([
           this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(),
-          this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(),
-          this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(),
+          this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposals.applyService.close(), this.proposals.service.close(),
+          this.proposals.overlay.close(), this.knowledge.importService.close(), this.knowledge.filePublicationService.close(), this.scheduler.close(), this.coordinator.close(),
           this.children.close(), this.changes.close(), this.lsp.close(),
-          ...[...this.watchConsumers.values()].map(consumer => consumer.done),
-          ...[...this.pending].map(operation => operation.catch(() => {})),
+          ...this.languageSync.consumersDone(),
+          ...[...this.lifetime.pending].map(operation => operation.catch(() => {})),
           this.terminals.close(), this.plugins.close(),
           ...[...this.mcpClients.values()].map(client => client.close()),
           ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)),
           ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {})),
         ]);
-        for (const preview of this.liveKnowledgeRecoveryPreviews.values()) this.knowledgeGenerations.releaseRecoveryPreview(preview);
-        this.liveKnowledgeRecoveryPreviews.clear();
+        this.knowledge.releaseRecoveryPreviews();
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
       } finally {

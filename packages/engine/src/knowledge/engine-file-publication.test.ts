@@ -312,7 +312,7 @@ test("actual concurrent original file previews cannot acquire a second workspace
     first = await f.preview(candidate),
     second = await f.preview(candidate),
     untouched = await f.preview(candidate);
-  const host = Reflect.get(f.engine, "knowledgeFileHost");
+  const host = Reflect.get(Reflect.get(f.engine, "knowledge"), "fileHost");
   assert.ok(host instanceof FileKnowledgePublicationHost);
   const original = host.apply;
   let start!: () => void,
@@ -424,7 +424,7 @@ test("actual 16 KiB bodies publish, update and revoke through their previews", a
 test("actual target capture cannot advance the head of an in-flight publication", async (t) => {
   const f = await fixture(t),
     preview = await f.preview(await f.candidate("MEMORY.md"));
-  const host = Reflect.get(f.engine, "knowledgeFileHost");
+  const host = Reflect.get(Reflect.get(f.engine, "knowledge"), "fileHost");
   assert.ok(host instanceof FileKnowledgePublicationHost);
   const original = host.apply;
   let refused: unknown;

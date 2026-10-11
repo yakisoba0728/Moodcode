@@ -42,7 +42,7 @@ const engine = createEngine({ dbPath: join(directory, 'engine.sqlite'), artifact
 let stopped = false;
 function stop(generationId: string): void {
   assert.equal(stopped, false); stopped = true;
-  const native = Reflect.get(engine, 'knowledgeGenerations') as KnowledgeGenerationStorage;
+  const native = Reflect.get(Reflect.get(engine, 'knowledge'), 'generations') as KnowledgeGenerationStorage;
   assert.ok(native instanceof KnowledgeGenerationStorage);
   const generation = native.getGeneration(config.workspaceId, generationId);
   const attempt = generation.attemptId ? native.getAttempt(config.workspaceId, generation.attemptId) : null;

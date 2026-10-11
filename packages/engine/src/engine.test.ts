@@ -298,7 +298,7 @@ test('constructor undefined guards short circuit and retain interleaved dependen
 });
 
 test('import wrappers synchronously return the concrete factory Promise and track both settlements', async () => {
-  const f = await fixture(), pending = Reflect.get(f.engine, 'pending') as Set<Promise<unknown>>;
+  const f = await fixture(), pending = Reflect.get(Reflect.get(f.engine, 'lifetime'), 'pending') as Set<Promise<unknown>>;
   const calls = [
     { field: 'images', invoke: (signal?: AbortSignal) => f.engine.importImage('fixture', new Uint8Array(), 'image/png', signal) },
     { field: 'documents', invoke: (signal?: AbortSignal) => f.engine.importDocument('fixture', new Uint8Array(), signal) },
@@ -306,7 +306,7 @@ test('import wrappers synchronously return the concrete factory Promise and trac
   ];
   try {
     for (const call of calls) {
-      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      const store = Reflect.get(Reflect.get(f.engine, 'media'), call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
       try {
         for (const reject of [false, true]) {
           let settle!: (value: unknown) => void, entered = false;
@@ -322,10 +322,10 @@ test('import wrappers synchronously return the concrete factory Promise and trac
         assert.throws(() => call.invoke(), error => error === marker); assert.equal(pending.size, 0);
       } finally { store.import = original; }
     }
-    const caller = new AbortController(), host = Reflect.get(f.engine, 'hostResources') as AbortController;
+    const caller = new AbortController(), host = Reflect.get(Reflect.get(f.engine, 'lifetime'), 'resources') as AbortController;
     caller.abort('caller abort'); host.abort('host abort');
     for (const call of calls) {
-      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      const store = Reflect.get(Reflect.get(f.engine, 'media'), call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
       try {
         store.import = (...args) => { assert.equal((args.at(-1) as AbortSignal).reason, 'caller abort'); return Promise.resolve({ id: 'aborted' }); };
         await call.invoke(caller.signal);
@@ -335,7 +335,7 @@ test('import wrappers synchronously return the concrete factory Promise and trac
     }
     await f.engine.close();
     for (const call of calls) {
-      const store = Reflect.get(f.engine, call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
+      const store = Reflect.get(Reflect.get(f.engine, 'media'), call.field) as { import: (...args: unknown[]) => Promise<unknown> }, original = store.import;
       try {
         store.import = () => { assert.fail('closed imports must not invoke the factory'); };
         await assert.rejects(call.invoke(), { code: 'ENGINE_CLOSED', message: 'Engine is closing' });

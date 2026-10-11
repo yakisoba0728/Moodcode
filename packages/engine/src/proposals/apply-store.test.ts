@@ -12,7 +12,7 @@ import type {
 import { applyFixture } from "./fixtures/apply.js";
 
 function native(engine: Awaited<ReturnType<typeof applyFixture>>["engine"]) {
-  const storage = Reflect.get(engine, "proposalApplies");
+  const storage = Reflect.get(Reflect.get(engine, "proposals"), "applies");
   assert.ok(storage instanceof ProposalApplyStorage);
   return storage;
 }

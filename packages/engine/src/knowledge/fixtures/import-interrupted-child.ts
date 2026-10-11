@@ -83,8 +83,8 @@ const engine = createEngine({
 });
 function stop(generationId: string) {
   const native = Reflect.get(
-    engine,
-    "knowledgeGenerations",
+    Reflect.get(engine, "knowledge"),
+    "generations",
   ) as KnowledgeGenerationStorage;
   assert.ok(native instanceof KnowledgeGenerationStorage);
   const generation = native.getGeneration(config.workspaceId, generationId),

@@ -152,14 +152,14 @@ async function actual(
           assert.equal(completion.result.turnId, turn.id);
         const runtime = engine as unknown as {
           coordinator: RunCoordinator;
-          verificationHost: VerificationHostService;
+          verification: { host: VerificationHostService };
         };
         const ports: LifecycleContinuationPorts = {
           store: engine.store,
           controller: engine.verificationController,
           plans: engine.verificationPlans,
           observeSource: (current, supplied) =>
-            runtime.verificationHost.observe(
+            runtime.verification.host.observe(
               {
                 sessionId: current.sessionId,
                 runId: current.id,

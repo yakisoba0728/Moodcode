@@ -265,6 +265,6 @@ test('unconfirmed actual iterator return survives restart as native quarantine, 
   assert.equal(resumed.barrier.state, 'clear'); assert.deepEqual(await restored.api.resumeWorkspaceKnowledge(resumeInput), resumed);
   const after = restored.api.getWorkspaceKnowledgeGeneration(f.workspace.id, result.generation.id); assert.equal(after.generation.state, 'uncertain'); assert.equal(after.attempt!.cleanup!.confirmed, false); assert.equal(after.candidate, null);
   assert.equal(f.generations.length, 1); assert.deepEqual(nativeCounts(f.dbPath), before); f.assertNoCodingEffects();
-  const native = Reflect.get(restored.engine, 'knowledgeGenerations') as KnowledgeGenerationStorage; await restored.engine.close();
+  const native = Reflect.get(Reflect.get(restored.engine, 'knowledge'), 'generations') as KnowledgeGenerationStorage; await restored.engine.close();
   assert.throws(() => native.releaseRecoveryPreview(preview), errorCode('KNOWLEDGE_GENERATION_HANDLE_INVALID'));
 });

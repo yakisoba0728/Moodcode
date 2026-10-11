@@ -205,7 +205,7 @@ test("file close denies new preview and operation admission without creating a n
 test("actual service consumes its Engine native store and physical executor, preserving one original approval and receipt", async (t) => {
   const f = await filePublicationFixture(t),
     candidate = await f.candidate("MEMORY.md");
-  const service = Reflect.get(f.engine, "knowledgeFilePublicationService");
+  const service = Reflect.get(Reflect.get(f.engine, "knowledge"), "filePublicationService");
   assert.ok(service instanceof KnowledgeFilePublicationService);
   const preview = await service.previewPublish({
     workspaceId: f.workspace.id,
@@ -263,8 +263,8 @@ test("actual native prepared intent cancelled before dispatch creates no file or
     preview = await f.preview(candidate),
     controller = new AbortController();
   const native = Reflect.get(
-      f.engine,
-      "knowledgeFilePublications",
+      Reflect.get(f.engine, "knowledge"),
+      "filePublications",
     ) as KnowledgeFilePublicationStorage,
     original = native.prepare;
   let publicationId = "";
@@ -340,7 +340,7 @@ test("actual Engine close drains the original acquired file operation before rel
   const f = await filePublicationFixture(t),
     candidate = await f.candidate(),
     preview = await f.preview(candidate);
-  const host = Reflect.get(f.engine, "knowledgeFileHost");
+  const host = Reflect.get(Reflect.get(f.engine, "knowledge"), "fileHost");
   assert.ok(host instanceof FileKnowledgePublicationHost);
   const original = host.apply;
   let started!: () => void,
@@ -455,7 +455,7 @@ test("actual lock acquisition failure after marker reservation settles the file 
   const f = await filePublicationFixture(t),
     preview = await f.preview(await f.candidate("MEMORY.md")),
     lockPath = Reflect.get(f.engine, "executionLockPath") as string,
-    guards = Reflect.get(f.engine, "knowledgeFileExecutionGuards") as {
+    guards = Reflect.get(Reflect.get(f.engine, "knowledge"), "fileGuards") as {
       reserve(...args: unknown[]): void;
     },
     reserve = guards.reserve;
@@ -488,10 +488,10 @@ test("actual release failures free the operation slot and keep a completed recei
   for (let index = 0; index < 34; index++)
     previews.push(await f.preview(candidate));
   const native = Reflect.get(
-      f.engine,
-      "knowledgeFilePublications",
+      Reflect.get(f.engine, "knowledge"),
+      "filePublications",
     ) as KnowledgeFilePublicationStorage,
-    host = Reflect.get(f.engine, "knowledgeFileHost");
+    host = Reflect.get(Reflect.get(f.engine, "knowledge"), "fileHost");
   assert.ok(host instanceof FileKnowledgePublicationHost);
   const apply = host.apply;
   native.release = () => {
