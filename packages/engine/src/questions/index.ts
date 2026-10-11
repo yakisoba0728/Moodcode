@@ -86,8 +86,7 @@ export class QuestionManager {
       const createdAt = new Date().toISOString();
       const question: QuestionRecord = { id: randomUUID(), version: 1, sessionId: input.sessionId, runId: input.runId, toolCallId: input.toolCallId, spec, status: 'pending', createdAt, expiresAt: new Date(Date.now() + timeoutMs).toISOString() };
       this.live(question);
-      let resolve!: Wait['resolve'], reject!: Wait['reject'];
-      const promise = new Promise<QuestionRecord>((yes, no) => { resolve = yes; reject = no; });
+      const { promise, resolve, reject } = Promise.withResolvers<QuestionRecord>();
       void promise.catch(() => {});
       const abort = () => this.expire(question);
       const timer = setTimeout(abort, timeoutMs);

@@ -120,6 +120,22 @@ test('invalid correlation IDs are not copied back after command validation fails
   } finally { await f.cleanup(); }
 });
 
+test('session commands echo correlation IDs by the same contract rule after validation fails', async () => {
+  const f = await fixture();
+  try {
+    for (const commandId of ['', '   ', 'line\nbreak', 'nul\0id', 'del\u007f', 'x'.repeat(257), '가'.repeat(100)]) {
+      const result = await f.engine.dispatchSession({ schemaVersion: 2, commandId, type: 'engine.getCapabilities', payload: {} });
+      assert.equal(result.ok, false);
+      assert.equal(result.commandId, '');
+    }
+    const commandId = '상관-ID-한글';
+    const result = await f.engine.dispatchSession({ schemaVersion: 2, commandId, type: 'engine.getCapabilities', payload: { unexpected: true } });
+    assert.equal(result.ok, false);
+    assert.equal(result.commandId, commandId);
+    assert.equal(result.error?.code, 'INVALID_INPUT');
+  } finally { await f.cleanup(); }
+});
+
 test('facade close is idempotent and rejects further commands and invalid subscription cursors', async () => {
   const f = await fixture();
   try {
@@ -270,7 +286,7 @@ test('constructor undefined guards short circuit and retain interleaved dependen
 });
 
 test('import wrappers synchronously return the concrete factory Promise and track both settlements', async () => {
-  const f = await fixture(), pending = Reflect.get(f.engine, 'pendingImages') as Set<Promise<unknown>>;
+  const f = await fixture(), pending = Reflect.get(f.engine, 'pending') as Set<Promise<unknown>>;
   const calls = [
     { field: 'images', invoke: (signal?: AbortSignal) => f.engine.importImage('fixture', new Uint8Array(), 'image/png', signal) },
     { field: 'documents', invoke: (signal?: AbortSignal) => f.engine.importDocument('fixture', new Uint8Array(), signal) },

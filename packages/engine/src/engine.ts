@@ -8,6 +8,8 @@ import { providerSegments } from './media/segment-provider.js';
 import { PrFeedbackHost } from './pr-feedback/host.js';
 import {EngineHostCommandDeliveryProducer} from './jobs/host-command-delivery-producer.js';
 import {EngineHostCommandDeliverySource} from './jobs/host-command-delivery-source.js';
+import type {EngineCommandDeliveryProducer} from './jobs/command-delivery-input.js';
+import type {CommandDeliveryTargetProof} from './jobs/command-delivery-records.js';
 import {HostCommandDelivery} from './jobs/host-command-delivery.js';
 import {CommandJobModelHost,createCommandJobModelTools,type BindCommandJobModelToolsInput} from './jobs/command-model-tools.js';
 import {captureCommandReadSource} from './jobs/command-read-sources.js';
@@ -27,7 +29,7 @@ import { dirname, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { types } from 'node:util';
 import { createHash, randomUUID } from 'node:crypto';
-import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
+import { EngineError, INPUT_MEDIA_LIMITS, isTerminal, SCHEMA_VERSION, SESSION_SCHEMA_VERSION, type CommandEnvelope, type CommandResult, type EngineCapabilities, type EngineEvent, type InputCursor, type InputDocumentAttachment, type InputImageAttachment, type InputMediaAttachment, type InputMediaSegment, type JsonObject, type JsonValue, type ReasoningEffort, type Run, type RunConfig, type RunConfigInput, type Session, type SessionCommandResult, type SessionEventV2 } from '@moodcode/contracts';
 import { assertInputMediaBudget, normalizeAcceptInput, normalizeEngineBudgets, normalizeRunConfig, normalizeSubmitInput, validateCommand, validateSessionCommand } from '@moodcode/contracts/validation';
 import type { PreparedTool, ProviderAdapter, ProviderEvent, ProviderMessage, ToolContext, ToolDefinition } from './ports.js';
 import { SqliteStore, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './storage/index.js';
@@ -242,10 +244,9 @@ export interface EngineOptions {
   residentTeams?: boolean;
   /** Explicit host workflow orchestration through isolated actual child executions. */
   workflows?: boolean;
+  codingBatches?: boolean;
   /** Explicit root lifetime and durable queue-only scheduled input admission. */
-
-codingBatches?: boolean;
-schedules?: boolean;
+  schedules?: boolean;
   /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
   agentBackends?: boolean;
   agentBackendClientEffects?: boolean;
@@ -311,6 +312,38 @@ function verifyExecutionIdle(lockPath: string): void {
     }
     throw error;
   }
+}
+
+/** Own function properties that call the target's current method of the same name. */
+function forward<T extends object, K extends keyof T>(target: T, keys: readonly K[]): Pick<T, K> {
+  return Object.fromEntries(keys.map(key => [key, (...args: unknown[]) => (target[key] as (...args: unknown[]) => unknown).apply(target, args)])) as Pick<T, K>;
+}
+
+function atomicPorts<S, P extends CommandDeliveryTargetProof<S>>(producer: EngineCommandDeliveryProducer<S, P>) {
+  return {
+    readTargetOriginal: (original: object) => producer.readTarget(original),
+    assertTarget: (original: object, expected: P) => producer.assertTargetCurrent(original, expected),
+    acceptAtomic: (original: object, request: { inputRequestId: string; prompt: string }) => producer.acceptAtomic(original, request),
+    readAccepted: (original: object) => producer.readAccepted(original),
+    releaseAccepted: (original: object) => producer.release(original),
+  };
+}
+
+/** The commandId of a failed command, echoed only when it satisfies the contract ID rule. */
+function echoCommandId(value: unknown): string {
+  if (!value || typeof value !== 'object') return '';
+  try {
+    const descriptor = Object.getOwnPropertyDescriptor(value, 'commandId');
+    if (descriptor && 'value' in descriptor && typeof descriptor.value === 'string'
+      && descriptor.value.trim().length > 0 && descriptor.value.length <= 256
+      && !/[\u0000-\u001f\u007f]/u.test(descriptor.value)
+      && Buffer.byteLength(descriptor.value) <= 256) return descriptor.value;
+  } catch { /* Invalid object traps must not escape the command result boundary. */ }
+  return '';
+}
+
+function commandFailure(error: unknown, fallback: string): { code: string; message: string; details?: JsonObject } {
+  return error instanceof EngineError ? { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } : { code: 'INTERNAL_ERROR', message: fallback };
 }
 
 function assertDocumentSupport(provider: ProviderAdapter | undefined, models: ModelRegistry, config: Pick<RunConfig, 'providerId' | 'modelId'>, allowUnknownTokenCost: boolean): void {
@@ -412,8 +445,7 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly mediaCapabilities:(providerId:string,modelId:string)=>{audioInput:boolean;videoFrames:boolean;audioOutput:boolean;unknownTokenCostAllowed:boolean;tokenCost:null;source:ModelSpec['source']};
   private readonly validateSegmentInput:(sessionId:string,config:RunConfig,refs:InputMediaAttachment[])=>Promise<void>;
   private readonly documents: DocumentAttachmentStore;
-  private readonly pendingImages = new Set<Promise<unknown>>();
-  private readonly pendingStorage = new Set<Promise<unknown>>();
+  private readonly pending = new Set<Promise<unknown>>();
   private readonly storagePaths: { artifactDir: string; dbPath?: string };
   private readonly ownedArtifactDir: string | undefined;
   private readonly childStorageIdentity: ChildStorageHostIdentity;
@@ -475,12 +507,11 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly teamModelHost: EngineTeamModelToolHost;
   private readonly teamModelDefinitions: readonly ToolDefinition[];
   private readonly workflowsEnabled: boolean;
-
-private readonly codingBatchesEnabled: boolean;
+  private readonly codingBatchesEnabled: boolean;
   private readonly codingBatches: CodingBatchHost;
   private codingBatchDispatchGuard?: () => void;
   private codingBatchCharge?: () => void;
-private readonly workflowRecords: WorkflowStorage;
+  private readonly workflowRecords: WorkflowStorage;
   private readonly workflowHost: WorkflowHost;
   private readonly workflowService: WorkflowService;
   private readonly workflowEffects:WorkflowEffects;
@@ -522,7 +553,6 @@ private readonly workflowRecords: WorkflowStorage;
   private readonly watchConsumers = new Map<string, { seq: number; running: boolean; done: Promise<void> }>();
   private readonly languageServers = new Map<string, (path: string) => string | null>();
   private readonly languageServerRevisions = new Map<string, string>();
-  private readonly pendingRepository = new Set<Promise<RepositorySnapshot>>();
   private readonly lspChanges = new Map<string, { version: number; done: Promise<void> }>();
   private readonly observationFailures = new Map<string, string>();
   private readonly terminalJournal: SqliteTerminalJournal;
@@ -864,21 +894,9 @@ private readonly workflowRecords: WorkflowStorage;
       this.teamHost = new TeamHostService({ native: this.teamRecords, owner: teamOwners });
       const nativeTeams = this.teamRecords;
       this.teamService = new TeamService({ beforeCompleteTask:input=>{const member=nativeTeams.getMember(input.workspaceId,input.teamId,input.memberId);if(member){const doc=this.store.getSessionDocument(member.owner.rootSessionId,teamBoardKind(input.teamId,input.taskId));if(doc&&validateTeamBoardRecord(doc.data).submissions.at(-1)?.review?.verdict!=='accept')throw new EngineError('TEAM_REVIEW_REQUIRED','Submitted advisory DATA requires independent approved review');}},host: this.teamHost, native: {
-        findSendRequest: input => nativeTeams.findSendRequest(input),
-        findOperationRequest: (...args) => nativeTeams.findOperationRequest(...args),
-        getMember: (...args) => nativeTeams.getMember(...args),
-        send: (...args) => nativeTeams.send(...args),
-        readMailbox: (...args) => nativeTeams.readMailbox(...args),
-        claimMailbox: (...args) => nativeTeams.claimMailbox(...args),
-        releasePage: page => nativeTeams.releasePage(page),
-        putTask: (...args) => nativeTeams.putTask(...args),
-        claimTask: (...args) => nativeTeams.claimTask(...args),
-        completeTask: (...args) => nativeTeams.completeTask(...args),
-        prepareDelivery: (...args) => nativeTeams.prepareDelivery(...args),
-        dispatchDelivery: capture => nativeTeams.dispatchDelivery(capture),
-        completeDelivery: (...args) => nativeTeams.completeDelivery(...args),
+        ...forward(nativeTeams, ['findSendRequest', 'findOperationRequest', 'getMember', 'send', 'readMailbox', 'claimMailbox', 'releasePage',
+          'putTask', 'claimTask', 'completeTask', 'prepareDelivery', 'dispatchDelivery', 'completeDelivery', 'releaseDelivery']),
         cancelDelivery: capture => { nativeTeams.cancelDelivery(capture); },
-        releaseDelivery: capture => nativeTeams.releaseDelivery(capture),
         getDeliveryHistory: (workspaceId,id) => this.store.readExecutionObservationEvidence(() => {
           const record = nativeTeams.getDelivery(workspaceId,id);
           return record ? { record, receipt: nativeTeams.getDeliveryReceipt(workspaceId,id) ?? null } : undefined;
@@ -952,15 +970,14 @@ private readonly workflowRecords: WorkflowStorage;
         },
       });
       this.workflowRecords.recoverInterrupted();
-
-this.codingBatches = new CodingBatchHost(
+      this.codingBatches = new CodingBatchHost(
         this,
         this.store.createCodingBatchStorage(),
         this.workflowEffects,
         workflowChildren,
         this.codingBatchesEnabled,
       );
-terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 'terminals.sqlite'));
+      terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
         const session = this.store.getSession(owner.sessionId);
@@ -985,12 +1002,12 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
         const modalities = models.get(config.providerId, config.modelId).modalities;
         if (!providers.get(config.providerId)?.inputModalities?.includes('image') || modalities !== null && !modalities.includes('image')) throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Selected provider or model does not support image input');
         await this.images.resolve(sessionId, refs, this.hostResources.signal);
-        if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+        this.assertOpen();
       };
       this.validateDocumentInput = async (sessionId, config, refs) => {
         assertDocumentSupport(providers.get(config.providerId), models, config, options.allowUnknownDocumentTokenCost === true);
         await this.documents.resolve(sessionId, refs, this.hostResources.signal);
-        if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+        this.assertOpen();
       };
       this.mediaCapabilities=(providerId,modelId)=>{const spec=models.get(providerId,modelId),provider=providers.get(providerId);return{audioInput:spec.mediaCapabilities?.audioInput===true&&provider?.supportsInputMedia?.(modelId,'audio')===true,videoFrames:spec.mediaCapabilities?.videoFrames===true&&provider?.supportsInputMedia?.(modelId,'video')===true,audioOutput:spec.mediaCapabilities?.audioOutput===true&&provider?.requestedOutputMedia?.(modelId)==='audio/wav',unknownTokenCostAllowed:allowMediaCost,tokenCost:null,source:spec.source};};
       this.validateSegmentInput=async(sessionId,config,refs)=>{assertSegmentSupport(providers.get(config.providerId),models,config.modelId,refs,allowMediaCost);await this.segments.resolve(sessionId,refs,this.hostResources.signal);};
@@ -1404,24 +1421,14 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
       this.ownedCommandHost = new OwnedCommandJobHost(this, knowledgeBinding, () => this.jobsEnabled && !this.closing);
       this.store.validateOwnedCommandDeliveries();
       this.ownedCommandProducer = new EngineOwnedCommandDeliveryProducer(this, knowledgeBinding, () => this.jobsEnabled && !this.closing, this.ownedCommandHost);
-      this.ownedCommandDelivery = new OwnedCommandDelivery({input:this.ownedCommandProducer.inputPort(),native:{deliver:(original,input) => this.store.deliverOwnedCommandResultAtomic(original,input,{
-        readTargetOriginal: original => this.ownedCommandProducer.readTarget(original),
-        assertTarget: (original,expected) => this.ownedCommandProducer.assertTargetCurrent(original,expected),
-        acceptAtomic: (original,request) => this.ownedCommandProducer.acceptAtomic(original,request),
-        readAccepted: original => this.ownedCommandProducer.readAccepted(original),
-        releaseAccepted: original => this.ownedCommandProducer.release(original),
-      })}, lifetime:this.hostResources.signal});
+      this.ownedCommandDelivery = new OwnedCommandDelivery({ input: this.ownedCommandProducer.inputPort(),
+        native: { deliver: (original, input) => this.store.deliverOwnedCommandResultAtomic(original, input, atomicPorts(this.ownedCommandProducer)) }, lifetime: this.hostResources.signal });
       this.commandLifetimes=new CommandLifetimeService(this,this.hostCommands,()=>options.commandLifetimes===true&&this.jobsEnabled&&!this.closing);
       this.store.validateHostCommandDeliveries();
       this.hostCommandDeliverySource=new EngineHostCommandDeliverySource(this);
       this.hostCommandDeliveryProducer = new EngineHostCommandDeliveryProducer(this, knowledgeBinding, () => options.hostCommands===true && this.jobsEnabled && !this.closing, this.hostCommandDeliverySource);
-      this.hostCommandDelivery = new HostCommandDelivery({input:this.hostCommandDeliveryProducer.inputPort(),native:{deliver:(original,input) => this.store.deliverHostCommandResultAtomic(original,input,{
-        readTargetOriginal: original => this.hostCommandDeliveryProducer.readTarget(original),
-        assertTarget: (original,expected) => this.hostCommandDeliveryProducer.assertTargetCurrent(original,expected),
-        acceptAtomic: (original,request) => this.hostCommandDeliveryProducer.acceptAtomic(original,request),
-        readAccepted: original => this.hostCommandDeliveryProducer.readAccepted(original),
-        releaseAccepted: original => this.hostCommandDeliveryProducer.release(original),
-      })}, lifetime:this.hostResources.signal});
+      this.hostCommandDelivery = new HostCommandDelivery({ input: this.hostCommandDeliveryProducer.inputPort(),
+        native: { deliver: (original, input) => this.store.deliverHostCommandResultAtomic(original, input, atomicPorts(this.hostCommandDeliveryProducer)) }, lifetime: this.hostResources.signal });
       this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verificationHost,
         binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.verificationEnabled && !this.closing,
         lease:(workspaceId,operation)=>this.coordinator.withWorkspaceLease(workspaceId,operation),
@@ -1461,6 +1468,29 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
     if (options[key] !== undefined && typeof options[key] !== 'boolean') throw new EngineError('INVALID_CONFIG', message);
   }
 
+  private assertOpen(): void {
+    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+  }
+
+  private assertEnabled(enabled: boolean, code: string, message: string): void {
+    this.assertOpen();
+    if (!enabled) throw new EngineError(code, message);
+  }
+
+  private rejecting<T>(operation: () => Promise<T>): Promise<T> {
+    try { return operation(); } catch (error) { return Promise.reject(error); }
+  }
+
+  private hostSignal(signal?: AbortSignal): AbortSignal {
+    return signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal;
+  }
+
+  private track<T>(operation: Promise<T>): Promise<T> {
+    this.pending.add(operation);
+    void operation.then(() => this.pending.delete(operation), () => this.pending.delete(operation));
+    return operation;
+  }
+
   private async validateFreshMediaInput(input: Pick<ReturnType<typeof normalizeSubmitInput>, 'sessionId' | 'config' | 'attachments' | 'documents' | 'media'>): Promise<void> {
     assertInputMediaBudget(input.attachments, input.documents);
     if (input.media?.length) await this.validateSegmentInput(input.sessionId, input.config, input.media);
@@ -1475,7 +1505,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
       assertMediaCommandData(value);
       const command = validateSessionCommand(value, { defaults: this.defaults, enabledCommands: NATIVE_COMMANDS_ENABLED });
       commandId = command.commandId;
-      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      this.assertOpen();
       const payload = command.payload;
       let result: unknown;
       switch (command.type) {
@@ -1526,14 +1556,8 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
       }
       return { schemaVersion: SESSION_SCHEMA_VERSION, commandId, ok: true, result: json(result) };
     } catch (error) {
-      if (!commandId && value && typeof value === 'object') {
-        try {
-          const id = Object.getOwnPropertyDescriptor(value, 'commandId');
-          if (id && 'value' in id && typeof id.value === 'string' && id.value.length <= 256 && !/[\u0000-\u001f\u007f]/u.test(id.value)) commandId = id.value;
-        } catch { /* Invalid objects are contained by the command result boundary. */ }
-      }
-      const failure = error instanceof EngineError ? error : new EngineError('INTERNAL_ERROR', 'Session command failed');
-      return { schemaVersion: SESSION_SCHEMA_VERSION, commandId, ok: false, error: { code: failure.code, message: failure.message, ...(failure.details ? { details: failure.details } : {}) } };
+      if (!commandId) commandId = echoCommandId(value);
+      return { schemaVersion: SESSION_SCHEMA_VERSION, commandId, ok: false, error: commandFailure(error, 'Session command failed') };
     }
   }
 
@@ -1543,7 +1567,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
       assertMediaCommandData(value);
       const command = validateCommand(value, this.defaults);
       commandId = command.commandId;
-      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+      this.assertOpen();
       const payload = command.payload;
       let result: unknown;
       switch (command.type) {
@@ -1626,21 +1650,8 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
       }
       return { schemaVersion: SCHEMA_VERSION, commandId, ok: true, result: json(result) };
     } catch (error) {
-      if (!commandId && value && typeof value === 'object') {
-        try {
-          const descriptor = Object.getOwnPropertyDescriptor(value, 'commandId');
-          if (descriptor && 'value' in descriptor && typeof descriptor.value === 'string'
-            && descriptor.value.trim().length > 0 && descriptor.value.length <= 256
-            && !/[\u0000-\u001f\u007f]/u.test(descriptor.value)
-            && Buffer.byteLength(descriptor.value) <= 256) commandId = descriptor.value;
-        } catch { /* Invalid object traps must not escape the command result boundary. */ }
-      }
-      return {
-        schemaVersion: SCHEMA_VERSION,
-        commandId,
-        ok: false,
-        error: error instanceof EngineError ? { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } : { code: 'INTERNAL_ERROR', message: 'Unexpected engine error' },
-      };
+      if (!commandId) commandId = echoCommandId(value);
+      return { schemaVersion: SCHEMA_VERSION, commandId, ok: false, error: commandFailure(error, 'Unexpected engine error') };
     }
   }
 
@@ -1740,13 +1751,13 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   subscribe(sessionId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterable<EngineEvent> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if (!Number.isSafeInteger(afterSeq) || afterSeq < 0) throw new EngineError('INVALID_CURSOR', 'afterSeq must be a non-negative safe integer');
     return this.store.subscribe(sessionId, afterSeq, signal);
   }
 
   subscribeSession(sessionId: string, afterSeq = 0, signal?: AbortSignal): AsyncIterable<SessionEventV2> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.subscribeSessionEvents(sessionId, afterSeq, signal);
   }
 
@@ -1761,33 +1772,30 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   inspectResidentChildTask(sessionId:string,taskId:string){return this.children.inspectResident(sessionId,taskId);}
   stopResidentChildTask(sessionId:string,taskId:string){return this.children.stopResident(sessionId,taskId);}
   startChildTask(request: EngineChildRequest) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.children.start(request);
   }
 
   registerLanguageServer(serverId: string, factory: LspFactory, languageForPath: (path: string) => string | null, revision = '1'): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if (typeof languageForPath !== 'function') throw new EngineError('INVALID_LSP_CONFIG', 'Host must explicitly select supported language paths');
     if (!/^[A-Za-z0-9_.-]{1,64}$/.test(revision)) throw new EngineError('INVALID_LSP_CONFIG', 'Host language server revision must be bounded');
     this.lsp.register(serverId, factory); this.languageServers.set(serverId, languageForPath); this.languageServerRevisions.set(serverId, revision);
   }
 
   getRepositoryContext(workspaceId: string, query: RepositoryQuery, signal?: AbortSignal): Promise<RepositorySnapshot> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    const pending = this.repository.query(this.store.getWorkspace(workspaceId), query, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
-    this.pendingRepository.add(pending);
-    pending.finally(() => this.pendingRepository.delete(pending)).catch(() => {});
-    return pending;
+    this.assertOpen();
+    return this.track(this.repository.query(this.store.getWorkspace(workspaceId), query, this.hostSignal(signal)));
   }
 
   registerLifecycleHook(hook: LifecycleHookRegistration): () => void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if(this.sandboxEnabled)throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Host lifecycle effects require their own sandbox-bound producer');
     return this.lifecycleHooks.register(hook);
   }
 
   getTrajectory(options: TrajectoryOptions): JournalProjection {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     validateTrajectoryOptions(options);
     if (options.runId !== undefined) {
       const run = this.store.getRun(options.runId);
@@ -1797,14 +1805,14 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   getAttemptManifest(runId: string, options: Omit<TrajectoryOptions, 'sessionId' | 'runId'> & { source?: CodingSourceIdentity } = {}): CodingEvidenceManifest {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     validateCodingEvidenceOptions(options);
     const run = this.store.getRun(runId), { source, ...page } = options;
     return createCodingEvidenceManifest(run, this.getTrajectory({ ...page, sessionId: run.sessionId, runId }), source);
   }
 
   getCodingEvidence(runId: string, options: NativeCodingEvidenceOptions = {}) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return readNativeCodingEvidence({ getRun: id => this.store.getRun(id), getSession: id => this.store.getSession(id),
       readSessionEvents: (sessionId, afterSeq, limit) => this.store.readSessionEvents(sessionId, afterSeq, limit),
       listExecutionObservations: (workspaceId, id, page) => this.executionObserver.storage.listRun(workspaceId, id, page),
@@ -1813,12 +1821,12 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   inspectToolRegistration(toolName: string, scopeId = 'engine') {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.toolRuntime.inspectToolRegistration(scopeId, toolName);
   }
 
   getStallObservation(options: TrajectoryOptions, limits?: StallOptions): StallObservation {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => {
       const trajectory = this.getTrajectory(options), run = trajectory.runId ? this.store.getRun(trajectory.runId) : undefined;
       const toolCallIds = new Set(trajectory.events.flatMap(event => run && event.runId === run.id && event.tool?.toolCallId ? [event.tool.toolCallId] : []));
@@ -1828,7 +1836,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   getExecutionObservations(input: { workspaceId: string; runId: string } & DiagnosticExecutionPageOptions) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     plainRecord(input, ['workspaceId', 'runId'], ['afterOrdinal', 'throughOrdinal', 'limit', 'maxBytes'], fault => {
       throw new EngineError('INVALID_EXECUTION_OBSERVATION', fault === 'shape' ? 'Observation queries require plain bounded data' : 'Observation queries require exact plain bounded data');
     });
@@ -1840,14 +1848,14 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   getPolicyDecisionReceipts(options: TrajectoryOptions): PolicyDecisionReceiptPage {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     validateTrajectoryOptions(options);
     if (options.runId !== undefined && this.store.getRun(options.runId).sessionId !== options.sessionId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Decision Run belongs to another session');
     return readPolicyDecisionReceipts(this.store, options);
   }
 
   async watchWorkspace(workspaceId: string): Promise<WorkspaceChangeWatch> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     const workspace = this.store.getWorkspace(workspaceId), watch = await this.changes.watch(workspace, { signal: this.hostResources.signal });
     const consumer = this.watchConsumers.get(workspaceId) ?? { seq: 0, running: false, done: Promise.resolve() };
     if (!consumer.running) {
@@ -1928,10 +1936,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
     return { schemaVersion, runtime, providerIds: [...this.runtimeProviders.keys()].sort(), tools: [...this.toolRuntime.catalogue('engine', 'build', this.hostAllowedTools).tools], ...rest };
   }
 
-  private assertAgentBackendsEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.agentBackendsEnabled) throw new EngineError('AGENT_BACKENDS_DISABLED', 'Agent backends require explicit root host opt-in');
-  }
+  private assertAgentBackendsEnabled(): void { this.assertEnabled(this.agentBackendsEnabled, 'AGENT_BACKENDS_DISABLED', 'Agent backends require explicit root host opt-in'); }
   captureAgentBackendTarget(input: CaptureAgentBackendTarget): object { if(this.sandboxEnabled)throw new EngineError('SANDBOX_AGENT_BACKEND_UNSUPPORTED','ACP effect servers cannot bypass sandbox restrictions'); this.assertAgentBackendsEnabled(); return this.backendProducer.captureTarget(input); }
   readAgentBackendTarget(original: object) { return this.backendProducer.readTargetPin(original); }
   registerAgentBackend(original: object, input: RegisterAgentBackendInput) {
@@ -2030,7 +2035,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   inspectOwnedCommandJobDeliveries(...args: Parameters<SqliteStore['inspectOwnedCommandJobDeliveries']>) { return this.store.inspectOwnedCommandJobDeliveries(...args); }
 
   replaceRoleResourcePolicy(expectedRegistryRevision: number, policy: RoleResourcePolicySnapshot) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if (!this.roleResourcePolicyRegistry) throw new EngineError('ROLE_POLICY_UNSUPPORTED', 'Dynamic role policy requires an explicit host registry');
     return this.roleResourcePolicyRegistry.replace(expectedRegistryRevision, policy);
   }
@@ -2067,8 +2072,7 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   inspectGitCommitReceipts(...args:Parameters<SqliteStore['inspectGitCommitReceipts']>) { return this.store.inspectGitCommitReceipts(...args); }
 
   registerVerificationCheck(check: VerificationCheckRegistration): () => void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.verificationEnabled) throw new EngineError('VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in');
+    this.assertEnabled(this.verificationEnabled, 'VERIFICATION_UNSUPPORTED', 'Verification tools require explicit host opt-in');
     this.store.getWorkspace(check.workspaceId);
     return this.verificationChecks.register(check);
   }
@@ -2081,29 +2085,26 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   }
 
   getVerificationConfiguration(sessionId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.verificationHost.configuration(sessionId);
   }
 
   getVerificationState(sessionId: string, runId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.verificationPlans.get(sessionId, runId);
   }
 
   getVerificationCompletion(sessionId: string, runId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.verificationController.get(sessionId, runId);
   }
 
   previewWorkspaceTrust(workspaceId: string, paths: readonly string[]) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.workspaceTrust.preview(workspaceId, paths);
   }
 
-  private assertKnowledgeImportRecoveryEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.knowledgeImportRecoveryEnabled) throw new EngineError('KNOWLEDGE_IMPORT_RECOVERY_DISABLED', 'Imported knowledge recovery requires explicit host opt-in');
-  }
+  private assertKnowledgeImportRecoveryEnabled(): void { this.assertEnabled(this.knowledgeImportRecoveryEnabled, 'KNOWLEDGE_IMPORT_RECOVERY_DISABLED', 'Imported knowledge recovery requires explicit host opt-in'); }
   previewWorkspaceKnowledgeImportAcknowledgment(input: Parameters<KnowledgeImportRecoveryService['previewAcknowledgment']>[0]) {
     this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewAcknowledgment(input);
   }
@@ -2117,54 +2118,48 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
     this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.previewDeactivation(input);
   }
   acknowledgeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['acknowledge']>[0]) {
-    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.acknowledge(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.acknowledge(input); });
   }
   resumeWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['resume']>[0]) {
-    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.resume(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.resume(input); });
   }
   activateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['activate']>[0]) {
-    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.activate(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.activate(input); });
   }
   deactivateWorkspaceKnowledgeImport(input: Parameters<KnowledgeImportRecoveryService['deactivate']>[0]) {
-    try { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.deactivate(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeImportRecoveryEnabled(); return this.knowledgeImportService.deactivate(input); });
   }
   releaseWorkspaceKnowledgeImportPreview(preview: Parameters<KnowledgeImportRecoveryService['releasePreview']>[0]): void { this.knowledgeImportService.releasePreview(preview); }
   getWorkspaceKnowledgeImportFrontier(workspaceId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getFrontier(workspaceId));
   }
   getWorkspaceKnowledgeImportActivation(workspaceId: string, documentKey: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.knowledgeImports.getActivation(workspaceId, documentKey));
   }
 
-  private assertTeamsEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.teamsEnabled) throw new EngineError('TEAMS_DISABLED', 'Teams require explicit host opt-in');
-  }
-  private assertSchedulesEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.schedulesEnabled) throw new EngineError('SCHEDULES_DISABLED', 'Schedules require explicit root host opt-in');
-  }
+  private assertTeamsEnabled(): void { this.assertEnabled(this.teamsEnabled, 'TEAMS_DISABLED', 'Teams require explicit host opt-in'); }
+  private assertSchedulesEnabled(): void { this.assertEnabled(this.schedulesEnabled, 'SCHEDULES_DISABLED', 'Schedules require explicit root host opt-in'); }
   captureScheduleWorker(workspaceId: string): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureWorker(workspaceId); }
   captureScheduleTarget(input: Parameters<EngineScheduleProducer['captureTarget']>[0]): object { this.assertSchedulesEnabled(); return this.scheduleProducer.captureTarget(input); }
   readScheduleTarget(original: object) { this.assertSchedulesEnabled(); return this.scheduleProducer.targetPin(original); }
   registerSchedule(...args: Parameters<ScheduleStorage['registerSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.registerSchedule(...args); }
   disableSchedule(...args: Parameters<ScheduleStorage['disableSchedule']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.disableSchedule(...args); }
   getSchedule(...args: Parameters<ScheduleStorage['getSchedule']>) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getSchedule(...args));
   }
   inspectSchedules(workspaceId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectSchedules(workspaceId));
   }
   inspectScheduleOccurrences(...args: Parameters<ScheduleStorage['inspectOccurrences']>) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.inspectOccurrences(...args));
   }
   getSchedulerLease(workspaceId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.scheduleRecords.getLease(workspaceId));
   }
   acquireSchedulerLease(...args: Parameters<ScheduleStorage['acquireLease']>) { this.assertSchedulesEnabled(); return this.scheduleRecords.acquireLease(...args); }
@@ -2183,12 +2178,9 @@ terminalJournal = new SqliteTerminalJournal(join(this.storagePaths.artifactDir, 
   releaseCommandJobModelTools(original: object): void { this.commandJobModelHost.release(original); }
 
   bindTeamModelTools(input: BindTeamModelToolsInput): TeamModelToolsBinding { return this.teamModelHost.bind(input); }
-  private assertWorkflowsEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.workflowsEnabled) throw new EngineError('WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in');
-  }
+  private assertWorkflowsEnabled(): void { this.assertEnabled(this.workflowsEnabled, 'WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in'); }
 
-installCodingBatchDispatchGuard(guard: () => void, charge: () => void): void {
+  installCodingBatchDispatchGuard(guard: () => void, charge: () => void): void {
     if (this.codingBatchDispatchGuard)
       throw new EngineError(
         "CODING_BATCH_ALREADY_BOUND",
@@ -2246,26 +2238,24 @@ installCodingBatchDispatchGuard(guard: () => void, charge: () => void): void {
   releaseCodingAttemptHandle(original: object) {
     this.codingBatches.release(original);
   }
-registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.register(input); }
+  registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.register(input); }
   getWorkflow(workspaceId: string, workflowId: string, revisionId?: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.getWorkflow(workspaceId, workflowId, revisionId));
   }
   async previewWorkflowStart(input: Parameters<WorkflowHost['previewStart']>[0]) {
     this.assertWorkflowsEnabled();
-    const operation = this.workflowHost.previewStart(input);
-    this.pendingStorage.add(operation);
-    try { return await operation; } finally { this.pendingStorage.delete(operation); }
+    return await this.track(this.workflowHost.previewStart(input));
   }
   startWorkflow(input: Parameters<WorkflowService['start']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.start(input); }
   startWorkflowStage(input: Parameters<WorkflowService['startStage']>[0]) {
-    try { this.assertWorkflowsEnabled(); return this.workflowService.startStage(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.startStage(input); });
   }
   observeWorkflowStage(input: Parameters<WorkflowService['observeStage']>[0]) {
-    try { this.assertWorkflowsEnabled(); return this.workflowService.observeStage(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertWorkflowsEnabled(); return this.workflowService.observeStage(input); });
   }
   inspectWorkflow(workspaceId: string, instanceId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.workflowRecords.inspectWorkflow(workspaceId, instanceId));
   }
   bindWorkflowModelTools(input:Parameters<WorkflowEffects['bind']>[0]){this.assertWorkflowsEnabled();return this.workflowEffects.bind(input);}
@@ -2291,38 +2281,57 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   claimTeamTask(input: Parameters<TeamService['claimTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.claimTeamTask(input); }
   completeTeamTask(input: Parameters<TeamService['completeTeamTask']>[0]) { this.assertTeamsEnabled(); return this.teamService.completeTeamTask(input); }
   resumeChildTurn(input: Parameters<TeamService['resumeChildTurn']>[0]) { this.assertTeamsEnabled(); return this.teamService.resumeChildTurn(input); }
-  getTeam(workspaceId: string,teamId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTeam(workspaceId,teamId)); }
-  getTeamMember(workspaceId: string,teamId: string,memberId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getMember(workspaceId,teamId,memberId)); }
-  listTeamMembers(workspaceId: string,teamId: string,limit?: number) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.listMembers(workspaceId,teamId,limit)); }
-  getTeamTask(workspaceId: string,teamId: string,taskId: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTask(workspaceId,teamId,taskId)); }
-  readTeamTaskPage(workspaceId:string,teamId:string,afterTaskId?:string,limit?:number){if(this.closing)throw new EngineError('ENGINE_CLOSED','Engine is closing');return this.store.readExecutionObservationEvidence(()=>this.teamRecords.listTasksPage(workspaceId,teamId,afterTaskId,limit));}
-  listTeamTasks(workspaceId: string,teamId: string,limit?: number) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasks(workspaceId,teamId,limit)); }
-  getTeamDelivery(workspaceId: string,id: string) { if(this.closing) throw new EngineError('ENGINE_CLOSED','Engine is closing'); return this.store.readExecutionObservationEvidence(() => {
-    const record=this.teamRecords.getDelivery(workspaceId,id); return record ? {record,receipt:this.teamRecords.getDeliveryReceipt(workspaceId,id) ?? null} : undefined;
-  }); }
+  getTeam(workspaceId: string, teamId: string) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTeam(workspaceId, teamId));
+  }
+  getTeamMember(workspaceId: string, teamId: string, memberId: string) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.getMember(workspaceId, teamId, memberId));
+  }
+  listTeamMembers(workspaceId: string, teamId: string, limit?: number) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.listMembers(workspaceId, teamId, limit));
+  }
+  getTeamTask(workspaceId: string, teamId: string, taskId: string) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.getTask(workspaceId, teamId, taskId));
+  }
+  readTeamTaskPage(workspaceId: string, teamId: string, afterTaskId?: string, limit?: number) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasksPage(workspaceId, teamId, afterTaskId, limit));
+  }
+  listTeamTasks(workspaceId: string, teamId: string, limit?: number) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => this.teamRecords.listTasks(workspaceId, teamId, limit));
+  }
+  getTeamDelivery(workspaceId: string, id: string) {
+    this.assertOpen();
+    return this.store.readExecutionObservationEvidence(() => {
+      const record = this.teamRecords.getDelivery(workspaceId, id);
+      return record ? { record, receipt: this.teamRecords.getDeliveryReceipt(workspaceId, id) ?? null } : undefined;
+    });
+  }
 
   createProposalSet(input: CreateProposalSetInput) {
-    try {
-      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-      if (!this.proposalsEnabled) throw new EngineError('PROPOSALS_DISABLED', 'Creating pending proposals requires explicit host opt-in');
+    return this.rejecting(() => {
+      this.assertEnabled(this.proposalsEnabled, 'PROPOSALS_DISABLED', 'Creating pending proposals requires explicit host opt-in');
       return this.proposalService.create(input);
-    } catch (error) { return Promise.reject(error); }
+    });
   }
   previewProposalApply(input: Parameters<ProposalApplyService['preview']>[0]) {
-    try { this.assertProposalApplyEnabled(); return this.proposalApplyService.preview(input); }
-    catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertProposalApplyEnabled(); return this.proposalApplyService.preview(input); });
   }
   applyProposal(input: Parameters<ProposalApplyService['apply']>[0]) {
-    try { this.assertProposalApplyEnabled(); return this.proposalApplyService.apply(input); }
-    catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertProposalApplyEnabled(); return this.proposalApplyService.apply(input); });
   }
   releaseProposalApplyPreview(preview: Parameters<ProposalApplyService['releasePreview']>[0]): void { this.proposalApplyService.releasePreview(preview); }
   getProposalApply(workspaceId: string, ownerId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getHistory(workspaceId, ownerId));
   }
   getProposalApplyRequest(workspaceId: string, requestId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.readExecutionObservationEvidence(() => this.proposalApplies.getRequest(workspaceId, requestId));
   }
   previewProposalApplyRecovery(workspaceId: string): ProposalApplyRecoveryPreview {
@@ -2336,12 +2345,9 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   resumeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
     return this.proposalApplyRecoveryDecision('resume', input);
   }
-  private assertProposalApplyEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.proposalApplyEnabled) throw new EngineError('PROPOSAL_APPLY_DISABLED', 'Applying proposals requires separate explicit host opt-in');
-  }
+  private assertProposalApplyEnabled(): void { this.assertEnabled(this.proposalApplyEnabled, 'PROPOSAL_APPLY_DISABLED', 'Applying proposals requires separate explicit host opt-in'); }
   private proposalApplyRecoveryDecision(operation: 'acknowledge' | 'resume', input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    try {
+    return this.rejecting(() => {
       this.assertProposalApplyEnabled();
       const { workspaceId, requestId, preview, reason } = plainRecord(input, ['workspaceId', 'requestId', 'preview', 'reason'], [], () => {
         throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
@@ -2353,21 +2359,21 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         const decision = operation === 'acknowledge' ? this.proposalApplies.acknowledge(preview, { requestId, reason, approved: true })
           : this.proposalApplies.resume(preview, { requestId, reason, approved: true }); return decision;
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
   getProposalSet(workspaceId: string, proposalId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.proposalService.get(workspaceId, proposalId);
   }
   listProposalSets(input: Parameters<ProposalHostService['list']>[0]) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.proposalService.list(input);
   }
   getProposalDiff(input: Parameters<ProposalHostService['diff']>[0]) {
-    try {
-      if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    return this.rejecting(() => {
+      this.assertOpen();
       return this.proposalService.diff(input);
-    } catch (error) { return Promise.reject(error); }
+    });
   }
 
   setWorkspaceTrust(input: Parameters<WorkspaceTrustService['set']>[0]) {
@@ -2377,12 +2383,12 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   captureWorkspaceKnowledgeSources(workspaceId: string, selection: readonly KnowledgeSourceSelection[]) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgeHost.captureSources({ workspaceId, selection });
   }
 
   previewWorkspaceKnowledgeGeneration(input: { providerId: string; modelId: string; projection: KnowledgeSourceProjection; reasoningEffort?: ReasoningEffort }) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     assertKnowledgeGenerationHostInput(input, ['providerId', 'modelId', 'projection'], ['reasoningEffort']);
     this.knowledgeGenerationProvider(input.providerId);
     this.knowledgeHost.assertProjectionFresh(input.projection);
@@ -2406,8 +2412,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   prepareWorkspaceKnowledgeGeneration(input: Omit<PrepareKnowledgeGeneration, 'binding' | 'source'> & { projection: KnowledgeSourceProjection }) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    try {
+    return this.rejecting(() => {
+      this.assertOpen();
       assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedTrustRevision', 'target', 'providerId', 'modelId', 'requestSha256', 'requestBytes', 'maxOutputBytes', 'expiresAt', 'projection']);
       const { projection, ...description } = input;
       this.knowledgeHost.assertProjectionFresh(projection);
@@ -2418,41 +2424,35 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.knowledgeHost.assertProjectionFresh(projection);
         return this.workspaceKnowledge.prepareGeneration(plan);
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
 
   captureWorkspaceKnowledgeTarget(workspaceId: string, path: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgeHost.captureFileTarget(workspaceId, path);
   }
   captureWorkspaceKnowledgeDocumentTarget(workspaceId: string, key: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgeHost.captureDocumentTarget(workspaceId, key);
   }
-  private assertKnowledgePublicationEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.knowledgePublicationEnabled) throw new EngineError('KNOWLEDGE_PUBLICATION_DISABLED', 'Workspace publication requires explicit host opt-in');
-  }
-  private assertKnowledgeFilePublicationEnabled(): void {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!this.knowledgeFilePublicationEnabled) throw new EngineError('KNOWLEDGE_FILE_PUBLICATION_DISABLED', 'Physical knowledge publication requires explicit host opt-in');
-  }
+  private assertKnowledgePublicationEnabled(): void { this.assertEnabled(this.knowledgePublicationEnabled, 'KNOWLEDGE_PUBLICATION_DISABLED', 'Workspace publication requires explicit host opt-in'); }
+  private assertKnowledgeFilePublicationEnabled(): void { this.assertEnabled(this.knowledgeFilePublicationEnabled, 'KNOWLEDGE_FILE_PUBLICATION_DISABLED', 'Physical knowledge publication requires explicit host opt-in'); }
   previewWorkspaceKnowledgeFilePublication(input: Parameters<KnowledgeFilePublicationService['previewPublish']>[0]) {
-    try { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewPublish(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewPublish(input); });
   }
   previewWorkspaceKnowledgeFileRevocation(input: Parameters<KnowledgeFilePublicationService['previewRevoke']>[0]) {
-    try { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewRevoke(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.previewRevoke(input); });
   }
   publishWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['publish']>[0]) {
-    try { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.publish(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.publish(input); });
   }
   revokeWorkspaceKnowledgeFile(input: Parameters<KnowledgeFilePublicationService['revoke']>[0]) {
-    try { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.revoke(input); } catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgeFilePublicationEnabled(); return this.knowledgeFilePublicationService.revoke(input); });
   }
   releaseWorkspaceKnowledgeFilePublicationPreview(preview: Parameters<KnowledgeFilePublicationService['releasePreview']>[0]): void { this.knowledgeFilePublicationService.releasePreview(preview); }
-  getWorkspaceKnowledgeFilePublication(workspaceId: string, id: string) { if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing'); return this.knowledgeFilePublications.getOwner(workspaceId, id); }
-  getWorkspaceKnowledgeFilePublicationReceipt(workspaceId: string, requestId: string) { if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing'); return this.knowledgeFilePublications.getReceipt(workspaceId, requestId); }
-  getWorkspaceKnowledgeFileTarget(workspaceId: string, path: string) { if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing'); return this.knowledgeFilePublications.getCurrentTarget(workspaceId, path); }
+  getWorkspaceKnowledgeFilePublication(workspaceId: string, id: string) { this.assertOpen(); return this.knowledgeFilePublications.getOwner(workspaceId, id); }
+  getWorkspaceKnowledgeFilePublicationReceipt(workspaceId: string, requestId: string) { this.assertOpen(); return this.knowledgeFilePublications.getReceipt(workspaceId, requestId); }
+  getWorkspaceKnowledgeFileTarget(workspaceId: string, path: string) { this.assertOpen(); return this.knowledgeFilePublications.getCurrentTarget(workspaceId, path); }
   previewWorkspaceKnowledgeFileRecovery(workspaceId: string) {
     this.assertKnowledgeFilePublicationEnabled();
     const preview = this.knowledgeFilePublications.previewRecovery(workspaceId); this.knowledgeFileRecoveryPreviews.set(preview, workspaceId); return preview;
@@ -2464,7 +2464,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return this.fileRecoveryDecision('resume', input);
   }
   private fileRecoveryDecision(operation: 'acknowledge' | 'resume', input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    try {
+    return this.rejecting(() => {
       this.assertKnowledgeFilePublicationEnabled(); assertKnowledgeGenerationHostInput(input, ['workspaceId','requestId','approved','preview','reason']);
       const prepared = Object.freeze({ ...input }), workspaceId = this.knowledgeFileRecoveryPreviews.get(prepared.preview);
       if (!workspaceId || workspaceId !== prepared.workspaceId || prepared.approved !== true) throw new EngineError('KNOWLEDGE_FILE_RECOVERY_PREVIEW_INVALID', 'Physical recovery requires the original host preview and explicit approval');
@@ -2473,9 +2473,9 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         const receipt = operation === 'acknowledge' ? this.knowledgeFilePublications.acknowledge(prepared) : this.knowledgeFilePublications.resume(prepared);
         this.scheduler.holdRecoveryWorkspace(workspaceId); return receipt;
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
-  listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing'); return this.knowledgeFilePublications.listPublications(workspaceId, options); }
+  listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { this.assertOpen(); return this.knowledgeFilePublications.listPublications(workspaceId, options); }
   previewWorkspaceKnowledgePublication(input: Parameters<KnowledgePublicationService['previewPublish']>[0]) {
     this.assertKnowledgePublicationEnabled();
     return this.knowledgePublicationService.previewPublish(input);
@@ -2485,18 +2485,16 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return this.knowledgePublicationService.previewRevoke(input);
   }
   publishWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['publish']>[0]) {
-    try { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.publish(input); }
-    catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.publish(input); });
   }
   revokeWorkspaceKnowledge(input: Parameters<KnowledgePublicationService['revoke']>[0]) {
-    try { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.revoke(input); }
-    catch (error) { return Promise.reject(error); }
+    return this.rejecting(() => { this.assertKnowledgePublicationEnabled(); return this.knowledgePublicationService.revoke(input); });
   }
   releaseWorkspaceKnowledgePublicationPreview(preview: Parameters<KnowledgePublicationService['releasePreview']>[0]): void {
     this.knowledgePublicationService.releasePreview(preview);
   }
   getWorkspaceKnowledgePublication(workspaceId: string, publicationId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     const publication = this.knowledgePublications.getPublication(workspaceId, publicationId);
     if (!publication) throw new EngineError('KNOWLEDGE_PUBLICATION_NOT_FOUND', 'Publication does not exist in this workspace');
     if (publication.state === 'completed') {
@@ -2507,53 +2505,56 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
     return { publication, document: null, head: null, receipt: null, duplicate: true as const };
   }
   getWorkspaceKnowledgePublicationRecord(workspaceId: string, publicationId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.getPublication(workspaceId, publicationId);
   }
   getWorkspaceKnowledgeDocument(workspaceId: string, key: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.getCurrentDocument(workspaceId, key);
   }
   getWorkspaceKnowledgeDocumentRevision(workspaceId: string, revisionId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.getDocumentRevision(workspaceId, revisionId);
   }
   getWorkspaceKnowledgePublicationReceipt(workspaceId: string, requestId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.getReceipt(workspaceId, requestId);
   }
   listWorkspaceKnowledgePublications(workspaceId: string, options: Parameters<KnowledgePublicationStorage['listPublications']>[1] = {}) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.listPublications(workspaceId, options);
   }
   listWorkspaceKnowledgeDocumentRevisions(workspaceId: string, key: string, options: Parameters<KnowledgePublicationStorage['listDocumentRevisions']>[2] = {}) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgePublications.listDocumentRevisions(workspaceId, key, options);
   }
 
   generateWorkspaceKnowledge(input: WorkspaceKnowledgeGenerationInput) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    return this.knowledgeGenerationService.generate(input);
+    return this.rejecting(() => {
+      this.assertOpen();
+      return this.knowledgeGenerationService.generate(input);
+    });
   }
 
   getWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgeGenerationService.get(workspaceId, generationId);
   }
 
   finishWorkspaceKnowledgeCandidate(input: { workspaceId: string; generationId: string; requestId: string }) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    if (!this.knowledgeGenerationEnabled) return Promise.reject(new EngineError('KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in'));
-    return this.knowledgeGenerationService.finish(input);
+    return this.rejecting(() => {
+      this.assertEnabled(this.knowledgeGenerationEnabled, 'KNOWLEDGE_GENERATION_DISABLED', 'Host knowledge extraction requires explicit opt-in');
+      return this.knowledgeGenerationService.finish(input);
+    });
   }
 
   cancelWorkspaceKnowledgeGeneration(workspaceId: string, generationId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.knowledgeGenerationService.cancel(workspaceId, generationId);
   }
 
   getWorkspaceKnowledgeRecoveryPreview(workspaceId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     const preview = this.knowledgeGenerations.getRecoveryPreview(workspaceId);
     this.knowledgeRecoveryPreviews.set(preview, workspaceId);
     this.liveKnowledgeRecoveryPreviews.set(workspaceId, preview);
@@ -2561,8 +2562,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   acknowledgeWorkspaceKnowledgeRecovery(input: { preview: KnowledgeGenerationRecoveryPreview; requestId: string; reason: string; acknowledged: true }) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    try {
+    return this.rejecting(() => {
+      this.assertOpen();
       assertKnowledgeGenerationHostInput(input, ['preview', 'requestId', 'reason', 'acknowledged']);
       const { preview, requestId, reason, acknowledged } = input;
       const workspaceId = this.knowledgeRecoveryPreviews.get(preview);
@@ -2574,12 +2575,12 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.scheduler.holdRecoveryWorkspace(workspaceId);
         return receipt;
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
 
   resumeWorkspaceKnowledge(input: { workspaceId: string; requestId: string; expectedRevision: number; expectedFrontierSha256: string }) {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    try {
+    return this.rejecting(() => {
+      this.assertOpen();
       assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedRevision', 'expectedFrontierSha256']);
       const prepared = Object.freeze({ ...input });
       return this.coordinator.withRecoveryDecisionLease(prepared.workspaceId, async signal => {
@@ -2590,7 +2591,7 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.scheduler.holdRecoveryWorkspace(prepared.workspaceId);
         return receipt;
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
 
   private refreshToolScopes(): void {
@@ -2598,9 +2599,9 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   async activatePlugin(plugin: EnginePlugin, signal?: AbortSignal): Promise<ActivePlugin> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if(this.sandboxEnabled)throw new EngineError('SANDBOX_PLUGIN_UNSUPPORTED','Plugin effects cannot assert sandbox enforcement');
-    const active = await this.plugins.activate(plugin, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    const active = await this.plugins.activate(plugin, this.hostSignal(signal));
     try { this.refreshToolScopes(); return active; }
     catch (error) { await this.plugins.deactivate(active.id); throw error; }
   }
@@ -2608,11 +2609,11 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   async deactivatePlugin(id: string): Promise<void> { await this.plugins.deactivate(id); this.refreshToolScopes(); }
 
   async connectMcp(client: McpClient, signal?: AbortSignal): Promise<{ id: string; scopeId: string; toolNames: string[]; resources: McpRegistration['resources'] }> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if (this.mcp.has(client.id) || this.pendingMcp.has(client.id)) throw new EngineError('MCP_ALREADY_CONNECTED', 'MCP ID is already connected or connecting');
     if (this.mcp.size + this.pendingMcp.size >= 32) throw new EngineError('MCP_CONNECTION_LIMIT', 'Too many engine MCP connections');
     if(this.sandboxEnabled&&!this.sandboxHost.hasMcp(client))throw new EngineError('SANDBOX_MCP_UNSUPPORTED','Only actual sandbox-owned stdio transports are admitted');
-    const pending = registerMcp(client, this.toolRuntime, signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
+    const pending = registerMcp(client, this.toolRuntime, this.hostSignal(signal));
     this.mcpClients.set(client.id, client);
     this.pendingMcp.set(client.id, pending);
     let connection: McpRegistration | undefined;
@@ -2631,108 +2632,101 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   integrityCheck(): IntegrityCheckResult {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.integrityCheck();
   }
 
   /** Session-bound, bounded host observation; summaries are separate from ordinary Attempts. */
   getAttemptCleanup(sessionId: string, attemptId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getAttemptCleanup(attemptId, sessionId);
   }
 
   /** Exact session-bound MCP receipt observation; it grants no retry or recovery authority. */
   getMcpExecution(sessionId: string, toolCallId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getMcpExecution(toolCallId, sessionId);
   }
 
   getSummaryAttempt(sessionId: string, summaryAttemptId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getSummaryAttempt(summaryAttemptId, sessionId);
   }
 
   getSummaryUsage(sessionId: string, summaryAttemptId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     this.store.getSession(sessionId);
     return this.store.getSummaryUsage(summaryAttemptId, sessionId);
   }
 
   listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.listSummaryAttempts(sessionId, options);
   }
 
   /** Host preview only; it never confirms cleanup, replays providers or changes session control. */
   getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.getSummaryRecoveryPreview(sessionId, summaryAttemptId);
   }
 
   acknowledgeSummaryRecovery(request: SummaryRecoveryRequest): Promise<SummaryRecoveryReceipt> {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    try {
-      const prepared = validateSummaryRecoveryRequest(request);
-      const existing = this.store.findSummaryRecoveryReceipt(prepared);
-      if (existing) return Promise.resolve(existing);
-      const session = this.store.getSession(prepared.sessionId);
-      return this.coordinator.withRecoveryDecisionLease(session.workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', 'Summary recovery decision was cancelled');
-        verifyExecutionIdle(this.executionLockPath);
-        const receipt = this.store.acknowledgeSummaryRecovery(prepared);
-        this.scheduler.holdRecoveryWorkspace(session.workspaceId);
-        return receipt;
-      });
-    } catch (error) { return Promise.reject(error); }
+    return this.acknowledgeRecovery(() => validateSummaryRecoveryRequest(request), prepared => this.store.findSummaryRecoveryReceipt(prepared),
+      prepared => this.store.acknowledgeSummaryRecovery(prepared), 'Summary recovery decision was cancelled');
   }
 
   getProviderRecoveryPreview(sessionId: string, attemptId: string) {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     return this.store.getProviderRecoveryPreview(sessionId, attemptId);
   }
 
   acknowledgeProviderRecovery(request: ProviderRecoveryRequest): Promise<ProviderRecoveryReceipt> {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    try {
-      const prepared = validateProviderRecoveryRequest(request), existing = this.store.findProviderRecoveryReceipt(prepared);
+    return this.acknowledgeRecovery(() => validateProviderRecoveryRequest(request), prepared => this.store.findProviderRecoveryReceipt(prepared),
+      prepared => this.store.acknowledgeProviderRecovery(prepared), 'Provider recovery decision was cancelled');
+  }
+
+  private acknowledgeRecovery<P extends { sessionId: string }, R>(prepare: () => P, find: (prepared: P) => R | null | undefined, acknowledge: (prepared: P) => R, cancelled: string): Promise<R> {
+    return this.rejecting(() => {
+      this.assertOpen();
+      const prepared = prepare(), existing = find(prepared);
       if (existing) return Promise.resolve(existing);
       const session = this.store.getSession(prepared.sessionId);
       return this.coordinator.withRecoveryDecisionLease(session.workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', 'Provider recovery decision was cancelled');
+        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', cancelled);
         verifyExecutionIdle(this.executionLockPath);
-        const receipt = this.store.acknowledgeProviderRecovery(prepared);
+        const receipt = acknowledge(prepared);
         this.scheduler.holdRecoveryWorkspace(session.workspaceId);
         return receipt;
       });
-    } catch (error) { return Promise.reject(error); }
+    });
   }
 
   backup(destination: string, options?: StoreBackupOptions): Promise<DatabaseBackup> {
-    if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    return this.store.backup(destination, options);
+    return this.rejecting(() => {
+      this.assertOpen();
+      return this.store.backup(destination, options);
+    });
   }
 
   /** Explicit host observation. Never scans files as a side effect of a model turn. */
   async getStorageUsage(options: EngineStorageUsageOptions = {}): Promise<EngineStorageUsageReport> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     if (!options || typeof options !== 'object' || Array.isArray(options) || Object.keys(options).some(key => !['signal', 'limits'].includes(key))) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection accepts only signal and bounded limits');
     if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new EngineError('INVALID_STORAGE_USAGE_OPTIONS', 'Storage inspection requires an AbortSignal');
-    const signal = options.signal === undefined ? this.hostResources.signal : AbortSignal.any([options.signal, this.hostResources.signal]);
+    const signal = this.hostSignal(options.signal);
     const imageIndex = this.store.inspectInputImageIndex({ signal });
     const documentIndex = this.store.inspectInputDocumentIndex({ signal });
-    const operation = inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex });
-    this.pendingStorage.add(operation);
-    try { return await operation; } finally { this.pendingStorage.delete(operation); }
+    return await this.track(inspectEngineStorage({ ...this.storagePaths, signal, ...(options.limits === undefined ? {} : { limits: options.limits }), imageIndex, documentIndex }));
   }
 
   /** Explicit bounded index observation of selected, durably bound managed children. */
   async getChildDocumentStorageUsage(value: EngineChildDocumentStorageOptions): Promise<EngineChildDocumentStorageReport> {
-    if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
+    this.assertOpen();
     const options = validateChildDocumentStorageRequest(value);
-    const signal = options.signal === undefined ? this.hostResources.signal : AbortSignal.any([options.signal, this.hostResources.signal]);
+    const signal = this.hostSignal(options.signal);
     const operation = (async () => {
       const { maxReportBytes: _maxReportBytes, ...readLimits } = options.limits;
       const frame = createChildDocumentReadFrame({ signal, limits: readLimits });
@@ -2747,20 +2741,16 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
       this.verifyChildStorageIdentity();
       return report;
     })();
-    this.pendingStorage.add(operation);
-    try { return await operation; }
+    try { return await this.track(operation); }
     catch (error) {
       if (signal.aborted) throw new EngineError('CANCELLED', 'Child storage inspection was cancelled');
       throw error;
-    } finally { this.pendingStorage.delete(operation); }
+    }
   }
 
   private trackMediaImport<T>(factory: (signal: AbortSignal) => Promise<T>, signal?: AbortSignal): Promise<T> {
     if (this.closing) return Promise.reject(new EngineError('ENGINE_CLOSED', 'Engine is closing'));
-    const operation = factory(signal ? AbortSignal.any([signal, this.hostResources.signal]) : this.hostResources.signal);
-    this.pendingImages.add(operation);
-    void operation.then(() => this.pendingImages.delete(operation), () => this.pendingImages.delete(operation));
-    return operation;
+    return this.track(factory(this.hostSignal(signal)));
   }
 
   importImage(sessionId: string, data: Uint8Array, mimeType: InputImageAttachment['mimeType'], signal?: AbortSignal): Promise<InputImageAttachment> {
@@ -2773,11 +2763,19 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   }
 
   /** Host-only read of a native media Part; archive/reopened DATA never dispatches a provider. */
-  async readMediaOutput(input:{sessionId:string;partId:string;offset?:number;limit?:number;signal?:AbortSignal}){
-    if(this.closing)throw new EngineError('ENGINE_CLOSED','Engine is closing');
-    const fields=plainRecord(input,['sessionId','partId'],['offset','limit','signal'],fault=>{throw new EngineError('MEDIA_INVALID_READ',fault==='shape'?'Read options must be ordinary data':fault==='fields'?'Bounded native media read options are required':'Read options cannot contain accessors');});
-    const {signal,...raw}=Object.assign(Object.create(null),fields) as typeof input;const safe=jobJson(raw,4096);if(typeof safe.sessionId!=='string'||typeof safe.partId!=='string'||safe.offset!==undefined&&(!Number.isSafeInteger(safe.offset)||safe.offset<0)||safe.limit!==undefined&&(!Number.isSafeInteger(safe.limit)||safe.limit<1||safe.limit>65536))throw new EngineError('MEDIA_INVALID_READ','Bounded native media read options are required');
-    const part=this.store.readProviderMediaPart(safe.sessionId,safe.partId);const operation=(await this.managedArtifacts()).read(part.artifact.id,{identity:part.artifact.identity,...(safe.offset===undefined?{}:{offset:safe.offset}),limit:safe.limit??8192,signal:signal?AbortSignal.any([signal,this.hostResources.signal]):this.hostResources.signal});this.pendingStorage.add(operation);try{return await operation;}finally{this.pendingStorage.delete(operation);}
+  async readMediaOutput(input: { sessionId: string; partId: string; offset?: number; limit?: number; signal?: AbortSignal }) {
+    this.assertOpen();
+    const fields = plainRecord(input, ['sessionId', 'partId'], ['offset', 'limit', 'signal'], fault => {
+      throw new EngineError('MEDIA_INVALID_READ', fault === 'shape' ? 'Read options must be ordinary data' : fault === 'fields' ? 'Bounded native media read options are required' : 'Read options cannot contain accessors');
+    });
+    const { signal, ...raw } = Object.assign(Object.create(null), fields) as typeof input;
+    const safe = jobJson(raw, 4096);
+    if (typeof safe.sessionId !== 'string' || typeof safe.partId !== 'string' || safe.offset !== undefined && (!Number.isSafeInteger(safe.offset) || safe.offset < 0)
+      || safe.limit !== undefined && (!Number.isSafeInteger(safe.limit) || safe.limit < 1 || safe.limit > 65536)) throw new EngineError('MEDIA_INVALID_READ', 'Bounded native media read options are required');
+    const part = this.store.readProviderMediaPart(safe.sessionId, safe.partId);
+    return await this.track((await this.managedArtifacts()).read(part.artifact.id, {
+      identity: part.artifact.identity, ...(safe.offset === undefined ? {} : { offset: safe.offset }), limit: safe.limit ?? 8192, signal: this.hostSignal(signal),
+    }));
   }
   getMediaCapabilities(providerId:string,modelId:string){return this.mediaCapabilities(providerId,modelId);}
 
@@ -2788,9 +2786,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   close(): Promise<void> {
     if (this.closePromise) return this.closePromise;
     this.closing = true;
-    let resolve!: () => void;
-    let reject!: (error: unknown) => void;
-    this.closePromise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
+    const closed = Promise.withResolvers<void>();
+    this.closePromise = closed.promise;
     void (async () => {
       try {
         this.hostResources.abort();
@@ -2805,21 +2802,48 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
         this.ownedCommandDelivery.close();
         this.hostCommandDelivery.close();
         // Both calls synchronously stop admissions before either awaits active work.
-        const outcomes = await Promise.allSettled([this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(), this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(), this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(), this.children.close(), this.changes.close(), this.lsp.close(), ...[...this.watchConsumers.values()].map(consumer => consumer.done), ...[...this.pendingRepository].map(operation => operation.catch(() => {})), ...[...this.pendingImages].map(operation => operation.catch(() => {})), ...[...this.pendingStorage].map(operation => operation.catch(() => {})), this.terminals.close(), this.plugins.close(), ...[...this.mcpClients.values()].map(client => client.close()), ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)), ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {}))]);
+        const outcomes = await Promise.allSettled([
+          this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(),
+          this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposalApplyService.close(), this.proposalService.close(),
+          this.proposalOverlay.close(), this.knowledgeImportService.close(), this.knowledgeFilePublicationService.close(), this.scheduler.close(), this.coordinator.close(),
+          this.children.close(), this.changes.close(), this.lsp.close(),
+          ...[...this.watchConsumers.values()].map(consumer => consumer.done),
+          ...[...this.pending].map(operation => operation.catch(() => {})),
+          this.terminals.close(), this.plugins.close(),
+          ...[...this.mcpClients.values()].map(client => client.close()),
+          ...[...this.mcp.keys()].map(id => this.disconnectMcp(id)),
+          ...[...this.pendingMcp.values()].map(pending => pending.catch(() => {})),
+        ]);
         for (const preview of this.liveKnowledgeRecoveryPreviews.values()) this.knowledgeGenerations.releaseRecoveryPreview(preview);
         this.liveKnowledgeRecoveryPreviews.clear();
         const failed = outcomes.find(outcome => outcome.status === 'rejected');
         if (failed?.status === 'rejected') throw failed.reason;
-      }
-      finally {
+      } finally {
         await this.executionObserver.close();
-        try { this.terminalJournal.close(); }
-        finally { try { this.reviewJournal.close(); }
-        finally { try { await this.codeModeHost.close(); this.workflowEffects.close(); this.hostCommandDeliveryProducer.close(); this.hostCommandDeliverySource.close(); this.ownedCommandProducer.close(); this.ownedCommandHost.close(); this.jobProducer.close(); this.backendProducer.close(); this.scheduleProducer.close(); await this.store.closeAsync(); }
-        finally { this.removeOwnedArtifactDir(); } }
+        try {
+          this.terminalJournal.close();
+        } finally {
+          try {
+            this.reviewJournal.close();
+          } finally {
+            try {
+              await this.codeModeHost.close();
+              this.workflowEffects.close();
+              this.hostCommandDeliveryProducer.close();
+              this.hostCommandDeliverySource.close();
+              this.ownedCommandProducer.close();
+              this.ownedCommandHost.close();
+              this.jobProducer.close();
+              this.backendProducer.close();
+              this.scheduleProducer.close();
+              await this.store.closeAsync();
+            } finally {
+              this.removeOwnedArtifactDir();
+            }
+          }
         }
       }
-    })().then(resolve, reject);
+    })().then(closed.resolve, closed.reject);
     return this.closePromise;
   }
 }
