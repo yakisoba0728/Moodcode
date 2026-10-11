@@ -2,6 +2,7 @@ import { types } from 'node:util';
 import { EngineError, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 import type { ProviderEvent, ProviderMessage, ProviderTool, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
 import { plainRecord } from '../shared/data.js';
+import { boundedText } from './helpers.js';
 
 /** Host-owned work has no coding Run, Session, Turn, or tool authority. */
 export interface HostGenerationOwner {
@@ -62,8 +63,7 @@ function array(value: unknown, maximum: number): readonly unknown[] {
   return result;
 }
 function identifier(value: unknown): string {
-  if (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > HOST_GENERATION_REQUEST_LIMITS.maxIdentifierBytes
-    || /[\u0000-\u001f\u007f]/u.test(value)) invalid();
+  if (!boundedText(value, HOST_GENERATION_REQUEST_LIMITS.maxIdentifierBytes)) invalid();
   return value;
 }
 

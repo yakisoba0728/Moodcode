@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { providerURLAllowed, redactJson, redactText, TextRedactor } from './helpers.js';
+import { boundedText, isEventStream, providerURLAllowed, providerUsage, redactJson, redactText, TextRedactor } from './helpers.js';
 
 const REGULAR_KEY = 'sk-fixture-redactor-private-1234567890';
 const FALLBACK = '█';
@@ -140,5 +140,32 @@ test('provider URLs carry keys only over HTTPS or loopback HTTP', () => {
   for (const url of ['https://user:pass@api.example.test/v1', 'https://user@api.example.test/v1', 'https://api.example.test/v1?key=x', 'https://api.example.test/v1#x', 'ftp://api.example.test/v1', 'file:///tmp/private']) {
     assert.equal(providerURLAllowed(new URL(url), true), false, url);
     assert.equal(providerURLAllowed(new URL(url), false), false, url);
+  }
+});
+
+test('bounded provider text rejects blank, oversized and control-character values', () => {
+  for (const value of ['model-a', 'é'.repeat(128), ' padded ']) assert.equal(boundedText(value), true, value);
+  for (const value of ['', '   ', '\t', 'a\u0000b', 'a\u007fb', 'é'.repeat(129), 42, null, undefined]) assert.equal(boundedText(value), false, String(value));
+  assert.equal(boundedText('abcd', 3), false);
+});
+
+test('event-stream detection ignores parameters and admits a missing type only when allowed', () => {
+  const response = (type?: string) => new Response('', type === undefined ? {} : { headers: { 'content-type': type } });
+  assert.equal(isEventStream(response('Text/Event-Stream; charset=utf-8')), true);
+  assert.equal(isEventStream(response('application/json')), false);
+  const missing = response();
+  missing.headers.delete('content-type');
+  assert.equal(isEventStream(missing), false);
+  assert.equal(isEventStream(missing, true), true);
+  assert.equal(isEventStream(response(''), true), false);
+});
+
+test('provider usage maps wire keys and bounds detail counts by their totals', () => {
+  const keys = { input: 'input_tokens', output: 'output_tokens', inputDetails: 'input_tokens_details', outputDetails: 'output_tokens_details' };
+  const value = { input_tokens: 10, output_tokens: 5, input_tokens_details: { cached_tokens: 4 }, output_tokens_details: { reasoning_tokens: 2 } };
+  assert.deepEqual(providerUsage(value, keys), { type: 'usage', inputTokens: 10, outputTokens: 5 });
+  assert.deepEqual(providerUsage(value, keys, true), { type: 'usage', inputTokens: 10, outputTokens: 5, cachedInputTokens: 4, reasoningOutputTokens: 2 });
+  for (const bad of [{ input_tokens: -1 }, { input_tokens: 1.5 }, { output_tokens: 1, output_tokens_details: { reasoning_tokens: 2 } }]) {
+    assert.throws(() => providerUsage(bad, keys, true), (error: unknown) => error instanceof EngineError && error.code === 'PROVIDER_MALFORMED_STREAM');
   }
 });

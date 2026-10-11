@@ -1,4 +1,6 @@
 import { EngineError, type JsonValue } from '@moodcode/contracts';
+import type { ProviderEvent } from '../ports.js';
+import { isBoundedText } from '../shared/data.js';
 
 export function malformed(): never {
   throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider returned an invalid stream.');
@@ -35,13 +37,14 @@ export function publicError(error: unknown): EngineError {
   }
   return new EngineError('PROVIDER_TRANSPORT_ERROR', 'Provider HTTP transport failed.');
 }
-/** Only a bounded delay survives; arbitrary server headers never enter diagnostics. */
+/** Only known context-overflow codes are recognized; remote messages never propagate. */
 export function providerRemoteError(value: unknown): EngineError {
   const code = value && typeof value === 'object' ? (value as Record<string, unknown>).code : undefined;
   return typeof code === 'string' && ['context_length_exceeded', 'context_window_exceeded', 'context_length_overflow', 'context_size_exceeded'].includes(code)
     ? new EngineError('PROVIDER_CONTEXT_OVERFLOW', 'Provider rejected the request because its context window is full.')
     : new EngineError('PROVIDER_REMOTE_ERROR', 'Provider reported an error in the stream.');
 }
+/** Only a bounded delay survives; arbitrary server headers never enter diagnostics. */
 export function providerHttpError(response: Response): EngineError {
   const raw = response.headers.get('retry-after');
   let retryAfterMs: number | undefined;
@@ -78,6 +81,40 @@ export async function providerHttpFailure(response: Response, signal: AbortSigna
   } finally { signal.removeEventListener('abort', abort); await reader.cancel().catch(() => {}); reader.releaseLock(); }
 }
 
+export function isEventStream(response: Response, allowMissing = false): boolean {
+  const type = response.headers.get('content-type');
+  return type === null ? allowMissing : type.split(';')[0]?.trim().toLowerCase() === 'text/event-stream';
+}
+
+/**
+ * Per-turn cancellation and deadline, covering the HTTP response and a stalled stream.
+ * An owned body closes before fetch aborts: abort errors an unread body, so its
+ * cancellation could not be confirmed. dispose() leaves the final abort to the adapter.
+ */
+export function turnTimer(signal: AbortSignal, timeoutMs: number, owned: () => { close(): Promise<boolean> } | undefined) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abort = () => {
+    const body = owned();
+    if (!body) controller.abort();
+    else void body.close().then(() => controller.abort(), () => controller.abort());
+  };
+  signal.addEventListener('abort', abort, { once: true });
+  const timer = setTimeout(() => { timedOut = true; abort(); }, timeoutMs);
+  return {
+    controller,
+    timedOut: () => timedOut,
+    checkCancellation() { if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); },
+    dispose() { clearTimeout(timer); signal.removeEventListener('abort', abort); },
+  };
+}
+
+export function providerTurnError(error: unknown, signal: AbortSignal, timedOut: boolean): EngineError {
+  if (signal.aborted) return new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
+  if (timedOut) return new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
+  return publicError(error);
+}
+
 export function record(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) malformed();
   return value as Record<string, unknown>;
@@ -89,11 +126,59 @@ export function optionalString(value: unknown): string | undefined {
   return value;
 }
 
+/** isBoundedText that also rejects whitespace-only text. */
+export function boundedText(value: unknown, maxBytes = 256): value is string {
+  return isBoundedText(value, maxBytes) && value.trim() !== '';
+}
+
+type Usage = Extract<ProviderEvent, { type: 'usage' }>;
+/** Token counts are non-negative safe integers; a detail count never exceeds its total. */
+export function providerUsage(value: unknown, keys: { input: string; output: string; inputDetails: string; outputDetails: string }, includeMetadata = false): Usage {
+  const usage = record(value);
+  const event: Usage = { type: 'usage' };
+  for (const [key, target] of [[keys.input, 'inputTokens'], [keys.output, 'outputTokens']] as const) {
+    const count = usage[key];
+    if (count === undefined || count === null) continue;
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) malformed();
+    event[target] = count;
+  }
+  for (const [details, key, target, total] of includeMetadata ? [[keys.inputDetails, 'cached_tokens', 'cachedInputTokens', 'inputTokens'], [keys.outputDetails, 'reasoning_tokens', 'reasoningOutputTokens', 'outputTokens']] as const : []) {
+    if (usage[details] === undefined || usage[details] === null) continue;
+    const count = record(usage[details])[key]; if (count === undefined || count === null) continue;
+    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || event[total] !== undefined && count > event[total]!) malformed();
+    event[target] = count;
+  }
+  return event;
+}
+
 const LOOPBACK_HOSTS: readonly string[] = ['127.0.0.1', 'localhost', '[::1]'];
 /** Keys travel only over HTTPS or loopback HTTP; a keyless endpoint may use plain HTTP on any host. */
 export function providerURLAllowed(url: URL, credentialed: boolean): boolean {
   return !url.username && !url.password && !url.search && !url.hash
     && (url.protocol === 'https:' || url.protocol === 'http:' && (!credentialed || LOOPBACK_HOSTS.includes(url.hostname)));
+}
+
+export function providerApiKey(value: string | undefined, message: string): string | undefined {
+  if (value !== undefined && (typeof value !== 'string' || !value.length || value.length > 4096 || /[^\x21-\x7e]/.test(value))) throw new EngineError('PROVIDER_INVALID_CONFIG', message);
+  return value;
+}
+export function providerId(value: string | undefined, fallback: string, secrets: readonly string[]): string {
+  const id = value ?? fallback;
+  if (!/^[a-z][a-z0-9_-]{0,63}$/.test(id) || secrets.some(secret => id.includes(secret))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
+  return id;
+}
+/** Resolve the API prefix and append the route; `message` names the adapter's URL rule. */
+export function providerEndpoint(baseURL: string | undefined, fallback: string, route: string, credentialed: boolean, message: string): string {
+  let base: URL;
+  try { base = new URL(baseURL ?? fallback); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
+  if (!providerURLAllowed(base, credentialed)) throw new EngineError('PROVIDER_INVALID_CONFIG', message);
+  base.pathname = base.pathname.replace(/\/+$/, '') + route;
+  return base.href;
+}
+export function providerFetch(value: typeof globalThis.fetch | undefined, message: string): typeof globalThis.fetch {
+  const fetch = value ?? globalThis.fetch;
+  if (typeof fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', message);
+  return fetch;
 }
 
 export function positiveLimit(value: number | undefined, fallback: number): number {
@@ -113,16 +198,17 @@ export function redactText(text: string, secret: string | undefined): string {
 
 /** Additional local OAuth secrets stay in private adapter state. */
 export function credentialSecrets(primary: string | undefined, additional: readonly string[] | undefined): string[] {
-  if (primary !== undefined && (typeof primary !== 'string' || !primary.length)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
-  if (additional !== undefined && (!Array.isArray(additional) || additional.length > 8)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  const invalid = (): never => { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.'); };
+  if (primary !== undefined && (typeof primary !== 'string' || !primary.length)) invalid();
+  if (additional !== undefined && (!Array.isArray(additional) || additional.length > 8)) invalid();
   const secrets = [...new Set([...(primary ? [primary] : []), ...(additional ?? [])])];
-  if (secrets.length > 8) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  if (secrets.length > 8) invalid();
   let bytes = 0;
   for (const secret of secrets) {
-    if (typeof secret !== 'string' || !secret.length || secret.length > 32_768 || /[^\x21-\x7e]/.test(secret)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+    if (typeof secret !== 'string' || !secret.length || secret.length > 32_768 || /[^\x21-\x7e]/.test(secret)) invalid();
     bytes += secret.length;
   }
-  if (bytes > 131_072) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider credential redaction configuration is invalid.');
+  if (bytes > 131_072) invalid();
   return secrets.sort((a, b) => b.length - a.length);
 }
 export function redactCredentialText(text: string, secrets: readonly string[]): string {

@@ -2,6 +2,7 @@ import { EngineError } from '@moodcode/contracts';
 import { ModelRegistry, type ModelSpec } from '../context/model-spec.js';
 import { jobJson } from '../jobs/validation.js';
 import type { ProviderAdapter } from '../ports.js';
+import { boundedText } from './helpers.js';
 
 export const PROVIDER_COVERAGE_FEATURES = Object.freeze(['image-input', 'pdf-input', 'audio-input', 'video-frames', 'audio-output'] as const);
 export type ProviderCoverageFeature = typeof PROVIDER_COVERAGE_FEATURES[number];
@@ -59,12 +60,9 @@ export interface ProviderCoverage {
 }
 
 const sha = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/u.test(value);
-function reference(value: unknown): boolean {
-  return typeof value === 'string' && value.trim().length > 0 && Buffer.byteLength(value) <= 256 && !/[\u0000-\u001f\u007f]/u.test(value);
-}
 function invalid(): never { throw new EngineError('INVALID_PROVIDER_COVERAGE', 'Provider coverage requires bounded exact qualification and evidence'); }
 function qualification(value: ProviderCoverageQualification): void {
-  if (!reference(value.accountReference) || !sha(value.sourceSha256) || !sha(value.runtimeSha256)) invalid();
+  if (!boundedText(value.accountReference) || !sha(value.sourceSha256) || !sha(value.runtimeSha256)) invalid();
 }
 function evidence(values: readonly ProviderCoverageEvidence[]): ProviderCoverageEvidence[] {
   const copies = jobJson(values, 65_536);
@@ -75,7 +73,7 @@ function evidence(values: readonly ProviderCoverageEvidence[]): ProviderCoverage
     if (Object.keys(item).sort().join(',') !== ['accountReference', 'sourceSha256', 'runtimeSha256', 'providerId', 'modelId', 'protocol', 'feature', 'observedAt', 'reportSha256',
       'transport', 'passed', 'nativeVerified', 'cleanupConfirmed', 'duplicateNoReplay'].sort().join(',')) invalid();
     qualification(item);
-    if (!reference(item.providerId) || !reference(item.modelId) || !reference(item.protocol) || !sha(item.reportSha256)
+    if (!boundedText(item.providerId) || !boundedText(item.modelId) || !boundedText(item.protocol) || !sha(item.reportSha256)
       || !PROVIDER_COVERAGE_FEATURES.includes(item.feature) || !Number.isFinite(Date.parse(item.observedAt))
       || !['real-remote', 'local-fixture', 'none'].includes(item.transport)
       || [item.passed, item.nativeVerified, item.cleanupConfirmed, item.duplicateNoReplay].some(flag => typeof flag !== 'boolean')) invalid();
@@ -94,7 +92,7 @@ export function describeProviderCoverage(options: ProviderCoverageOptions): Prov
   if (provider.id !== spec.providerId || [options.allowUnknownMediaTokenCost, options.allowUnknownDocumentTokenCost].some(value => value !== undefined && typeof value !== 'boolean')) invalid();
   const current = options.qualification ? jobJson(options.qualification, 4096) as unknown as ProviderCoverageQualification : undefined;
   if (current) qualification(current);
-  if (options.protocol !== undefined && (!reference(options.protocol) || provider.replayProtocol !== undefined && options.protocol !== provider.replayProtocol)) invalid();
+  if (options.protocol !== undefined && (!boundedText(options.protocol) || provider.replayProtocol !== undefined && options.protocol !== provider.replayProtocol)) invalid();
   const reports = evidence(options.evidence ?? []), protocol = options.protocol ?? provider.replayProtocol ?? null;
   const definitions: [ProviderCoverageFeature, boolean, boolean | null, boolean | null][] = [
     ['image-input', provider.inputModalities?.includes('image') === true, spec.modalities === null ? null : spec.modalities.includes('image'), null],

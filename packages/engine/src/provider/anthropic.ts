@@ -4,7 +4,7 @@ import { EngineError, type JsonObject, type JsonValue, type ProviderToolCall } f
 import type { ModelSpec } from '../context/model-spec.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import { boundedJson, JsonBudgetError } from '../artifacts/validation.js';
-import { credentialSecrets, CredentialTextRedactor, malformed, positiveLimit, providerHttpFailure, providerRemoteError, providerURLAllowed, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
+import { boundedText, credentialSecrets, CredentialTextRedactor, isEventStream, malformed, positiveLimit, providerApiKey, providerEndpoint, providerFetch, providerHttpFailure, providerId, providerRemoteError, providerTurnError, publicError, record, redactCredentialJson, redactCredentialText, turnTimer } from './helpers.js';
 import { replayCompatible } from './replay.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
@@ -44,7 +44,7 @@ export const ANTHROPIC_PROVIDER_CAPABILITIES = Object.freeze({
 
 /** Adapter/host metadata, never a guessed catalog window or model output limit. */
 export function anthropicModelSpec(modelId: string, options: { providerId?: string; thinking?: 'adaptive' | 'disabled'; observedAt?: string } = {}): ModelSpec {
-  if (typeof modelId !== 'string' || !modelId.trim() || Buffer.byteLength(modelId) > 256 || /[\u0000-\u001f\u007f]/u.test(modelId)
+  if (!boundedText(modelId)
     || options.providerId !== undefined && !/^[a-z][a-z0-9_-]{0,63}$/u.test(options.providerId)
     || options.thinking !== undefined && options.thinking !== 'adaptive' && options.thinking !== 'disabled'
     || options.observedAt !== undefined && !Number.isFinite(Date.parse(options.observedAt))) {
@@ -70,7 +70,7 @@ function safeJson(value: unknown, maximum: number, code: 'PROVIDER_INVALID_REQUE
   }
 }
 function nonempty(value: unknown, maximum = 256): string {
-  if (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > maximum || /[\u0000-\u001f\u007f]/u.test(value)) malformed();
+  if (!boundedText(value, maximum)) malformed();
   return value;
 }
 function count(value: unknown): number {
@@ -186,26 +186,15 @@ export class AnthropicProvider implements ProviderAdapter {
   #summary: boolean;
 
   constructor(options: AnthropicProviderOptions = {}) {
-    this.#apiKey = options.apiKey;
-    if (this.#apiKey !== undefined && (typeof this.#apiKey !== 'string' || !this.#apiKey.length || this.#apiKey.length > 4096 || /[^\x21-\x7e]/u.test(this.#apiKey))) {
-      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider API key must be bounded printable text.');
-    }
+    this.#apiKey = providerApiKey(options.apiKey, 'Provider API key must be bounded printable text.');
     this.#workspaceId = options.workspaceId;
     if (this.#workspaceId !== undefined && (typeof this.#workspaceId !== 'string' || !/^wrkspc_[A-Za-z0-9]{1,128}$/u.test(this.#workspaceId))) {
       throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider workspace identifier is invalid.');
     }
     this.#secrets = credentialSecrets(this.#apiKey, options.redactionSecrets);
-    this.id = options.id ?? 'anthropic';
-    if (!/^[a-z][a-z0-9_-]{0,63}$/u.test(this.id) || this.#secrets.some(secret => this.id.includes(secret))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
-    let base: URL;
-    try { base = new URL(options.baseURL ?? 'https://api.anthropic.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
-    if (!providerURLAllowed(base, true)) {
-      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider URL requires HTTPS or loopback HTTP without credentials, query or fragment.');
-    }
-    base.pathname = base.pathname.replace(/\/+$/u, '') + '/messages';
-    this.#endpoint = base.href;
-    this.#fetch = options.fetch ?? globalThis.fetch;
-    if (typeof this.#fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider requires HTTP fetch.');
+    this.id = providerId(options.id, 'anthropic', this.#secrets);
+    this.#endpoint = providerEndpoint(options.baseURL, 'https://api.anthropic.com/v1', '/messages', true, 'Provider URL requires HTTPS or loopback HTTP without credentials, query or fragment.');
+    this.#fetch = providerFetch(options.fetch, 'Provider requires HTTP fetch.');
     this.#thinking = options.thinking ?? 'adaptive';
     this.#summary = options.publicReasoningSummary ?? false;
     if (!['adaptive', 'disabled'].includes(this.#thinking) || typeof this.#summary !== 'boolean' || this.#summary && this.#thinking === 'disabled') {
@@ -333,7 +322,7 @@ export class AnthropicProvider implements ProviderAdapter {
     providerDocuments(request, false, signal);
     let serialized: string;
     try {
-      if (typeof request.modelId !== 'string' || !request.modelId.trim() || Buffer.byteLength(request.modelId) > 256 || /[\u0000-\u001f\u007f]/u.test(request.modelId)) invalidRequest();
+      if (!boundedText(request.modelId)) invalidRequest();
       const input = this.#messages(request, signal);
       const tools = request.tools.map(tool => {
         if (!/^[a-zA-Z0-9_-]{1,128}$/u.test(tool.name) || typeof tool.description !== 'string' || tool.inputSchema.type !== 'object') invalidRequest();
@@ -349,16 +338,9 @@ export class AnthropicProvider implements ProviderAdapter {
       serialized = JSON.stringify(safeJson(payload, this.#limits.maxRequestBytes, 'PROVIDER_INVALID_REQUEST'));
     } catch (error) { throw publicError(error instanceof EngineError ? error : new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request is invalid.')); }
     if (Buffer.byteLength(serialized) > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
-    const controller = new AbortController();
     let response: Response | undefined, body: ReturnType<typeof boundedBody> | undefined;
-    let timedOut = false;
-    const abort = () => {
-      if (!body) controller.abort();
-      else void body.close().then(() => controller.abort(), () => controller.abort());
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(() => { timedOut = true; abort(); }, this.#limits.timeoutMs);
-    const cancelled = () => { if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
+    const turn = turnTimer(signal, this.#limits.timeoutMs, () => body);
+    const { controller, checkCancellation: cancelled } = turn;
     try {
       if (signal.aborted) controller.abort();
       const fetching = Promise.resolve().then(() => this.#fetch(this.#endpoint, {
@@ -376,7 +358,7 @@ export class AnthropicProvider implements ProviderAdapter {
         const rejection = body ? new Response(body.stream, { status: response.status, headers: response.headers }) : response;
         throw await providerHttpFailure(rejection, controller.signal);
       }
-      if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) malformed();
+      if (!isEventStream(response) || !response.body) malformed();
       body ??= boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       const blocks = new Map<number, Block>();
       const text = new CredentialTextRedactor(this.#secrets), reasoning = new CredentialTextRedactor(this.#secrets);
@@ -397,7 +379,7 @@ export class AnthropicProvider implements ProviderAdapter {
           usage = accumulateUsage(usage, message.usage, request.includeMetadata === true);
           if (request.includeMetadata) {
             const id = requestId && redactCredentialText(requestId, this.#secrets);
-            if (id && id.trim() && Buffer.byteLength(id) <= 256 && !/[\u0000-\u001f\u007f]/u.test(id)) yield { type: 'progress', providerRequestId: id };
+            if (boundedText(id)) yield { type: 'progress', providerRequestId: id };
           }
           continue;
         }
@@ -502,11 +484,9 @@ export class AnthropicProvider implements ProviderAdapter {
       cancelled(); yield completedUsage;
       cancelled(); yield { type: 'finish', reason: finish, ...(generation || replayItems === undefined ? {} : { replayItems }) };
     } catch (error) {
-      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-      if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
-      throw publicError(error);
+      throw providerTurnError(error, signal, turn.timedOut());
     } finally {
-      clearTimeout(timer); signal.removeEventListener('abort', abort);
+      turn.dispose();
       // Cancel the owned reader before aborting fetch: abort can error an unread HTTP
       // rejection body and make its later cancellation mask the original status.
       let clean = false;

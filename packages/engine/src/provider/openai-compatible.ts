@@ -1,13 +1,12 @@
 import {declaredMediaModels,providerSegments,messageSegments,segmentNotice,type ProviderSegmentSource} from '../media/segment-provider.js';
 import {jobJson} from '../jobs/validation.js';
 import { EngineError, type ProviderToolCall } from '@moodcode/contracts';
-import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
+import type { ProviderAdapter, ProviderEvent, ProviderMessage, ResolvedInputImage, TurnRequest } from '../ports.js';
 import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 import { boundedGenerationBody } from './generation-body.js';
-import { malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, providerURLAllowed, publicError, record, redactJson, redactText, TextRedactor } from './helpers.js';
+import { credentialSecrets, CredentialTextRedactor, isEventStream, malformed, optionalString, positiveLimit, providerApiKey, providerEndpoint, providerFetch, providerHttpFailure, providerId, providerRemoteError, providerTurnError, providerUsage, publicError, record, redactCredentialJson, redactCredentialText, turnTimer } from './helpers.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
-import type { ResolvedInputImage } from '../ports.js';
 import { providerDocuments } from '../documents/provider.js';
 
 type DiagnosticType = 'missing' | 'null' | 'string' | 'number' | 'boolean' | 'array' | 'object';
@@ -137,7 +136,7 @@ export interface OpenAICompatibleProviderOptions {
   id?: string;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
-  /** Host generation must confirm underlying body cancellation within this bound. */
+  /** Host generation and media turns must confirm underlying body cancellation within this bound. */
   cleanupTimeoutMs?: number;
   maxFrameBytes?: number;
   maxResponseBytes?: number;
@@ -166,28 +165,12 @@ interface Limits {
 interface PendingCall { id?: string; name?: string; type?: 'function'; arguments: string }
 type FinishReason = Extract<ProviderEvent, { type: 'finish' }>['reason'];
 type Usage = Extract<ProviderEvent, { type: 'usage' }>;
+const USAGE_KEYS = { input: 'prompt_tokens', output: 'completion_tokens', inputDetails: 'prompt_tokens_details', outputDetails: 'completion_tokens_details' };
 
 function finishReason(value: unknown): FinishReason {
   if (value === 'stop' || value === 'tool_calls' || value === 'length') return value;
   if (value === 'content_filter') throw new EngineError('PROVIDER_CONTENT_FILTERED', 'Provider filtered the completion.');
   throw new EngineError('PROVIDER_UNSUPPORTED_FINISH_REASON', 'Provider returned an unsupported finish reason.');
-}
-function usageEvent(value: unknown, includeMetadata = false): Usage {
-  const usage = record(value);
-  const event: Usage = { type: 'usage' };
-  for (const [key, target] of [['prompt_tokens', 'inputTokens'], ['completion_tokens', 'outputTokens']] as const) {
-    const count = usage[key];
-    if (count === undefined || count === null) continue;
-    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) malformed();
-    event[target] = count;
-  }
-  for (const [details, key, target, total] of includeMetadata ? [['prompt_tokens_details', 'cached_tokens', 'cachedInputTokens', 'inputTokens'], ['completion_tokens_details', 'reasoning_tokens', 'reasoningOutputTokens', 'outputTokens']] as const : []) {
-    if (usage[details] === undefined || usage[details] === null) continue;
-    const count = record(usage[details])[key]; if (count === undefined || count === null) continue;
-    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || event[total] !== undefined && count > event[total]!) malformed();
-    event[target] = count;
-  }
-  return event;
 }
 
 function messageBody(message: ProviderMessage, images: ReadonlyMap<string, ResolvedInputImage>,segments:ReadonlyMap<string,ProviderSegmentSource>): Record<string, unknown> {
@@ -219,9 +202,10 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
   requestedOutputMedia(modelId:string):'audio/wav'|null{return this.#outputModels.has(modelId)?'audio/wav':null;}
   #endpoint: string;
   #apiKey: string | undefined;
+  #secrets: string[];
   #fetch: typeof globalThis.fetch;
   #limits: Limits;
-  #generationCleanupTimeoutMs: number;
+  #cleanupTimeoutMs: number;
   #includeStreamObfuscation: boolean | undefined;
   #allowEmptyAudioMetadata: boolean;
   #allowAudioExpiryCompletion: boolean;
@@ -240,19 +224,11 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     if(options.outputAudio!==undefined){const output=jobJson(options.outputAudio,16384) as unknown as NonNullable<OpenAICompatibleProviderOptions['outputAudio']>;
       if(Object.keys(output).sort().join(',')!=='channels,modelIds,sampleRate,voice'||!['alloy','ash','ballad','coral','echo','fable','nova','onyx','sage','shimmer','verse','marin','cedar'].includes(output.voice)||![8000,16000,24000,48000].includes(output.sampleRate)||![1,2].includes(output.channels))throw new EngineError('PROVIDER_INVALID_CONFIG','Explicit audio layout and voice are required');
       this.#outputModels=declaredMediaModels(output.modelIds);this.#outputAudio={voice:output.voice,sampleRate:output.sampleRate,channels:output.channels};}
-    this.#apiKey = options.apiKey;
-    if (this.#apiKey !== undefined && (typeof this.#apiKey !== 'string' || this.#apiKey.length === 0 || this.#apiKey.length > 4096 || /[^\x21-\x7e]/.test(this.#apiKey))) {
-      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider API key must be a nonempty printable bearer token.');
-    }
-    this.id = options.id ?? 'openai-compatible';
-    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(this.id) || (this.#apiKey && this.id.includes(this.#apiKey))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
-    let base: URL;
-    try { base = new URL(options.baseURL ?? 'https://api.openai.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
-    if (!providerURLAllowed(base, this.#apiKey !== undefined)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL must be an HTTP API prefix without credentials, query or fragment, using HTTPS or loopback HTTP when it carries an API key.');
-    base.pathname = base.pathname.replace(/\/+$/, '') + '/chat/completions';
-    this.#endpoint = base.href;
-    this.#fetch = options.fetch ?? globalThis.fetch;
-    if (typeof this.#fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider requires an HTTP fetch implementation.');
+    this.#apiKey = providerApiKey(options.apiKey, 'Provider API key must be a nonempty printable bearer token.');
+    this.#secrets = credentialSecrets(this.#apiKey, undefined);
+    this.id = providerId(options.id, 'openai-compatible', this.#secrets);
+    this.#endpoint = providerEndpoint(options.baseURL, 'https://api.openai.com/v1', '/chat/completions', this.#apiKey !== undefined, 'Provider base URL must be an HTTP API prefix without credentials, query or fragment, using HTTPS or loopback HTTP when it carries an API key.');
+    this.#fetch = providerFetch(options.fetch, 'Provider requires an HTTP fetch implementation.');
     this.#limits = {
       timeoutMs: positiveLimit(options.timeoutMs, 60_000),
       maxFrameBytes: positiveLimit(options.maxFrameBytes, 262_144),
@@ -261,7 +237,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       maxToolArgumentBytes: positiveLimit(options.maxToolArgumentBytes, 1_048_576),
       maxToolCalls: positiveLimit(options.maxToolCalls, 128),
     };
-    this.#generationCleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
+    this.#cleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
   }
 
   streamTurn(request: TurnRequest, signal: AbortSignal): AsyncGenerator<ProviderEvent> {
@@ -275,16 +251,16 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
   async *#stream(request: ProviderTransportRequest, signal: AbortSignal, generation: boolean): AsyncGenerator<ProviderEvent> {
     if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
     providerDocuments(request, false, signal);
+    const wantsAudio=!generation&&this.#outputModels.has(request.modelId);
     let serialized: string;
     try {
       if (typeof request.modelId !== 'string' || !request.modelId.trim()) throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider requires an explicit model identifier.');
       const images = providerImages(request, true, signal);
       const segments=providerSegments(request,kind=>!generation&&this.supportsInputMedia(request.modelId,kind),signal);
-      const audioOutput=!generation&&this.#outputModels.has(request.modelId);
       serialized = JSON.stringify({
         model: request.modelId,
         messages: request.messages.map(message => messageBody(message, images,segments)),
-        ...(audioOutput?{modalities:['text','audio'],audio:{voice:this.#outputAudio!.voice,format:'pcm16'}}:{}),
+        ...(wantsAudio?{modalities:['text','audio'],audio:{voice:this.#outputAudio!.voice,format:'pcm16'}}:{}),
         ...(generation && request.reasoningEffort !== undefined ? { reasoning_effort: request.reasoningEffort } : {}),
         ...(request.tools.length === 0 ? {} : { tools: request.tools.map(tool => ({ type: 'function', function: { name: tool.name, description: tool.description, parameters: tool.inputSchema } })) }),
         n: 1, stream: true, stream_options: { include_usage: true, ...(this.#includeStreamObfuscation === undefined ? {} : { include_obfuscation: this.#includeStreamObfuscation }) },
@@ -294,21 +270,10 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request could not be encoded.');
     }
     if (Buffer.byteLength(serialized, 'utf8') > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
-    const controller = new AbortController();
     let response: Response | undefined;
-    let generationBody: ReturnType<typeof boundedGenerationBody> | undefined;
-    let timedOut = false;
-    const checkCancellation = () => {
-      if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-    };
-    // Close an owned body before aborting fetch: abort errors an unread body, so its cancellation could not be confirmed.
-    const abort = () => {
-      if (!generationBody) controller.abort();
-      else void generationBody.close().then(() => controller.abort(), () => controller.abort());
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    // Covers both the initial HTTP response and a server stalled during the stream.
-    const timer = setTimeout(() => { timedOut = true; abort(); }, this.#limits.timeoutMs);
+    let boundedBody: ReturnType<typeof boundedGenerationBody> | undefined;
+    const turn = turnTimer(signal, this.#limits.timeoutMs, () => boundedBody);
+    const { controller, checkCancellation } = turn;
     let diagnosticFrame: unknown;
     let frameOrdinal = 0;
     const precedingFrames: ChatStreamFrameShape[] = [];
@@ -324,7 +289,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
     let audioMetadataTuple: ChatMetadataTuple | undefined;
     let audioTupleComplete = true;
     const allowAudioMetadata = this.#allowEmptyAudioMetadata && !generation && (this.#audioModels.has(request.modelId) || this.#outputModels.has(request.modelId));
-    const allowAudioExpiryCompletion = this.#allowAudioExpiryCompletion && !generation && this.#outputModels.has(request.modelId);
+    const allowAudioExpiryCompletion = this.#allowAudioExpiryCompletion && wantsAudio;
     try {
       if (signal.aborted) controller.abort();
       response = await this.#fetch(this.#endpoint, {
@@ -332,17 +297,16 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(this.#apiKey ? { Authorization: `Bearer ${this.#apiKey}` } : {}) },
         body: serialized,
       });
-      if ((generation||this.#outputModels.has(request.modelId)||request.messages.some(m=>m.media?.length)) && response.body) generationBody = boundedGenerationBody(response.body, controller.signal, this.#generationCleanupTimeoutMs);
+      if ((generation||this.#outputModels.has(request.modelId)||request.messages.some(m=>m.media?.length)) && response.body) boundedBody = boundedGenerationBody(response.body, controller.signal, this.#cleanupTimeoutMs);
       checkCancellation();
-      if (!response.ok) throw await providerHttpFailure(generationBody ? new Response(generationBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
-      if (response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() !== 'text/event-stream' || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
+      if (!response.ok) throw await providerHttpFailure(boundedBody ? new Response(boundedBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
+      if (!isEventStream(response) || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
       const calls = new Map<number, PendingCall>();
-      const redactor = new TextRedactor(this.#apiKey);
+      const redactor = new CredentialTextRedactor(this.#secrets);
       let argumentBytes = 0;
       let usage: Usage | undefined;
-      const wantsAudio=!generation&&this.#outputModels.has(request.modelId);
       diagnosticStage = 'sse';
-      for await (const frame of readSseData(generationBody?.stream ?? response.body, controller.signal, this.#limits)) {
+      for await (const frame of readSseData(boundedBody?.stream ?? response.body, controller.signal, this.#limits)) {
         frameOrdinal = Math.min(frameOrdinal + 1, Number.MAX_SAFE_INTEGER);
         diagnosticFrame = undefined;
         diagnosticStage = 'json';
@@ -363,7 +327,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
         if (chunk.usage !== undefined && chunk.usage !== null) {
           diagnosticStage = 'usage';
           if (usage) malformed();
-          usage = usageEvent(chunk.usage, request.includeMetadata);
+          usage = providerUsage(chunk.usage, USAGE_KEYS, request.includeMetadata);
         }
         diagnosticStage = 'choices';
         if (chunk.choices.length === 0) { if (!usage) malformed(); rememberFrame(); diagnosticFrame = undefined; diagnosticStage = 'sse'; continue; }
@@ -389,7 +353,7 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
           diagnosticStage = 'audio-terminal';
           if(finish!==undefined&&(Object.keys(delta).some(k=>k!=='audio')||Object.keys(audio).length!==1||audio.expires_at===undefined||choice.finish_reason!==undefined&&choice.finish_reason!==null))malformed();
           diagnosticStage = 'audio-id';
-          if(audio.id!==undefined){if(typeof audio.id!=='string'||!audio.id||audio.id.length>256||/[\u0000-\u001f\u007f]/.test(audio.id)||audioRawId&&audioRawId!==audio.id)malformed();audioRawId=audio.id;audioId=redactText(audio.id,this.#apiKey);}
+          if(audio.id!==undefined){if(typeof audio.id!=='string'||!audio.id||audio.id.length>256||/[\u0000-\u001f\u007f]/.test(audio.id)||audioRawId&&audioRawId!==audio.id)malformed();audioRawId=audio.id;audioId=redactCredentialText(audio.id,this.#secrets);}
           diagnosticStage = 'audio-expiry';
           if(audio.expires_at!==undefined){if(!Number.isSafeInteger(audio.expires_at)||Number(audio.expires_at)<1||audioExpired||!audioId)malformed();audioExpired=true;}
           diagnosticStage = 'audio-data';
@@ -457,45 +421,43 @@ export class OpenAICompatibleProvider implements ProviderAdapter {
       diagnosticStage = 'completed-calls';
       for (const [index, call] of [...calls.entries()].sort(([a], [b]) => a - b)) {
         if (index !== completed.length || !call.id || !call.name || call.type !== 'function') malformed();
-        const id = redactText(call.id, this.#apiKey);
+        const id = redactCredentialText(call.id, this.#secrets);
         if (identifiers.has(id)) malformed();
         identifiers.add(id);
         let input: unknown;
         try { input = JSON.parse(call.arguments); } catch { malformed(); }
         completed.push({
           id,
-          name: redactText(call.name, this.#apiKey),
-          input: redactJson(input, this.#apiKey),
+          name: redactCredentialText(call.name, this.#secrets),
+          input: redactCredentialJson(input, this.#secrets),
         });
       }
       const tail = redactor.push('', true);
       if (generation && completed.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
-      if (generationBody && !await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
+      if (boundedBody && !await boundedBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
       if (tail) { checkCancellation(); yield { type: 'text.delta', delta: tail }; }
       for (const call of completed) { checkCancellation(); yield { type: 'tool.call', call }; }
       if (usage) { checkCancellation(); yield usage; }
       checkCancellation();
-      if(audioId){checkCancellation();yield {type:'media.end',providerMediaId:audioId};}
+      if(audioId)yield {type:'media.end',providerMediaId:audioId};
       yield { type: 'finish', reason: finish };
     } catch (error) {
-      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-      if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
-      if (error instanceof EngineError && (error.code === 'PROVIDER_MALFORMED_STREAM' || error.code === 'PROVIDER_INCOMPLETE_STREAM') && this.#onMalformedStream) {
+      // Fetch/decoder exception messages, causes and HTTP bodies can contain secrets.
+      const failure = providerTurnError(error, signal, turn.timedOut());
+      if ((failure.code === 'PROVIDER_MALFORMED_STREAM' || failure.code === 'PROVIDER_INCOMPLETE_STREAM') && this.#onMalformedStream) {
         try {
-          const notification: unknown = this.#onMalformedStream(streamDiagnostic(diagnosticFrame, frameOrdinal, diagnosticStage, audioId !== undefined, audioExpired, audioBytes, finish, done, error.code, precedingFrames));
+          const notification: unknown = this.#onMalformedStream(streamDiagnostic(diagnosticFrame, frameOrdinal, diagnosticStage, audioId !== undefined, audioExpired, audioBytes, finish, done, failure.code, precedingFrames));
           if (notification instanceof Promise) void notification.catch(() => {});
         } catch { /* Diagnostics cannot replace the actual failure or cleanup result. */ }
       }
-      // Fetch/decoder exception messages, causes and HTTP bodies can contain secrets.
-      throw publicError(error);
+      throw failure;
     } finally {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', abort);
+      turn.dispose();
       let clean = true;
-      try { if (generationBody) clean = await generationBody.close(); }
+      try { if (boundedBody) clean = await boundedBody.close(); }
       finally { controller.abort(); }
       if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
-      if (!generationBody && response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
+      if (!boundedBody && response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 }

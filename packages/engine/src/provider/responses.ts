@@ -1,18 +1,20 @@
 import {declaredMediaModels,messageSegments,segmentNotice,type ProviderSegmentSource,providerSegments} from '../media/segment-provider.js';
 import { EngineError, REASONING_EFFORTS, type ProviderToolCall } from '@moodcode/contracts';
 import { types } from 'node:util';
-import type { ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
+import type { ProviderAdapter, ProviderEvent, ProviderMessage, ResolvedInputDocument, ResolvedInputImage, TurnRequest } from '../ports.js';
 import type { OpenAICompatibleProviderOptions } from './openai-compatible.js';
-import { credentialSecrets, CredentialTextRedactor, malformed, optionalString, positiveLimit, providerHttpFailure, providerRemoteError, providerURLAllowed, publicError, record, redactCredentialJson, redactCredentialText } from './helpers.js';
+import { boundedText, credentialSecrets, CredentialTextRedactor, isEventStream, malformed, optionalString, positiveLimit, providerApiKey, providerEndpoint, providerFetch, providerHttpFailure, providerId, providerRemoteError, providerTurnError, providerUsage, publicError, record, redactCredentialJson, redactCredentialText, turnTimer } from './helpers.js';
 import { replayCompatible, validateReplayBinding, validateReplayItems } from './replay.js';
 import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
-import type { ResolvedInputImage } from '../ports.js';
 import { hasDocumentInputs, messageDocuments, providerDocuments } from '../documents/provider.js';
-import type { ResolvedInputDocument } from '../ports.js';
 import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
 import { boundedGenerationBody } from './generation-body.js';
 
+/**
+ * includeStreamObfuscation, allowEmptyAudioMetadata, allowAudioExpiryCompletion, audioModelIds,
+ * outputAudio and onMalformedStream are inherited but have no effect on this adapter.
+ */
 export interface ResponsesProviderOptions extends OpenAICompatibleProviderOptions {
   /** Includes message and opaque reasoning items as well as function calls. */
   maxOutputItems?: number;
@@ -22,7 +24,6 @@ export interface ResponsesProviderOptions extends OpenAICompatibleProviderOption
   streamProfile?: 'responses' | 'codex';
   /** Exact host-declared PDF-capable models; no model-name inference or discovery. */
   pdfModelIds?: readonly string[];
-  videoModelIds?:readonly string[];
   /** PDF page/text token cost is unknown; host opt-in is required independently of model support. */
   allowUnknownDocumentTokenCost?: boolean;
 }
@@ -34,7 +35,6 @@ interface OutputItem {
   callId?: string; name?: string; arguments: string; argumentsDone: boolean; sawArgumentDelta: boolean;
   doneSnapshot?: Record<string, unknown>;
 }
-type Usage = Extract<ProviderEvent, { type: 'usage' }>;
 type FinishReason = Extract<ProviderEvent, { type: 'finish' }>['reason'];
 
 function nonempty(value: unknown): string {
@@ -59,8 +59,7 @@ function declaredPdfModels(value: unknown, secrets: readonly string[]): Readonly
   for (let index = 0; index < value.length; index++) {
     const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
     const model = descriptor && 'value' in descriptor && descriptor.enumerable ? descriptor.value : undefined;
-    if (typeof model !== 'string' || !model.trim() || Buffer.byteLength(model) > 256 || /[\u0000-\u001f\u007f]/u.test(model)
-      || secrets.some(secret => model.includes(secret)) || result.has(model)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'PDF model declarations must be bounded unique host identifiers.');
+    if (!boundedText(model) || secrets.some(secret => model.includes(secret)) || result.has(model)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'PDF model declarations must be bounded unique host identifiers.');
     result.add(model);
   }
   return result;
@@ -88,24 +87,7 @@ function inputItems(message: ProviderMessage, images: ReadonlyMap<string, Resolv
   }
   return items;
 }
-function normalizedUsage(value: unknown, includeMetadata = false): Usage | undefined {
-  if (value === undefined || value === null) return undefined;
-  const source = record(value);
-  const event: Usage = { type: 'usage' };
-  for (const [key, target] of [['input_tokens', 'inputTokens'], ['output_tokens', 'outputTokens']] as const) {
-    const count = source[key];
-    if (count === undefined || count === null) continue;
-    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0) malformed();
-    event[target] = count;
-  }
-  for (const [details, key, target, total] of includeMetadata ? [['input_tokens_details', 'cached_tokens', 'cachedInputTokens', 'inputTokens'], ['output_tokens_details', 'reasoning_tokens', 'reasoningOutputTokens', 'outputTokens']] as const : []) {
-    if (source[details] === undefined || source[details] === null) continue;
-    const count = record(source[details])[key]; if (count === undefined || count === null) continue;
-    if (typeof count !== 'number' || !Number.isSafeInteger(count) || count < 0 || event[total] !== undefined && count > event[total]!) malformed();
-    event[target] = count;
-  }
-  return event;
-}
+const USAGE_KEYS = { input: 'input_tokens', output: 'output_tokens', inputDetails: 'input_tokens_details', outputDetails: 'output_tokens_details' };
 
 /** Stateless native Responses turn; the runner owns history, tool execution and retries. */
 export class ResponsesProvider implements ProviderAdapter {
@@ -120,23 +102,15 @@ export class ResponsesProvider implements ProviderAdapter {
   #codexProfile: boolean;
   #pdfModelIds: ReadonlySet<string>;#videoModels:ReadonlySet<string>;
   supportsInputMedia(modelId:string,kind:'audio'|'video'):boolean{return kind==='video'&&!this.#codexProfile&&this.#videoModels.has(modelId);}
-  #generationCleanupTimeoutMs: number;
+  #cleanupTimeoutMs: number;
   #fetch: typeof globalThis.fetch;
   #limits: { timeoutMs: number; maxFrameBytes: number; maxResponseBytes: number; maxRequestBytes: number; maxToolArgumentBytes: number; maxToolCalls: number; maxOutputItems: number };
 
   constructor(options: ResponsesProviderOptions = {}) {
-    this.#apiKey = options.apiKey;
-    if (this.#apiKey !== undefined && (typeof this.#apiKey !== 'string' || !this.#apiKey.length || this.#apiKey.length > 4096 || /[^\x21-\x7e]/.test(this.#apiKey))) {
-      throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider API key must be a nonempty printable bearer token.');
-    }
+    this.#apiKey = providerApiKey(options.apiKey, 'Provider API key must be a nonempty printable bearer token.');
     this.#secrets = credentialSecrets(this.#apiKey, options.redactionSecrets);
-    this.id = options.id ?? 'openai-responses';
-    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(this.id) || this.#secrets.some(secret => this.id.includes(secret))) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider identifier is invalid.');
-    let base: URL;
-    try { base = new URL(options.baseURL ?? 'https://api.openai.com/v1'); } catch { throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL is invalid.'); }
-    if (!providerURLAllowed(base, this.#apiKey !== undefined)) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider base URL must be an HTTP API prefix without credentials, query or fragment, using HTTPS or loopback HTTP when it carries an API key.');
-    base.pathname = base.pathname.replace(/\/+$/, '') + '/responses';
-    this.#endpoint = base.href;
+    this.id = providerId(options.id, 'openai-responses', this.#secrets);
+    this.#endpoint = providerEndpoint(options.baseURL, 'https://api.openai.com/v1', '/responses', this.#apiKey !== undefined, 'Provider base URL must be an HTTP API prefix without credentials, query or fragment, using HTTPS or loopback HTTP when it carries an API key.');
     if (options.streamProfile !== undefined && options.streamProfile !== 'responses' && options.streamProfile !== 'codex') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider stream profile is invalid.');
     this.#codexProfile = options.streamProfile === 'codex';
     this.#videoModels=declaredMediaModels(options.videoModelIds);
@@ -151,8 +125,7 @@ export class ResponsesProvider implements ProviderAdapter {
     this.inputFileTypes = Object.freeze(this.#codexProfile ? [] : ['application/pdf'] as const);
     this.replayProtocol = this.#codexProfile ? 'codex-responses' : 'openai-responses';
     if (this.#codexProfile && (this.id !== 'codex' || this.#endpoint !== 'https://chatgpt.com/backend-api/codex/responses')) throw new EngineError('PROVIDER_INVALID_CONFIG', 'Codex stream profile requires its fixed provider identity and route.');
-    this.#fetch = options.fetch ?? globalThis.fetch;
-    if (typeof this.#fetch !== 'function') throw new EngineError('PROVIDER_INVALID_CONFIG', 'Provider requires an HTTP fetch implementation.');
+    this.#fetch = providerFetch(options.fetch, 'Provider requires an HTTP fetch implementation.');
     this.#limits = {
       timeoutMs: positiveLimit(options.timeoutMs, 60_000),
       maxFrameBytes: positiveLimit(options.maxFrameBytes, 262_144),
@@ -162,7 +135,7 @@ export class ResponsesProvider implements ProviderAdapter {
       maxToolCalls: positiveLimit(options.maxToolCalls, 128),
       maxOutputItems: positiveLimit(options.maxOutputItems, 256),
     };
-    this.#generationCleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
+    this.#cleanupTimeoutMs = positiveLimit(options.cleanupTimeoutMs, 1_000);
   }
 
   supportsInputFile(modelId: string, mimeType: 'application/pdf'): boolean {
@@ -213,23 +186,15 @@ export class ResponsesProvider implements ProviderAdapter {
       });
     } catch (error) {
       if (error instanceof EngineError && error.code === 'PROVIDER_UNSUPPORTED_INPUT') throw new EngineError('PROVIDER_UNSUPPORTED_INPUT', 'Provider/model does not support PDF document input.');
-      if (error instanceof EngineError && error.code === 'DOCUMENT_TOKEN_COST_UNKNOWN') throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF input token cost is unknown and requires explicit host opt-in.');
-      if (error instanceof EngineError && ['PROVIDER_INVALID_REPLAY', 'PROVIDER_LIMIT_EXCEEDED', 'PROVIDER_UNSUPPORTED_INPUT', 'PROVIDER_CANCELLED'].includes(error.code)) throw publicError(error);
+      if (error instanceof EngineError && error.code === 'DOCUMENT_TOKEN_COST_UNKNOWN') throw error;
+      if (error instanceof EngineError && ['PROVIDER_INVALID_REPLAY', 'PROVIDER_LIMIT_EXCEEDED', 'PROVIDER_CANCELLED'].includes(error.code)) throw publicError(error);
       throw new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request could not be encoded.');
     }
     if (Buffer.byteLength(serialized, 'utf8') > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
-    const controller = new AbortController();
     let response: Response | undefined;
-    let generationBody: ReturnType<typeof boundedGenerationBody> | undefined;
-    let timedOut = false;
-    const checkCancellation = () => { if (signal.aborted || timedOut || controller.signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.'); };
-    // Close an owned body before aborting fetch: abort errors an unread body, so its cancellation could not be confirmed.
-    const abort = () => {
-      if (!generationBody) controller.abort();
-      else void generationBody.close().then(() => controller.abort(), () => controller.abort());
-    };
-    signal.addEventListener('abort', abort, { once: true });
-    const timer = setTimeout(() => { timedOut = true; abort(); }, this.#limits.timeoutMs);
+    let boundedBody: ReturnType<typeof boundedGenerationBody> | undefined;
+    const turn = turnTimer(signal, this.#limits.timeoutMs, () => boundedBody);
+    const { controller, checkCancellation } = turn;
     try {
       if (signal.aborted) controller.abort();
       response = await this.#fetch(this.#endpoint, {
@@ -237,12 +202,10 @@ export class ResponsesProvider implements ProviderAdapter {
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', ...(this.#apiKey ? { Authorization: `Bearer ${this.#apiKey}` } : {}) },
         body: serialized,
       });
-      if (generation && response.body) generationBody = boundedGenerationBody(response.body, controller.signal, this.#generationCleanupTimeoutMs);
+      if (generation && response.body) boundedBody = boundedGenerationBody(response.body, controller.signal, this.#cleanupTimeoutMs);
       checkCancellation();
-      if (!response.ok) throw await providerHttpFailure(generationBody ? new Response(generationBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
-      const contentType = response.headers.get('content-type');
-      const acceptsStream = contentType?.split(';')[0]?.trim().toLowerCase() === 'text/event-stream' || this.#codexProfile && contentType === null;
-      if (!acceptsStream || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
+      if (!response.ok) throw await providerHttpFailure(boundedBody ? new Response(boundedBody.stream, { status: response.status, headers: response.headers }) : response, controller.signal);
+      if (!isEventStream(response, this.#codexProfile) || !response.body) throw new EngineError('PROVIDER_MALFORMED_STREAM', 'Provider response must be an SSE stream.');
 
       const items = new Map<number, OutputItem>();
       const itemIds = new Set<string>();
@@ -312,7 +275,7 @@ export class ResponsesProvider implements ProviderAdapter {
         // Reasoning is kept in validated finish replay data, outside public text.
       };
 
-      for await (const frame of readSseData(generationBody?.stream ?? response.body, controller.signal, this.#limits)) {
+      for await (const frame of readSseData(boundedBody?.stream ?? response.body, controller.signal, this.#limits)) {
         if (frame.trim() === '[DONE]') throw new EngineError('PROVIDER_INCOMPLETE_STREAM', 'Provider stream ended without a Responses lifecycle terminal.');
         let parsed: unknown;
         try { parsed = JSON.parse(frame); } catch { malformed(); }
@@ -502,7 +465,7 @@ export class ResponsesProvider implements ProviderAdapter {
         try { input = JSON.parse(item.arguments); } catch { malformed(); }
         completed.push({ id, name: redactCredentialText(item.name, this.#secrets), input: redactCredentialJson(input, this.#secrets) });
       }
-      const usage = normalizedUsage(terminal.usage, request.includeMetadata);
+      const usage = terminal.usage == null ? undefined : providerUsage(terminal.usage, USAGE_KEYS, request.includeMetadata);
       const tail = redactor.push('', true);
       const replayItems = finish === 'length' ? undefined : validateReplayItems(replayOutput, {
         secrets: this.#secrets, maxItems: this.#limits.maxOutputItems,
@@ -511,24 +474,21 @@ export class ResponsesProvider implements ProviderAdapter {
       });
       if (replayItems) validateReplayBinding({ role: 'assistant', content: publicText + tail, toolCalls: completed }, replayItems);
       if (generation && completed.length) throw new EngineError('PROVIDER_UNSUPPORTED_OUTPUT', 'Host generation cannot propose executable tools.');
-      if (generationBody && !await generationBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
+      if (boundedBody && !await boundedBody.close()) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
       if (tail) { checkCancellation(); yield { type: 'text.delta', delta: tail }; }
       for (const call of completed) { checkCancellation(); yield { type: 'tool.call', call }; }
       if (usage) { checkCancellation(); yield usage; }
       checkCancellation();
       yield { type: 'finish', reason: finish, ...(!generation && replayItems ? { replayItems } : {}) };
     } catch (error) {
-      if (signal.aborted) throw new EngineError('PROVIDER_CANCELLED', 'Provider turn cancelled.');
-      if (timedOut) throw new EngineError('PROVIDER_TIMEOUT', 'Provider turn timed out.');
-      throw publicError(error);
+      throw providerTurnError(error, signal, turn.timedOut());
     } finally {
-      clearTimeout(timer);
-      signal.removeEventListener('abort', abort);
+      turn.dispose();
       let clean = true;
-      try { if (generationBody) clean = await generationBody.close(); }
+      try { if (boundedBody) clean = await boundedBody.close(); }
       finally { controller.abort(); }
       if (!clean) throw new EngineError('CLEANUP_UNCERTAIN', 'Provider generation cleanup could not be confirmed.');
-      if (!generationBody && response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
+      if (!boundedBody && response?.body && !response.body.locked) await response.body.cancel().catch(() => {});
     }
   }
 }
