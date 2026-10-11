@@ -21,6 +21,7 @@ import {
   sandboxSign,
   type SandboxPhysicalPin,
   type SandboxCapability,
+  type SandboxLaunch,
 } from "./types.js";
 export function physicalPin(path: string): SandboxPhysicalPin {
   if (!isAbsolute(path) || realpathSync(path) !== path)
@@ -231,6 +232,41 @@ export function seatbeltProfile(
   ].join(" ");
   return `(version 1)(deny default)(allow process-exec process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable ${read})(allow file-write* (literal "/dev/null") ${writePaths.map((p) => `(subpath ${q(p)})`).join(" ")})(deny file-read* file-write* ${excluded.map((p) => `(subpath ${q(p)})`).join(" ")})${git === null ? "" : gitWrites(git)}`;
 }
+/** Pins and profile of a grant over canonical `read` and `write` paths in `root`; Node is the only extra executable. */
+export function restriction(
+  root: string,
+  read: readonly string[],
+  write: readonly string[],
+  excluded: readonly string[],
+): { pins: SandboxPhysicalPin[]; profile: string } {
+  const node = realpathSync(process.execPath);
+  return {
+    pins: [
+      physicalPin(root),
+      ...read.filter((p) => p !== root).map(physicalPin),
+      physicalPin(node),
+    ],
+    profile: seatbeltProfile(
+      read,
+      write,
+      excluded,
+      [node],
+      gitControlPaths(root, write),
+    ),
+  };
+}
+export const seatbeltLaunch = (
+  executable: string,
+  profile: string,
+  grantSha256: string,
+): SandboxLaunch =>
+  sandboxSign({
+    version: 1 as const,
+    backend: "darwin-seatbelt-v1" as const,
+    executable,
+    profile,
+    grantSha256,
+  });
 export async function probeSeatbelt(): Promise<SandboxCapability> {
   const base = {
     version: 1 as const,

@@ -9,6 +9,7 @@ import {
   sandboxSha,
   sandboxSign,
   SANDBOX_LIMITS,
+  type SandboxGrant,
   type SandboxRecord,
 } from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -117,6 +118,69 @@ function reclaim(db: DatabaseSync, records: readonly SandboxRecord[]): void {
     ).run(r.sessionId, r.id);
     reserve(r, -1);
   }
+}
+export function newSandboxRecord(
+  fields: Pick<
+    SandboxRecord,
+    | "id"
+    | "kind"
+    | "state"
+    | "grant"
+    | "owner"
+    | "groupPid"
+    | "requestId"
+    | "requestSha256"
+  >,
+): SandboxRecord {
+  const now = new Date().toISOString();
+  return sandboxSign({
+    version: 1 as const,
+    id: fields.id,
+    kind: fields.kind,
+    workspaceId: fields.grant.workspaceId,
+    sessionId: fields.grant.sessionId,
+    revision: 1,
+    previousSha256: null,
+    state: fields.state,
+    grant: fields.grant,
+    owner: fields.owner,
+    groupPid: fields.groupPid,
+    completion: null,
+    requestId: fields.requestId,
+    requestSha256: fields.requestSha256,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+/** Every key already exists on `record`, so the stored key order is kept. */
+export function nextSandboxRecord(
+  record: SandboxRecord,
+  state: SandboxRecord["state"],
+  extra: Partial<Pick<SandboxRecord, "groupPid" | "completion">> = {},
+): SandboxRecord {
+  return sandboxSign({
+    ...record,
+    ...extra,
+    state,
+    revision: record.revision + 1,
+    previousSha256: record.sha256,
+    updatedAt: new Date().toISOString(),
+  });
+}
+/** Same paths, pins, profile, backend, root binding and owner epoch; targets are compared by each caller. */
+export function sameRestriction(a: SandboxGrant, b: SandboxGrant): boolean {
+  const restriction = (g: SandboxGrant) =>
+    knowledgeHash([
+      g.readPaths,
+      g.writePaths,
+      g.pins,
+      g.excluded,
+      g.rootBindingSha256,
+      g.ownerEpoch,
+      g.profile,
+      g.backend.sha256,
+    ]);
+  return restriction(a) === restriction(b);
 }
 const hex = (value: unknown): boolean =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
@@ -418,21 +482,11 @@ function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
       source.owner?.clientId !== o.clientId ||
       source.owner?.profileSha256 !== o.profileSha256 ||
       source.owner?.launchSha256 !== o.launchSha256 ||
-      knowledgeHash(source.grant.excluded) !==
-        knowledgeHash(r.grant.excluded) ||
-      knowledgeHash(source.grant.pins) !== knowledgeHash(r.grant.pins) ||
+      !sameRestriction(source.grant, r.grant) ||
       knowledgeHash(source.grant.target.config) !==
         knowledgeHash(r.grant.target.config) ||
       knowledgeHash(source.grant.target.profile) !==
         knowledgeHash(r.grant.target.profile) ||
-      source.grant.ownerEpoch !== r.grant.ownerEpoch ||
-      source.grant.backend.sha256 !== r.grant.backend.sha256 ||
-      source.grant.profile !== r.grant.profile ||
-      source.grant.rootBindingSha256 !== r.grant.rootBindingSha256 ||
-      knowledgeHash(source.grant.readPaths) !==
-        knowledgeHash(r.grant.readPaths) ||
-      knowledgeHash(source.grant.writePaths) !==
-        knowledgeHash(r.grant.writePaths) ||
       o.bootstrapTargetSha256 !== knowledgeHash(r.grant.target)
     )
       sandboxError("SANDBOX_MCP_BINDING_INVALID");
@@ -675,7 +729,6 @@ export class SandboxStorage {
   }
   write(record: SandboxRecord, expected: number): SandboxRecord {
     return this.ports.writeTx(() => {
-      caps(this.db);
       const r = validateSandboxRecord(record),
         previous = this.get(r.workspaceId, r.id);
       if (
@@ -710,22 +763,9 @@ export class SandboxStorage {
   recover(): void {
     for (const r of this.list()) {
       if (r.kind !== "grant" && ["starting", "running"].includes(r.state))
-        this.write(
-          sandboxSign({
-            ...withoutSha(r),
-            revision: r.revision + 1,
-            previousSha256: r.sha256,
-            state: "uncertain" as const,
-            updatedAt: new Date().toISOString(),
-          }),
-          r.revision,
-        );
+        this.write(nextSandboxRecord(r, "uncertain"), r.revision);
     }
   }
-}
-function withoutSha(r: SandboxRecord) {
-  const { sha256: _sha, ...body } = r;
-  return body;
 }
 export function pauseImportedSandboxes(
   db: DatabaseSync,
@@ -735,15 +775,6 @@ export function pauseImportedSandboxes(
   const native = new SandboxStorage(db, ports);
   for (const r of native.list(workspaceId)) {
     if (r.state === "paused-import") continue;
-    native.write(
-      sandboxSign({
-        ...withoutSha(r),
-        revision: r.revision + 1,
-        previousSha256: r.sha256,
-        state: "paused-import" as const,
-        updatedAt: new Date().toISOString(),
-      }),
-      r.revision,
-    );
+    native.write(nextSandboxRecord(r, "paused-import"), r.revision);
   }
 }

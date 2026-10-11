@@ -8,7 +8,11 @@ import { existsSync, realpathSync } from "node:fs";
 import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { ToolContext, PreparedTool } from "../ports.js";
-import type { RunConfigInput, JsonObject } from "@moodcode/contracts";
+import type {
+  RunConfig,
+  RunConfigInput,
+  JsonObject,
+} from "@moodcode/contracts";
 import { normalizeSubmitInput } from "@moodcode/contracts/validation";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -24,13 +28,19 @@ import type {
   CommandExecutionObserver,
   CommandExecutionCompletion,
 } from "../tools/command/observation.js";
-import { SandboxStorage } from "./records.js";
+import {
+  SandboxStorage,
+  newSandboxRecord,
+  nextSandboxRecord,
+  sameRestriction,
+} from "./records.js";
 import {
   probeSeatbelt,
   physicalPin,
   assertPin,
   canonicalWorkspacePath,
-  gitControlPaths,
+  restriction,
+  seatbeltLaunch,
   seatbeltProfile,
 } from "./platform-backends.js";
 import {
@@ -108,14 +118,14 @@ export class SandboxHost implements CommandExecutionObserver {
       osRelease() !== g.backend.osRelease
     )
       sandboxError("SANDBOX_BACKEND_STALE");
-    assertPhysicalKnowledgeRoot(this.options.binding(g.workspaceId));
-    if (
-      knowledgeHash(this.options.binding(g.workspaceId)) !== g.rootBindingSha256
-    )
+    const binding = this.options.binding(g.workspaceId);
+    assertPhysicalKnowledgeRoot(binding);
+    if (knowledgeHash(binding) !== g.rootBindingSha256)
       sandboxError("SANDBOX_SOURCE_STALE");
     for (const p of g.pins) assertPin(p);
     assertPin(g.backend.executable!);
     this.childGuards.get(g.sessionId)?.();
+    let captured: RunConfig = g.target.config;
     if (config) {
       const cfg = normalizeSubmitInput(
         {
@@ -126,34 +136,23 @@ export class SandboxHost implements CommandExecutionObserver {
         },
         this.engine.getCapabilities().defaults,
       ).config;
-      let capturedConfig = cfg;
-      if (knowledgeHash(cfg) !== g.target.runConfigSha256) {
-        if (!originalResident || !narrowedResidentConfig(g.target.config, cfg))
-          sandboxError("SANDBOX_TARGET_STALE");
-        capturedConfig = g.target.config;
-      }
-      const target = describeQueueTarget(
-        this.engine,
-        this.options.binding,
-        g.workspaceId,
-        g.sessionId,
-        capturedConfig,
-        jobTargetChanged,
-      ).pin;
-      if (knowledgeHash(target) !== knowledgeHash(g.target))
-        sandboxError("SANDBOX_TARGET_STALE");
-    } else {
-      const t = describeQueueTarget(
-        this.engine,
-        this.options.binding,
-        g.workspaceId,
-        g.sessionId,
-        g.target.config,
-        jobTargetChanged,
-      ).pin;
-      if (knowledgeHash(t) !== knowledgeHash(g.target))
+      if (knowledgeHash(cfg) === g.target.runConfigSha256) captured = cfg;
+      else if (
+        !originalResident ||
+        !narrowedResidentConfig(g.target.config, cfg)
+      )
         sandboxError("SANDBOX_TARGET_STALE");
     }
+    const target = describeQueueTarget(
+      this.engine,
+      this.options.binding,
+      g.workspaceId,
+      g.sessionId,
+      captured,
+      jobTargetChanged,
+    ).pin;
+    if (knowledgeHash(target) !== knowledgeHash(g.target))
+      sandboxError("SANDBOX_TARGET_STALE");
   }
   async preview(input: PreviewSandboxGrantInput): Promise<object> {
     this.active();
@@ -213,34 +212,20 @@ export class SandboxHost implements CommandExecutionObserver {
         config,
         jobTargetChanged,
       ).pin,
-      pins = [
-        physicalPin(root),
-        ...read.filter((p) => p !== root).map(physicalPin),
-        physicalPin(realpathSync(process.execPath)),
-      ];
-    const profile = seatbeltProfile(
-        read,
-        write,
-        excluded,
-        [realpathSync(process.execPath)],
-        gitControlPaths(root, write),
-      ),
-      restriction = knowledgeHash({
-        backend: this.backend.sha256,
-        target,
-        read,
-        write,
-        pins,
-        excluded,
+      { pins, profile } = restriction(root, read, write, excluded),
+      launch = seatbeltLaunch(
+        this.backend.executable!.path,
         profile,
-      }),
-      launch = sandboxSign({
-        version: 1 as const,
-        backend: "darwin-seatbelt-v1" as const,
-        executable: this.backend.executable!.path,
-        profile,
-        grantSha256: restriction,
-      });
+        knowledgeHash({
+          backend: this.backend.sha256,
+          target,
+          read,
+          write,
+          pins,
+          excluded,
+          profile,
+        }),
+      );
     const g = sandboxSign({
       version: 1 as const,
       id: randomUUID(),
@@ -333,26 +318,19 @@ export class SandboxHost implements CommandExecutionObserver {
       g.workspaceId,
       async () => {
         this.current(g);
-        const now = new Date().toISOString(),
-          r = sandboxSign({
-            version: 1 as const,
+        const saved = this.native.write(
+          newSandboxRecord({
             id: g.id,
-            kind: "grant" as const,
-            workspaceId: g.workspaceId,
-            sessionId: g.sessionId,
-            revision: 1,
-            previousSha256: null,
-            state: "approved" as const,
+            kind: "grant",
+            state: "approved",
             grant: g,
             owner: null,
             groupPid: null,
-            completion: null,
             requestId: x.requestId,
             requestSha256: digest,
-            createdAt: now,
-            updatedAt: now,
-          });
-        const saved = this.native.write(r, 0);
+          }),
+          0,
+        );
         this.grants.set(g.sessionId, g);
         this.handles.delete(original);
         return { duplicate: false, record: saved };
@@ -393,31 +371,22 @@ export class SandboxHost implements CommandExecutionObserver {
       g = this.grants.get(context.sessionId)!;
     if (knowledgeHash(prepared.preview.sandbox) !== knowledgeHash(launch))
       sandboxError("SANDBOX_APPROVAL_STALE");
-    const now = new Date().toISOString(),
-      r = sandboxSign({
-        version: 1 as const,
-        id:
-          "sandbox-command-" +
-          knowledgeHash([context.runId, context.toolCallId]).slice(0, 32),
-        kind: "command" as const,
-        workspaceId: g.workspaceId,
-        sessionId: g.sessionId,
-        revision: 1,
-        previousSha256: null,
-        state: "starting" as const,
-        grant: g,
-        owner: sandboxJson({
-          ...owner,
-          preparedSha256: knowledgeHash(prepared),
-          command: (prepared.input as JsonObject).command,
-        }) as JsonObject,
-        groupPid: null,
-        completion: null,
-        requestId: context.toolCallId,
-        requestSha256: knowledgeHash(prepared),
-        createdAt: now,
-        updatedAt: now,
-      });
+    const r = newSandboxRecord({
+      id:
+        "sandbox-command-" +
+        knowledgeHash([context.runId, context.toolCallId]).slice(0, 32),
+      kind: "command",
+      state: "starting",
+      grant: g,
+      owner: sandboxJson({
+        ...owner,
+        preparedSha256: knowledgeHash(prepared),
+        command: (prepared.input as JsonObject).command,
+      }) as JsonObject,
+      groupPid: null,
+      requestId: context.toolCallId,
+      requestSha256: knowledgeHash(prepared),
+    });
     const original = Object.freeze({}),
       entry = { context, record: this.native.write(r, 0) };
     this.entries.set(original, entry);
@@ -426,19 +395,11 @@ export class SandboxHost implements CommandExecutionObserver {
   private update(
     entry: Flight,
     state: SandboxRecord["state"],
-    extra: Partial<SandboxRecord> = {},
+    extra?: Partial<Pick<SandboxRecord, "groupPid" | "completion">>,
   ) {
-    const { sha256: _sha, ...body } = entry.record;
     entry.record = this.native.write(
-      sandboxSign({
-        ...body,
-        ...extra,
-        state,
-        revision: body.revision + 1,
-        previousSha256: entry.record.sha256,
-        updatedAt: new Date().toISOString(),
-      }),
-      body.revision,
+      nextSandboxRecord(entry.record, state, extra),
+      entry.record.revision,
     );
   }
   started(original: object, pid: number) {
@@ -526,32 +487,12 @@ export class SandboxHost implements CommandExecutionObserver {
       read = map(g.readPaths),
       write = map(g.writePaths),
       excluded = child.options.excluded,
-      profile = seatbeltProfile(
-        read,
-        write,
-        excluded,
-        [realpathSync(process.execPath)],
-        gitControlPaths(workspace.root, write),
-      ),
-      pins = [
-        physicalPin(workspace.root),
-        ...read.filter((p) => p !== workspace.root).map(physicalPin),
-        physicalPin(realpathSync(process.execPath)),
-      ],
-      launch = sandboxSign({
-        version: 1 as const,
-        backend: "darwin-seatbelt-v1" as const,
-        executable: g.launch.executable,
+      { pins, profile } = restriction(workspace.root, read, write, excluded),
+      launch = seatbeltLaunch(
+        g.launch.executable,
         profile,
-        grantSha256: knowledgeHash({
-          parent: g.sha256,
-          target,
-          read,
-          write,
-          pins,
-          profile,
-        }),
-      });
+        knowledgeHash({ parent: g.sha256, target, read, write, pins, profile }),
+      );
     const inherited = sandboxSign({
       ...g,
       id: randomUUID(),
@@ -639,8 +580,7 @@ export class SandboxHost implements CommandExecutionObserver {
           profile,
           kind: "mcp-readonly",
         }),
-      }),
-      now = new Date().toISOString();
+      });
     let record: SandboxRecord | undefined;
     let registered = false,
       binding: SandboxGrant | undefined,
@@ -688,15 +628,10 @@ export class SandboxHost implements CommandExecutionObserver {
         beforeStart: () => {
           guard();
           record = this.native.write(
-            sandboxSign({
-              version: 1 as const,
+            newSandboxRecord({
               id: "sandbox-mcp-" + randomUUID(),
-              kind: "mcp" as const,
-              workspaceId: g.workspaceId,
-              sessionId: g.sessionId,
-              revision: 1,
-              previousSha256: null,
-              state: "starting" as const,
+              kind: "mcp",
+              state: "starting",
               grant: g,
               owner: sandboxJson({
                 clientId: x.id,
@@ -708,45 +643,28 @@ export class SandboxHost implements CommandExecutionObserver {
                 authority: "read-only-stdio",
               }) as unknown as JsonObject,
               groupPid: null,
-              completion: null,
               requestId: randomUUID(),
               requestSha256: knowledgeHash(x),
-              createdAt: now,
-              updatedAt: now,
             }),
             0,
           );
         },
         started: (pid) => {
           if (!record) sandboxError("SANDBOX_MCP_OWNER_INVALID");
-          const { sha256: _sha, ...body } = record;
           record = this.native.write(
-            sandboxSign({
-              ...body,
-              revision: body.revision + 1,
-              previousSha256: record.sha256,
-              state: "running" as const,
-              groupPid: pid,
-              updatedAt: new Date().toISOString(),
-            }),
-            body.revision,
+            nextSandboxRecord(record, "running", { groupPid: pid }),
+            record.revision,
           );
         },
         closed: (outcome) => {
           if (!record) return;
-          const { sha256: _sha, ...body } = record;
           record = this.native.write(
-            sandboxSign({
-              ...body,
-              revision: body.revision + 1,
-              previousSha256: record.sha256,
-              state: outcome.cleanupConfirmed
-                ? ("closed" as const)
-                : ("uncertain" as const),
-              completion: sandboxJson({ outcome }) as unknown as JsonObject,
-              updatedAt: new Date().toISOString(),
-            }),
-            body.revision,
+            nextSandboxRecord(
+              record,
+              outcome.cleanupConfirmed ? "closed" : "uncertain",
+              { completion: sandboxJson({ outcome }) as unknown as JsonObject },
+            ),
+            record.revision,
           );
         },
       },
@@ -781,47 +699,31 @@ export class SandboxHost implements CommandExecutionObserver {
         for (const pin of pins) assertPin(pin);
         if (
           knowledgeHash(current.target) !== knowledgeHash(expectedTarget) ||
-          knowledgeHash(current.readPaths) !== knowledgeHash(g.readPaths) ||
-          knowledgeHash(current.writePaths) !== knowledgeHash(g.writePaths) ||
-          knowledgeHash(current.pins) !== knowledgeHash(g.pins) ||
-          knowledgeHash(current.excluded) !== knowledgeHash(g.excluded) ||
-          current.rootBindingSha256 !== g.rootBindingSha256 ||
-          current.ownerEpoch !== g.ownerEpoch ||
-          current.profile !== g.profile ||
-          current.backend.sha256 !== g.backend.sha256
+          !sameRestriction(current, g)
         )
           sandboxError("SANDBOX_MCP_GRANT_STALE");
-        const createdAt = new Date().toISOString(),
-          receipt = this.native.write(
-            sandboxSign({
-              version: 1 as const,
-              id:
-                "sandbox-mcp-binding-" +
-                knowledgeHash([record.id, current.sha256]).slice(0, 32),
-              kind: "mcp-binding" as const,
-              workspaceId: current.workspaceId,
-              sessionId: current.sessionId,
-              revision: 1,
-              previousSha256: null,
-              state: "approved" as const,
-              grant: current,
-              owner: sandboxJson({
-                connectionId: record.id,
-                connectionSha256: record.sha256,
-                clientId: x.id,
-                launchSha256: launch.sha256,
-                profileSha256: knowledgeHash(profile),
-                bootstrapTargetSha256: knowledgeHash(expectedTarget),
-              }) as unknown as JsonObject,
-              groupPid: record.groupPid,
-              completion: null,
-              requestId: "bind:" + record.id,
-              requestSha256: knowledgeHash([record.sha256, current.sha256]),
-              createdAt,
-              updatedAt: createdAt,
-            }),
-            0,
-          );
+        const receipt = this.native.write(
+          newSandboxRecord({
+            id:
+              "sandbox-mcp-binding-" +
+              knowledgeHash([record.id, current.sha256]).slice(0, 32),
+            kind: "mcp-binding",
+            state: "approved",
+            grant: current,
+            owner: sandboxJson({
+              connectionId: record.id,
+              connectionSha256: record.sha256,
+              clientId: x.id,
+              launchSha256: launch.sha256,
+              profileSha256: knowledgeHash(profile),
+              bootstrapTargetSha256: knowledgeHash(expectedTarget),
+            }) as unknown as JsonObject,
+            groupPid: record.groupPid,
+            requestId: "bind:" + record.id,
+            requestSha256: knowledgeHash([record.sha256, current.sha256]),
+          }),
+          0,
+        );
         binding = current;
         return receipt;
       });
