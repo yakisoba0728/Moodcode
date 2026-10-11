@@ -1,7 +1,9 @@
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
-import type { ScheduleTargetPin } from "../schedules/types.js";
+import {
+  validateQueueTarget,
+  type QueueTargetPin,
+} from "../runner/queue-target.js";
 import {
   validateHostCommandRecord,
   type HostCommandRecord,
@@ -32,7 +34,7 @@ export interface HostCommandDeliveryTargetProof {
   readonly jobSha256: string;
   readonly sourceSha256: string;
   readonly settled: HostCommandSettlementPin;
-  readonly target: ScheduleTargetPin;
+  readonly target: QueueTargetPin;
   readonly sha256: string;
 }
 function fail(): never {
@@ -234,7 +236,7 @@ export function validateHostCommandDeliveryTargetProof(
     131072,
   );
   const settled = validateHostCommandSettlement(p.settled),
-    target = validateScheduleTarget(p.target);
+    target = validateQueueTarget(p.target);
   const { sha256, ...body } = p;
   if (
     p.version !== 1 ||

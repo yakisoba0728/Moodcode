@@ -16,7 +16,7 @@ import type {
   WorkflowChildCompletionProof,
 } from "./reducer.js";
 import type { WorkflowChildEvidence } from "./effect-evidence.js";
-import type { ScheduleTargetPin } from "../schedules/types.js";
+import type { QueueTargetPin } from "../runner/queue-target.js";
 const EFFECT_PREFIX = "workflow.effect.";
 const DELIVERY_PREFIX = "workflow.delivery.";
 export const effectKind = (instanceId: string, stageId: string) =>
@@ -87,7 +87,7 @@ export interface WorkflowDeliveryRecord {
   readonly sessionId: string;
   readonly source: WorkflowInstanceRevision;
   readonly effects: readonly WorkflowEffectRecord[];
-  readonly target: ScheduleTargetPin;
+  readonly target: QueueTargetPin;
   readonly prompt: string;
   readonly inputRequestId: string;
   readonly requestId: string;
@@ -556,7 +556,7 @@ export interface WorkflowDeliveryTargetProof {
   readonly version: 1;
   readonly source: WorkflowInstanceRevision;
   readonly effects: readonly WorkflowEffectRecord[];
-  readonly target: ScheduleTargetPin;
+  readonly target: QueueTargetPin;
   readonly sha256: string;
 }
 export interface WorkflowEffectNativePorts {

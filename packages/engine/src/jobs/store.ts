@@ -9,7 +9,7 @@ import {
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { requestIdentity } from "../storage/native-schema.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
+import { validateQueueTarget } from "../runner/queue-target.js";
 import type {
   JobAcceptedInputProof,
   JobDeliveryTargetProof,
@@ -301,7 +301,7 @@ function targetProof(value: JobDeliveryTargetProof): JobDeliveryTargetProof {
   jobSha256(x.jobSha256);
   jobSha256(x.settledSha256);
   jobSha256(x.sourceSha256);
-  validateScheduleTarget(x.target);
+  validateQueueTarget(x.target);
   if (x.target.workspaceId !== x.workspaceId) fail();
   return x;
 }

@@ -1,8 +1,10 @@
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
+  assertNativeSignal,
   exactKeys,
   plainJson,
+  plainRecord,
   recordGuards,
   type PlainJsonFault,
   type PlainJsonOptions,
@@ -31,6 +33,28 @@ export function jobPathGone(error: unknown): boolean {
       String((error as NodeJS.ErrnoException).code),
     )
   );
+}
+/** Validate envelopes without invoking caller getters or copying original handles. */
+export function jobHostRecord(
+  value: unknown,
+  required: readonly string[],
+  optional: readonly string[] = [],
+): Record<string, unknown> {
+  return plainRecord(value, required, optional, (fault) =>
+    jobError(
+      "INVALID_JOB_INPUT",
+      fault === "shape"
+        ? "Job input must be plain data"
+        : "Job input fields must remain explicit plain data",
+    ),
+  );
+}
+export function jobHostAbort(signal?: AbortSignal): void {
+  if (signal === undefined) return;
+  assertNativeSignal(signal, () =>
+    jobError("INVALID_JOB_INPUT", "Job signal must be original"),
+  );
+  if (signal.aborted) jobError("CANCELLED", "Job observation was cancelled");
 }
 function invalid(message: string): never {
   return jobError("INVALID_JOB", message);

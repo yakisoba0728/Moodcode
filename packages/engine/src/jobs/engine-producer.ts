@@ -14,10 +14,12 @@ import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
-import { describeEngineQueueTarget } from "./queue-target.js";
-import type { ScheduleTargetPin } from "../schedules/types.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+  type QueueTargetPin,
+} from "../runner/queue-target.js";
 import type { ActualTerminalJobPort } from "./host.js";
-import { jobHostRecord } from "./host.js";
 import {
   formatJobResult,
   type ActualJobInputPort,
@@ -26,7 +28,12 @@ import {
 } from "./delivery.js";
 import type { JobStorage } from "./store.js";
 import { readJobOutput } from "./output.js";
-import { jobJson, signJobData, validateJobOutputCursor } from "./validation.js";
+import {
+  jobHostRecord,
+  jobJson,
+  signJobData,
+  validateJobOutputCursor,
+} from "./validation.js";
 import type {
   JobOutputPage,
   JobOutputSnapshot,
@@ -427,14 +434,15 @@ export class EngineJobProducer {
     workspaceId: string,
     sessionId: string,
     config: RunConfig,
-  ): ScheduleTargetPin {
-    return describeEngineQueueTarget(
+  ): QueueTargetPin {
+    return describeQueueTarget(
       this.engine,
       (id) => this.binding(id),
       workspaceId,
       sessionId,
       config,
-    );
+      jobTargetChanged,
+    ).pin;
   }
   captureTarget(
     input: Parameters<ActualJobInputPort["captureTarget"]>[0],

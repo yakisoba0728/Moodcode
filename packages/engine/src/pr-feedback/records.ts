@@ -8,7 +8,7 @@ import {
 } from "@moodcode/contracts/validation";
 import { requestIdentity } from "../storage/native-schema.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
+import { validateQueueTarget } from "../runner/queue-target.js";
 import { validateCommitVerification } from "../git/commit-receipts.js";
 import {
   PR_LIMITS,
@@ -351,7 +351,7 @@ export function validatePrPreview(value: unknown): PrWatchPreview {
   prDigest(p.ownerEpoch);
   validatePrRepository(p.repository);
   validatePrPolicy(p.policy);
-  validateScheduleTarget(p.target);
+  validateQueueTarget(p.target);
   if (
     p.version !== 1 ||
     p.target.workspaceId !== p.workspaceId ||

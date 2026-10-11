@@ -19,7 +19,10 @@ import type {
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { readStableFile } from "../shared/fs.js";
-import { describeEngineQueueTarget } from "../jobs/queue-target.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+} from "../runner/queue-target.js";
 import { runGit } from "../workspace/git.js";
 import { createChildMergeTool } from "../child-tasks/merge.js";
 import {
@@ -1024,13 +1027,14 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
       record.owner.sessionId,
       normalized.config,
     );
-    const target = describeEngineQueueTarget(
+    const target = describeQueueTarget(
         this.engine,
         this.binding,
         record.workspaceId,
         record.owner.sessionId,
         normalized.config,
-      ),
+        jobTargetChanged,
+      ).pin,
       proof = signEffect({
         version: 1 as const,
         source: record,
@@ -1049,13 +1053,14 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
         knowledgeHash(this.effectRecords(current.record)) !==
           knowledgeHash(effects) ||
         knowledgeHash(
-          describeEngineQueueTarget(
+          describeQueueTarget(
             this.engine,
             this.binding,
             record.workspaceId,
             record.owner.sessionId,
             target.config,
-          ),
+            jobTargetChanged,
+          ).pin,
         ) !== knowledgeHash(target)
       )
         effectFail("WORKFLOW_DELIVERY_STALE");
@@ -1129,13 +1134,14 @@ const now = await this.mergeSelection(a.record, p.editor.stageId);
     if (!receipt) return;
     if (!this.enabled) effectFail("WORKFLOWS_DISABLED");
     if (receipt.state !== "accepted") effectFail("WORKFLOW_IMPORT_PAUSED");
-    const target = describeEngineQueueTarget(
+    const target = describeQueueTarget(
       this.engine,
       this.binding,
       receipt.workspaceId,
       receipt.sessionId,
       run?.config ?? receipt.target.config,
-    );
+      jobTargetChanged,
+    ).pin;
     if (knowledgeHash(target) !== knowledgeHash(receipt.target))
       effectFail("WORKFLOW_DELIVERY_STALE");
     for (const e of receipt.effects) {

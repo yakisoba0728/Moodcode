@@ -11,8 +11,11 @@ import type { ToolContext, PreparedTool, ToolResult } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { describeEngineQueueTarget } from "../jobs/queue-target.js";
-import type { ScheduleTargetPin } from "../schedules/types.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+  type QueueTargetPin,
+} from "../runner/queue-target.js";
 import {
   probeCodeModeRuntime,
   assertCodeModeRuntime,
@@ -38,7 +41,7 @@ export interface CodeModeGrant {
   version: 1;
   id: string;
   ownerEpoch: string;
-  target: ScheduleTargetPin;
+  target: QueueTargetPin;
   runtime: CodeModeRuntimeCapability;
   sha256: string;
 }
@@ -127,13 +130,14 @@ export class CodeModeHost {
         delivery: "queue",
       }).config,
     );
-    const target = describeEngineQueueTarget(
+    const target = describeQueueTarget(
       this.engine,
       this.binding,
       x.workspaceId,
       x.sessionId,
       config,
-    );
+      jobTargetChanged,
+    ).pin;
     assertPhysicalKnowledgeRoot(this.binding(x.workspaceId));
     if (!target.tools.includes("execute_code") || config.mode !== "build")
       codeModeError("CODE_MODE_TOOL_NOT_ALLOWED");
@@ -191,13 +195,14 @@ export class CodeModeHost {
       g.ownerEpoch !== this.epoch ||
       g.runtime.sha256 !== this.runtime!.capability.sha256 ||
       knowledgeHash(
-        describeEngineQueueTarget(
+        describeQueueTarget(
           this.engine,
           this.binding,
           g.target.workspaceId,
           g.target.sessionId,
           g.target.config,
-        ),
+          jobTargetChanged,
+        ).pin,
       ) !== knowledgeHash(g.target)
     )
       codeModeError("CODE_MODE_GRANT_STALE");

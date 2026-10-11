@@ -1,13 +1,5 @@
-import { createHash, randomUUID } from "node:crypto";
-import {
-  constants,
-  closeSync,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-} from "node:fs";
+import { randomUUID } from "node:crypto";
+import { lstatSync, realpathSync } from "node:fs";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolContext } from "../ports.js";
@@ -26,6 +18,7 @@ import {
 } from "../tools/command/index.js";
 import {
   CommandOutputRing,
+  verifySealedCommandArtifacts,
   type CommandOutputRingSnapshot,
   type CommandOutputStream,
   type CommandArtifactDescriptor,
@@ -38,8 +31,9 @@ import {
   type HostCommandRecord,
   type HostCommandState,
 } from "./host-command-records.js";
-import { jobHostAbort, jobHostRecord } from "./host.js";
 import {
+  jobHostAbort,
+  jobHostRecord,
   jobIdentifier,
   jobJson,
   jobObject,
@@ -659,53 +653,9 @@ export class HostCommandService {
     return r ? structuredClone(r) : undefined;
   }
   private checkArtifacts(result: PhysicalCommandResult): void {
-    for (const d of [result.stdout, result.stderr]) {
-      let fd: number | undefined;
-      try {
-        const named = lstatSync(d.path, { bigint: true });
-        if (
-          !named.isFile() ||
-          named.isSymbolicLink() ||
-          realpathSync(d.path) !== d.path
-        )
-          fail("HOST_COMMAND_ARTIFACT_STALE");
-        fd = openSync(d.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-        const opened = fstatSync(fd, { bigint: true });
-        const exact = (s: typeof named) =>
-          s.dev.toString() === d.device &&
-          s.ino.toString() === d.inode &&
-          Number(s.size) === d.size &&
-          s.mtimeNs.toString() === d.mtimeNs;
-        if (!exact(named) || !exact(opened))
-          fail("HOST_COMMAND_ARTIFACT_STALE");
-        const hash = createHash("sha256"),
-          buffer = Buffer.alloc(65536);
-        let offset = 0;
-        while (offset < d.size) {
-          const n = readSync(
-            fd,
-            buffer,
-            0,
-            Math.min(buffer.length, d.size - offset),
-            offset,
-          );
-          if (!n) fail("HOST_COMMAND_ARTIFACT_STALE");
-          hash.update(buffer.subarray(0, n));
-          offset += n;
-        }
-        if (
-          hash.digest("hex") !== d.sha256 ||
-          !exact(fstatSync(fd, { bigint: true })) ||
-          !exact(lstatSync(d.path, { bigint: true }))
-        )
-          fail("HOST_COMMAND_ARTIFACT_STALE");
-      } catch (error) {
-        if (jobPathGone(error)) fail("HOST_COMMAND_ARTIFACT_STALE");
-        throw error;
-      } finally {
-        if (fd !== undefined) closeSync(fd);
-      }
-    }
+    verifySealedCommandArtifacts(result, () =>
+      fail("HOST_COMMAND_ARTIFACT_STALE"),
+    );
   }
   artifacts(input: { workspaceId: string; jobId: string }): {
     stdout: CommandArtifactDescriptor;

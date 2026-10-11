@@ -20,7 +20,10 @@ import type {
   VerificationReceipt,
   VerificationState,
 } from "../verification/types.js";
-import { describeEngineQueueTarget } from "../jobs/queue-target.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+} from "../runner/queue-target.js";
 import { GitHubPrReader, PrHttpError, validatePrApiBase } from "./github.js";
 import { PrFeedbackStorage, validatePrPreview } from "./records.js";
 import {
@@ -231,13 +234,14 @@ export class PrFeedbackHost {
     const control = this.engine.store.getSessionControl(p.sessionId);
     if (control.paused && control.reason === "recovery_required")
       prFail("PR_IMPORT_PAUSED");
-    const target = describeEngineQueueTarget(
+    const target = describeQueueTarget(
       this.engine,
       (ws) => this.physical(ws),
       p.workspaceId,
       p.sessionId,
       p.target.config,
-    );
+      jobTargetChanged,
+    ).pin;
     if (knowledgeHash(target) !== knowledgeHash(p.target))
       prFail("PR_TARGET_STALE");
     this.engine.coordinator.assertWorkspaceCleanupConfirmed(p.workspaceId);
@@ -295,13 +299,14 @@ export class PrFeedbackHost {
         i.sessionId,
         normalized.config,
       );
-      const target = describeEngineQueueTarget(
+      const target = describeQueueTarget(
         this.engine,
         (ws) => this.physical(ws),
         session.workspaceId,
         session.id,
         normalized.config,
-      );
+        jobTargetChanged,
+      ).pin;
       let source: PrSourcePin | null = null;
       const abort = signal
         ? AbortSignal.any([signal, this.lifetime])

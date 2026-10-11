@@ -1,5 +1,7 @@
 import { EngineError } from '@moodcode/contracts';
-import { createHash } from 'node:crypto';
+import { jsonTextSha256 } from '../shared/canonical.js';
+import { isBoundedText } from '../shared/data.js';
+import { POLICY_DECISIONS, TOOL_EFFECTS } from './validation.js';
 export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';
 export type PolicyDecision = 'allow' | 'ask' | 'deny';
 export interface ToolPolicyRule { tool?: string; effect?: ToolEffectClass; resource?: string; decision: PolicyDecision }
@@ -7,7 +9,6 @@ export interface ToolPolicyInput { toolName: string; effect: ToolEffectClass; mo
 export interface ToolPolicyResult { decision: PolicyDecision; version: number; reason: string }
 /** True when a workspace-relative descendant path is withheld from a directory walk. */
 export type PathRestriction = (path: string) => boolean;
-const EFFECTS = new Set<ToolEffectClass>(['read', 'state', 'write', 'execute', 'network', 'unknown']);
 const restrictions = new WeakMap<object, PathRestriction>();
 function applies(rule: ToolPolicyRule, toolName: string, effect: ToolEffectClass): boolean {
   return (rule.tool === undefined || rule.tool === '*' || rule.tool === toolName) && (rule.effect === undefined || rule.effect === effect);
@@ -26,7 +27,7 @@ export async function withPathRestriction<T>(context: object, restriction: PathR
 }
 export function pathRestriction(context: object): PathRestriction | undefined { return restrictions.get(context); }
 export function inferToolEffect(name: string, declared?: ToolEffectClass): ToolEffectClass {
-  if (declared !== undefined) { if (!EFFECTS.has(declared)) throw new EngineError('INVALID_TOOL_EFFECT', 'Unsupported tool effect class'); return declared; }
+  if (declared !== undefined) { if (!TOOL_EFFECTS.has(declared)) throw new EngineError('INVALID_TOOL_EFFECT', 'Unsupported tool effect class'); return declared; }
   if (['read_file', 'list_files', 'search_files', 'glob_files', 'regex_search', 'todo_read', 'skill_read'].includes(name)) return 'read';
   if (['ask_user', 'todo_write'].includes(name)) return 'state';
   if (['apply_patch', 'edit_file', 'write_file', 'rename_file', 'delete_file'].includes(name)) return 'write';
@@ -43,11 +44,11 @@ export class ToolPolicy {
   replace(rules: readonly ToolPolicyRule[]): number {
     if (!Array.isArray(rules) || rules.length > 256) throw new EngineError('INVALID_TOOL_POLICY', 'Policy requires at most 256 rules');
     const copy = rules.map(rule => {
-      if (!rule || typeof rule !== 'object' || !['allow', 'ask', 'deny'].includes(rule.decision) || rule.tool === undefined && rule.effect === undefined || rule.tool !== undefined && (typeof rule.tool !== 'string' || !rule.tool || Buffer.byteLength(rule.tool) > 128 || /[\u0000-\u001f\u007f]/.test(rule.tool)) || rule.effect !== undefined && !EFFECTS.has(rule.effect) || rule.resource !== undefined && (typeof rule.resource !== 'string' || !/^(?:path|command):/.test(rule.resource) || Buffer.byteLength(rule.resource) > 8192 || /[\u0000\r\n]/.test(rule.resource))) throw new EngineError('INVALID_TOOL_POLICY', 'Invalid tool policy rule');
+      if (!rule || typeof rule !== 'object' || !POLICY_DECISIONS.has(rule.decision) || rule.tool === undefined && rule.effect === undefined || rule.tool !== undefined && !isBoundedText(rule.tool, 128) || rule.effect !== undefined && !TOOL_EFFECTS.has(rule.effect) || rule.resource !== undefined && (typeof rule.resource !== 'string' || !/^(?:path|command):/.test(rule.resource) || Buffer.byteLength(rule.resource) > 8192 || /[\u0000\r\n]/.test(rule.resource))) throw new EngineError('INVALID_TOOL_POLICY', 'Invalid tool policy rule');
       return Object.freeze({ ...rule });
     });
     this.rules = Object.freeze(copy);
-    this.current = this.current === 0 ? Math.max(1, Number.parseInt(createHash('sha256').update(JSON.stringify(copy.map(rule => ({ tool: rule.tool, effect: rule.effect, resource: rule.resource, decision: rule.decision })))).digest('hex').slice(0, 12), 16)) : this.current + 1;
+    this.current = this.current === 0 ? Math.max(1, Number.parseInt(jsonTextSha256(copy.map(rule => ({ tool: rule.tool, effect: rule.effect, resource: rule.resource, decision: rule.decision }))).slice(0, 12), 16)) : this.current + 1;
     return this.current;
   }
   evaluate(input: ToolPolicyInput): ToolPolicyResult {

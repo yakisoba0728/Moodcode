@@ -1,7 +1,9 @@
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
-import type { ScheduleTargetPin } from "../schedules/types.js";
+import {
+  validateQueueTarget,
+  type QueueTargetPin,
+} from "../runner/queue-target.js";
 import {
   validateOwnedCommandJob,
   type OwnedCommandJobRecord,
@@ -16,7 +18,7 @@ export interface OwnedCommandDeliveryTargetProof {
   readonly jobSha256: string;
   readonly sourceSha256: string;
   readonly settled: OwnedCommandJobRecord;
-  readonly target: ScheduleTargetPin;
+  readonly target: QueueTargetPin;
   readonly sha256: string;
 }
 export const OWNED_COMMAND_RESULT_LIMITS = Object.freeze({
@@ -64,7 +66,7 @@ export function validateOwnedCommandDeliveryTargetProof(
   jobSha256(p.sourceSha256);
   jobSha256(p.sha256);
   const settled = validateOwnedCommandJob(p.settled),
-    target = validateScheduleTarget(p.target);
+    target = validateQueueTarget(p.target);
   assertSettled(settled);
   if (
     p.workspaceId !== settled.source.workspaceId ||

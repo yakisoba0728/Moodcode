@@ -10,8 +10,13 @@ import type {
   HostCommandService,
   PreviewHostCommandInput,
 } from "./host-command-service.js";
-import { jobHostAbort, jobHostRecord } from "./host.js";
-import { jobIdentifier, jobJson, signJobData } from "./validation.js";
+import {
+  jobHostAbort,
+  jobHostRecord,
+  jobIdentifier,
+  jobJson,
+  signJobData,
+} from "./validation.js";
 import {
   type CommandLifetimeRecord,
   type CommandLifetimeMode,

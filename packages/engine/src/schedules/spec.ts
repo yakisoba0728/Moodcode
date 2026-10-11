@@ -1,9 +1,12 @@
 import { EngineError, type JsonObject } from "@moodcode/contracts";
-import { normalizeSubmitInput } from "@moodcode/contracts/validation";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import {
+  QUEUE_TARGET_LIMITS,
+  validateQueueTarget,
+} from "../runner/queue-target.js";
 import {
   validateWorkflowObjectSchema,
   validateWorkflowValue,
@@ -19,7 +22,7 @@ export const SCHEDULE_LIMITS = Object.freeze({
   promptBytes: 8192,
   webhookBytes: 8192,
   inputBytes: 32768,
-  tools: 128,
+  tools: QUEUE_TARGET_LIMITS.tools,
   concurrency: 8,
   due: 32,
   windowDays: 366,
@@ -128,99 +131,8 @@ export function validateSchedulePrompt(input: unknown): string {
 
 /** Validated serialized scope still conveys no runtime owner, time, approval or lease authority. */
 export function validateScheduleTarget(input: unknown): ScheduleTargetPin {
-  const value = scheduleObject(input, [
-    "workspaceId",
-    "sessionId",
-    "workspaceBindingSha256",
-    "capabilitiesSha256",
-    "catalogueSha256",
-    "profile",
-    "config",
-    "runConfigSha256",
-    "tools",
-    "delivery",
-    "allocation",
-  ]);
-  const config = scheduleObject(
-    value.config,
-    ["providerId", "modelId", "mode", "limits", "budgets"],
-    ["reasoningEffort", "agentProfileId", "agentProfileRevision"],
-  );
-  let normalized: ScheduleTargetPin["config"];
-  try {
-    normalized = normalizeSubmitInput({
-      sessionId: value.sessionId,
-      requestId: "schedule-validation",
-      prompt: "validate",
-      config,
-    }).config as ScheduleTargetPin["config"];
-  } catch {
-    return scheduleError("SCHEDULE_CONFIG_INVALID");
-  }
-  if (
-    knowledgeHash(config) !== knowledgeHash(normalized) ||
-    !normalized.budgets ||
-    scheduleSha(value.runConfigSha256) !== knowledgeHash(normalized)
-  )
-    scheduleError("SCHEDULE_CONFIG_INCOMPLETE");
-  let profile: ScheduleTargetPin["profile"] = null;
-  if (value.profile !== null) {
-    const pin = scheduleObject(value.profile, ["id", "revision"]);
-    profile = { id: externalId(pin.id), revision: scheduleSha(pin.revision) };
-  }
-  if (
-    profile
-      ? normalized.agentProfileId !== profile.id ||
-        normalized.agentProfileRevision !== profile.revision
-      : normalized.agentProfileId !== undefined ||
-        normalized.agentProfileRevision !== undefined
-  )
-    scheduleError("SCHEDULE_PROFILE_MISMATCH");
-  if (
-    value.delivery !== "queue" ||
-    !Array.isArray(value.tools) ||
-    value.tools.length > SCHEDULE_LIMITS.tools ||
-    new Set(value.tools).size !== value.tools.length
-  )
-    scheduleError("SCHEDULE_TARGET_INVALID");
-  const tools = value.tools.map(externalId).sort();
-  const allocation = scheduleObject(value.allocation, [
-    "maxTurns",
-    "maxToolCalls",
-    "maxOutputBytes",
-    "maxDurationMs",
-  ]);
-  for (const key of [
-    "maxTurns",
-    "maxToolCalls",
-    "maxOutputBytes",
-    "maxDurationMs",
-  ] as const)
-    if (
-      scheduleInteger(allocation[key], Number.MAX_SAFE_INTEGER, 1) !==
-      normalized.limits[key]
-    )
-      scheduleError("SCHEDULE_ALLOCATION_MISMATCH");
-  return scheduleJson({
-    workspaceId: scheduleIdentifier(value.workspaceId),
-    sessionId: scheduleIdentifier(value.sessionId),
-    workspaceBindingSha256: scheduleSha(value.workspaceBindingSha256),
-    capabilitiesSha256: scheduleSha(value.capabilitiesSha256),
-    catalogueSha256: scheduleSha(value.catalogueSha256),
-    profile,
-    config: normalized,
-    runConfigSha256: knowledgeHash(normalized),
-    tools,
-    delivery: "queue",
-    allocation: {
-      maxTurns: normalized.limits.maxTurns,
-      maxToolCalls: normalized.limits.maxToolCalls,
-      maxOutputBytes: normalized.limits.maxOutputBytes,
-      maxDurationMs: normalized.limits.maxDurationMs,
-    },
-  });
+  return validateQueueTarget(input);
 }
-export const validateScheduleTargetPin = validateScheduleTarget;
 function trigger(input: unknown): ScheduleTrigger {
   const kind = scheduleObject(
     input,

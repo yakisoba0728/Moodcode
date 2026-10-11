@@ -12,7 +12,10 @@ import { normalizeSubmitInput } from "@moodcode/contracts/validation";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { describeEngineQueueTarget } from "../jobs/queue-target.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+} from "../runner/queue-target.js";
 import { McpClient } from "../mcp/client.js";
 import { StdioMcpTransport } from "../mcp/stdio.js";
 import type {
@@ -122,23 +125,25 @@ export class SandboxHost implements CommandExecutionObserver {
           sandboxError("SANDBOX_TARGET_STALE");
         capturedConfig = g.target.config;
       }
-      const target = describeEngineQueueTarget(
+      const target = describeQueueTarget(
         this.engine,
         this.options.binding,
         g.workspaceId,
         g.sessionId,
         capturedConfig,
-      );
+        jobTargetChanged,
+      ).pin;
       if (knowledgeHash(target) !== knowledgeHash(g.target))
         sandboxError("SANDBOX_TARGET_STALE");
     } else {
-      const t = describeEngineQueueTarget(
+      const t = describeQueueTarget(
         this.engine,
         this.options.binding,
         g.workspaceId,
         g.sessionId,
         g.target.config,
-      );
+        jobTargetChanged,
+      ).pin;
       if (knowledgeHash(t) !== knowledgeHash(g.target))
         sandboxError("SANDBOX_TARGET_STALE");
     }
@@ -193,13 +198,14 @@ export class SandboxHost implements CommandExecutionObserver {
         },
         this.engine.getCapabilities().defaults,
       ).config,
-      target = describeEngineQueueTarget(
+      target = describeQueueTarget(
         this.engine,
         this.options.binding,
         x.workspaceId,
         x.sessionId,
         config,
-      ),
+        jobTargetChanged,
+      ).pin,
       pins = [
         physicalPin(root),
         ...read.filter((p) => p !== root).map(physicalPin),
@@ -494,7 +500,7 @@ export class SandboxHost implements CommandExecutionObserver {
         });
     child.backend = g.backend;
     const cfg = child.engine.getCapabilities().defaults as RunConfigInput,
-      target = describeEngineQueueTarget(
+      target = describeQueueTarget(
         child.engine,
         child.options.binding,
         workspace.id,
@@ -508,7 +514,8 @@ export class SandboxHost implements CommandExecutionObserver {
             config: cfg,
           }).config,
         ),
-      ),
+        jobTargetChanged,
+      ).pin,
       read = map(g.readPaths),
       write = map(g.writePaths),
       excluded = child.options.excluded,
@@ -742,13 +749,14 @@ export class SandboxHost implements CommandExecutionObserver {
     try {
       const connected = await this.engine.connectMcp(client);
       registered = true;
-      expectedTarget = describeEngineQueueTarget(
+      expectedTarget = describeQueueTarget(
         this.engine,
         this.options.binding,
         g.workspaceId,
         g.sessionId,
         g.target.config,
-      );
+        jobTargetChanged,
+      ).pin;
       this.mcpBinders.set(client, () => {
         this.active();
         if (binding) sandboxError("SANDBOX_MCP_ALREADY_BOUND");

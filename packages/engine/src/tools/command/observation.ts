@@ -4,6 +4,7 @@ import { types } from "node:util";
 import { EngineError, type Checkpoint } from "@moodcode/contracts";
 import type { PreparedTool, ToolContext } from "../../ports.js";
 import { immutableKnowledgeJson } from "../../knowledge/validation.js";
+import { errnoCode, readStableFile } from "../../shared/fs.js";
 import type { ProcessOutcome } from "./process-control.js";
 
 export type CommandOutputStream = "stdout" | "stderr";
@@ -108,6 +109,35 @@ export function validateCommandArtifactDescriptor(
   )
     fail();
   return p as unknown as CommandArtifactDescriptor;
+}
+const GONE = new Set(["ENOENT", "ENOTDIR", "ELOOP"]);
+/** Re-hashes each sealed stream through a no-follow descriptor bound to its canonical path; a changed or missing file is stale. */
+export function verifySealedCommandArtifacts(
+  streams: { readonly stdout: unknown; readonly stderr: unknown },
+  stale: () => never,
+): void {
+  for (const value of [streams.stdout, streams.stderr]) {
+    const descriptor = validateCommandArtifactDescriptor(value);
+    try {
+      const { stats, sha256 } = readStableFile(descriptor.path, {
+        maxBytes: descriptor.size,
+        stable: ["size", "mtime"],
+        onChanged: stale,
+        onLimit: stale,
+      });
+      if (
+        sha256 !== descriptor.sha256 ||
+        stats.dev.toString() !== descriptor.device ||
+        stats.ino.toString() !== descriptor.inode ||
+        Number(stats.size) !== descriptor.size ||
+        stats.mtimeNs.toString() !== descriptor.mtimeNs
+      )
+        stale();
+    } catch (error) {
+      if (GONE.has(errnoCode(error) ?? "")) stale();
+      throw error;
+    }
+  }
 }
 
 /** Bounded observation text with one decoder per actual output stream. No execution capability. */

@@ -1,9 +1,12 @@
-import { EngineError } from '@moodcode/contracts';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
-import { types } from 'node:util';
+import { isAbsolute, resolve } from 'node:path';
+import { fail } from '../artifacts/validation.js';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
+import { deepFreeze, isBoundedText, isSha256, plainRecord } from '../shared/data.js';
+import { within } from '../shared/fs.js';
 import type { PolicyDecision } from './policy.js';
+import { plainList, POLICY_DECISIONS } from './validation.js';
 
 export const COMMAND_PREFLIGHT_LIMITS = Object.freeze({ maxAnalyzers: 32, maxRunningAnalyzers: 8, maxCommandBytes: 64 * 1024, maxFindings: 32, maxResultBytes: 8 * 1024, defaultDeadlineMs: 1000, maxDeadlineMs: 5000 });
 export interface CommandPreflightBinding {
@@ -35,42 +38,34 @@ export interface CommandPreflightReceipt extends CapturedCommandPreflight {
 }
 interface Entry extends CommandPreflightAnalyzer { token: symbol }
 interface Capture { entry: Entry; binding: Readonly<CommandPreflightBinding>; used: boolean }
-const DECISIONS = new Set<PolicyDecision>(['allow', 'ask', 'deny']);
-function fail(code: string, message: string): never { throw new EngineError(code, message); }
-function hash(value: unknown): string { return createHash('sha256').update(JSON.stringify(value)).digest('hex'); }
-function text(value: unknown, max = 512): asserts value is string { if (typeof value !== 'string' || !value || Buffer.byteLength(value) > max || /[\u0000-\u001f\u007f]/.test(value)) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight identity requires bounded text'); }
+function text(value: unknown, max = 512): asserts value is string { if (!isBoundedText(value, max)) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight identity requires bounded text'); }
 function record(value: unknown, fields: readonly string[]): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight requires typed plain records');
-  if (Reflect.ownKeys(value).some(key => typeof key !== 'string' || !fields.includes(key)) || Object.values(Object.getOwnPropertyDescriptors(value)).some(field => !Object.hasOwn(field, 'value') || !field.enumerable)) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight records cannot contain accessors, hidden fields or symbols');
+  plainRecord(value, [], fields, fault => fail('INVALID_COMMAND_PREFLIGHT', fault === 'shape' ? 'Preflight requires typed plain records' : 'Preflight records cannot contain accessors, hidden fields or symbols'));
 }
 function findingsList(value: unknown): asserts value is unknown[] {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Analyzer findings require a plain array');
-  if (value.length > COMMAND_PREFLIGHT_LIMITS.maxFindings) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Too many analyzer findings');
-  if (Reflect.ownKeys(value).length !== value.length + 1 || Object.entries(Object.getOwnPropertyDescriptors(value)).some(([key, field]) => key !== 'length' && (!/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= value.length || !Object.hasOwn(field, 'value') || !field.enumerable))) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Analyzer findings cannot be sparse, contain accessors or custom fields');
+  plainList(value, COMMAND_PREFLIGHT_LIMITS.maxFindings, fault => fail('INVALID_COMMAND_PREFLIGHT_RESULT', fault === 'shape' ? 'Analyzer findings require a plain array' : fault === 'limit' ? 'Too many analyzer findings' : 'Analyzer findings cannot be sparse, contain accessors or custom fields'));
 }
 function revision(value: unknown): asserts value is number { if (!Number.isSafeInteger(value) || (value as number) < 1) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight revision must be a positive safe integer'); }
-function freeze<T>(value: T): T { if (value && typeof value === 'object') { for (const child of Object.values(value)) freeze(child); Object.freeze(value); } return value; }
 function binding(value: CommandPreflightBinding): Readonly<CommandPreflightBinding> {
   record(value, ['workspaceId', 'workspaceRoot', 'sessionId', 'runId', 'command', 'cwd', 'preparedFingerprint', 'policyRevision', 'sourceRevision']);
   for (const name of ['workspaceId', 'sessionId', 'runId', 'preparedFingerprint', 'sourceRevision'] as const) text(value[name]); revision(value.policyRevision);
   for (const path of [value.workspaceRoot, value.cwd]) { text(path, 4096); if (!isAbsolute(path) || resolve(path) !== path) fail('INVALID_COMMAND_PREFLIGHT_PATH', 'Preflight root and cwd must be exact canonical absolute paths'); }
   if (typeof value.command !== 'string' || !value.command.trim() || value.command.includes('\0') || Buffer.byteLength(value.command) > COMMAND_PREFLIGHT_LIMITS.maxCommandBytes) fail('INVALID_COMMAND_PREFLIGHT', 'Preflight command must be exact bounded command text');
-  return freeze(structuredClone(value));
+  return deepFreeze(structuredClone(value));
 }
 async function physical(value: Readonly<CommandPreflightBinding>): Promise<string> {
   const root = await lstat(value.workspaceRoot), cwd = await lstat(value.cwd);
-  const rel = relative(value.workspaceRoot, value.cwd);
-  if (!root.isDirectory() || root.isSymbolicLink() || !cwd.isDirectory() || cwd.isSymbolicLink() || await realpath(value.workspaceRoot) !== value.workspaceRoot || await realpath(value.cwd) !== value.cwd || isAbsolute(rel) || rel === '..' || rel.startsWith(`..${sep}`)) fail('COMMAND_PREFLIGHT_PATH_CHANGED', 'Preflight root/cwd must remain canonical directories inside the workspace');
-  return hash([value.workspaceRoot, String(root.dev), String(root.ino), value.cwd, String(cwd.dev), String(cwd.ino)]);
+  if (!root.isDirectory() || root.isSymbolicLink() || !cwd.isDirectory() || cwd.isSymbolicLink() || await realpath(value.workspaceRoot) !== value.workspaceRoot || await realpath(value.cwd) !== value.cwd || !within(value.workspaceRoot, value.cwd)) fail('COMMAND_PREFLIGHT_PATH_CHANGED', 'Preflight root/cwd must remain canonical directories inside the workspace');
+  return jsonTextSha256([value.workspaceRoot, String(root.dev), String(root.ino), value.cwd, String(cwd.dev), String(cwd.ino)]);
 }
 function result(value: unknown): CommandPreflightResult {
   record(value, ['decision', 'findings']);
-  if (!DECISIONS.has(value.decision as PolicyDecision)) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Analyzer result must have a typed decision');
+  if (!POLICY_DECISIONS.has(value.decision as PolicyDecision)) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Analyzer result must have a typed decision');
   findingsList(value.findings);
   const findings: CommandPreflightFinding[] = [];
   for (const finding of value.findings) {
     record(finding, ['code', 'decision', 'summary']); text(finding.code, 128); text(finding.summary, 1024);
-    if (!DECISIONS.has(finding.decision as PolicyDecision)) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Invalid analyzer finding decision');
+    if (!POLICY_DECISIONS.has(finding.decision as PolicyDecision)) fail('INVALID_COMMAND_PREFLIGHT_RESULT', 'Invalid analyzer finding decision');
     findings.push({ code: finding.code, decision: finding.decision as PolicyDecision, summary: finding.summary });
   }
   const output = { decision: value.decision as PolicyDecision, findings };
@@ -78,7 +73,7 @@ function result(value: unknown): CommandPreflightResult {
   // A contradictory aggregate can only be narrowed, never turn a deny finding into allowance.
   if (findings.some(finding => finding.decision === 'deny')) output.decision = 'deny';
   else if (output.decision !== 'deny' && findings.some(finding => finding.decision === 'ask')) output.decision = 'ask';
-  return freeze(output);
+  return deepFreeze(output);
 }
 
 /** In-memory optional prepare-side analyzer. No analyzer dispatch is a shell invocation or approval receipt. */
@@ -92,7 +87,7 @@ export class CommandPreflightRegistry {
   get runningAnalyzers(): number { return this.running; }
   register(analyzer: CommandPreflightAnalyzer): () => void {
     text(analyzer.id, 128); revision(analyzer.revision);
-    if (typeof analyzer.sourceSha256 !== 'string' || !/^[a-f0-9]{64}$/.test(analyzer.sourceSha256) || typeof analyzer.analyze !== 'function') fail('INVALID_COMMAND_PREFLIGHT', 'Analyzer requires a source hash and trusted host handler');
+    if (!isSha256(analyzer.sourceSha256) || typeof analyzer.analyze !== 'function') fail('INVALID_COMMAND_PREFLIGHT', 'Analyzer requires a source hash and trusted host handler');
     if (this.entries.has(analyzer.id)) fail('COMMAND_PREFLIGHT_CONFLICT', 'Analyzer ID already registered');
     if (this.entries.size >= COMMAND_PREFLIGHT_LIMITS.maxAnalyzers) fail('COMMAND_PREFLIGHT_REGISTRY_LIMIT', 'Too many preflight analyzers');
     const entry: Entry = { id: analyzer.id, revision: analyzer.revision, sourceSha256: analyzer.sourceSha256, analyze: analyzer.analyze.bind(analyzer), token: Symbol(analyzer.id) };
@@ -104,8 +99,8 @@ export class CommandPreflightRegistry {
     if (!entry) fail('COMMAND_PREFLIGHT_UNAVAILABLE', 'Requested trusted analyzer is not registered');
     const registryRevision = this.current; const physicalRevision = await physical(exact); this.active(signal);
     if (this.current !== registryRevision || this.entries.get(analyzerId)?.token !== entry.token) fail('COMMAND_PREFLIGHT_STALE', 'Analyzer registration changed during capture');
-    const request = freeze({ id: randomUUID(), registryRevision, analyzerId: entry.id, analyzerRevision: entry.revision, analyzerSourceSha256: entry.sourceSha256,
-      bindingSha256: hash(exact), commandSha256: createHash('sha256').update(exact.command).digest('hex'), preparedFingerprint: exact.preparedFingerprint, policyRevision: exact.policyRevision, sourceRevision: exact.sourceRevision, physicalRevision });
+    const request = deepFreeze({ id: randomUUID(), registryRevision, analyzerId: entry.id, analyzerRevision: entry.revision, analyzerSourceSha256: entry.sourceSha256,
+      bindingSha256: jsonTextSha256(exact), commandSha256: sha256Hex(exact.command), preparedFingerprint: exact.preparedFingerprint, policyRevision: exact.policyRevision, sourceRevision: exact.sourceRevision, physicalRevision });
     this.requests.set(request, { entry, binding: exact, used: false }); return request;
   }
   async run(request: CapturedCommandPreflight, options: { signal?: AbortSignal; deadlineMs?: number } = {}): Promise<CommandPreflightReceipt> {
@@ -139,17 +134,17 @@ export class CommandPreflightRegistry {
     const status = completion.status;
     const data = { ...request, schemaVersion: 1 as const, status, decision: completion.result?.decision ?? 'ask' as PolicyDecision,
       findings: completion.result?.findings ?? [], reason: (status === 'completed' ? 'analyzer_result' : status === 'failed' ? 'analyzer_failed' : status === 'timed_out' ? 'analyzer_timeout' : 'caller_cancelled') as CommandPreflightReceipt['reason'], osIsolation: false as const };
-    const receipt = freeze({ ...data, receiptSha256: hash(data) }); this.receipts.set(receipt, request); return receipt;
+    const receipt = deepFreeze({ ...data, receiptSha256: jsonTextSha256(data) }); this.receipts.set(receipt, request); return receipt;
   }
   async assertCurrent(receipt: CommandPreflightReceipt, current: CommandPreflightBinding, signal?: AbortSignal): Promise<void> {
     this.active(signal); const request = this.receipts.get(receipt);
-    if (!request || hash(binding(current)) !== request.bindingSha256) fail('COMMAND_PREFLIGHT_STALE', 'Preflight receipt must belong to the exact current prepared command and revisions');
+    if (!request || jsonTextSha256(binding(current)) !== request.bindingSha256) fail('COMMAND_PREFLIGHT_STALE', 'Preflight receipt must belong to the exact current prepared command and revisions');
     const capture = this.get(request); this.assertRegistry(request, capture);
     if (await physical(capture.binding) !== request.physicalRevision) fail('COMMAND_PREFLIGHT_STALE', 'Preflight workspace/cwd changed before dispatch'); this.active(signal);
   }
   /** Combine with existing policy/prepared requirements; preflight can only narrow authority. */
   decision(receipt: CommandPreflightReceipt, base: PolicyDecision, requiresApproval: boolean): PolicyDecision {
-    if (!this.receipts.has(receipt) || !DECISIONS.has(base) || typeof requiresApproval !== 'boolean') fail('INVALID_COMMAND_PREFLIGHT_RECEIPT', 'Preflight decision requires an issued receipt and exact base approval requirement');
+    if (!this.receipts.has(receipt) || !POLICY_DECISIONS.has(base) || typeof requiresApproval !== 'boolean') fail('INVALID_COMMAND_PREFLIGHT_RECEIPT', 'Preflight decision requires an issued receipt and exact base approval requirement');
     if (base === 'deny' || receipt.decision === 'deny') return 'deny';
     return base === 'ask' || requiresApproval || receipt.decision === 'ask' || receipt.status !== 'completed' ? 'ask' : 'allow';
   }

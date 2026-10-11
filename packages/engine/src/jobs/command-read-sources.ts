@@ -1,7 +1,7 @@
 import { hostCommandSourceSha } from "./host-command-result.js";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
-import { knowledgeHash } from "../knowledge/validation.js";
+import { sameCanonical } from "../shared/canonical.js";
 import { jobJson } from "./validation.js";
 import type { EngineJobProducer } from "./engine-producer.js";
 import type {
@@ -16,7 +16,6 @@ function fail(): never {
     "The actual retained command source is unavailable, uncertain or imported",
   );
 }
-const same = (a: unknown, b: unknown) => knowledgeHash(a) === knowledgeHash(b);
 /** All routes begin with current private producers; historical DTOs cannot supply source authority. */
 export function captureCommandReadSource(
   engine: MoodcodeEngine,
@@ -41,7 +40,7 @@ export function captureCommandReadSource(
         j = engine.getCommandJob(workspaceId, selection.jobId);
       if (
         !j ||
-        !same(p, proof) ||
+        !sameCanonical(p, proof) ||
         j.sourceSha256 !== proof.sha256 ||
         ["uncertain", "paused-import"].includes(j.state)
       )
@@ -119,7 +118,7 @@ export function captureCommandReadSource(
       const j = engine.getOwnedCommandJob(workspaceId, selection.jobId);
       if (
         !j ||
-        !same(j.source, job.source) ||
+        !sameCanonical(j.source, job.source) ||
         ["uncertain", "paused-import"].includes(j.state)
       )
         fail();
@@ -208,8 +207,8 @@ export function captureCommandReadSource(
     const j = engine.getHostCommand(workspaceId, selection.jobId);
     if (
       !j ||
-      !same(j.owner, job.owner) ||
-      !same(j.preview, job.preview) ||
+      !sameCanonical(j.owner, job.owner) ||
+      !sameCanonical(j.preview, job.preview) ||
       j.pid !== job.pid ||
       ["uncertain", "paused-import", "denied"].includes(j.state)
     )
@@ -280,7 +279,7 @@ export function captureCommandReadSource(
           const next = engine.readHostCommandOutput(original, {
             cursor: page.nextCursor,
           });
-          if (same(next.nextCursor, page.nextCursor)) fail();
+          if (sameCanonical(next.nextCursor, page.nextCursor)) fail();
           page = next;
         }
         return {

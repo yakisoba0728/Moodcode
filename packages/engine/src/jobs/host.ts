@@ -1,4 +1,3 @@
-import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import type {
   JobOutputPage,
@@ -16,6 +15,8 @@ import type {
   SettleTerminalJobInput,
 } from "./store.js";
 import {
+  jobHostAbort,
+  jobHostRecord,
   jobIdentifier,
   jobJson,
   validateJobOutputPage,
@@ -221,59 +222,4 @@ export class JobHost {
     this.closed = true;
     for (const original of this.handles) this.release(original);
   }
-}
-
-/** Validate envelopes without invoking caller getters or copying original handles. */
-export function jobHostRecord(
-  value: unknown,
-  required: readonly string[],
-  optional: readonly string[] = [],
-): Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    throw new EngineError("INVALID_JOB_INPUT", "Job input must be plain data");
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    throw new EngineError(
-      "INVALID_JOB_INPUT",
-      "Job input fields must remain explicit plain data",
-    );
-  return value as Record<string, unknown>;
-}
-
-export function jobHostAbort(signal?: AbortSignal): void {
-  if (signal === undefined) return;
-  if (
-    !signal ||
-    types.isProxy(signal) ||
-    !(signal instanceof AbortSignal) ||
-    [
-      "aborted",
-      "reason",
-      "throwIfAborted",
-      "addEventListener",
-      "removeEventListener",
-    ].some((key) => Object.hasOwn(signal, key))
-  )
-    throw new EngineError("INVALID_JOB_INPUT", "Job signal must be original");
-  const aborted = Object.getOwnPropertyDescriptor(
-    AbortSignal.prototype,
-    "aborted",
-  )!.get!.call(signal) as boolean;
-  if (aborted)
-    throw new EngineError("CANCELLED", "Job observation was cancelled");
 }

@@ -14,7 +14,7 @@ import {
 import {
   SCHEDULE_LIMITS,
   validateScheduleSpec,
-  validateScheduleTargetPin,
+  validateScheduleTarget,
   validateScheduleWebhookData,
 } from "./spec.js";
 import type {
@@ -170,13 +170,13 @@ test("target rejects steer, omitted normalized limits or budgets, changed hash a
     { ...pinned, tools: ["read_file"], approval: true },
   ])
     assert.throws(
-      () => validateScheduleTargetPin(changed),
+      () => validateScheduleTarget(changed),
       (error: unknown) => error instanceof EngineError,
     );
   const { budgets: ignored, ...incomplete } = pinned.config;
   assert.ok(ignored);
   assert.throws(
-    () => validateScheduleTargetPin({ ...pinned, config: incomplete }),
+    () => validateScheduleTarget({ ...pinned, config: incomplete }),
     code("INVALID_SCHEDULE_SPEC"),
   );
 });
@@ -195,9 +195,9 @@ test("explicit profile pin must match the original normalized config rather than
       config,
       runConfigSha256: knowledgeHash(config),
     };
-  assert.deepEqual(validateScheduleTargetPin(valid).profile, pin);
+  assert.deepEqual(validateScheduleTarget(valid).profile, pin);
   assert.throws(
-    () => validateScheduleTargetPin({ ...valid, profile: null }),
+    () => validateScheduleTarget({ ...valid, profile: null }),
     code("SCHEDULE_PROFILE_MISMATCH"),
   );
 });

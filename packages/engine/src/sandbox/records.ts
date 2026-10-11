@@ -13,7 +13,7 @@ import {
 } from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { SessionDocument } from "../storage/native-records.js";
-import { validateScheduleTarget } from "../schedules/spec.js";
+import { validateQueueTarget } from "../runner/queue-target.js";
 import { validateCommandArtifactDescriptor } from "../tools/command/observation.js";
 import { isAbsolute } from "node:path";
 export interface SandboxRecordPorts {
@@ -179,7 +179,7 @@ function validateSandboxRecord(input: unknown): SandboxRecord {
     g = sandboxDigest(r.grant),
     backend = sandboxDigest(g.backend),
     launch = sandboxDigest(g.launch);
-  validateScheduleTarget(g.target);
+  validateQueueTarget(g.target);
   if (
     r.version !== 1 ||
     !["grant", "command", "host-command", "mcp", "mcp-binding"].includes(

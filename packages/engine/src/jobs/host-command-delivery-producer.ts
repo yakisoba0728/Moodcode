@@ -9,8 +9,7 @@ import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
-import { jobHostRecord } from "./host.js";
-import { jobJson, signJobData } from "./validation.js";
+import { jobHostRecord, jobJson, signJobData } from "./validation.js";
 import type { JobAcceptedInputProof } from "./delivery.js";
 import type { ActualHostCommandInputPort } from "./host-command-delivery.js";
 import {
@@ -20,7 +19,10 @@ import {
 } from "./host-command-result.js";
 import { EngineHostCommandDeliverySource } from "./host-command-delivery-source.js";
 import type { HostCommandDeliveryRecord } from "./host-command-delivery-records.js";
-import { describeEngineQueueTarget } from "./queue-target.js";
+import {
+  describeQueueTarget,
+  jobTargetChanged,
+} from "../runner/queue-target.js";
 import {
   acceptedRequest,
   isPromotedCommandRunInvalid,
@@ -109,13 +111,14 @@ export class EngineHostCommandDeliveryProducer {
         settled.sessionId,
         normalized.config,
       );
-      const target = describeEngineQueueTarget(
+      const target = describeQueueTarget(
         this.engine,
         (id) => this.binding(id),
         data.workspaceId,
         settled.sessionId,
         normalized.config,
-      );
+        jobTargetChanged,
+      ).pin;
       const proof = validateHostCommandDeliveryTargetProof(
         signJobData(
           {
@@ -151,13 +154,14 @@ export class EngineHostCommandDeliveryProducer {
     )
       fail("COMMAND_JOB_TARGET_STALE");
     formatHostCommandJobResult(settled, proof);
-    const current = describeEngineQueueTarget(
+    const current = describeQueueTarget(
       this.engine,
       (id) => this.binding(id),
       proof.workspaceId,
       proof.target.sessionId,
       proof.target.config,
-    );
+      jobTargetChanged,
+    ).pin;
     if (knowledgeHash(current) !== knowledgeHash(proof.target))
       fail("JOB_TARGET_STALE");
     this.engine.coordinator.assertWorkspaceCleanupConfirmed(proof.workspaceId);
@@ -250,13 +254,14 @@ export class EngineHostCommandDeliveryProducer {
     )
       fail("COMMAND_JOB_DELIVERY_PAUSED");
     // Native accepted history is sufficient after a normal restart; no source Original is recreated.
-    const current = describeEngineQueueTarget(
+    const current = describeQueueTarget(
       this.engine,
       (id) => this.binding(id),
       input.workspaceId,
       input.sessionId,
       input.config,
-    );
+      jobTargetChanged,
+    ).pin;
     if (knowledgeHash(current) !== knowledgeHash(receipt.target))
       fail("JOB_TARGET_STALE");
     return receipt;

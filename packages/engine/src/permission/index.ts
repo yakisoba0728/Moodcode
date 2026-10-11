@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { EngineError, type ApprovalRecord, type JsonObject, type JsonValue, type Run } from '@moodcode/contracts';
+import { EngineError, type ApprovalRecord, type JsonObject, type Run } from '@moodcode/contracts';
 import type { ApprovalPort, ApprovalRequest, EngineStore } from '../ports.js';
+import { sameCanonical } from '../shared/canonical.js';
 
 interface Waiter {
   resolve(record: ApprovalRecord): void;
@@ -19,15 +20,6 @@ type ExpirationReason = 'cancelled' | 'recovery' | 'run_inactive' | 'stale';
 
 const copy = <T>(value: T): T => structuredClone(value);
 
-// Preview object key order is irrelevant to the identity of an approval request.
-function canonical(value: JsonValue): string {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(',')}]`;
-  if (value !== null && typeof value === 'object') {
-    return `{${Object.keys(value).sort().map(key => `${JSON.stringify(key)}:${canonical(value[key]!)}`).join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
 function cancelled(id?: string): EngineError {
   // Caller-supplied abort reasons may contain private request context.
   return new EngineError('APPROVAL_CANCELLED', 'Approval wait was cancelled', id ? { approvalId: id } : undefined);
@@ -41,10 +33,11 @@ function active(run: Run): boolean {
   return run.state === 'running' || run.state === 'awaiting_approval';
 }
 
+// Preview object key order is irrelevant to the identity of an approval request.
 function sameRequest(record: ApprovalRequest, input: ApprovalRequest): boolean {
   return record.sessionId === input.sessionId && record.runId === input.runId
     && record.toolCallId === input.toolCallId && record.toolName === input.toolName
-    && record.fingerprint === input.fingerprint && canonical(record.preview) === canonical(input.preview);
+    && record.fingerprint === input.fingerprint && sameCanonical(record.preview, input.preview);
 }
 
 /** Durable approval decisions with transient, explicitly live request waiters. */

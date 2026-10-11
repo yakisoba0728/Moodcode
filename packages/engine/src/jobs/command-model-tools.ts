@@ -4,8 +4,9 @@ import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolContext, ToolDefinition, PreparedTool } from "../ports.js";
 import type { MoodcodeEngine } from "../engine.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { jobHostRecord } from "./host.js";
+import { sameCanonical } from "../shared/canonical.js";
 import {
+  jobHostRecord,
   jobIdentifier,
   jobJson,
   jobObject,
@@ -96,7 +97,6 @@ function fail(code = "COMMAND_JOB_MODEL_STALE"): never {
     "Command output requires its original host-approved source, current native tool owner and bounded readonly page",
   );
 }
-const same = (a: unknown, b: unknown) => knowledgeHash(a) === knowledgeHash(b);
 /** Model aliases only select already approved source readers; cursor digests are DATA, not grants. */
 export class CommandJobModelHost {
   private readonly bindings = new Map<object, Grant>();
@@ -223,7 +223,7 @@ export class CommandJobModelHost {
       this.bySession.get(context.sessionId) !== grant ||
       actor.workspaceId !== grant.input.workspaceId ||
       actor.sessionId !== grant.input.sessionId ||
-      !same(actor.profile, grant.input.profile)
+      !sameCanonical(actor.profile, grant.input.profile)
     )
       fail("COMMAND_JOB_AUDIENCE_DENIED");
     const profile = this.engine.profiles
@@ -464,7 +464,7 @@ export class CommandJobModelHost {
     if (actor !== invocation.actorSha256) fail("COMMAND_JOB_MODEL_OWNER_STALE");
     jobJson(prepared, 65536);
     if (
-      !same(prepared.input, invocation.input) ||
+      !sameCanonical(prepared.input, invocation.input) ||
       prepared.fingerprint !== invocation.fingerprint ||
       prepared.name !== invocation.operation
     )

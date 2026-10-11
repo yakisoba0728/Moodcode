@@ -26,6 +26,7 @@ import type {
   ToolDefinition,
   ToolResult,
 } from "../../ports.js";
+import { within } from "../../shared/fs.js";
 import {
   captureWorkspace,
   resolveWorkspacePath,
@@ -200,12 +201,7 @@ async function normalizeInput(
   const requestedAbsolute = isAbsolute(requestedCwd)
     ? resolve(requestedCwd)
     : resolve(root, requestedCwd);
-  const workspaceRelative = relative(root, requestedAbsolute);
-  if (
-    workspaceRelative === ".." ||
-    workspaceRelative.startsWith(`..${sep}`) ||
-    isAbsolute(workspaceRelative)
-  ) {
+  if (!within(root, requestedAbsolute)) {
     throw new EngineError(
       "PATH_OUTSIDE_WORKSPACE",
       "Command cwd must be inside the workspace.",
@@ -213,7 +209,7 @@ async function normalizeInput(
   }
   const cwd = await resolveWorkspacePath(
     context.workspace,
-    workspaceRelative || ".",
+    relative(root, requestedAbsolute) || ".",
   );
   if (!(await stat(cwd)).isDirectory()) {
     throw new EngineError(

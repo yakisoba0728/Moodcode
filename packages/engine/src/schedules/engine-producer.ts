@@ -7,13 +7,14 @@ import {
   type Run,
   type RunConfig,
 } from "@moodcode/contracts";
-import {
-  normalizeAcceptInput,
-  normalizeEngineBudgets,
-} from "@moodcode/contracts/validation";
+import { normalizeAcceptInput } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import {
+  describeQueueTarget,
+  type QueueTargetChange,
+} from "../runner/queue-target.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import type { ActualScheduleInputPort } from "./host.js";
@@ -27,11 +28,7 @@ import type {
   ScheduleTriggerProof,
   SchedulerWorkerProof,
 } from "./store.js";
-import {
-  scheduleIdentifier,
-  scheduleJson,
-  validateScheduleTarget,
-} from "./spec.js";
+import { scheduleIdentifier, scheduleJson } from "./spec.js";
 import {
   calculateScheduleDue,
   calculateWebhookOccurrence,
@@ -71,6 +68,11 @@ interface DueProof {
 }
 const signed = <T extends object>(body: T): T & { readonly sha256: string } =>
   scheduleJson({ ...body, sha256: knowledgeHash(body) });
+const TARGET_CHANGES: Record<QueueTargetChange, string> = {
+  session: "SCHEDULE_TARGET_STALE",
+  provider: "SCHEDULE_PROVIDER_UNSUPPORTED",
+  profile: "SCHEDULE_PROFILE_STALE",
+};
 
 /** Capabilities are issued by this actual root Engine, never reconstructed from serialized pins. */
 export class EngineScheduleProducer {
@@ -159,56 +161,14 @@ export class EngineScheduleProducer {
     sessionId: string,
     config: RunConfig,
   ): Target {
-    config = { ...config, budgets: normalizeEngineBudgets(config.budgets) };
-    const binding = this.binding(workspaceId),
-      session = this.engine.store.getSession(sessionId);
-    if (session.workspaceId !== workspaceId)
-      scheduleHostError("SCHEDULE_TARGET_STALE");
-    const capabilities = this.engine.getCapabilities();
-    if (!capabilities.providerIds.includes(config.providerId))
-      scheduleHostError("SCHEDULE_PROVIDER_UNSUPPORTED");
-    const profile = this.engine.profiles.forRun(sessionId, config);
-    if (
-      profile &&
-      !this.engine.profiles
-        .list()
-        .some(
-          (item) =>
-            item.id === profile.id && item.revision === profile.revision,
-        )
-    )
-      scheduleHostError("SCHEDULE_PROFILE_STALE");
-    const profilePin = profile
-      ? { id: profile.id, revision: profile.revision }
-      : null;
-    const exposed = capabilities.tools.map((tool) => tool.name),
-      allowed = profile?.tools
-        ? exposed.filter((name) => profile.tools!.includes(name))
-        : exposed;
-    const catalogue = this.engine.toolRuntime.catalogue(
-      "engine",
-      config.mode,
-      allowed,
-      profilePin ?? undefined,
-    );
-    const pin = validateScheduleTarget({
+    const { pin, binding, catalogue } = describeQueueTarget(
+      this.engine,
+      (id) => this.binding(id),
       workspaceId,
       sessionId,
-      workspaceBindingSha256: knowledgeHash(binding),
-      capabilitiesSha256: knowledgeHash(capabilities),
-      catalogueSha256: knowledgeHash(catalogue),
-      profile: profilePin,
-      config: { ...config, budgets: normalizeEngineBudgets(config.budgets) },
-      runConfigSha256: knowledgeHash(config),
-      tools: catalogue.tools.map((tool) => tool.name).sort(),
-      delivery: "queue",
-      allocation: {
-        maxTurns: config.limits.maxTurns,
-        maxToolCalls: config.limits.maxToolCalls,
-        maxOutputBytes: config.limits.maxOutputBytes,
-        maxDurationMs: config.limits.maxDurationMs,
-      },
-    });
+      config,
+      (change) => scheduleHostError(TARGET_CHANGES[change]),
+    );
     const proof = signed({
       workspaceId,
       sessionId,

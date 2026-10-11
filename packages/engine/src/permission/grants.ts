@@ -1,6 +1,8 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
+import { sha256Hex } from '../shared/canonical.js';
 import type { ToolEffectClass } from './policy.js';
+import { TOOL_EFFECTS } from './validation.js';
 export interface GrantScope { workspaceId: string; sessionId: string; toolName: string; effect: ToolEffectClass; resources?: string[] }
 export interface ScopedToolGrant extends GrantScope { id: string; policyVersion: number; expiresAt: number; remainingUses: number; revision: number; revoked: boolean }
 export interface GrantDocumentPort {
@@ -8,13 +10,12 @@ export interface GrantDocumentPort {
   putSessionDocument(sessionId: string, kind: string, expectedRevision: number, data: JsonObject): { revision: number; data: JsonObject };
 }
 const DOCUMENT_KIND = 'tool.grants';
-const EFFECTS = ['read', 'state', 'write', 'execute', 'network', 'unknown'];
 /** Commands are exact identities; storing their hash avoids duplicating secret-bearing command text. */
 function resources(scope: GrantScope): string[] {
-  return [...new Set(scope.resources ?? [])].map(value => value.startsWith('command:') ? `command:sha256:${createHash('sha256').update(value.slice(8)).digest('hex')}` : value).sort();
+  return [...new Set(scope.resources ?? [])].map(value => value.startsWith('command:') ? `command:sha256:${sha256Hex(value.slice(8))}` : value).sort();
 }
 function valid(grant: ScopedToolGrant, sessionId: string): boolean {
-  return grant && typeof grant === 'object' && grant.sessionId === sessionId && [grant.id, grant.workspaceId, grant.sessionId, grant.toolName].every(value => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 512) && EFFECTS.includes(grant.effect) && Number.isSafeInteger(grant.policyVersion) && grant.policyVersion > 0 && Number.isSafeInteger(grant.expiresAt) && grant.expiresAt >= 0 && Number.isSafeInteger(grant.remainingUses) && grant.remainingUses >= 0 && grant.remainingUses <= 1000 && Number.isSafeInteger(grant.revision) && grant.revision > 0 && typeof grant.revoked === 'boolean' && (grant.resources === undefined || Array.isArray(grant.resources) && grant.resources.length <= 32 && grant.resources.every(value => typeof value === 'string' && /^(?:path:|command:sha256:[a-f0-9]{64}$)/.test(value) && Buffer.byteLength(value) <= 8192));
+  return grant && typeof grant === 'object' && grant.sessionId === sessionId && [grant.id, grant.workspaceId, grant.sessionId, grant.toolName].every(value => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 512) && TOOL_EFFECTS.has(grant.effect) && Number.isSafeInteger(grant.policyVersion) && grant.policyVersion > 0 && Number.isSafeInteger(grant.expiresAt) && grant.expiresAt >= 0 && Number.isSafeInteger(grant.remainingUses) && grant.remainingUses >= 0 && grant.remainingUses <= 1000 && Number.isSafeInteger(grant.revision) && grant.revision > 0 && typeof grant.revoked === 'boolean' && (grant.resources === undefined || Array.isArray(grant.resources) && grant.resources.length <= 32 && grant.resources.every(value => typeof value === 'string' && /^(?:path:|command:sha256:[a-f0-9]{64}$)/.test(value) && Buffer.byteLength(value) <= 8192));
 }
 /** CAS-backed grants are optional. Opaque prepared request revalidation remains mandatory. */
 export class ScopedToolGrants {
@@ -47,7 +48,7 @@ export class ScopedToolGrants {
     this.grants = updated; this.current = revision;
   }
   issue(input: GrantScope & { policyVersion: number; ttlMs: number; maxUses?: number }): ScopedToolGrant {
-    if ([input.workspaceId, input.sessionId, input.toolName].some(value => typeof value !== 'string' || !value || Buffer.byteLength(value) > 512) || !EFFECTS.includes(input.effect) || !Number.isSafeInteger(input.policyVersion) || input.policyVersion < 1 || !Number.isSafeInteger(input.ttlMs) || input.ttlMs < 1 || input.ttlMs > 24 * 60 * 60 * 1000 || !Number.isSafeInteger(input.maxUses ?? 1) || (input.maxUses ?? 1) < 1 || (input.maxUses ?? 1) > 1000) throw new EngineError('INVALID_TOOL_GRANT', 'Grant scope, version, expiry and uses must be bounded');
+    if ([input.workspaceId, input.sessionId, input.toolName].some(value => typeof value !== 'string' || !value || Buffer.byteLength(value) > 512) || !TOOL_EFFECTS.has(input.effect) || !Number.isSafeInteger(input.policyVersion) || input.policyVersion < 1 || !Number.isSafeInteger(input.ttlMs) || input.ttlMs < 1 || input.ttlMs > 24 * 60 * 60 * 1000 || !Number.isSafeInteger(input.maxUses ?? 1) || (input.maxUses ?? 1) < 1 || (input.maxUses ?? 1) > 1000) throw new EngineError('INVALID_TOOL_GRANT', 'Grant scope, version, expiry and uses must be bounded');
     if (input.resources !== undefined && (!Array.isArray(input.resources) || input.resources.length > 32 || input.resources.some(resource => typeof resource !== 'string' || !/^(?:path|command):/.test(resource) || Buffer.byteLength(resource) > 8192 || resource.includes('\0')))) throw new EngineError('INVALID_TOOL_GRANT', 'Grant resources must be bounded exact path/command identities');
     this.load(input.sessionId); const updated = structuredClone(this.grants);
     for (const [id, grant] of updated) if (grant.sessionId === input.sessionId && (grant.revoked || grant.remainingUses === 0 || grant.expiresAt <= this.now())) updated.delete(id);

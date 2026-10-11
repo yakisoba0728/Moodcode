@@ -1,13 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
-import {
-  constants,
-  closeSync,
-  fstatSync,
-  lstatSync,
-  openSync,
-  readSync,
-  realpathSync,
-} from "node:fs";
+import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import {
   EngineError,
@@ -22,17 +13,16 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   CommandOutputRing,
-  validateCommandArtifactDescriptor,
+  verifySealedCommandArtifacts,
   type CommandExecutionObserver,
   type CommandExecutionCompletion,
   type CommandOutputRingSnapshot,
   type CommandOutputStream,
 } from "../tools/command/observation.js";
-import { jobHostRecord } from "./host.js";
 import {
+  jobHostRecord,
   jobIdentifier,
   jobJson,
-  jobPathGone,
   signJobData,
 } from "./validation.js";
 import {
@@ -286,64 +276,9 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   private artifacts(
     completion: Pick<CommandExecutionCompletion, "stdout" | "stderr">,
   ): void {
-    for (const value of [completion.stdout, completion.stderr]) {
-      const descriptor = validateCommandArtifactDescriptor(value),
-        path = descriptor.path;
-      let fd: number | undefined;
-      try {
-        const before = lstatSync(path, { bigint: true });
-        if (
-          !before.isFile() ||
-          before.isSymbolicLink() ||
-          realpathSync(path) !== path
-        )
-          fail("COMMAND_JOB_ARTIFACT_STALE");
-        fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-        const opened = fstatSync(fd, { bigint: true });
-        for (const st of [before, opened])
-          if (
-            st.dev.toString() !== descriptor.device ||
-            st.ino.toString() !== descriptor.inode ||
-            Number(st.size) !== descriptor.size ||
-            st.mtimeNs.toString() !== descriptor.mtimeNs
-          )
-            fail("COMMAND_JOB_ARTIFACT_STALE");
-        const hash = createHash("sha256"),
-          buffer = Buffer.alloc(65536);
-        let offset = 0;
-        while (offset < descriptor.size) {
-          const n = readSync(
-            fd,
-            buffer,
-            0,
-            Math.min(buffer.length, descriptor.size - offset),
-            offset,
-          );
-          if (!n) fail("COMMAND_JOB_ARTIFACT_STALE");
-          hash.update(buffer.subarray(0, n));
-          offset += n;
-        }
-        const after = fstatSync(fd, { bigint: true }),
-          named = lstatSync(path, { bigint: true });
-        if (
-          hash.digest("hex") !== descriptor.sha256 ||
-          after.dev !== opened.dev ||
-          after.ino !== opened.ino ||
-          after.size !== opened.size ||
-          after.mtimeNs !== opened.mtimeNs ||
-          named.dev !== opened.dev ||
-          named.ino !== opened.ino ||
-          named.size !== opened.size ||
-          named.mtimeNs !== opened.mtimeNs
-        )
-          fail("COMMAND_JOB_ARTIFACT_STALE");
-      } catch (error) {
-        if (jobPathGone(error)) fail("COMMAND_JOB_ARTIFACT_STALE");
-        throw error;
-      } finally {
-        if (fd !== undefined) closeSync(fd);
-      }
-    }
+    verifySealedCommandArtifacts(completion, () =>
+      fail("COMMAND_JOB_ARTIFACT_STALE"),
+    );
   }
   closed(original: object, value: CommandExecutionCompletion): void {
     if (this.skipped.delete(original)) return;

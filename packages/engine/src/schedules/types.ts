@@ -1,26 +1,8 @@
-import type { EngineBudgets, JsonObject, RunConfig } from "@moodcode/contracts";
+import type { JsonObject } from "@moodcode/contracts";
+import type { QueueTargetPin } from "../runner/queue-target.js";
 import type { WorkflowObjectSchema } from "../workflows/types.js";
 
-/** Serialized pins are data. The root producer separately authenticates ORIGINAL handles. */
-export interface ScheduleTargetPin {
-  readonly workspaceId: string;
-  readonly sessionId: string;
-  readonly workspaceBindingSha256: string;
-  readonly capabilitiesSha256: string;
-  readonly catalogueSha256: string;
-  readonly profile: { readonly id: string; readonly revision: string } | null;
-  readonly config: RunConfig & { budgets: EngineBudgets };
-  readonly runConfigSha256: string;
-  readonly tools: readonly string[];
-  readonly delivery: "queue";
-  readonly allocation: {
-    readonly maxTurns: number;
-    readonly maxToolCalls: number;
-    readonly maxOutputBytes: number;
-    readonly maxDurationMs: number;
-  };
-}
-export type ScheduleTarget = ScheduleTargetPin;
+export type ScheduleTargetPin = QueueTargetPin;
 export type ScheduleTrigger =
   | { readonly kind: "absolute"; readonly at: string }
   | {

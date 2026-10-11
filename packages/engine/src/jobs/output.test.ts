@@ -8,6 +8,8 @@ import {
 } from "./types.js";
 import { readJobOutput } from "./output.js";
 import {
+  jobHostAbort,
+  jobHostRecord,
   jobJson,
   signJobData,
   validateJobOutputCursor,
@@ -502,4 +504,56 @@ test("confirmed physical cleanup remains separate from an uncertain terminal jou
       ),
     fail("INVALID_JOB"),
   );
+});
+
+test("host envelopes reject proxies, accessors, hidden, symbol or unknown fields and non-original signals", () => {
+  let reads = 0;
+  const required = ["workspaceId", "jobId"];
+  const accessor = Object.defineProperty({ jobId: "job" }, "workspaceId", {
+    enumerable: true,
+    get() {
+      reads++;
+      return "workspace";
+    },
+  });
+  const hidden = Object.defineProperty({ workspaceId: "workspace" }, "jobId", {
+    value: "job",
+  });
+  for (const value of [
+    null,
+    [],
+    new Proxy({ workspaceId: "workspace", jobId: "job" }, {}),
+    accessor,
+    hidden,
+    { workspaceId: "workspace" },
+    { workspaceId: "workspace", jobId: "job", extra: true },
+    { workspaceId: "workspace", jobId: "job", [Symbol("extra")]: true },
+  ])
+    assert.throws(
+      () => jobHostRecord(value, required),
+      fail("INVALID_JOB_INPUT"),
+    );
+  assert.equal(reads, 0);
+  assert.deepEqual(
+    jobHostRecord({ workspaceId: "workspace" }, ["workspaceId"], ["jobId"]),
+    {
+      workspaceId: "workspace",
+    },
+  );
+  const shadowed = Object.defineProperty(
+    new AbortController().signal,
+    "aborted",
+    {
+      value: false,
+    },
+  );
+  for (const signal of [
+    {} as AbortSignal,
+    new Proxy(new AbortController().signal, {}),
+    shadowed,
+  ])
+    assert.throws(() => jobHostAbort(signal), fail("INVALID_JOB_INPUT"));
+  jobHostAbort(undefined);
+  jobHostAbort(new AbortController().signal);
+  assert.throws(() => jobHostAbort(AbortSignal.abort()), fail("CANCELLED"));
 });
