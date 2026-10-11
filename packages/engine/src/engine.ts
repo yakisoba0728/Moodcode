@@ -152,6 +152,7 @@ import { WorkspaceChangeHub, type WorkspaceChangeWatch, type WorkspaceFileChange
 import { assertExecutionLockAvailable, inspectExecutionLock, acquireExecutionLock, reserveExecutionLock, readExecutionLockReservation } from './tools/command/execution-lock.js';
 import { getReviewDiff, previewRestoreCheckpoint, restoreCheckpoint, type RestoreResult } from './review/index.js';
 import { readRecoveryAcknowledgments, isRestoreAcknowledged } from './recovery/index.js';
+import { RecoveryGate } from './recovery/gate.js';
 import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
 import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type ProviderRecoveryReceipt } from './recovery/provider.js';
 import { ReviewJournal, type RestoreOperation, type RestoreOperationInput } from './review/audit.js';
@@ -308,17 +309,6 @@ function json(value: unknown): JsonValue {
   const encoded = JSON.stringify(value);
   if (encoded === undefined) return null;
   return JSON.parse(encoded) as JsonValue;
-}
-
-function verifyExecutionIdle(lockPath: string): void {
-  try {
-    assertExecutionLockAvailable(lockPath);
-  } catch (error) {
-    if (error instanceof EngineError && error.code === 'COMMAND_EFFECTS_BUSY') {
-      throw new EngineError('CLEANUP_PENDING', 'A command supervisor is still cleaning up a previous engine execution; reopen after cleanup');
-    }
-    throw error;
-  }
 }
 
 /** Own function properties that call the target's current method of the same name. */
@@ -577,6 +567,7 @@ export class MoodcodeEngine implements EngineRuntime {
   private readonly gitCommitHost: GitCommitHost;
   private readonly prFeedbackHost: PrFeedbackHost;
   private readonly executionLockPath: string;
+  private readonly recoveryGate: RecoveryGate;
   private readonly restoreRequests = new Map<string, { binding: RestoreOperationInput; promise: Promise<RestoreCommandResult> }>();
 
   constructor(options: EngineOptions) {
@@ -719,8 +710,8 @@ export class MoodcodeEngine implements EngineRuntime {
         assertCommitCurrent: (record, phase) => this.knowledgeFilePublicationService.assertCommitCurrent(record, phase),
         beforeRecoveryDecision: (workspaceId, operation) => {
           if (operation === 'acknowledge') this.knowledgeFileExecutionGuards.reconcile(workspaceId, this.executionLockPath);
-          verifyExecutionIdle(this.executionLockPath);
-          if (operation === 'resume' && (this.store.hasUncertainSummaries(workspaceId) || this.store.hasUncertainExecution(workspaceId) || this.store.hasUncertainKnowledgeGeneration(workspaceId))) throw new EngineError('CLEANUP_PENDING', 'Other workspace producers still require independent recovery');
+          this.recoveryGate.assertIdle();
+          if (operation === 'resume') this.recoveryGate.assertCertain('knowledgeFileResume', workspaceId);
         } });
       this.knowledgeFileExecutionGuards = this.store.createKnowledgeFileExecutionGuards({ checkBinding: knowledgeBinding,
         getOwner: (workspaceId, id) => { const owner = this.knowledgeFilePublications.getOwner(workspaceId, id); if (!owner) throw new EngineError('KNOWLEDGE_FILE_NOT_FOUND', 'Physical publication owner does not exist in this workspace'); return owner; } });
@@ -769,9 +760,8 @@ export class MoodcodeEngine implements EngineRuntime {
           if (!cleanup || cleanup.capture !== capture) throw new EngineError('PROPOSAL_APPLY_CLEANUP_INVALID', 'Cleanup requires its original apply owner and actual lock release'); return cleanup.proof; },
         beforeRecoveryDecision: (workspaceId, operation) => {
           if (operation === 'acknowledge') this.proposalApplyGuards.reconcile(workspaceId, this.executionLockPath);
-          verifyExecutionIdle(this.executionLockPath);
-          if (operation === 'resume' && (this.store.hasUncertainExecution(workspaceId) || this.store.hasUncertainSummaries(workspaceId)
-            || this.store.hasUncertainKnowledgeGeneration(workspaceId) || this.store.hasUncertainKnowledgeFilePublication(workspaceId))) throw new EngineError('CLEANUP_PENDING', 'Other native producers require their own recovery before proposal resume');
+          this.recoveryGate.assertIdle();
+          if (operation === 'resume') this.recoveryGate.assertCertain('proposalApplyResume', workspaceId);
         } });
       this.proposalApplyGuards = this.store.createProposalApplyExecutionGuards({ checkBinding: knowledgeBinding,
         getOwner: (workspaceId, id) => { const owner = this.proposalApplies.getOwner(workspaceId, id);
@@ -781,7 +771,7 @@ export class MoodcodeEngine implements EngineRuntime {
         getSelection: (workspaceId, id) => this.proposalRecords.getSelection(workspaceId, id),
         readBlobText: reference => this.store.readProposalBlobText(reference),
         assertUnpaused: workspaceId => this.workspaceKnowledge.assertUnpaused(workspaceId),
-        assertIdleAndNoExecutionUncertainty: workspaceId => { this.coordinator.assertWorkspaceCleanupConfirmed(workspaceId); verifyExecutionIdle(this.executionLockPath); },
+        assertIdleAndNoExecutionUncertainty: workspaceId => { this.coordinator.assertWorkspaceCleanupConfirmed(workspaceId); this.recoveryGate.assertIdle(); },
         assertSourcesCurrent: (binding, manifest, signal) => this.proposalSource.assertStoredManifestCurrentSync(binding, manifest, signal),
         withWorkspaceLease: (workspaceId, signal, operation) => this.coordinator.withHostProposalApplyLease(workspaceId,
           lease => operation(AbortSignal.any([signal, lease, this.hostResources.signal]))),
@@ -803,7 +793,7 @@ export class MoodcodeEngine implements EngineRuntime {
             let confirmed = false;
             if (cleanupConfirmed) confirmed = this.proposalApplyService.readCurrentPhysicalOutcome(capture).cleanupConfirmed;
             lock.release(confirmed);
-            if (confirmed) verifyExecutionIdle(this.executionLockPath);
+            if (confirmed) this.recoveryGate.assertIdle();
             const guard = this.proposalApplyGuards.readOriginal(originalGuard), original = Object.freeze({ id: owner.id });
             this.proposalApplyCleanups.set(original, { capture, proof: { confirmed, guardSha256: guard.sha256 } }); return original;
           } };
@@ -821,8 +811,10 @@ export class MoodcodeEngine implements EngineRuntime {
         catch { throw new EngineError('PROVIDER_RECOVERY_STORAGE_CHANGED', 'Provider recovery storage identity changed during this engine lifetime'); }
       });
       this.executionLockPath = canonicalDbPath === undefined ? resolve(artifactDir, 'effects.sqlite') : `${canonicalDbPath}.effects.sqlite`;
+      this.recoveryGate = new RecoveryGate({ store: this.store, executionLockPath: this.executionLockPath, closed: this.hostResources.signal,
+        lease: (workspaceId, operation) => this.coordinator.withRecoveryDecisionLease(workspaceId, operation), hold: workspaceId => this.scheduler.holdRecoveryWorkspace(workspaceId) });
       const interruptedFileOwners: string[] = [];
-      try { verifyExecutionIdle(this.executionLockPath); }
+      try { this.recoveryGate.assertIdle(); }
       catch (error) { const known = this.knowledgeFileExecutionGuards.matching(this.executionLockPath);
         if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposalApplyGuards.matching(this.executionLockPath)) {
           const marker = inspectExecutionLock(this.executionLockPath);
@@ -1048,15 +1040,13 @@ export class MoodcodeEngine implements EngineRuntime {
         assertTrustSourcesCurrent: assertWorkspaceTrustSourcesCurrent,
         assertSourcesCurrent: (binding, source) => this.knowledgeHost.assertSourcesCurrent(binding, source),
         assertNoExecutionUncertainty: workspaceId => {
-          verifyExecutionIdle(this.executionLockPath);
-          if (this.store.hasUncertainSummaries(workspaceId) || this.store.hasUncertainExecution(workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Independent coding or summary producers require their own recovery approval');
-          const imported = this.knowledgeImports.getFrontier(workspaceId);
-          if (imported?.head.state === 'resumed' && (this.store.hasUncertainKnowledgeGeneration(workspaceId) || this.store.hasUncertainKnowledgeFilePublication(workspaceId)))
-            throw new EngineError('CLEANUP_PENDING', 'Successor knowledge producers require independent recovery before activation');
+          this.recoveryGate.assertIdle();
+          this.recoveryGate.assertCertain('knowledgeImportActivation', workspaceId);
+          if (this.knowledgeImports.getFrontier(workspaceId)?.head.state === 'resumed') this.recoveryGate.assertCertain('knowledgeImportSuccessors', workspaceId);
         },
-        withWorkspaceLease: (workspaceId, operation) => this.coordinator.withRecoveryDecisionLease(workspaceId, signal => {
-          if (this.hostResources.signal.aborted || signal.aborted) throw new EngineError('ENGINE_CLOSED', 'Engine closed during import recovery');
-          verifyExecutionIdle(this.executionLockPath);
+        withWorkspaceLease: (workspaceId, operation) => this.recoveryGate.lease(workspaceId, signal => {
+          this.recoveryGate.assertOpen(signal, 'Engine closed during import recovery');
+          this.recoveryGate.assertIdle();
           return operation(signal);
         }),
       });
@@ -1421,7 +1411,7 @@ export class MoodcodeEngine implements EngineRuntime {
       this.gitCommitHost = new GitCommitHost({ store:this.store,records:this.store.createGitCommitStorage(),plans:this.verificationPlans,verification:this.verificationHost,
         binding:knowledgeBinding,enabled:()=>options.gitCommits===true && this.verificationEnabled && !this.closing,
         lease:(workspaceId,operation)=>this.coordinator.withWorkspaceLease(workspaceId,operation),
-        recoveryLease:(workspaceId,operation)=>this.coordinator.withRecoveryDecisionLease(workspaceId,operation),
+        recoveryLease:(workspaceId,operation)=>this.recoveryGate.lease(workspaceId,operation),
         executionLockPath:this.executionLockPath,artifactDir:this.storagePaths.artifactDir,lifetime:this.hostResources.signal });
       this.store.validatePrFeedback();
       this.prFeedbackHost = new PrFeedbackHost(this,this.store.createPrFeedbackStorage(),knowledgeBinding,this.verificationHost,()=>options.prFeedback===true&&this.verificationEnabled&&!this.closing,options.prFeedbackLoopback===true,this.hostResources.signal);
@@ -2347,11 +2337,8 @@ export class MoodcodeEngine implements EngineRuntime {
       }) as typeof input;
       if (this.proposalApplyRecoveryPreviews.get(preview) !== workspaceId || typeof reason !== 'string' || !reason.trim()
         || Buffer.byteLength(reason, 'utf8') > 512 || Buffer.from(reason, 'utf8').toString('utf8') !== reason) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires its original preview and bounded explicit reason');
-      return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
-        if (signal.aborted || this.hostResources.signal.aborted) throw new EngineError('ENGINE_CLOSED', 'Engine closed during proposal recovery');
-        const decision = operation === 'acknowledge' ? this.proposalApplies.acknowledge(preview, { requestId, reason, approved: true })
-          : this.proposalApplies.resume(preview, { requestId, reason, approved: true }); return decision;
-      });
+      return this.recoveryGate.decide(workspaceId, { closed: 'Engine closed during proposal recovery' }, () => operation === 'acknowledge'
+        ? this.proposalApplies.acknowledge(preview, { requestId, reason, approved: true }) : this.proposalApplies.resume(preview, { requestId, reason, approved: true }));
     });
   }
   getProposalSet(workspaceId: string, proposalId: string) {
@@ -2461,11 +2448,7 @@ export class MoodcodeEngine implements EngineRuntime {
       this.assertKnowledgeFilePublicationEnabled(); assertKnowledgeGenerationHostInput(input, ['workspaceId','requestId','approved','preview','reason']);
       const prepared = Object.freeze({ ...input }), workspaceId = this.knowledgeFileRecoveryPreviews.get(prepared.preview);
       if (!workspaceId || workspaceId !== prepared.workspaceId || prepared.approved !== true) throw new EngineError('KNOWLEDGE_FILE_RECOVERY_PREVIEW_INVALID', 'Physical recovery requires the original host preview and explicit approval');
-      return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason;
-        const receipt = operation === 'acknowledge' ? this.knowledgeFilePublications.acknowledge(prepared) : this.knowledgeFilePublications.resume(prepared);
-        this.scheduler.holdRecoveryWorkspace(workspaceId); return receipt;
-      });
+      return this.recoveryGate.decide(workspaceId, { hold: true }, () => operation === 'acknowledge' ? this.knowledgeFilePublications.acknowledge(prepared) : this.knowledgeFilePublications.resume(prepared));
     });
   }
   listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { this.assertOpen(); return this.knowledgeFilePublications.listPublications(workspaceId, options); }
@@ -2561,13 +2544,7 @@ export class MoodcodeEngine implements EngineRuntime {
       const { preview, requestId, reason, acknowledged } = input;
       const workspaceId = this.knowledgeRecoveryPreviews.get(preview);
       if (!workspaceId || acknowledged !== true) throw new EngineError('KNOWLEDGE_RECOVERY_PREVIEW_INVALID', 'Recovery requires the original host preview and explicit acknowledgment');
-      return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason;
-        verifyExecutionIdle(this.executionLockPath);
-        const receipt = this.knowledgeGenerations.acknowledgeRecovery(preview, { requestId, reason });
-        this.scheduler.holdRecoveryWorkspace(workspaceId);
-        return receipt;
-      });
+      return this.recoveryGate.decide(workspaceId, { idle: true, hold: true }, () => this.knowledgeGenerations.acknowledgeRecovery(preview, { requestId, reason }));
     });
   }
 
@@ -2576,13 +2553,9 @@ export class MoodcodeEngine implements EngineRuntime {
       this.assertOpen();
       assertKnowledgeGenerationHostInput(input, ['workspaceId', 'requestId', 'expectedRevision', 'expectedFrontierSha256']);
       const prepared = Object.freeze({ ...input });
-      return this.coordinator.withRecoveryDecisionLease(prepared.workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason;
-        verifyExecutionIdle(this.executionLockPath);
-        if (this.store.hasUncertainSummaries(prepared.workspaceId) || this.store.hasUncertainExecution(prepared.workspaceId)) throw new EngineError('CLEANUP_PENDING', 'Other workspace producers still require independent recovery');
-        const receipt = this.knowledgeGenerations.resumeWorkspace(prepared);
-        this.scheduler.holdRecoveryWorkspace(prepared.workspaceId);
-        return receipt;
+      return this.recoveryGate.decide(prepared.workspaceId, { idle: true, hold: true }, () => {
+        this.recoveryGate.assertCertain('knowledgeGenerationResume', prepared.workspaceId);
+        return this.knowledgeGenerations.resumeWorkspace(prepared);
       });
     });
   }
@@ -2668,7 +2641,7 @@ export class MoodcodeEngine implements EngineRuntime {
 
   acknowledgeSummaryRecovery(request: SummaryRecoveryRequest): Promise<SummaryRecoveryReceipt> {
     return this.acknowledgeRecovery(() => validateSummaryRecoveryRequest(request), prepared => this.store.findSummaryRecoveryReceipt(prepared),
-      prepared => this.store.acknowledgeSummaryRecovery(prepared), 'Summary recovery decision was cancelled');
+      prepared => this.store.acknowledgeSummaryRecovery(prepared));
   }
 
   getProviderRecoveryPreview(sessionId: string, attemptId: string) {
@@ -2678,22 +2651,15 @@ export class MoodcodeEngine implements EngineRuntime {
 
   acknowledgeProviderRecovery(request: ProviderRecoveryRequest): Promise<ProviderRecoveryReceipt> {
     return this.acknowledgeRecovery(() => validateProviderRecoveryRequest(request), prepared => this.store.findProviderRecoveryReceipt(prepared),
-      prepared => this.store.acknowledgeProviderRecovery(prepared), 'Provider recovery decision was cancelled');
+      prepared => this.store.acknowledgeProviderRecovery(prepared));
   }
 
-  private acknowledgeRecovery<P extends { sessionId: string }, R>(prepare: () => P, find: (prepared: P) => R | null | undefined, acknowledge: (prepared: P) => R, cancelled: string): Promise<R> {
+  private acknowledgeRecovery<P extends { sessionId: string }, R>(prepare: () => P, find: (prepared: P) => R | null | undefined, acknowledge: (prepared: P) => R): Promise<R> {
     return this.rejecting(() => {
       this.assertOpen();
       const prepared = prepare(), existing = find(prepared);
       if (existing) return Promise.resolve(existing);
-      const session = this.store.getSession(prepared.sessionId);
-      return this.coordinator.withRecoveryDecisionLease(session.workspaceId, async signal => {
-        if (signal.aborted) throw signal.reason ?? new EngineError('ENGINE_CLOSED', cancelled);
-        verifyExecutionIdle(this.executionLockPath);
-        const receipt = acknowledge(prepared);
-        this.scheduler.holdRecoveryWorkspace(session.workspaceId);
-        return receipt;
-      });
+      return this.recoveryGate.decide(this.store.getSession(prepared.sessionId).workspaceId, { idle: true, hold: true }, () => acknowledge(prepared));
     });
   }
 
