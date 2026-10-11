@@ -1,14 +1,12 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
-import {
-  canonicalKnowledge,
-  knowledgeHash,
-  validateBinding,
-} from "../knowledge/validation.js";
+import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import { sha256Hex } from "../shared/canonical.js";
+import { guardedWrite } from "../storage/transaction.js";
 import { workspaceWritePath } from "../workspace/index.js";
+import { assertNotThenable, proposalChecks } from "./validation.js";
 import type {
   PreparedProposalSourceSnapshot,
   ProposalSourceManifest,
@@ -77,134 +75,29 @@ function fail(
 ): never {
   throw new EngineError(code, message);
 }
-function id(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail();
-  return value;
+function transactionRequired(): never {
+  return fail("PROPOSAL_TRANSACTION_REQUIRED");
 }
-function number(value: unknown, max = Number.MAX_SAFE_INTEGER): number {
-  if (
-    !Number.isSafeInteger(value) ||
-    (value as number) < 0 ||
-    (value as number) > max
-  )
-    fail();
-  return value as number;
-}
-function hash(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) fail();
-  return value;
-}
-function stamp(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    fail();
-  return value;
-}
-function bodyHash(body: string): string {
-  return createHash("sha256").update(body).digest("hex");
-}
-function json<T>(input: T, maximum: number = PROPOSAL_LIMITS.revisionBytes): T {
-  let nodes = 0,
-    bytes = 0;
-  const visiting = new Set<object>();
-  function visit(value: unknown, depth: number): unknown {
-    if (++nodes > 40_000 || depth > 20) fail("PROPOSAL_LIMIT");
-    if (value === null || typeof value === "boolean") return value;
-    if (typeof value === "number") {
-      if (!Number.isFinite(value)) fail();
-      return value;
-    }
-    if (typeof value === "string") {
-      bytes += Buffer.byteLength(value);
-      if (bytes > maximum || Buffer.from(value).toString("utf8") !== value)
-        fail("PROPOSAL_LIMIT");
-      return value;
-    }
-    if (
-      !value ||
-      typeof value !== "object" ||
-      types.isProxy(value) ||
-      visiting.has(value)
-    )
-      fail();
-    const array = Array.isArray(value);
-    if (
-      Object.getPrototypeOf(value) !==
-        (array ? Array.prototype : Object.prototype) &&
-      !(Object.getPrototypeOf(value) === null && !array)
-    )
-      fail();
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    if (
-      Reflect.ownKeys(descriptors).some((key) => typeof key !== "string") ||
-      Object.values(descriptors).some((d) => !Object.hasOwn(d, "value"))
-    )
-      fail();
-    visiting.add(value);
-    let result: unknown;
-    if (array) {
-      if (
-        value.length > 256 ||
-        Object.keys(descriptors).length !== value.length + 1 ||
-        !descriptors.length ||
-        Array.from(
-          { length: value.length },
-          (_, i) => descriptors[String(i)],
-        ).some((d) => !d?.enumerable)
-      )
-        fail();
-      result = Array.from({ length: value.length }, (_, i) =>
-        visit(descriptors[String(i)]!.value, depth + 1),
-      );
-    } else {
-      const detached: Record<string, unknown> = {};
-      for (const [key, d] of Object.entries(descriptors)) {
-        if (!d.enumerable || key === "__proto__") fail();
-        bytes += Buffer.byteLength(key);
-        detached[key] = visit(d.value, depth + 1);
-      }
-      result = detached;
-    }
-    visiting.delete(value);
-    return Object.freeze(result);
-  }
-  const result = visit(input, 0) as T;
-  if (Buffer.byteLength(JSON.stringify(result)) > maximum)
-    fail("PROPOSAL_LIMIT");
-  return result;
-}
-function exact(
-  value: unknown,
-  required: readonly string[],
-  optional: readonly string[] = [],
-): Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) fail();
-  const object = value as Record<string, unknown>;
-  if (
-    required.some((k) => !Object.hasOwn(object, k)) ||
-    Object.keys(object).some(
-      (k) => !required.includes(k) && !optional.includes(k),
-    )
-  )
-    fail();
-  return object;
-}
-function signed<T extends object>(input: T): T & { readonly sha256: string } {
-  return json({ ...input, sha256: knowledgeHash(input) });
-}
-function checkHash(value: Record<string, unknown>): void {
-  const { sha256: expected, ...rest } = value;
-  if (hash(expected) !== knowledgeHash(rest)) fail("PROPOSAL_HASH_MISMATCH");
-}
+const {
+  id,
+  integer: number,
+  sha: hash,
+  stamp,
+  exact,
+  json,
+  seal: signed,
+  verify: checkHash,
+  decoded,
+} = proposalChecks({
+  fail,
+  limitCode: "PROPOSAL_LIMIT",
+  hashCode: "PROPOSAL_HASH_MISMATCH",
+  rowCode: "INVALID_PROPOSAL_ROW",
+  maxBytes: PROPOSAL_LIMITS.revisionBytes,
+  maxNodes: 40_000,
+  maxDepth: 20,
+  maxItems: 256,
+});
 function relative(value: unknown): string {
   workspaceWritePath(
     value,
@@ -628,15 +521,6 @@ export function validateProposalSet(value: unknown): ProposalSet {
   return r as unknown as ProposalSet;
 }
 
-function decoded(data: unknown, maximum: number): unknown {
-  if (typeof data !== "string" || Buffer.byteLength(data) > maximum)
-    fail("PROPOSAL_LIMIT");
-  try {
-    return JSON.parse(data) as unknown;
-  } catch {
-    fail("INVALID_PROPOSAL_ROW");
-  }
-}
 function load(
   db: DatabaseSync,
   table: "proposal_heads" | "proposal_revisions",
@@ -715,21 +599,11 @@ export class ProposalStorage {
     readonly ports: ProposalStoragePorts,
   ) {}
   #tx<T>(operation: () => T): T {
-    let entered = 0;
-    const result = this.ports.writeTx(() => {
-      if (++entered !== 1 || !this.db.isTransaction)
-        fail("PROPOSAL_TRANSACTION_REQUIRED");
-      const value = operation();
-      if (value && typeof value === "object" && "then" in value)
-        fail("PROPOSAL_TRANSACTION_REQUIRED");
-      return value;
+    return guardedWrite(this.db, this.ports, operation, {
+      join: false,
+      innerAsyncCheck: true,
+      required: transactionRequired,
     });
-    if (
-      entered !== 1 ||
-      (result && typeof result === "object" && "then" in result)
-    )
-      fail("PROPOSAL_TRANSACTION_REQUIRED");
-    return result;
   }
   #binding(ws: string): KnowledgeHostBinding {
     const workspace = this.ports.getWorkspace(ws),
@@ -853,8 +727,8 @@ export class ProposalStorage {
         pin.path !== wanted.path ||
         after !== wanted.after ||
         pin.beforeSha256 !== wanted.expectedSha256 ||
-        pin.beforeSha256 !== (before === null ? null : bodyHash(before)) ||
-        pin.afterSha256 !== (after === null ? null : bodyHash(after)) ||
+        pin.beforeSha256 !== (before === null ? null : sha256Hex(before)) ||
+        pin.afterSha256 !== (after === null ? null : sha256Hex(after)) ||
         pin.beforeBytes !== (before === null ? 0 : Buffer.byteLength(before)) ||
         pin.afterBytes !== (after === null ? 0 : Buffer.byteLength(after))
       )
@@ -880,9 +754,10 @@ export class ProposalStorage {
         (before && before.status !== "pending")
       )
         fail("PROPOSAL_STALE");
-      const fresh = this.ports.assertSourcesCurrent(capture, source) as unknown;
-      if (fresh && typeof fresh === "object" && "then" in fresh)
-        fail("PROPOSAL_TRANSACTION_REQUIRED");
+      assertNotThenable(
+        this.ports.assertSourcesCurrent(capture, source),
+        transactionRequired,
+      );
       const createdAt = this.#time(),
         headers: ProposalBlobHeader[] = [];
       const files = snapshot.operations.map((op, i) => {
@@ -898,7 +773,7 @@ export class ProposalStorage {
             revisionId: capture.revisionId,
             operationIndex: i,
             role,
-            sha256: bodyHash(body),
+            sha256: sha256Hex(body),
             bytes: Buffer.byteLength(body),
             createdAt,
           };
@@ -975,12 +850,10 @@ export class ProposalStorage {
         if (exactBlob(this.db, actualReference, createdAt) !== body)
           fail("PROPOSAL_BLOB_MISMATCH");
       }
-      const checked = this.ports.assertSourcesCurrent(
-        capture,
-        source,
-      ) as unknown;
-      if (checked && typeof checked === "object" && "then" in checked)
-        fail("PROPOSAL_TRANSACTION_REQUIRED");
+      assertNotThenable(
+        this.ports.assertSourcesCurrent(capture, source),
+        transactionRequired,
+      );
       if (
         knowledgeHash(this.#binding(capture.workspaceId)) !==
         knowledgeHash(capture.binding)
@@ -1214,7 +1087,7 @@ function exactBlob(
   if (
     bytes.includes(0) ||
     !Buffer.from(text).equals(bytes) ||
-    bodyHash(text) !== ref.sha256
+    sha256Hex(text) !== ref.sha256
   )
     fail("PROPOSAL_BLOB_MISMATCH");
   return text;

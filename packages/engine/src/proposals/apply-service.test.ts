@@ -933,3 +933,35 @@ test("win32 hosts are refused at preview before physical preparation or any owne
   assert.equal(f.counters().prepareCalls, 0);
   assert.equal(f.rowCount("proposal_apply_owners"), 0);
 });
+
+test("malformed preview and apply identities reject with the proposal apply code", async (t) => {
+  const f = await fixture(t),
+    selection = await f.stage(),
+    valid = {
+      workspaceId: f.binding.workspaceId,
+      proposalId: selection.set.id,
+    };
+  for (const input of [
+    { ...valid, workspaceId: 5 },
+    { ...valid, proposalId: "" },
+    { ...valid, revisionId: "bad\nid" },
+    { ...valid, expiresAt: "2026-01-01" },
+  ])
+    await assert.rejects(
+      f.service.preview(input as never),
+      code("INVALID_PROPOSAL_APPLY"),
+    );
+  assert.equal(f.counters().prepareCalls, 0);
+  const preview = await f.service.preview(valid);
+  await assert.rejects(
+    f.service.apply({
+      workspaceId: f.binding.workspaceId,
+      requestId: "",
+      approved: true,
+      preview,
+    }),
+    code("INVALID_PROPOSAL_APPLY"),
+  );
+  f.service.releasePreview(preview);
+  assert.equal(f.rowCount("proposal_apply_owners"), 0);
+});

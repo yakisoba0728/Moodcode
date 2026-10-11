@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   constants,
   closeSync,
@@ -19,7 +19,10 @@ import {
   knowledgeHash,
   validateBinding,
 } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import { assertNativeSignal, plainRecord } from "../shared/data.js";
 import { validateProposalSourceManifest } from "./store.js";
+import { trackPending } from "./validation.js";
 
 export const PROPOSAL_SOURCE_LIMITS = Object.freeze({
   files: 128,
@@ -96,59 +99,11 @@ function fail(
 ): never {
   throw new EngineError(code, message);
 }
-function ordinary(
-  value: unknown,
-  required: readonly string[],
-  optional: readonly string[] = [],
-): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail("INVALID_PROPOSAL_SOURCE");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(descriptors, key)) ||
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        (!required.includes(key) && !optional.includes(key)) ||
-        !Object.hasOwn(descriptors[key]!, "value") ||
-        !descriptors[key]!.enumerable,
-    )
-  )
-    fail("INVALID_PROPOSAL_SOURCE");
+function invalid(): never {
+  return fail("INVALID_PROPOSAL_SOURCE");
 }
 function actualSignal(value?: AbortSignal): void {
-  if (value === undefined) return;
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype ||
-    !(value instanceof AbortSignal)
-  )
-    fail("INVALID_PROPOSAL_SOURCE");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        !Object.hasOwn(
-          descriptors[key as keyof typeof descriptors]!,
-          "value",
-        ) ||
-        (typeof key === "string" &&
-          [
-            "aborted",
-            "reason",
-            "addEventListener",
-            "removeEventListener",
-          ].includes(key)),
-    )
-  )
-    fail("INVALID_PROPOSAL_SOURCE");
+  if (value !== undefined) assertNativeSignal(value, invalid);
 }
 function check(
   signal: AbortSignal | undefined,
@@ -157,9 +112,6 @@ function check(
 ): void {
   if (signal?.aborted || close.aborted) fail("PROPOSAL_SOURCE_CANCELLED");
   if (Date.now() >= deadline) fail("PROPOSAL_SOURCE_DEADLINE");
-}
-function hash(body: string): string {
-  return createHash("sha256").update(body).digest("hex");
 }
 function metadata(stat: BigIntStats) {
   return {
@@ -222,8 +174,12 @@ function operationsSnapshot(
   const result = Array.from({ length: input.length }, (_, index) => {
     if (!descriptors[String(index)]?.enumerable)
       fail("INVALID_PROPOSAL_SOURCE");
-    const value = descriptors[String(index)]!.value;
-    ordinary(value, ["path", "expectedSha256", "after"]);
+    const value = plainRecord(
+      descriptors[String(index)]!.value,
+      ["path", "expectedSha256", "after"],
+      [],
+      invalid,
+    );
     const selected = exactKnowledgePath(value.path),
       expected = value.expectedSha256,
       after = text(value.after);
@@ -288,7 +244,7 @@ function freezeObserved(
     body,
     pin: Object.freeze({
       path: relative,
-      beforeSha256: body === null ? null : hash(body),
+      beforeSha256: body === null ? null : sha256Hex(body),
       beforeBytes: body === null ? 0 : Buffer.byteLength(body),
       device: null,
       inode: null,
@@ -311,7 +267,7 @@ export class ProposalSourceCaptureHost {
   readonly #close = new AbortController();
   #reserved = 0;
   constructor(ports: ProposalSourceCaptureHostPorts) {
-    ordinary(ports, ["checkBinding"]);
+    plainRecord(ports, ["checkBinding"], [], invalid);
     if (typeof ports.checkBinding !== "function")
       fail("INVALID_PROPOSAL_SOURCE");
     this.#checkBinding = ports.checkBinding;
@@ -579,13 +535,10 @@ export class ProposalSourceCaptureHost {
     if (this.#active.size + this.#reserved >= PROPOSAL_SOURCE_LIMITS.handles)
       fail("PROPOSAL_SOURCE_LIMIT");
     this.#reserved++;
-    const task = this.captureOwned(binding, operations, signal, deadline);
-    this.#pending.add(task);
-    void task.then(
-      () => this.#pending.delete(task),
-      () => this.#pending.delete(task),
+    return trackPending(
+      this.#pending,
+      this.captureOwned(binding, operations, signal, deadline),
     );
-    return task;
   }
   private async captureOwned(
     binding: KnowledgeHostBinding,
@@ -610,7 +563,8 @@ export class ProposalSourceCaptureHost {
           fail("PROPOSAL_SOURCE_UNCHANGED");
         const afterBytes =
             operation.after === null ? 0 : Buffer.byteLength(operation.after),
-          afterSha256 = operation.after === null ? null : hash(operation.after);
+          afterSha256 =
+            operation.after === null ? null : sha256Hex(operation.after);
         totalBytes += observed.pin.beforeBytes + afterBytes;
         if (totalBytes > PROPOSAL_SOURCE_LIMITS.totalBytes)
           fail("PROPOSAL_SOURCE_LIMIT");
@@ -791,12 +745,7 @@ export class ProposalSourceCaptureHost {
       }
       this.checkStoredManifest(binding, manifest, signal, deadline);
     })();
-    this.#pending.add(task);
-    void task.then(
-      () => this.#pending.delete(task),
-      () => this.#pending.delete(task),
-    );
-    return task;
+    return trackPending(this.#pending, task);
   }
   release(capture: PreparedProposalSourceCapture): void {
     this.owned(capture);

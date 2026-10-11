@@ -1,9 +1,11 @@
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { assertNativeSignal } from '../shared/data.js';
 import { normalizeProposalCaptureInput, type ProposalStorage } from './store.js';
 import { ProposalSourceCaptureHost, type PreparedProposalSourceCapture } from './source-capture.js';
 import type { AppendProposalRevisionResult, PreparedProposalCapture, ProposalCaptureInput, ProposalSelection } from './types.js';
 import { buildProposalDiff, type ProposalReadonlyDiff } from './overlay.js';
+import { ownDataFields, trackPending } from './validation.js';
 
 export interface CreateProposalSetInput {
   readonly workspaceId: string;
@@ -24,20 +26,9 @@ export interface GetProposalDiffInput {
 }
 interface CommitCapture { readonly source: PreparedProposalSourceCapture; readonly signal: AbortSignal }
 function fail(code = 'INVALID_PROPOSAL'): never { throw new EngineError(code, 'Proposals require an original bounded host request'); }
+function invalid(): never { return fail(); }
 function plain(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, PropertyDescriptor> {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value)
-    || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail();
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (required.some(key => !Object.hasOwn(fields, key)) || Reflect.ownKeys(fields).some(key => typeof key !== 'string'
-    || ![...required, ...optional].includes(key) || !fields[key]!.enumerable || !Object.hasOwn(fields[key]!, 'value'))) fail();
-  return fields;
-}
-function actualSignal(value: unknown): asserts value is AbortSignal {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || !(value instanceof AbortSignal)
-    || Object.getPrototypeOf(value) !== AbortSignal.prototype) fail();
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (Reflect.ownKeys(fields).some(key => !Object.hasOwn(fields[key as keyof typeof fields]!, 'value')
-    || ['aborted','reason','addEventListener','removeEventListener'].includes(String(key)))) fail();
+  return ownDataFields(value, required, optional, invalid);
 }
 function captureInput(input: CreateProposalSetInput): { request: ProposalCaptureInput; signal?: AbortSignal } {
   const fields = plain(input, ['workspaceId','requestId','changes'], ['proposalId','expectedRevision','signal']);
@@ -53,7 +44,7 @@ function captureInput(input: CreateProposalSetInput): { request: ProposalCapture
     return { path: entry.path!.value, expectedSha256: entry.expectedHash!.value, after: entry.content!.value };
   });
   const signal = fields.signal?.value as unknown;
-  if (signal !== undefined) actualSignal(signal);
+  if (signal !== undefined) assertNativeSignal(signal, invalid);
   const request = normalizeProposalCaptureInput({ workspaceId: fields.workspaceId!.value, requestId: fields.requestId!.value,
     ...(fields.proposalId?.value === undefined ? {} : { proposalId: fields.proposalId.value }), expectedHeadRevision: fields.expectedRevision?.value === undefined ? 0 : fields.expectedRevision.value, operations });
   return { request, ...(signal === undefined ? {} : { signal }) };
@@ -71,17 +62,14 @@ export class ProposalHostService {
     if (signal?.aborted) fail('PROPOSAL_CANCELLED');
   }
   create(input: CreateProposalSetInput): Promise<AppendProposalRevisionResult> {
-    let request: ProposalCaptureInput, signal: AbortSignal;
     try {
-      const captured = captureInput(input); this.open(captured.signal);
-      request = captured.request; signal = AbortSignal.any([this.#close.signal, this.hostSignal, ...(captured.signal ? [captured.signal] : [])]);
+      const { request, signal: caller } = captureInput(input); this.open(caller);
+      const signal = AbortSignal.any([this.#close.signal, this.hostSignal, ...(caller ? [caller] : [])]);
       const previous = this.readTx(() => this.native.findRequest(request));
       if (previous) return Promise.resolve({ kind: 'duplicate', ...previous });
       if (this.#pending.size >= 16) fail('PROPOSAL_CAPACITY');
+      return trackPending(this.#pending, this.captureAndAppend(request, signal));
     } catch (error) { return Promise.reject(error); }
-    const task = this.captureAndAppend(request, signal);
-    this.#pending.add(task); void task.finally(() => this.#pending.delete(task)).catch(() => {});
-    return task;
   }
   private async captureAndAppend(request: ProposalCaptureInput, signal: AbortSignal): Promise<AppendProposalRevisionResult> {
     this.open(signal);
@@ -124,12 +112,11 @@ export class ProposalHostService {
     }));
   }
   diff(input: GetProposalDiffInput): Promise<ProposalReadonlyDiff> {
-    let task: Promise<ProposalReadonlyDiff>;
     try {
       this.open();
       const fields = plain(input, ['workspaceId','proposalId'], ['revisionId','cursor','limit','maxBytes','signal']);
       const caller = fields.signal?.value as unknown;
-      if (caller !== undefined) actualSignal(caller);
+      if (caller !== undefined) assertNativeSignal(caller, invalid);
       this.open(caller);
       const signal = AbortSignal.any([this.#close.signal, this.hostSignal, ...(caller ? [caller] : [])]);
       const selected = this.get(fields.workspaceId!.value, fields.proposalId!.value);
@@ -146,7 +133,7 @@ export class ProposalHostService {
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64 || !Number.isSafeInteger(maxBytes) || maxBytes < 512 || maxBytes > 65_536
         || Number(cursor ?? 0) > revision.files.length) fail('INVALID_PROPOSAL_PAGE');
       if (this.#pending.size >= 16) fail('PROPOSAL_CAPACITY');
-      task = (async () => {
+      return trackPending(this.#pending, (async () => {
         let sourceFreshness: 'current' | 'stale' | 'unknown' = 'current';
         try { await this.source.assertStoredManifestCurrent(revision.binding, revision.sourceManifest, signal); }
         catch (error) {
@@ -165,10 +152,8 @@ export class ProposalHostService {
             return Buffer.from(page.bytes).toString('utf8');
           }, { ...options, sourceFreshness, proposalStatus: head.status });
         });
-      })();
+      })());
     } catch (error) { return Promise.reject(error); }
-    this.#pending.add(task); void task.finally(() => this.#pending.delete(task)).catch(() => {});
-    return task;
   }
   async close(): Promise<void> {
     this.#close.abort();

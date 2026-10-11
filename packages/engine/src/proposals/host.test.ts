@@ -159,6 +159,44 @@ test("host rejects preabort/accessors/proxies before native writes or selected-s
   }
 });
 
+test("host create and diff reject a brandless or shadowed signal before any capture", async (t) => {
+  const f = await fixture();
+  try {
+    let captures = 0;
+    const original = f.source.capture.bind(f.source);
+    t.mock.method(
+      f.source,
+      "capture",
+      (...args: Parameters<typeof original>) => {
+        captures++;
+        return original(...args);
+      },
+    );
+    const invalid = (error: unknown) =>
+      error instanceof EngineError && error.code === "INVALID_PROPOSAL";
+    const signals: AbortSignal[] = [
+      Object.create(AbortSignal.prototype),
+      Object.defineProperty(new AbortController().signal, "throwIfAborted", {
+        value: () => {},
+      }),
+    ];
+    for (const signal of signals) {
+      await assert.rejects(f.host.create({ ...request(), signal }), invalid);
+      await assert.rejects(
+        f.host.diff({ workspaceId: "w", proposalId: "host-chosen", signal }),
+        invalid,
+      );
+    }
+    assert.equal(captures, 0);
+    assert.equal(
+      f.db.prepare("SELECT count(*) AS n FROM proposal_revisions").get()!.n,
+      0,
+    );
+  } finally {
+    await f.close();
+  }
+});
+
 test("host duplicate returns original revision plus honest current head without another physical capture", async (t) => {
   const f = await fixture();
   try {

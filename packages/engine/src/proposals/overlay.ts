@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type Workspace } from "@moodcode/contracts";
 import { entriesBytes, entryBytes } from "../context/memory.js";
@@ -8,7 +8,14 @@ import {
   knowledgeHash,
   validateBinding,
 } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import {
+  assertNativeSignal,
+  plainRecord,
+  recordGuards,
+} from "../shared/data.js";
 import { validateProposalRevision, validateProposalSet } from "./store.js";
+import { trackPending } from "./validation.js";
 import type {
   ProposalBlobReference,
   ProposalFileEntry,
@@ -170,74 +177,19 @@ function fail(code = "INVALID_PROPOSAL_CONTEXT"): never {
     "Proposal context requires original read-only captures, exact native revisions and bounded whole data",
   );
 }
+function invalid(): never {
+  return fail();
+}
+const { id, integer: count } = recordGuards({
+  json: immutableKnowledgeJson,
+  fail: invalid,
+});
 function plain(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail();
-  const d = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((k) => !Object.hasOwn(d, k)) ||
-    Reflect.ownKeys(d).some(
-      (k) =>
-        typeof k !== "string" ||
-        (!required.includes(k) && !optional.includes(k)) ||
-        !d[k]!.enumerable ||
-        !Object.hasOwn(d[k]!, "value"),
-    )
-  )
-    fail();
-}
-function id(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail();
-  return value;
-}
-function count(value: unknown, max = Number.MAX_SAFE_INTEGER): number {
-  if (
-    !Number.isSafeInteger(value) ||
-    (value as number) < 0 ||
-    (value as number) > max
-  )
-    fail();
-  return value as number;
-}
-function signal(value: unknown): asserts value is AbortSignal {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    !(value instanceof AbortSignal) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype
-  )
-    fail();
-  const d = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(d).some(
-      (k) =>
-        !Object.hasOwn(d[k as keyof typeof d]!, "value") ||
-        (typeof k === "string" &&
-          [
-            "aborted",
-            "reason",
-            "addEventListener",
-            "removeEventListener",
-          ].includes(k)),
-    )
-  )
-    fail();
+  plainRecord(value, required, optional, invalid);
 }
 function check(value: AbortSignal): void {
   if (value.aborted) fail("PROPOSAL_CONTEXT_CANCELLED");
@@ -284,7 +236,7 @@ function requestSnapshot(
   input: ProposalContextRequest,
 ): Omit<ProposalContextRequest, "signal"> {
   plain(input, ["workspace", "policy", "budget", "owner", "signal"]);
-  signal(input.signal);
+  assertNativeSignal(input.signal, invalid);
   const workspace = immutableKnowledgeJson(input.workspace);
   plain(workspace, ["id", "root", "gitRoot", "branch", "createdAt"]);
   id(workspace.id);
@@ -359,7 +311,7 @@ function payload(
       typeof body !== "string" ||
       Buffer.byteLength(body) !== ref.bytes ||
       Buffer.from(body).toString("utf8") !== body ||
-      createHash("sha256").update(body).digest("hex") !== ref.sha256 ||
+      sha256Hex(body) !== ref.sha256 ||
       body.includes("\0")
     )
       fail();
@@ -510,13 +462,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
     if (this.#active.size + this.#reserved >= PROPOSAL_CONTEXT_LIMITS.handles)
       fail("PROPOSAL_CONTEXT_LIMIT");
     this.#reserved++;
-    const task = this.prepareOwned(request, combined);
-    this.#pending.add(task);
-    void task.then(
-      () => this.#pending.delete(task),
-      () => this.#pending.delete(task),
-    );
-    return task;
+    return trackPending(this.#pending, this.prepareOwned(request, combined));
   }
   private async prepareOwned(
     request: Omit<ProposalContextRequest, "signal">,
@@ -718,7 +664,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
     original: PreparedProposalContribution,
     inputSignal: AbortSignal,
   ): Promise<void> {
-    signal(inputSignal);
+    assertNativeSignal(inputSignal, invalid);
     const owned = this.owned(original),
       combined = AbortSignal.any([inputSignal, this.#close.signal]);
     check(combined);
@@ -744,12 +690,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
           this.current(owned.request, owned.binding, value.selection);
       });
     })();
-    this.#pending.add(task);
-    void task.then(
-      () => this.#pending.delete(task),
-      () => this.#pending.delete(task),
-    );
-    return task;
+    return trackPending(this.#pending, task);
   }
   release(original: PreparedProposalContribution): void {
     this.owned(original);

@@ -1,9 +1,11 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
+import { sealRecord, sha256Hex } from "../shared/canonical.js";
+import { guardedWrite } from "../storage/transaction.js";
 import { validateProposalRevision, validateProposalSet } from "./store.js";
+import { assertNotThenable, proposalChecks } from "./validation.js";
 
 import type {
   PrepareProposalApply,
@@ -73,131 +75,29 @@ function fail(
 ): never {
   throw new EngineError(code, message);
 }
-function id(v: unknown): string {
-  if (
-    typeof v !== "string" ||
-    !v ||
-    Buffer.byteLength(v) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(v)
-  )
-    fail();
-  return v;
+function transactionRequired(): never {
+  return fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
 }
-function count(v: unknown, max = Number.MAX_SAFE_INTEGER): number {
-  if (!Number.isSafeInteger(v) || (v as number) < 0 || (v as number) > max)
-    fail();
-  return v as number;
-}
-function digest(v: unknown): string {
-  if (typeof v !== "string" || !/^[a-f0-9]{64}$/u.test(v)) fail();
-  return v;
-}
-function utc(v: unknown): string {
-  if (
-    typeof v !== "string" ||
-    v.length !== 24 ||
-    !Number.isFinite(Date.parse(v)) ||
-    new Date(v).toISOString() !== v
-  )
-    fail();
-  return v;
-}
-function bodyHash(v: string): string {
-  return createHash("sha256").update(v).digest("hex");
-}
-function immutable<T>(
-  input: T,
-  maximum: number = PROPOSAL_APPLY_LIMITS.rowBytes,
-): T {
-  let nodes = 0,
-    bytes = 0;
-  const seen = new Set<object>();
-  function visit(value: unknown, depth: number): unknown {
-    if (++nodes > 12_000 || depth > 16) fail("PROPOSAL_APPLY_LIMIT");
-    if (value === null || typeof value === "boolean") return value;
-    if (typeof value === "string") {
-      bytes += Buffer.byteLength(value);
-      if (bytes > maximum || Buffer.from(value).toString("utf8") !== value)
-        fail("PROPOSAL_APPLY_LIMIT");
-      return value;
-    }
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (
-      !value ||
-      typeof value !== "object" ||
-      types.isProxy(value) ||
-      seen.has(value)
-    )
-      fail();
-    const array = Array.isArray(value),
-      proto = Object.getPrototypeOf(value);
-    if (
-      array
-        ? proto !== Array.prototype
-        : proto !== Object.prototype && proto !== null
-    )
-      fail();
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    if (
-      Reflect.ownKeys(descriptors).some((k) => typeof k !== "string") ||
-      Object.values(descriptors).some((d) => !Object.hasOwn(d, "value"))
-    )
-      fail();
-    seen.add(value);
-    let result: unknown;
-    if (array) {
-      if (
-        value.length > 128 ||
-        Object.keys(descriptors).length !== value.length + 1 ||
-        Array.from(
-          { length: value.length },
-          (_, i) => descriptors[String(i)],
-        ).some((d) => !d?.enumerable)
-      )
-        fail();
-      result = Array.from({ length: value.length }, (_, i) =>
-        visit(descriptors[String(i)]!.value, depth + 1),
-      );
-    } else {
-      const target: Record<string, unknown> = {};
-      for (const [k, d] of Object.entries(descriptors)) {
-        if (!d.enumerable || k === "__proto__") fail();
-        bytes += Buffer.byteLength(k);
-        target[k] = visit(d.value, depth + 1);
-      }
-      result = target;
-    }
-    seen.delete(value);
-    return Object.freeze(result);
-  }
-  const result = visit(input, 0) as T;
-  if (Buffer.byteLength(JSON.stringify(result)) > maximum)
-    fail("PROPOSAL_APPLY_LIMIT");
-  return result;
-}
-function fields(
-  v: unknown,
-  required: readonly string[],
-): Record<string, unknown> {
-  if (!v || typeof v !== "object" || Array.isArray(v)) fail();
-  const r = v as Record<string, unknown>;
-  if (
-    Object.keys(r).length !== required.length ||
-    Object.keys(r).some((k) => !required.includes(k))
-  )
-    fail();
-  return r;
-}
-function signed<T extends object>(
-  v: T,
-  maximum: number = PROPOSAL_APPLY_LIMITS.rowBytes,
-): T & { sha256: string } {
-  return immutable({ ...v, sha256: knowledgeHash(v) }, maximum);
-}
-function checkHash(r: Record<string, unknown>): void {
-  const { sha256, ...v } = r;
-  if (digest(sha256) !== knowledgeHash(v)) fail("PROPOSAL_APPLY_HASH_MISMATCH");
-}
+const {
+  id,
+  integer: count,
+  sha: digest,
+  stamp: utc,
+  exact: fields,
+  json: immutable,
+  seal: signed,
+  verify: checkHash,
+  decoded,
+} = proposalChecks({
+  fail,
+  limitCode: "PROPOSAL_APPLY_LIMIT",
+  hashCode: "PROPOSAL_APPLY_HASH_MISMATCH",
+  rowCode: "INVALID_PROPOSAL_APPLY_ROW",
+  maxBytes: PROPOSAL_APPLY_LIMITS.rowBytes,
+  maxNodes: 12_000,
+  maxDepth: 16,
+  maxItems: 128,
+});
 const inputFields = [
   "workspaceId",
   "proposalId",
@@ -311,15 +211,6 @@ function validateProposalApplyOwner(value: unknown): ProposalApplyOwner {
     fail();
   checkHash(r);
   return r as unknown as ProposalApplyOwner;
-}
-function decoded(v: unknown, maximum: number): unknown {
-  if (typeof v !== "string" || Buffer.byteLength(v) > maximum)
-    fail("PROPOSAL_APPLY_LIMIT");
-  try {
-    return JSON.parse(v);
-  } catch {
-    fail("INVALID_PROPOSAL_APPLY_ROW");
-  }
 }
 function readRow(
   db: DatabaseSync,
@@ -546,21 +437,11 @@ export class ProposalApplyStorage {
     readonly ports: ProposalApplyStoragePorts,
   ) {}
   #tx<T>(operation: () => T): T {
-    let entries = 0;
-    const result = this.ports.writeTx(() => {
-      if (++entries !== 1 || !this.db.isTransaction)
-        fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
-      const result = operation();
-      if (result && typeof result === "object" && "then" in result)
-        fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
-      return result;
+    return guardedWrite(this.db, this.ports, operation, {
+      join: false,
+      innerAsyncCheck: true,
+      required: transactionRequired,
     });
-    if (
-      entries !== 1 ||
-      (result && typeof result === "object" && "then" in result)
-    )
-      fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
-    return result;
   }
   #now(): number {
     const now = this.ports.now?.() ?? Date.now();
@@ -984,12 +865,12 @@ export class ProposalApplyStorage {
       const before = image(f.before),
         after = image(f.after);
       if (
-        f.beforeSha256 !== (before === null ? null : bodyHash(before)) ||
+        f.beforeSha256 !== (before === null ? null : sha256Hex(before)) ||
         f.beforeSha256 !== (expected.before?.sha256 ?? null) ||
         (!f.observationComplete &&
           (after !== null || f.afterSha256 !== null)) ||
         (f.observationComplete &&
-          f.afterSha256 !== (after === null ? null : bodyHash(after)))
+          f.afterSha256 !== (after === null ? null : sha256Hex(after)))
       )
         fail("PROPOSAL_APPLY_HASH_MISMATCH");
       total +=
@@ -1012,7 +893,7 @@ export class ProposalApplyStorage {
             ownerId: record.id,
             checkpointId: record.id,
             fileIndex: i,
-            sha256: bodyHash(after),
+            sha256: sha256Hex(after),
             bytes: Buffer.byteLength(after),
             createdAt,
           };
@@ -1046,7 +927,7 @@ export class ProposalApplyStorage {
         ) ||
         result.errorCode !== null;
     const checkpoint = validateProposalApplyCheckpoint(
-      signed(
+      sealRecord(
         {
           id: record.id,
           workspaceId: record.workspaceId,
@@ -1063,7 +944,7 @@ export class ProposalApplyStorage {
           warnings: result.warnings,
           createdAt,
         },
-        PROPOSAL_APPLY_LIMITS.checkpointBytes,
+        (sealed) => immutable(sealed, PROPOSAL_APPLY_LIMITS.checkpointBytes),
       ),
     );
     return this.#tx(() => {
@@ -1414,13 +1295,14 @@ export class ProposalApplyStorage {
         )
           fail("PROPOSAL_APPLY_RECOVERY_STALE");
       }
-      const result = this.ports.beforeRecoveryDecision?.(
-        preview.workspaceId,
-        operation,
-        preview,
-      ) as unknown;
-      if (result && typeof result === "object" && "then" in result)
-        fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
+      assertNotThenable(
+        this.ports.beforeRecoveryDecision?.(
+          preview.workspaceId,
+          operation,
+          preview,
+        ),
+        transactionRequired,
+      );
       const decision = validateProposalApplyRecoveryDecision(
         signed({
           id: randomUUID(),
@@ -1833,7 +1715,7 @@ export function validateProposalApplyDatabase(
             !(raw.content instanceof Uint8Array) ||
             Buffer.byteLength(Buffer.from(raw.content).toString("utf8")) !==
               ref.bytes ||
-            bodyHash(Buffer.from(raw.content).toString("utf8")) !== ref.sha256
+            sha256Hex(Buffer.from(raw.content).toString("utf8")) !== ref.sha256
           )
             fail("PROPOSAL_APPLY_HASH_MISMATCH");
         } else if (

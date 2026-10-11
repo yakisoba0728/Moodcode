@@ -1,13 +1,12 @@
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import {
-  identifier,
   immutableKnowledgeJson,
   knowledgeHash,
-  stamp,
   validateBinding,
 } from "../knowledge/validation.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import { assertNativeSignal, recordGuards } from "../shared/data.js";
 import {
   PHYSICAL_PATCH_LIMITS,
   type PhysicalPatchProducer,
@@ -20,6 +19,7 @@ import type {
   ProposalSet,
 } from "./types.js";
 import type { ProposalSourceManifest } from "./source-capture.js";
+import { ownDataFields, trackPending } from "./validation.js";
 import type {
   PrepareProposalApply,
   PrepareProposalApplyResult,
@@ -162,70 +162,13 @@ function fail(code = "INVALID_PROPOSAL_APPLY"): never {
     "Proposal application requires its exact original approved preview and current native source",
   );
 }
-function plain(
-  value: unknown,
-  required: readonly string[],
-  optional: readonly string[] = [],
-): Record<string, PropertyDescriptor> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Array.isArray(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail();
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        (!required.includes(key) && !optional.includes(key)),
-    ) ||
-    required.some((key) => !descriptors[key]) ||
-    Object.values(descriptors).some(
-      (d) => !d.enumerable || !Object.hasOwn(d, "value"),
-    )
-  )
-    fail();
-  return descriptors;
+function invalid(): never {
+  return fail();
 }
-function actualSignal(value: unknown): asserts value is AbortSignal {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype
-  )
-    fail();
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        !Object.hasOwn(
-          descriptors[key as keyof typeof descriptors]!,
-          "value",
-        ) ||
-        (typeof key === "string" &&
-          [
-            "aborted",
-            "reason",
-            "addEventListener",
-            "removeEventListener",
-          ].includes(key)),
-    )
-  )
-    fail();
-  try {
-    // Probe the native brand only after rejecting caller-owned accessors.
-    Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(value);
-  } catch {
-    fail();
-  }
-}
+const { id, stamp, seal } = recordGuards({
+  json: immutableKnowledgeJson,
+  fail: invalid,
+});
 /** Effects need this much preview validity left so expiry cannot cross a held lock. */
 const EFFECT_VALIDITY_MS = 10_000;
 function errorCode(error: unknown): string {
@@ -263,9 +206,7 @@ export class ProposalApplyService {
     } catch (error) {
       return Promise.reject(error);
     }
-    this.#pending.add(task);
-    void task.finally(() => this.#pending.delete(task)).catch(() => {});
-    return task;
+    return trackPending(this.#pending, task);
   }
   preview(input: ProposalApplyPreviewInput): Promise<ProposalApplyPreview> {
     return this.own(() => this.preparePreview(input));
@@ -273,19 +214,20 @@ export class ProposalApplyService {
   private async preparePreview(
     input: ProposalApplyPreviewInput,
   ): Promise<ProposalApplyPreview> {
-    const fields = plain(
+    const fields = ownDataFields(
       input,
       ["workspaceId", "proposalId"],
       ["revisionId", "expiresAt", "signal"],
+      invalid,
     );
-    const workspaceId = identifier(fields.workspaceId!.value),
-      proposalId = identifier(fields.proposalId!.value);
+    const workspaceId = id(fields.workspaceId!.value),
+      proposalId = id(fields.proposalId!.value);
     const revisionId =
       fields.revisionId?.value === undefined
         ? undefined
-        : identifier(fields.revisionId.value);
+        : id(fields.revisionId.value);
     const caller = fields.signal?.value;
-    if (caller !== undefined) actualSignal(caller);
+    if (caller !== undefined) assertNativeSignal(caller, invalid);
     this.open(caller);
     // Execution guards accept only POSIX lock paths.
     if (process.platform === "win32") fail("PROPOSAL_APPLY_UNSUPPORTED");
@@ -376,10 +318,7 @@ export class ProposalApplyService {
         createdAt: new Date(now).toISOString(),
         expiresAt,
       };
-      const preview = immutableKnowledgeJson({
-        ...body,
-        sha256: knowledgeHash(body),
-      });
+      const preview = seal(body);
       const state: PreviewState = {
         preview,
         selection: selected.selection,
@@ -406,13 +345,14 @@ export class ProposalApplyService {
   private async applyOriginal(
     input: ApplyProposalInput,
   ): Promise<ApplyProposalResult> {
-    const fields = plain(
+    const fields = ownDataFields(
       input,
       ["workspaceId", "requestId", "approved", "preview"],
       ["signal"],
+      invalid,
     );
-    const workspaceId = identifier(fields.workspaceId!.value),
-      requestId = identifier(fields.requestId!.value);
+    const workspaceId = id(fields.workspaceId!.value),
+      requestId = id(fields.requestId!.value);
     if (fields.approved!.value !== true)
       fail("PROPOSAL_APPLY_APPROVAL_REQUIRED");
     const original = fields.preview!.value;
@@ -422,7 +362,7 @@ export class ProposalApplyService {
     if (!state || state.preview.workspaceId !== workspaceId)
       fail("PROPOSAL_APPLY_PREVIEW_INVALID");
     const caller = fields.signal?.value;
-    if (caller !== undefined) actualSignal(caller);
+    if (caller !== undefined) assertNativeSignal(caller, invalid);
     this.open(caller);
     const signal = AbortSignal.any([
       this.#close.signal,

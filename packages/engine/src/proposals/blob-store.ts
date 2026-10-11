@@ -1,11 +1,11 @@
-import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import { parseJsonOr, plainRecord, recordGuards } from "../shared/data.js";
 import type {
   ProposalBlobHeader,
   ProposalBlobPage,
@@ -25,43 +25,18 @@ function fail(code = "INVALID_PROPOSAL_BLOB"): never {
     "Proposal blobs require exact native revision ownership and bounded complete content",
   );
 }
-function id(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail();
-  return value;
-}
-function count(value: unknown, maximum: number): number {
-  if (
-    !Number.isSafeInteger(value) ||
-    (value as number) < 0 ||
-    (value as number) > maximum
-  )
-    fail();
-  return value as number;
-}
-function hash(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) fail();
-  return value;
-}
+const {
+  id,
+  integer: count,
+  sha: hash,
+  stamp,
+  exact,
+} = recordGuards({ json: immutableKnowledgeJson, fail: () => fail() });
 function fields(
   value: unknown,
   keys: readonly string[],
 ): Record<string, unknown> {
-  const result = immutableKnowledgeJson(value);
-  if (
-    !result ||
-    typeof result !== "object" ||
-    Array.isArray(result) ||
-    Object.keys(result).length !== keys.length ||
-    Object.keys(result).some((key) => !keys.includes(key))
-  )
-    fail();
-  return result as Record<string, unknown>;
+  return exact(immutableKnowledgeJson(value), keys);
 }
 const REFERENCE = [
   "id",
@@ -91,13 +66,7 @@ export function validateProposalBlobHeader(value: unknown): ProposalBlobHeader {
   const result = fields(value, [...REFERENCE, "createdAt"]);
   const { createdAt, ...reference } = result;
   validateProposalBlobReference(reference);
-  if (
-    typeof createdAt !== "string" ||
-    createdAt.length !== 24 ||
-    !Number.isFinite(Date.parse(createdAt)) ||
-    new Date(createdAt).toISOString() !== createdAt
-  )
-    fail();
+  stamp(createdAt);
   const { headerSha256, ...unsigned } = result;
   if (knowledgeHash(unsigned) !== headerSha256)
     fail("PROPOSAL_BLOB_HASH_MISMATCH");
@@ -116,7 +85,7 @@ function content(value: unknown, expected: ProposalBlobReference): Buffer {
     fail("PROPOSAL_BLOB_HASH_MISMATCH");
   const buffer = Buffer.from(value);
   if (
-    createHash("sha256").update(buffer).digest("hex") !== expected.sha256 ||
+    sha256Hex(buffer) !== expected.sha256 ||
     !Buffer.from(buffer.toString("utf8")).equals(buffer) ||
     buffer.includes(0)
   )
@@ -147,13 +116,9 @@ function rowHeader(
     Buffer.byteLength(body.data) !== dataBytes
   )
     fail();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(body.data);
-  } catch {
-    fail();
-  }
-  const header = validateProposalBlobHeader(parsed);
+  const header = validateProposalBlobHeader(
+    parseJsonOr(body.data, () => fail()),
+  );
   if (
     header.id !== row.id ||
     header.workspaceId !== row.workspace_id ||
@@ -189,13 +154,9 @@ function assertRevisionOwner(
     Buffer.byteLength(raw.data) !== row.data_bytes
   )
     fail();
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw.data);
-  } catch {
-    fail();
-  }
-  const revision = validateProposalRevision(parsed);
+  const revision = validateProposalRevision(
+    parseJsonOr(raw.data, () => fail()),
+  );
   if (
     row.id !== revision.id ||
     row.workspace_id !== revision.workspaceId ||
@@ -282,24 +243,7 @@ export class ProposalBlobStorage implements ProposalBlobStoragePort {
     options: ProposalBlobReadOptions = {},
   ): ProposalBlobPage {
     const ref = validateProposalBlobReference(input);
-    if (
-      !options ||
-      typeof options !== "object" ||
-      types.isProxy(options) ||
-      ![Object.prototype, null].includes(Object.getPrototypeOf(options))
-    )
-      fail();
-    const descriptors = Object.getOwnPropertyDescriptors(options);
-    if (
-      Reflect.ownKeys(descriptors).some(
-        (key) =>
-          typeof key !== "string" ||
-          !["offset", "limit"].includes(key) ||
-          !descriptors[key]!.enumerable ||
-          !Object.hasOwn(descriptors[key]!, "value"),
-      )
-    )
-      fail();
+    plainRecord(options, [], ["offset", "limit"], () => fail());
     const offset = count(options.offset ?? 0, ref.bytes),
       limit = count(options.limit ?? MAX_PAGE, MAX_PAGE);
     if (!limit) fail();
