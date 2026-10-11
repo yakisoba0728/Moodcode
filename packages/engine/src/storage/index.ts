@@ -17,7 +17,7 @@ import { GitCommitStorage, hasUncertainGitCommit, hasKnownGitCommitSupervisor, r
 import { readForkChildData } from '../sessions/fork-child.js';
 import { importPausedFork, type ForkImportPreview } from '../sessions/fork-archive.js';
 import { captureForkSource, assertForkSourceCurrent, readConversationFork, materializeConversationFork, validateConversationForkDatabase, type ForkNativePorts } from '../sessions/fork-native.js';
-import type { FrozenHistoryManifest } from '../sessions/fork-types.js';
+import { FORK_CHILD_EVENT, FORK_CHILD_KIND, FORK_IMPORT_KIND, type FrozenHistoryManifest } from '../sessions/fork-types.js';
 import { randomUUID } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
@@ -340,7 +340,7 @@ export class SqliteStore implements SessionEngineStore {
     this.assertOpen();
     return this.rows('SELECT data FROM workspaces ORDER BY rowid');
   }
-  installConversationForkChildEvidence(sessionId: string, evidence: JsonObject): void { this.transaction(()=>{this.executionRecords.putSessionDocument(sessionId,'conversation.fork.child-data',0,evidence);this.native.appendEvent(sessionId,'conversation.fork.child_context',{evidence});}); }
+  installConversationForkChildEvidence(sessionId: string, evidence: JsonObject): void { this.transaction(()=>{this.executionRecords.putSessionDocument(sessionId,FORK_CHILD_KIND,0,evidence);this.native.appendEvent(sessionId,FORK_CHILD_EVENT,{evidence});}); }
   getConversationForkChildEvidence(sessionId: string) { return this.evidenceRead(()=>readForkChildData(this.db,sessionId)); }
   captureConversationForkSource(sessionId: string, throughRunId?: string): FrozenHistoryManifest { return this.evidenceRead(() => captureForkSource(this.db,sessionId,throughRunId)); }
   assertConversationForkSource(source: FrozenHistoryManifest, fresh: boolean): void { this.evidenceRead(() => assertForkSourceCurrent(this.db,source,fresh)); }
@@ -791,7 +791,7 @@ export class SqliteStore implements SessionEngineStore {
       this.getWorkspace(workspaceId);
       this.createGitCommitStorage().pause(workspaceId, archiveSha256);
       this.createPrFeedbackStorage().pause(workspaceId,archiveSha256);
-      for (const session of this.listSessions(workspaceId)) if (this.getConversationFork(session.id)) { const old=this.getSessionDocument(session.id,'conversation.fork.import'); if (old?.data.kind !== 'target-only-history') this.executionRecords.putSessionDocument(session.id,'conversation.fork.import',old?.revision??0,{paused:true,archiveSha256}); }
+      for (const session of this.listSessions(workspaceId)) if (this.getConversationFork(session.id)) { const old=this.getSessionDocument(session.id,FORK_IMPORT_KIND); if (old?.data.kind !== 'target-only-history') this.executionRecords.putSessionDocument(session.id,FORK_IMPORT_KIND,old?.revision??0,{paused:true,archiveSha256}); }
       pauseImportedProposals(this.db, workspaceId, archiveSha256);
       pauseImportedProposalApplies(this.db, workspaceId, archiveSha256);
       pauseImportedTeams(this.db, workspaceId, archiveSha256);

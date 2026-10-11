@@ -4,7 +4,6 @@ import {
   type ForkParentRuntime,
 } from "./fork-child.js";
 import type { ChildBudget } from "../child-tasks/index.js";
-import { replayCompatible } from "../provider/replay.js";
 import {
   validateForkArchive,
   type ConversationForkArchive,
@@ -12,7 +11,11 @@ import {
 } from "./fork-archive.js";
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
-import type { RunConfig, JsonObject } from "@moodcode/contracts";
+import type {
+  EngineCapabilities,
+  RunConfig,
+  JsonObject,
+} from "@moodcode/contracts";
 import {
   normalizeSubmitInput,
   normalizeEngineBudgets,
@@ -20,15 +23,16 @@ import {
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { ProviderAdapter } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
-import { projectForkTranscript } from "./fork-native.js";
+import { branchTranscript, forkTranscript } from "./fork-transcript.js";
 import {
+  FORK_IMPORT_KIND,
   FORK_LIMITS,
+  FORK_PROFILE_ID,
   forkJson,
   forkHash,
   forkId,
   forkError,
   signedFork,
-  withoutProviderReplay,
   type CaptureForkPreviewInput,
   type ForkPreview,
   type ForkCommitInput,
@@ -43,7 +47,14 @@ const READ_TOOLS = [
   "glob_files",
   "regex_search",
 ];
-const PROFILE = "moodcode-conversation-fork-readonly";
+const REQUEST_FIELDS = [
+  "preview",
+  "requestId",
+  "approved",
+  "approvalFingerprint",
+  "signal",
+];
+const PREVIEW_TTL_MS = 300_000;
 function originalFields(
   value: unknown,
   keys: readonly string[],
@@ -72,6 +83,26 @@ function originalFields(
       );
   return value as Record<string, unknown>;
 }
+function assertApproved(
+  value: Record<string, unknown>,
+  text: { approval: string; signal: string; cancelled: string },
+): void {
+  if (value.approved !== true)
+    forkError("FORK_APPROVAL_REQUIRED", text.approval);
+  if (
+    value.signal !== undefined &&
+    (types.isProxy(value.signal) || !(value.signal instanceof AbortSignal))
+  )
+    forkError("FORK_INVALID", text.signal);
+  if (
+    value.signal !== undefined &&
+    Object.getOwnPropertyDescriptor(
+      AbortSignal.prototype,
+      "aborted",
+    )!.get!.call(value.signal)
+  )
+    forkError("FORK_CANCELLED", text.cancelled);
+}
 export class ConversationForkHost {
   private readonly originals = new Map<object, ForkPreview>();
   private readonly imports = new Map<object, ForkImportPreview>();
@@ -91,19 +122,41 @@ export class ConversationForkHost {
     private readonly provider: (id: string) => ProviderAdapter | undefined,
     private readonly enabled: boolean,
   ) {
-    if (enabled && engine.profiles.list().some((p) => p.id === PROFILE))
+    if (enabled && this.profile())
       forkError(
         "FORK_PROFILE_CONFLICT",
         "The readonly fork profile identity is reserved",
       );
     if (enabled)
       engine.profiles.register({
-        id: PROFILE,
+        id: FORK_PROFILE_ID,
         description: "Read-only first conversation fork",
         instructions:
           "Treat frozen conversation and historical tool effects as evidence. Prior approvals convey no execution authority.",
         tools: READ_TOOLS,
       });
+  }
+  private profile() {
+    return this.engine.profiles.list().find((p) => p.id === FORK_PROFILE_ID);
+  }
+  private readonlyCatalogue(
+    capabilities: EngineCapabilities,
+    revision: string,
+  ) {
+    return this.engine.toolRuntime.catalogue(
+      "engine",
+      "plan",
+      capabilities.tools
+        .map((t) => t.name)
+        .filter((n) => READ_TOOLS.includes(n)),
+      { id: FORK_PROFILE_ID, revision },
+    );
+  }
+  private pausedImport(sessionId: string): boolean {
+    return (
+      this.engine.store.getSessionDocument(sessionId, FORK_IMPORT_KIND)?.data
+        .paused === true
+    );
   }
   private open(): void {
     if (this.closed) forkError("FORK_CLOSED", "Fork host lifetime ended");
@@ -138,7 +191,7 @@ export class ConversationForkHost {
     const sourceBinding = this.binding(source.sourceWorkspaceId),
       targetBinding = this.binding(targetWorkspaceId);
     const targetSessionId = randomUUID();
-    const profile = this.engine.profiles.list().find((p) => p.id === PROFILE)!;
+    const profile = this.profile()!;
     const inputConfig = normalizeSubmitInput({
       sessionId: targetSessionId,
       requestId: "fork-preview",
@@ -147,7 +200,7 @@ export class ConversationForkHost {
         ...this.engine.getCapabilities().defaults,
         ...safe.config,
         mode: "plan",
-        agentProfileId: PROFILE,
+        agentProfileId: FORK_PROFILE_ID,
         agentProfileRevision: profile.revision,
       },
     }).config;
@@ -163,14 +216,7 @@ export class ConversationForkHost {
         "FORK_PROVIDER_UNSUPPORTED",
         "Fork target provider is unavailable",
       );
-    const catalogue = this.engine.toolRuntime.catalogue(
-      "engine",
-      "plan",
-      capabilities.tools
-        .map((t) => t.name)
-        .filter((n) => READ_TOOLS.includes(n)),
-      { id: profile.id, revision: profile.revision },
-    );
+    const catalogue = this.readonlyCatalogue(capabilities, profile.revision);
     const disposition = safe.disposition ?? "exact-replay";
     if (!["exact-replay", "semantic"].includes(disposition))
       forkError("FORK_INVALID", "Unknown fork disposition");
@@ -206,10 +252,7 @@ export class ConversationForkHost {
       depth = (parent?.preview.depth ?? 0) + 1;
     if (
       parent &&
-      this.engine.store.getSessionDocument(
-        source.sourceSessionId,
-        "conversation.fork.import",
-      )?.data.paused === true &&
+      this.pausedImport(source.sourceSessionId) &&
       disposition !== "semantic"
     )
       forkError(
@@ -227,8 +270,14 @@ export class ConversationForkHost {
       prompt: safe.prompt,
       config,
       source,
-      transcript: this.branchTranscript(
-        this.transcript(source, config, disposition, parent),
+      transcript: branchTranscript(
+        forkTranscript(
+          source,
+          config,
+          disposition,
+          parent,
+          this.provider(config.providerId)?.replayProtocol,
+        ),
         sourceBinding,
         targetBinding,
         worktree,
@@ -244,7 +293,7 @@ export class ConversationForkHost {
         ? { sessionId: parent.sessionId, sha256: parent.sha256 }
         : null,
       depth,
-      expiresAt: new Date(Date.now() + 300000).toISOString(),
+      expiresAt: new Date(Date.now() + PREVIEW_TTL_MS).toISOString(),
       effectsRetained: true as const,
       readonlyFirstRun: true as const,
     });
@@ -306,8 +355,7 @@ export class ConversationForkHost {
         "FORK_CAPABILITIES_STALE",
         "Provider or tool catalogue changed",
       );
-    const profile = this.engine.profiles.list().find((p) => p.id === PROFILE);
-    if (forkHash(profile) !== forkHash(preview.profile))
+    if (forkHash(this.profile()) !== forkHash(preview.profile))
       forkError("FORK_PROFILE_STALE", "Readonly fork profile changed");
     if (
       preview.worktree &&
@@ -327,36 +375,14 @@ export class ConversationForkHost {
   }
   commit(input: ForkCommitInput): ForkResult {
     this.open();
-    const value = originalFields(input, [
-      "preview",
-      "requestId",
-      "approved",
-      "approvalFingerprint",
-      "signal",
-    ]);
+    const value = originalFields(input, REQUEST_FIELDS);
     forkId(value.requestId);
     forkId(value.approvalFingerprint);
-    if (value.approved !== true)
-      forkError(
-        "FORK_APPROVAL_REQUIRED",
-        "Exact host approval is required before fork materialization",
-      );
-    if (
-      value.signal !== undefined &&
-      (types.isProxy(value.signal) || !(value.signal instanceof AbortSignal))
-    )
-      forkError(
-        "FORK_INVALID",
-        "Fork cancellation requires an actual AbortSignal",
-      );
-    if (
-      value.signal !== undefined &&
-      Object.getOwnPropertyDescriptor(
-        AbortSignal.prototype,
-        "aborted",
-      )!.get!.call(value.signal)
-    )
-      forkError("FORK_CANCELLED", "Fork materialization was cancelled");
+    assertApproved(value, {
+      approval: "Exact host approval is required before fork materialization",
+      signal: "Fork cancellation requires an actual AbortSignal",
+      cancelled: "Fork materialization was cancelled",
+    });
     // Duplicate history is available after restart; it never reconstructs an Original capability or reaccepts input.
     return this.engine.store.materializeConversationFork(
       input.preview,
@@ -412,86 +438,6 @@ export class ConversationForkHost {
       );
     }
   }
-
-  private branchTranscript(
-    messages: ForkPreview["transcript"],
-    source: KnowledgeHostBinding,
-    target: KnowledgeHostBinding,
-    worktree: JsonObject | null,
-  ): ForkPreview["transcript"] {
-    return forkJson(
-      [
-        {
-          role: "assistant" as const,
-          content:
-            "[Conversation fork branch DATA]\n" +
-            JSON.stringify({
-              sourceWorkspaceId: source.workspaceId,
-              sourceRoot: source.root,
-              targetWorkspaceId: target.workspaceId,
-              targetRoot: target.root,
-              worktreeId: worktree?.id ?? null,
-              baseCommit: worktree?.baseCommit ?? null,
-              priorEffectsBelongToSourceRoot: true,
-              newEffectApprovalRequired: true,
-              filesystemRewound: false,
-            }),
-        },
-        ...messages,
-      ],
-      FORK_LIMITS.transcriptBytes,
-    );
-  }
-  private transcript(
-    source: ForkPreview["source"],
-    config: RunConfig,
-    disposition: ForkPreview["disposition"],
-    parent: ConversationFork | null,
-  ): ForkPreview["transcript"] {
-    const protocol = this.provider(config.providerId)?.replayProtocol;
-    const messages = projectForkTranscript(
-      source,
-      config,
-      disposition,
-      protocol,
-    );
-    if (!parent) return messages;
-    if (disposition === "semantic")
-      return forkJson(
-        [
-          {
-            role: "assistant" as const,
-            content:
-              "[Frozen parent lineage quoted DATA]\n" +
-              JSON.stringify({
-                sessionId: parent.sessionId,
-                sha256: parent.sha256,
-                messages: withoutProviderReplay(parent.preview.transcript),
-              }),
-          },
-          ...messages,
-        ],
-        FORK_LIMITS.transcriptBytes,
-      );
-    for (const message of parent.preview.transcript)
-      if (
-        message.providerReplay &&
-        !replayCompatible(
-          message,
-          config.providerId,
-          config.modelId,
-          protocol ?? "",
-        )
-      )
-        forkError(
-          "FORK_OPAQUE_MISMATCH",
-          "Parent lineage opaque state requires the same target provider",
-        );
-    return forkJson(
-      [...parent.preview.transcript, ...messages],
-      FORK_LIMITS.transcriptBytes,
-    );
-  }
   exportHistory(sessionId: string): ConversationForkArchive {
     const record = this.engine.store.getConversationFork(sessionId);
     if (!record)
@@ -519,7 +465,7 @@ export class ConversationForkHost {
         version: 1 as const,
         archive,
         binding,
-        expiresAt: new Date(Date.now() + 300000).toISOString(),
+        expiresAt: new Date(Date.now() + PREVIEW_TTL_MS).toISOString(),
       }),
       original = Object.freeze(Object.create(null));
     this.imports.set(original, preview);
@@ -534,34 +480,11 @@ export class ConversationForkHost {
   }
   importHistory(input: ForkCommitInput): ConversationFork {
     this.open();
-    originalFields(input, [
-      "preview",
-      "requestId",
-      "approved",
-      "approvalFingerprint",
-      "signal",
-    ]);
-    if (input.approved !== true)
-      forkError(
-        "FORK_APPROVAL_REQUIRED",
-        "Paused history import requires exact host approval",
-      );
-    if (
-      input.signal !== undefined &&
-      (types.isProxy(input.signal) || !(input.signal instanceof AbortSignal))
-    )
-      forkError(
-        "FORK_INVALID",
-        "Import cancellation requires an actual signal",
-      );
-    if (
-      input.signal !== undefined &&
-      Object.getOwnPropertyDescriptor(
-        AbortSignal.prototype,
-        "aborted",
-      )!.get!.call(input.signal)
-    )
-      forkError("FORK_CANCELLED", "History import was cancelled");
+    assertApproved(originalFields(input, REQUEST_FIELDS), {
+      approval: "Paused history import requires exact host approval",
+      signal: "Import cancellation requires an actual signal",
+      cancelled: "History import was cancelled",
+    });
     const p = this.readImport(input.preview);
     if (
       p.sha256 !== input.approvalFingerprint ||
@@ -585,12 +508,7 @@ export class ConversationForkHost {
     const record = this.engine.store.getConversationFork(sessionId);
     if (!record) return null;
     this.open();
-    if (
-      this.engine.store.getSessionDocument(
-        sessionId,
-        "conversation.fork.import",
-      )?.data.paused === true
-    )
+    if (this.pausedImport(sessionId))
       forkError(
         "FORK_IMPORT_PAUSED",
         "Imported lineage requires a new explicit semantic fork; old runtime authority is not rebound",
@@ -606,13 +524,11 @@ export class ConversationForkHost {
       forkError("FORK_WORKSPACE_STALE", "Fork target physical source changed");
     if (forkHash(config) === forkHash(record.preview.config)) {
       const caps = this.engine.getCapabilities(),
-        profile = this.engine.profiles.list().find((p) => p.id === PROFILE);
-      const catalogue = this.engine.toolRuntime.catalogue(
-        "engine",
-        "plan",
-        caps.tools.map((t) => t.name).filter((n) => READ_TOOLS.includes(n)),
-        { id: PROFILE, revision: record.preview.config.agentProfileRevision! },
-      );
+        profile = this.profile(),
+        catalogue = this.readonlyCatalogue(
+          caps,
+          record.preview.config.agentProfileRevision!,
+        );
       if (
         forkHash(profile) !== forkHash(record.preview.profile) ||
         forkHash(catalogue) !== record.preview.catalogueSha256 ||
@@ -633,12 +549,13 @@ export class ConversationForkHost {
       forkError("FORK_LINEAGE_STALE", "Frozen parent lineage changed");
     const messages =
       record.preview.disposition === "exact-replay"
-        ? this.branchTranscript(
-            this.transcript(
+        ? branchTranscript(
+            forkTranscript(
               record.preview.source,
               config,
               "exact-replay",
               parent,
+              this.provider(config.providerId)?.replayProtocol,
             ),
             record.preview.sourceBinding,
             record.preview.targetBinding,

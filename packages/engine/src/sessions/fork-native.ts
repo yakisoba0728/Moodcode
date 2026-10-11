@@ -14,17 +14,18 @@ import {
   type AcceptInput,
   type InputReceipt,
 } from "@moodcode/contracts";
-import type { ProviderMessage } from "../ports.js";
-import { replayCompatible } from "../provider/replay.js";
 import {
   FORK_KIND,
+  FORK_IMPORT_KIND,
   FORK_LIMITS,
+  FORK_PROFILE_ID,
+  boundedRow,
+  decode,
   forkHash,
   forkJson,
   forkId,
   forkError,
   signedFork,
-  withoutProviderReplay,
   type ConversationFork,
   type FrozenHistoryManifest,
   type ForkSourcePin,
@@ -42,41 +43,21 @@ const TABLES = [
   "message_parts",
   "attempt_cleanup",
 ] as const;
-function decode(row: Record<string, unknown> | undefined): any {
-  if (
-    !row ||
-    typeof row.data !== "string" ||
-    Buffer.byteLength(row.data) > FORK_LIMITS.recordBytes + 8192
-  )
-    return forkError(
-      "FORK_NATIVE_INVALID",
-      "Native fork evidence is missing or oversized",
-    );
-  return JSON.parse(row.data);
-}
-function boundedRow(
+function sourceSequences(
   db: DatabaseSync,
-  table: string,
-  where: string,
-  args: (string | number)[],
-  cap = FORK_LIMITS.recordBytes + 8192,
-): Record<string, unknown> | undefined {
-  const header = db
-    .prepare(
-      `SELECT length(CAST(data AS BLOB)) bytes FROM ${table} WHERE ${where}`,
-    )
-    .get(...args);
-  if (!header) return undefined;
-  if (!Number.isSafeInteger(header.bytes) || Number(header.bytes) > cap)
-    forkError(
-      "FORK_LIMIT",
-      "Native fork body exceeds its bound before materialization",
-    );
-  return db
-    .prepare(
-      `SELECT * FROM ${table} WHERE ${where} AND length(CAST(data AS BLOB))=?`,
-    )
-    .get(...args, Number(header.bytes));
+  sessionId: string,
+): { legacySeq: number; nativeSeq: number } {
+  return {
+    legacySeq: Number(
+      db.prepare("SELECT last_seq FROM sessions WHERE id=?").get(sessionId)
+        ?.last_seq,
+    ),
+    nativeSeq: Number(
+      db
+        .prepare("SELECT last_seq FROM session_sequences WHERE session_id=?")
+        .get(sessionId)?.last_seq ?? 0,
+    ),
+  };
 }
 function assertRecordHash(record: { sha256: string }): void {
   if (record.sha256 !== signedFork(record).sha256)
@@ -165,17 +146,14 @@ export function captureForkSource(
   const ids = selected.map((row) => String(row.id)),
     runIds = new Set(ids),
     placeholders = ids.map(() => "?").join(",");
+  const { legacySeq, nativeSeq } = sourceSequences(db, sourceSessionId);
   const snapshot: SessionSnapshot = {
     session,
     runs: [],
     messages: [],
     tools: [],
     approvals: [],
-    lastSeq: Number(
-      db
-        .prepare("SELECT last_seq FROM sessions WHERE id=?")
-        .get(sourceSessionId)!.last_seq,
-    ),
+    lastSeq: legacySeq,
   };
   const pins: ForkSourcePin[] = [];
   let totalBytes = Buffer.byteLength(JSON.stringify(session));
@@ -267,12 +245,8 @@ export function captureForkSource(
       sourceSessionId,
       sourceWorkspaceId: session.workspaceId,
       throughRunId: String(cutoff.id),
-      legacySeq: snapshot.lastSeq,
-      nativeSeq: Number(
-        db
-          .prepare("SELECT last_seq FROM session_sequences WHERE session_id=?")
-          .get(sourceSessionId)?.last_seq ?? 0,
-      ),
+      legacySeq,
+      nativeSeq,
       snapshot,
       pins,
       omittedRuns:
@@ -358,137 +332,16 @@ export function assertForkSourceCurrent(
     )
       forkError("FORK_SOURCE_STALE", "Frozen source native row changed");
   }
+  if (!fresh) return;
+  const current = sourceSequences(db, source.sourceSessionId);
   if (
-    fresh &&
-    (Number(
-      db
-        .prepare("SELECT last_seq FROM sessions WHERE id=?")
-        .get(source.sourceSessionId)?.last_seq,
-    ) !== source.legacySeq ||
-      Number(
-        db
-          .prepare("SELECT last_seq FROM session_sequences WHERE session_id=?")
-          .get(source.sourceSessionId)?.last_seq ?? 0,
-      ) !== source.nativeSeq)
+    current.legacySeq !== source.legacySeq ||
+    current.nativeSeq !== source.nativeSeq
   )
     forkError(
       "FORK_SOURCE_STALE",
       "Source journal advanced after the approved preview",
     );
-}
-export function projectForkTranscript(
-  source: FrozenHistoryManifest,
-  config: ForkPreview["config"],
-  disposition: ForkPreview["disposition"],
-  protocol?: string,
-): ProviderMessage[] {
-  if (
-    source.snapshot.messages.some(
-      (m) => m.attachments?.length || m.documents?.length || m.media?.length,
-    )
-  )
-    forkError(
-      "FORK_MEDIA_UNSUPPORTED",
-      "Forking media reference grants is not supported in this lane",
-    );
-  const messages: ProviderMessage[] = [];
-  const pending = new Map<string, string>();
-  for (const message of source.snapshot.messages) {
-    if (!["user", "assistant", "tool"].includes(message.role))
-      forkError("FORK_NATIVE_INVALID", "Unknown frozen message role");
-    if (message.role === "user" && pending.size)
-      forkError("FORK_NATIVE_INVALID", "Incomplete frozen tool exchange");
-    let entry: ProviderMessage = {
-      role: message.role,
-      content: message.content,
-    };
-    if (message.toolCalls?.length) {
-      if (message.role !== "assistant" || pending.size)
-        forkError("FORK_NATIVE_INVALID", "Overlapping frozen tool exchange");
-      entry.toolCalls = structuredClone(message.toolCalls);
-      for (const call of message.toolCalls) {
-        if (pending.has(call.id))
-          forkError("FORK_NATIVE_INVALID", "Duplicated frozen tool call");
-        pending.set(call.id, message.runId);
-      }
-    }
-    if (message.role === "tool") {
-      if (
-        !message.toolCallId ||
-        pending.get(message.toolCallId) !== message.runId
-      )
-        forkError(
-          "FORK_NATIVE_INVALID",
-          "Frozen tool result has no same-Run call",
-        );
-      entry.toolCallId = message.toolCallId;
-      pending.delete(message.toolCallId);
-    }
-    if (message.providerReplay) {
-      const run = source.snapshot.runs.find((r) => r.id === message.runId);
-      if (
-        !run ||
-        run.config.providerId !== message.providerReplay.providerId ||
-        message.providerReplay.modelId !== run.config.modelId
-      )
-        forkError(
-          "FORK_OPAQUE_MISMATCH",
-          "Opaque source state has no exact native model binding",
-        );
-      if (disposition === "exact-replay") {
-        if (
-          !replayCompatible(
-            (entry = {
-              ...entry,
-              providerReplay: message.providerReplay,
-            } as ProviderMessage),
-            config.providerId,
-            config.modelId,
-            protocol ?? "",
-          ) ||
-          !message.providerReplay.modelId ||
-          !message.providerReplay.protocol
-        )
-          forkError(
-            "FORK_OPAQUE_MISMATCH",
-            "Exact replay requires the same provider/model/protocol",
-          );
-      }
-    }
-    messages.push(entry);
-  }
-  if (pending.size)
-    forkError("FORK_NATIVE_INVALID", "Unmatched frozen tool calls");
-  const notice: ProviderMessage = {
-    role: "assistant",
-    content:
-      "[Moodcode conversation fork DATA v1]\n" +
-      JSON.stringify({
-        sourceSessionId: source.sourceSessionId,
-        sourceWorkspaceId: source.sourceWorkspaceId,
-        throughRunId: source.throughRunId,
-        sourceSha256: source.sha256,
-        omittedRuns: source.omittedRuns,
-        laterRunIds: source.laterRunIds,
-        effectsRetained: true,
-        historyIsNotUndo: true,
-        priorApprovalsGrantNoAuthority: true,
-        disposition,
-      }),
-  };
-  const result =
-    disposition === "semantic"
-      ? [
-          notice,
-          {
-            role: "assistant" as const,
-            content:
-              "[Frozen conversation quoted DATA]\n" +
-              JSON.stringify(withoutProviderReplay(messages)),
-          },
-        ]
-      : [notice, ...messages];
-  return forkJson(result, FORK_LIMITS.transcriptBytes);
 }
 export interface ForkNativePorts {
   createSession(session: Session): void;
@@ -523,7 +376,7 @@ export function assertForkRecordShape(
     preview.readonlyFirstRun !== true ||
     preview.effectsRetained !== true ||
     preview.config.mode !== "plan" ||
-    preview.config.agentProfileId !== "moodcode-conversation-fork-readonly" ||
+    preview.config.agentProfileId !== FORK_PROFILE_ID ||
     !Number.isSafeInteger(preview.depth) ||
     preview.depth < 1 ||
     preview.depth > FORK_LIMITS.depth ||
@@ -539,20 +392,15 @@ export function readConversationFork(
   db: DatabaseSync,
   sessionId: string,
 ): ConversationFork | null {
-  const header = db
-    .prepare(
-      "SELECT length(CAST(data AS BLOB)) bytes FROM session_documents WHERE session_id=? AND kind=?",
-    )
-    .get(sessionId, FORK_KIND);
-  if (!header) return null;
-  if (Number(header.bytes) > FORK_LIMITS.recordBytes)
-    forkError("FORK_LIMIT", "Fork record is oversized");
-  const record = decode(
-    boundedRow(db, "session_documents", "session_id=? AND kind=?", [
-      sessionId,
-      FORK_KIND,
-    ]),
-  ) as ConversationFork;
+  const row = boundedRow(
+    db,
+    "session_documents",
+    "session_id=? AND kind=?",
+    [sessionId, FORK_KIND],
+    FORK_LIMITS.recordBytes,
+  );
+  if (!row) return null;
+  const record = decode(row) as ConversationFork;
   assertRecordHash(record);
   assertRecordHash(record.preview);
   if (record.sessionId !== sessionId)
@@ -562,8 +410,8 @@ export function readConversationFork(
   const markerRow = boundedRow(
       db,
       "session_documents",
-      "session_id=? AND kind='conversation.fork.import'",
-      [sessionId],
+      "session_id=? AND kind=?",
+      [sessionId, FORK_IMPORT_KIND],
     ),
     marker = markerRow ? decode(markerRow) : null;
   const targetOnly = marker?.kind === "target-only-history";
@@ -682,13 +530,7 @@ export function materializeConversationFork(
       );
     return { record, duplicate: true };
   }
-  if (
-    Number(
-      db
-        .prepare("SELECT count(*) n FROM session_documents WHERE kind=?")
-        .get(FORK_KIND)!.n,
-    ) >= 512
-  )
+  if (allHeads.length >= 512)
     forkError("FORK_LIMIT", "Materialized fork count is full");
   const preview = ports.readPreview(original);
   ports.assertPreview(original, preview);

@@ -4,15 +4,17 @@ import type { EngineRuntime } from "../engine-runtime.js";
 import type { SqliteStore } from "../storage/index.js";
 import type { ChildBudget } from "../child-tasks/index.js";
 import {
+  boundedRow,
   forkJson,
   forkHash,
   forkError,
   signedFork,
+  FORK_CHILD_EVENT,
+  FORK_CHILD_KIND,
   FORK_LIMITS,
   withoutProviderReplay,
   type ForkContextContribution,
 } from "./fork-types.js";
-const KIND = "conversation.fork.child-data";
 export interface ChildEvidence {
   version: 1;
   sessionId: string;
@@ -75,17 +77,13 @@ export function readForkChildData(
   db: DatabaseSync,
   sessionId: string,
 ): ChildEvidence | null {
-  const header = db
-    .prepare(
-      "SELECT length(CAST(data AS BLOB)) bytes FROM session_documents WHERE session_id=? AND kind=?",
-    )
-    .get(sessionId, KIND);
-  if (!header) return null;
-  if (Number(header.bytes) > FORK_LIMITS.transcriptBytes)
-    forkError("FORK_LIMIT", "Child DATA exceeds its bounded body");
-  const row = db
-    .prepare("SELECT data FROM session_documents WHERE session_id=? AND kind=?")
-    .get(sessionId, KIND);
+  const row = boundedRow(
+    db,
+    "session_documents",
+    "session_id=? AND kind=?",
+    [sessionId, FORK_CHILD_KIND],
+    FORK_LIMITS.transcriptBytes,
+  );
   if (!row) return null;
   const evidence = forkJson(
     JSON.parse(String(row.data)),
@@ -97,18 +95,20 @@ export function readForkChildData(
     evidence.sha256 !== signedFork(evidence).sha256
   )
     forkError("FORK_NATIVE_INVALID", "Child fork DATA was changed");
-  const heads = db
+  const anchors = db
     .prepare(
-      "SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type='conversation.fork.child_context' LIMIT 2",
+      "SELECT seq FROM session_events WHERE session_id=? AND type=? LIMIT 2",
     )
-    .all(sessionId);
-  if (heads.some((h) => Number(h.bytes) > FORK_LIMITS.transcriptBytes + 8192))
-    forkError("FORK_LIMIT", "Child creation receipt exceeds its bounded body");
-  const anchors = heads.map((h) =>
-    db
-      .prepare("SELECT data FROM session_events WHERE session_id=? AND seq=?")
-      .get(sessionId, h.seq!),
-  );
+    .all(sessionId, FORK_CHILD_EVENT)
+    .map((h) =>
+      boundedRow(
+        db,
+        "session_events",
+        "session_id=? AND seq=?",
+        [sessionId, Number(h.seq)],
+        FORK_LIMITS.transcriptBytes + 8192,
+      ),
+    );
   if (
     anchors.length !== 1 ||
     forkHash(JSON.parse(String(anchors[0]!.data)).payload.evidence) !==
@@ -168,7 +168,7 @@ export function childForkContext(
 export function validateForkChildDatabase(db: DatabaseSync): void {
   const rows = db
     .prepare("SELECT session_id FROM session_documents WHERE kind=? LIMIT 513")
-    .all(KIND);
+    .all(FORK_CHILD_KIND);
   if (rows.length > 512)
     forkError("FORK_LIMIT", "Child lineage count exceeded");
   for (const row of rows) readForkChildData(db, String(row.session_id));

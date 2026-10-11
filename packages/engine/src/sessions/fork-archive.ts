@@ -1,7 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
-import type { Session, JsonObject } from "@moodcode/contracts";
+import type { JsonObject } from "@moodcode/contracts";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import {
+  FORK_IMPORT_KIND,
   FORK_KIND,
   forkJson,
   forkId,
@@ -9,7 +10,11 @@ import {
   signedFork,
   type ConversationFork,
 } from "./fork-types.js";
-import { assertForkRecordShape, assertFrozenManifest } from "./fork-native.js";
+import {
+  assertForkRecordShape,
+  assertFrozenManifest,
+  type ForkNativePorts,
+} from "./fork-native.js";
 export interface ConversationForkArchive {
   version: 1;
   purpose: "paused-conversation-history";
@@ -46,18 +51,18 @@ export function importPausedFork(
   db: DatabaseSync,
   preview: ForkImportPreview,
   requestId: string,
-  ports: {
-    createSession(s: Session): void;
-    putDocument(s: string, k: string, r: number, v: JsonObject): void;
-    appendEvent(s: string, t: string, v: JsonObject): void;
-    pause(s: string): void;
+  ports: Pick<
+    ForkNativePorts,
+    "createSession" | "putDocument" | "appendEvent"
+  > & {
+    pause(sessionId: string): void;
   },
 ): ConversationFork {
   const archive = validateForkArchive(preview.archive),
     record = archive.record;
   const old = db
     .prepare("SELECT data FROM session_documents WHERE session_id=? AND kind=?")
-    .get(record.sessionId, "conversation.fork.import");
+    .get(record.sessionId, FORK_IMPORT_KIND);
   if (old) {
     const marker = JSON.parse(String(old.data));
     if (
@@ -100,7 +105,7 @@ export function importPausedFork(
   );
   ports.putDocument(
     record.sessionId,
-    "conversation.fork.import",
+    FORK_IMPORT_KIND,
     0,
     marker as unknown as JsonObject,
   );

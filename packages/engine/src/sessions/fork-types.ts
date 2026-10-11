@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import {
   EngineError,
@@ -11,6 +12,10 @@ import {
 import type { ProviderMessage } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 export const FORK_KIND = "conversation.fork.v1";
+export const FORK_IMPORT_KIND = "conversation.fork.import";
+export const FORK_CHILD_KIND = "conversation.fork.child-data";
+export const FORK_CHILD_EVENT = "conversation.fork.child_context";
+export const FORK_PROFILE_ID = "moodcode-conversation-fork-readonly";
 export const FORK_LIMITS = Object.freeze({
   sourceBytes: 131072,
   transcriptBytes: 65536,
@@ -26,6 +31,42 @@ export function forkHash(value: unknown): string {
 }
 export function forkError(code: string, message: string): never {
   throw new EngineError(code, message);
+}
+export function decode(row: Record<string, unknown> | undefined): any {
+  if (
+    !row ||
+    typeof row.data !== "string" ||
+    Buffer.byteLength(row.data) > FORK_LIMITS.recordBytes + 8192
+  )
+    return forkError(
+      "FORK_NATIVE_INVALID",
+      "Native fork evidence is missing or oversized",
+    );
+  return JSON.parse(row.data);
+}
+export function boundedRow(
+  db: DatabaseSync,
+  table: string,
+  where: string,
+  args: (string | number)[],
+  cap = FORK_LIMITS.recordBytes + 8192,
+): Record<string, unknown> | undefined {
+  const header = db
+    .prepare(
+      `SELECT length(CAST(data AS BLOB)) bytes FROM ${table} WHERE ${where}`,
+    )
+    .get(...args);
+  if (!header) return undefined;
+  if (!Number.isSafeInteger(header.bytes) || Number(header.bytes) > cap)
+    forkError(
+      "FORK_LIMIT",
+      "Native fork body exceeds its bound before materialization",
+    );
+  return db
+    .prepare(
+      `SELECT * FROM ${table} WHERE ${where} AND length(CAST(data AS BLOB))=?`,
+    )
+    .get(...args, Number(header.bytes));
 }
 /** Descriptor-first validation; Original capabilities must never pass through this DATA copier. */
 export function forkJson<T>(
