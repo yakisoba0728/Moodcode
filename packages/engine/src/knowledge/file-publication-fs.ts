@@ -27,6 +27,9 @@ import type {
   FilePublicationCheckpoint,
 } from "./file-publication-types.js";
 import {
+  KNOWLEDGE_FILE_PUBLICATION_LIMITS,
+} from "./file-publication-validation.js";
+import {
   assertKnowledgeSignal,
   exactKnowledgePath,
   identifier,
@@ -82,7 +85,7 @@ interface CaptureState {
   readonly signal?: AbortSignal;
   used: boolean;
 }
-const MAX_BODY = 16_384,
+const MAX_BODY = KNOWLEDGE_FILE_PUBLICATION_LIMITS.bodyBytes,
   MAX_CAPTURES = 128;
 function check(signal?: AbortSignal, deadline?: number): void {
   if (signal?.aborted)

@@ -19,6 +19,7 @@ import type {
 import {
   candidateMatchesFileTarget,
   filePublicationJson,
+  KNOWLEDGE_FILE_PUBLICATION_LIMITS,
   revokesCompletedPublish,
   sameFileHead,
 } from "./file-publication-validation.js";
@@ -410,7 +411,10 @@ export class KnowledgeFilePublicationService {
       if (expires <= now)
         fail("KNOWLEDGE_FILE_EXPIRED", "File candidate or trust expired");
       const body = operation === "publish" ? candidate.body : null;
-      if (body !== null && Buffer.byteLength(body) > 16384)
+      if (
+        body !== null &&
+        Buffer.byteLength(body) > KNOWLEDGE_FILE_PUBLICATION_LIMITS.bodyBytes
+      )
         fail(
           "KNOWLEDGE_FILE_LIMIT",
           "Whole file publication body exceeds 16KiB",

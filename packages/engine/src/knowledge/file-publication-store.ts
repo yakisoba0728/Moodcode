@@ -37,11 +37,13 @@ import {
   isCompletedFileEvidence,
   revokesCompletedPublish,
   KNOWLEDGE_FILE_PUBLICATION_LIMITS,
+  KNOWLEDGE_FILE_REQUEST_FIELDS,
 } from "./file-publication-validation.js";
 import type { KnowledgeHostBinding } from "./types.js";
 import type {
   CompleteKnowledgeFilePublication,
   FilePhysicalObservation,
+  FilePublicationCheckpoint,
   KnowledgeFileCheckpointRecord,
   KnowledgeFileHead,
   KnowledgeFileObservationRevision,
@@ -140,22 +142,94 @@ const WRITE: GuardedWriteOptions = {
       "Native file publication cannot detach a transaction",
     ),
 };
-const REQUEST_FIELDS = [
-  "workspaceId",
-  "requestId",
-  "operation",
-  "binding",
-  "path",
-  "expectedTarget",
-  "provenance",
-  "existingPublicationId",
-  "existingPublicationSha256",
-  "body",
-  "bodySha256",
-  "beforeContent",
-  "expiresAt",
-  "deadline",
-] as const;
+type FrontierField =
+  | "dispatchedAt"
+  | "completedAt"
+  | "checkpointId"
+  | "targetRevisionId"
+  | "cleanupConfirmed"
+  | "errorCode";
+/** Per owner state: null must be null, "set" must be non-null, true must be true, "boolean" must be explicit. */
+const FRONTIER: Readonly<
+  Record<
+    KnowledgeFilePublicationRecord["state"],
+    Readonly<Partial<Record<FrontierField, null | "set" | true | "boolean">>>
+  >
+> = Object.freeze({
+  prepared: {
+    dispatchedAt: null,
+    completedAt: null,
+    checkpointId: null,
+    targetRevisionId: null,
+    cleanupConfirmed: null,
+    errorCode: null,
+  },
+  dispatched: {
+    dispatchedAt: "set",
+    completedAt: null,
+    checkpointId: null,
+    targetRevisionId: null,
+    cleanupConfirmed: null,
+    errorCode: null,
+  },
+  completed: {
+    dispatchedAt: "set",
+    completedAt: "set",
+    checkpointId: "set",
+    targetRevisionId: "set",
+    cleanupConfirmed: true,
+    errorCode: null,
+  },
+  cancelled: {
+    dispatchedAt: null,
+    completedAt: "set",
+    checkpointId: null,
+    targetRevisionId: null,
+    cleanupConfirmed: true,
+    errorCode: "set",
+  },
+  uncertain: {
+    completedAt: "set",
+    targetRevisionId: null,
+    cleanupConfirmed: "boolean",
+    errorCode: "set",
+  },
+});
+/** SQL columns that mirror top-level body keys; publication producer ids mirror provenance instead. */
+const COLUMNS: Readonly<
+  Record<KnowledgeFilePublicationTable, Readonly<Record<string, string>>>
+> = Object.freeze({
+  knowledge_file_observations: {
+    path: "path",
+    revision: "revision",
+    previous_id: "previousId",
+    publication_id: "publicationId",
+  },
+  knowledge_file_heads: {
+    path: "path",
+    revision: "revision",
+    observation_id: "observationId",
+  },
+  knowledge_file_publications: {
+    request_id: "requestId",
+    path: "path",
+    operation: "operation",
+    state: "state",
+    revision: "revision",
+  },
+  knowledge_file_checkpoints: { publication_id: "publicationId" },
+  knowledge_file_publication_receipts: {
+    request_id: "requestId",
+    publication_id: "publicationId",
+    checkpoint_id: "checkpointId",
+    target_revision_id: "targetRevisionId",
+  },
+  knowledge_file_recovery_acknowledgments: {
+    request_id: "requestId",
+    operation: "operation",
+  },
+  knowledge_file_workspace_barriers: { revision: "revision", state: "state" },
+});
 export function validateKnowledgeFilePublicationArchiveRow(
   input: KnowledgeFilePublicationArchiveRow,
 ): KnowledgeFilePublicationArchiveRow {
@@ -192,7 +266,7 @@ export function validateKnowledgeFilePublicationArchiveRow(
   switch (envelope.table) {
     case "knowledge_file_publications": {
       fileFields(v, [
-        ...REQUEST_FIELDS,
+        ...KNOWLEDGE_FILE_REQUEST_FIELDS,
         "id",
         "runtimeEpoch",
         "revision",
@@ -209,7 +283,7 @@ export function validateKnowledgeFilePublicationArchiveRow(
         "sha256",
       ]);
       const request = Object.fromEntries(
-        REQUEST_FIELDS.map((key) => [key, v[key]]),
+        KNOWLEDGE_FILE_REQUEST_FIELDS.map((key) => [key, v[key]]),
       );
       validatePrepareKnowledgeFilePublication(request);
       fileDigest(v.requestSha256);
@@ -253,50 +327,20 @@ export function validateKnowledgeFilePublicationArchiveRow(
           "INVALID_KNOWLEDGE_FILE_PUBLICATION",
           "Native file cleanup must be explicit or unknown",
         );
-      if (
-        ((v.state === "prepared" || v.state === "cancelled") &&
-          v.dispatchedAt !== null) ||
-        (v.state === "dispatched" &&
-          (v.dispatchedAt === null ||
-            v.completedAt !== null ||
-            v.cleanupConfirmed !== null)) ||
-        (["completed", "cancelled", "uncertain"].includes(String(v.state)) &&
-          v.completedAt === null) ||
-        (v.state === "prepared" && v.completedAt !== null)
-      )
-        filePublicationError(
-          "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-          "File owner state contradicts its durable frontier",
-        );
-      if (
-        (v.state === "completed" &&
-          (v.dispatchedAt === null ||
-            v.checkpointId === null ||
-            v.targetRevisionId === null ||
-            v.cleanupConfirmed !== true ||
-            v.errorCode !== null)) ||
-        (v.state === "uncertain" && v.errorCode === null) ||
-        (v.state === "cancelled" &&
-          (v.cleanupConfirmed !== true || v.errorCode === null))
-      )
-        filePublicationError(
-          "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-          "Terminal file publication evidence is contradictory",
-        );
-      if (
-        (["prepared", "dispatched", "cancelled"].includes(String(v.state)) &&
-          (v.checkpointId !== null || v.targetRevisionId !== null)) ||
-        (v.state === "prepared" &&
-          (v.cleanupConfirmed !== null || v.errorCode !== null)) ||
-        (v.state === "dispatched" && v.errorCode !== null) ||
-        (v.state === "uncertain" &&
-          (v.targetRevisionId !== null ||
-            typeof v.cleanupConfirmed !== "boolean"))
-      )
-        filePublicationError(
-          "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-          "File owner claims evidence unavailable at its native frontier",
-        );
+      for (const [name, rule] of Object.entries(
+        FRONTIER[v.state as KnowledgeFilePublicationRecord["state"]],
+      ))
+        if (
+          rule === "set"
+            ? v[name] === null
+            : rule === "boolean"
+              ? typeof v[name] !== "boolean"
+              : v[name] !== rule
+        )
+          filePublicationError(
+            "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+            "File owner state contradicts its durable frontier",
+          );
       break;
     }
     case "knowledge_file_observations": {
@@ -388,11 +432,21 @@ export function validateKnowledgeFilePublicationArchiveRow(
         );
       if (
         (v.beforeContent !== null &&
-          (sha256(fileText(v.beforeContent, 131072)) !== before.sha256 ||
+          (sha256(
+            fileText(
+              v.beforeContent,
+              KNOWLEDGE_FILE_PUBLICATION_LIMITS.beforeBytes,
+            ),
+          ) !== before.sha256 ||
             Buffer.byteLength(v.beforeContent as string) !== before.bytes)) ||
         (v.afterContent !== null &&
           (!after ||
-            sha256(fileText(v.afterContent, 16384)) !== after.sha256 ||
+            sha256(
+              fileText(
+                v.afterContent,
+                KNOWLEDGE_FILE_PUBLICATION_LIMITS.bodyBytes,
+              ),
+            ) !== after.sha256 ||
             Buffer.byteLength(v.afterContent as string) !== after.bytes))
       )
         filePublicationError(
@@ -449,7 +503,7 @@ export function validateKnowledgeFilePublicationArchiveRow(
         validateBinding(v.binding).workspaceId !== v.workspaceId ||
         !Array.isArray(v.ownerIds) ||
         !Array.isArray(v.ownerHashes) ||
-        v.ownerIds.length > 128 ||
+        v.ownerIds.length > KNOWLEDGE_FILE_PUBLICATION_LIMITS.owners ||
         v.ownerIds.length !== v.ownerHashes.length
       )
         filePublicationError(
@@ -457,7 +511,7 @@ export function validateKnowledgeFilePublicationArchiveRow(
           "Invalid file recovery acknowledgment",
         );
       fileDigest(v.frontierSha256);
-      fileText(v.reason, 2048);
+      fileText(v.reason, KNOWLEDGE_FILE_PUBLICATION_LIMITS.reasonBytes);
       stamp(v.createdAt);
       for (const [index, owner] of v.ownerHashes.entries()) {
         fileFields(owner, ["id", "sha256"]);
@@ -519,18 +573,7 @@ export function decode(
     data,
   }).data;
   const body = value as unknown as Record<string, unknown>;
-  for (const [column, key] of [
-    ["path", "path"],
-    ["revision", "revision"],
-    ["state", "state"],
-    ["request_id", "requestId"],
-    ["operation", "operation"],
-    ["observation_id", "observationId"],
-    ["publication_id", "publicationId"],
-    ["checkpoint_id", "checkpointId"],
-    ["target_revision_id", "targetRevisionId"],
-    ["previous_id", "previousId"],
-  ] as const)
+  for (const [column, key] of Object.entries(COLUMNS[table]))
     if (Object.hasOwn(row, column) && row[column] !== body[key])
       filePublicationError(
         "KNOWLEDGE_FILE_SCOPE_MISMATCH",
@@ -652,77 +695,91 @@ export class KnowledgeFilePublicationStorage {
       changed: "File publication row changed during bounded read",
     });
   }
+  private get<T extends KnowledgeFilePublicationArchiveData>(
+    table: KnowledgeFilePublicationTable,
+    where: string,
+    ...parameters: string[]
+  ): T | undefined {
+    parameters.forEach(identifier);
+    const row = this.row(table, where, parameters);
+    return row ? (decode(row, table) as T) : undefined;
+  }
+  private check(
+    table: KnowledgeFilePublicationTable,
+    record: KnowledgeFilePublicationArchiveData,
+  ): void {
+    validateKnowledgeFilePublicationArchiveRow({
+      table,
+      key: record.id,
+      workspaceId: record.workspaceId,
+      data: record,
+    });
+  }
+  private insert(
+    table: KnowledgeFilePublicationTable,
+    record: KnowledgeFilePublicationArchiveData,
+    extra: Readonly<Record<string, SQLInputValue>> = {},
+  ): void {
+    this.check(table, record);
+    const body = record as unknown as Record<string, SQLInputValue>,
+      columns: Record<string, SQLInputValue> = { ...extra };
+    for (const [column, key] of Object.entries(COLUMNS[table]))
+      columns[column] = body[key] as SQLInputValue;
+    const names = Object.keys(columns);
+    this.#db
+      .prepare(
+        `INSERT INTO ${table}(id,workspace_id,${names.join(",")},data) VALUES(${"?,".repeat(names.length + 2)}?)`,
+      )
+      .run(
+        record.id,
+        record.workspaceId,
+        ...Object.values(columns),
+        JSON.stringify(record),
+      );
+  }
   getOwner(
     workspaceId: string,
     publicationId: string,
   ): KnowledgeFilePublicationRecord | undefined {
-    identifier(workspaceId);
-    identifier(publicationId);
-    const row = this.row(
+    return this.get(
       "knowledge_file_publications",
       "workspace_id=? AND id=?",
-      [workspaceId, publicationId],
+      workspaceId,
+      publicationId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_file_publications",
-        ) as KnowledgeFilePublicationRecord)
-      : undefined;
   }
   getReceipt(
     workspaceId: string,
     requestId: string,
   ): KnowledgeFilePublicationReceipt | undefined {
-    identifier(workspaceId);
-    identifier(requestId);
-    const row = this.row(
+    return this.get(
       "knowledge_file_publication_receipts",
       "workspace_id=? AND request_id=?",
-      [workspaceId, requestId],
+      workspaceId,
+      requestId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_file_publication_receipts",
-        ) as KnowledgeFilePublicationReceipt)
-      : undefined;
   }
   getObservation(
     workspaceId: string,
     observationId: string,
   ): KnowledgeFileObservationRevision | undefined {
-    identifier(workspaceId);
-    identifier(observationId);
-    const row = this.row(
+    return this.get(
       "knowledge_file_observations",
       "workspace_id=? AND id=?",
-      [workspaceId, observationId],
+      workspaceId,
+      observationId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_file_observations",
-        ) as KnowledgeFileObservationRevision)
-      : undefined;
   }
   getCheckpoint(
     workspaceId: string,
     checkpointId: string,
   ): KnowledgeFileCheckpointRecord | undefined {
-    identifier(workspaceId);
-    identifier(checkpointId);
-    const row = this.row(
+    return this.get(
       "knowledge_file_checkpoints",
       "workspace_id=? AND id=?",
-      [workspaceId, checkpointId],
+      workspaceId,
+      checkpointId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_file_checkpoints",
-        ) as KnowledgeFileCheckpointRecord)
-      : undefined;
   }
   getCurrentTarget(
     workspaceId: string,
@@ -769,25 +826,7 @@ export class KnowledgeFilePublicationStorage {
       publicationId,
       createdAt: new Date(this.now()).toISOString(),
     });
-    validateKnowledgeFilePublicationArchiveRow({
-      table: "knowledge_file_observations",
-      key: row.id,
-      workspaceId: row.workspaceId,
-      data: row,
-    });
-    this.#db
-      .prepare(
-        "INSERT INTO knowledge_file_observations(id,workspace_id,path,revision,previous_id,publication_id,data) VALUES(?,?,?,?,?,?,?)",
-      )
-      .run(
-        row.id,
-        row.workspaceId,
-        row.path,
-        row.revision,
-        row.previousId,
-        row.publicationId,
-        JSON.stringify(row),
-      );
+    this.insert("knowledge_file_observations", row);
     const head: KnowledgeFileHead = signed({
       id: knowledgeHash([row.workspaceId, row.path]),
       workspaceId: row.workspaceId,
@@ -796,6 +835,7 @@ export class KnowledgeFilePublicationStorage {
       observationId: row.id,
     });
     if (current) {
+      this.check("knowledge_file_heads", head);
       const saved = this.#db
         .prepare(
           "UPDATE knowledge_file_heads SET revision=?,observation_id=?,data=? WHERE workspace_id=? AND path=? AND revision=? AND observation_id=?",
@@ -814,19 +854,7 @@ export class KnowledgeFilePublicationStorage {
           "KNOWLEDGE_FILE_TARGET_STALE",
           "Actual file head changed before its monotonic revision CAS",
         );
-    } else
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_file_heads(id,workspace_id,path,revision,observation_id,data) VALUES(?,?,?,?,?,?)",
-        )
-        .run(
-          head.id,
-          head.workspaceId,
-          head.path,
-          head.revision,
-          head.observationId,
-          JSON.stringify(head),
-        );
+    } else this.insert("knowledge_file_heads", head);
     return row;
   }
   captureTarget(
@@ -957,7 +985,7 @@ export class KnowledgeFilePublicationStorage {
     const request = validatePrepareKnowledgeFilePublication(input),
       existing = this.findRequest(request);
     if (existing) return { kind: "duplicate", record: existing };
-    if (this.#live.size >= 128)
+    if (this.#live.size >= KNOWLEDGE_FILE_PUBLICATION_LIMITS.owners)
       filePublicationError(
         "KNOWLEDGE_FILE_LIMIT",
         "Release original native file owner captures",
@@ -1001,28 +1029,10 @@ export class KnowledgeFilePublicationStorage {
           cleanupConfirmed: null,
           errorCode: null,
         });
-        validateKnowledgeFilePublicationArchiveRow({
-          table: "knowledge_file_publications",
-          key: record.id,
-          workspaceId: record.workspaceId,
-          data: record,
+        this.insert("knowledge_file_publications", record, {
+          candidate_id: record.provenance.candidateId,
+          generation_id: record.provenance.generationId,
         });
-        this.#db
-          .prepare(
-            "INSERT INTO knowledge_file_publications(id,workspace_id,request_id,path,operation,candidate_id,generation_id,state,revision,data) VALUES(?,?,?,?,?,?,?,?,?,?)",
-          )
-          .run(
-            record.id,
-            record.workspaceId,
-            record.requestId,
-            record.path,
-            record.operation,
-            record.provenance.candidateId,
-            record.provenance.generationId,
-            record.state,
-            record.revision,
-            JSON.stringify(record),
-          );
         return { created: true, record };
       },
     );
@@ -1066,12 +1076,7 @@ export class KnowledgeFilePublicationStorage {
     previous: KnowledgeFilePublicationRecord,
     next: KnowledgeFilePublicationRecord,
   ): void {
-    validateKnowledgeFilePublicationArchiveRow({
-      table: "knowledge_file_publications",
-      key: next.id,
-      workspaceId: next.workspaceId,
-      data: next,
-    });
+    this.check("knowledge_file_publications", next);
     const written = this.#db
       .prepare(
         "UPDATE knowledge_file_publications SET state=?,revision=?,data=? WHERE workspace_id=? AND id=? AND state=? AND revision=? AND data=?",
@@ -1106,6 +1111,10 @@ export class KnowledgeFilePublicationStorage {
       ).toISOString(),
     });
   }
+  private expired(r: KnowledgeFilePublicationRecord): boolean {
+    const now = this.now();
+    return now >= r.deadline || now >= Date.parse(r.expiresAt);
+  }
   dispatch(
     capture: KnowledgeFilePublicationCapture,
   ): KnowledgeFilePublicationRecord {
@@ -1119,10 +1128,7 @@ export class KnowledgeFilePublicationStorage {
       this.assertBinding(current.binding);
       this.currentTarget(current);
       this.candidate(current);
-      if (
-        this.now() >= current.deadline ||
-        this.now() >= Date.parse(current.expiresAt)
-      )
+      if (this.expired(current))
         filePublicationError(
           "KNOWLEDGE_FILE_EXPIRED",
           "Original approved file operation expired",
@@ -1135,10 +1141,7 @@ export class KnowledgeFilePublicationStorage {
       this.owned(capture);
       this.currentTarget(current);
       this.assertBinding(current.binding);
-      if (
-        this.now() >= current.deadline ||
-        this.now() >= Date.parse(current.expiresAt)
-      )
+      if (this.expired(current))
         filePublicationError(
           "KNOWLEDGE_FILE_EXPIRED",
           "File approval expired during validation",
@@ -1239,33 +1242,13 @@ export class KnowledgeFilePublicationStorage {
       this.currentTarget(record);
       this.assertBinding(record.binding);
       const time = new Date(this.now()).toISOString(),
-        saved: KnowledgeFileCheckpointRecord = signed({
-          id: id("file_checkpoint"),
-          workspaceId: record.workspaceId,
-          publicationId: record.id,
-          before: record.expectedTarget.observation,
+        saved = this.insertCheckpoint(
+          record,
           after,
-          beforeContent: record.beforeContent,
-          afterContent: record.operation === "publish" ? record.body : null,
-          effects: checkpoint,
-          cleanupConfirmed: true,
-          createdAt: time,
-        });
-      validateKnowledgeFilePublicationArchiveRow({
-        table: "knowledge_file_checkpoints",
-        key: saved.id,
-        workspaceId: saved.workspaceId,
-        data: saved,
-      });
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_file_checkpoints(id,workspace_id,publication_id,data) VALUES(?,?,?,?)",
-        )
-        .run(
-          saved.id,
-          saved.workspaceId,
-          saved.publicationId,
-          JSON.stringify(saved),
+          record.operation === "publish" ? record.body : null,
+          checkpoint,
+          true,
+          time,
         );
       const target = this.insertObservation(
         record.binding,
@@ -1293,19 +1276,7 @@ export class KnowledgeFilePublicationStorage {
         operation: record.operation,
         createdAt: time,
       });
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_file_publication_receipts(id,workspace_id,request_id,publication_id,checkpoint_id,target_revision_id,data) VALUES(?,?,?,?,?,?,?)",
-        )
-        .run(
-          receipt.id,
-          receipt.workspaceId,
-          receipt.requestId,
-          receipt.publicationId,
-          receipt.checkpointId,
-          receipt.targetRevisionId,
-          JSON.stringify(receipt),
-        );
+      this.insert("knowledge_file_publication_receipts", receipt);
       return Object.freeze({
         publication: completed,
         target,
@@ -1315,6 +1286,29 @@ export class KnowledgeFilePublicationStorage {
     });
     this.#captures.set(capture, result.publication);
     return result;
+  }
+  private insertCheckpoint(
+    owner: KnowledgeFilePublicationRecord,
+    after: FilePhysicalObservation | null,
+    afterContent: string | null,
+    effects: FilePublicationCheckpoint,
+    cleanupConfirmed: boolean,
+    createdAt: string,
+  ): KnowledgeFileCheckpointRecord {
+    const checkpoint: KnowledgeFileCheckpointRecord = signed({
+      id: id("file_checkpoint"),
+      workspaceId: owner.workspaceId,
+      publicationId: owner.id,
+      before: owner.expectedTarget.observation,
+      after,
+      beforeContent: owner.beforeContent,
+      afterContent,
+      effects,
+      cleanupConfirmed,
+      createdAt,
+    });
+    this.insert("knowledge_file_checkpoints", checkpoint);
+    return checkpoint;
   }
   cancel(
     capture: KnowledgeFilePublicationCapture,
@@ -1379,35 +1373,14 @@ export class KnowledgeFilePublicationStorage {
             "KNOWLEDGE_FILE_SCOPE_MISMATCH",
             "Uncertain observation belongs to another owner",
           );
-        const checkpoint: KnowledgeFileCheckpointRecord = signed({
-          id: id("file_checkpoint"),
-          workspaceId: old.workspaceId,
-          publicationId: old.id,
-          before: old.expectedTarget.observation,
+        checkpointId = this.insertCheckpoint(
+          old,
           after,
-          beforeContent: old.beforeContent,
-          afterContent: null,
-          effects: v.checkpoint,
-          cleanupConfirmed: v.cleanupConfirmed ?? false,
-          createdAt: new Date(this.now()).toISOString(),
-        });
-        validateKnowledgeFilePublicationArchiveRow({
-          table: "knowledge_file_checkpoints",
-          key: checkpoint.id,
-          workspaceId: checkpoint.workspaceId,
-          data: checkpoint,
-        });
-        this.#db
-          .prepare(
-            "INSERT INTO knowledge_file_checkpoints(id,workspace_id,publication_id,data) VALUES(?,?,?,?)",
-          )
-          .run(
-            checkpoint.id,
-            checkpoint.workspaceId,
-            checkpoint.publicationId,
-            JSON.stringify(checkpoint),
-          );
-        checkpointId = checkpoint.id;
+          null,
+          v.checkpoint,
+          v.cleanupConfirmed ?? false,
+          new Date(this.now()).toISOString(),
+        ).id;
       }
       const next = this.modified(old, {
         state: "uncertain",
@@ -1440,23 +1413,11 @@ export class KnowledgeFilePublicationStorage {
   private barrier(
     workspaceId: string,
   ): KnowledgeFileWorkspaceBarrier | undefined {
-    const row = this.row(
+    return this.get(
       "knowledge_file_workspace_barriers",
       "workspace_id=?",
-      [workspaceId],
+      workspaceId,
     );
-    return row
-      ? (decode(
-          row,
-          "knowledge_file_workspace_barriers",
-        ) as KnowledgeFileWorkspaceBarrier)
-      : undefined;
-  }
-  private frontier(workspaceId: string): {
-    readonly owners: readonly KnowledgeFilePublicationRecord[];
-    readonly sha256: string;
-  } {
-    return fileFrontier(this.#db, workspaceId);
   }
   private setBarrier(
     workspaceId: string,
@@ -1476,6 +1437,7 @@ export class KnowledgeFilePublicationStorage {
         acknowledgmentId,
         updatedAt: new Date(this.now()).toISOString(),
       });
+    this.check("knowledge_file_workspace_barriers", next);
     this.#db
       .prepare(
         "INSERT INTO knowledge_file_workspace_barriers(id,workspace_id,revision,state,data) VALUES(?,?,?,?,?) ON CONFLICT(workspace_id) DO UPDATE SET revision=excluded.revision,state=excluded.state,data=excluded.data",
@@ -1488,7 +1450,7 @@ export class KnowledgeFilePublicationStorage {
       workspaceId,
       binding,
       "blocked",
-      this.frontier(workspaceId).sha256,
+      fileFrontier(this.#db, workspaceId).sha256,
       null,
     );
   }
@@ -1503,7 +1465,7 @@ export class KnowledgeFilePublicationStorage {
     const unsafe = filePublicationJson(unsafePreparedIds);
     if (
       !Array.isArray(unsafe) ||
-      unsafe.length > 128 ||
+      unsafe.length > KNOWLEDGE_FILE_PUBLICATION_LIMITS.owners ||
       new Set(unsafe).size !== unsafe.length
     )
       filePublicationError(
@@ -1564,8 +1526,14 @@ export class KnowledgeFilePublicationStorage {
     const options = filePublicationJson(input);
     fileFields(options, [], ["after", "limit", "maxBytes"]);
     const after = options.after === undefined ? "" : identifier(options.after),
-      limit = integer(options.limit ?? 32, 32),
-      cap = integer(options.maxBytes ?? 1048576, 1048576);
+      limit = integer(
+        options.limit ?? KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageRows,
+        KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageRows,
+      ),
+      cap = integer(
+        options.maxBytes ?? KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageBytes,
+        KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageBytes,
+      );
     if (limit < 1 || cap < 128)
       filePublicationError(
         "KNOWLEDGE_FILE_PAGE_LIMIT",
@@ -1622,12 +1590,12 @@ export class KnowledgeFilePublicationStorage {
           metadata.length > items.length ? (items.at(-1)?.id ?? null) : null,
         bytes,
       },
-      1048576,
+      KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageBytes,
     );
   }
   previewRecovery(workspaceId: string): KnowledgeFileRecoveryPreview {
     const binding = this.binding(workspaceId),
-      frontier = this.frontier(workspaceId),
+      frontier = fileFrontier(this.#db, workspaceId),
       barrier = this.barrier(workspaceId);
     const preview: KnowledgeFileRecoveryPreview = signed({
       workspaceId,
@@ -1683,7 +1651,10 @@ export class KnowledgeFilePublicationStorage {
       workspaceId: identifier(raw.workspaceId),
       requestId: identifier(raw.requestId),
       approved: raw.approved,
-      reason: fileText(raw.reason, 2048),
+      reason: fileText(
+        raw.reason,
+        KNOWLEDGE_FILE_PUBLICATION_LIMITS.reasonBytes,
+      ),
     };
     if (
       !request.reason.trim() ||
@@ -1718,7 +1689,7 @@ export class KnowledgeFilePublicationStorage {
         return previous;
       }
       this.assertBinding(owned.binding);
-      const frontier = this.frontier(request.workspaceId),
+      const frontier = fileFrontier(this.#db, request.workspaceId),
         barrier = this.barrier(request.workspaceId);
       if (
         frontier.sha256 !== owned.frontierSha256 ||
@@ -1757,7 +1728,8 @@ export class KnowledgeFilePublicationStorage {
         );
       this.assertBinding(owned.binding);
       if (
-        this.frontier(request.workspaceId).sha256 !== frontier.sha256 ||
+        fileFrontier(this.#db, request.workspaceId).sha256 !==
+          frontier.sha256 ||
         (this.barrier(request.workspaceId)?.revision ?? 0) !==
           owned.barrierRevision
       )
@@ -1781,22 +1753,12 @@ export class KnowledgeFilePublicationStorage {
         reason: request.reason,
         createdAt: new Date(this.now()).toISOString(),
       });
-      this.#db
-        .prepare(
-          "INSERT INTO knowledge_file_recovery_acknowledgments(id,workspace_id,request_id,operation,data) VALUES(?,?,?,?,?)",
-        )
-        .run(
-          receipt.id,
-          receipt.workspaceId,
-          receipt.requestId,
-          receipt.operation,
-          JSON.stringify(receipt),
-        );
+      this.insert("knowledge_file_recovery_acknowledgments", receipt);
       this.setBarrier(
         request.workspaceId,
         owned.binding,
         operation === "acknowledge" ? "pending-resume" : "clear",
-        this.frontier(request.workspaceId).sha256,
+        fileFrontier(this.#db, request.workspaceId).sha256,
         receipt.id,
       );
       return receipt;
@@ -1850,7 +1812,7 @@ export function rawRow(
 }
 const UNRESOLVED_FILE_OWNERS_SQL = `WITH resolved AS MATERIALIZED (SELECT json_extract(value,'$.id') AS id,json_extract(value,'$.sha256') AS sha256 FROM json_each(?2))
 SELECT f.id,length(CAST(f.data AS BLOB)) AS bytes FROM knowledge_file_publications f WHERE f.workspace_id=?1 AND f.state IN ('prepared','dispatched','uncertain')
- AND NOT (f.state='uncertain' AND EXISTS (SELECT 1 FROM resolved r WHERE r.id=f.id AND r.sha256=CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.sha256') END)) ORDER BY f.id LIMIT 129`;
+ AND NOT (f.state='uncertain' AND EXISTS (SELECT 1 FROM resolved r WHERE r.id=f.id AND r.sha256=CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.sha256') END)) ORDER BY f.id LIMIT ${KNOWLEDGE_FILE_PUBLICATION_LIMITS.owners + 1}`;
 function fileFrontier(
   db: DatabaseSync,
   workspaceId: string,
@@ -1883,8 +1845,9 @@ function fileFrontier(
     .prepare(UNRESOLVED_FILE_OWNERS_SQL)
     .all(workspaceId, JSON.stringify(resolved));
   if (
-    rows.length > 128 ||
-    rows.reduce((sum, row) => sum + Number(row.bytes), 0) > 1048576
+    rows.length > KNOWLEDGE_FILE_PUBLICATION_LIMITS.owners ||
+    rows.reduce((sum, row) => sum + Number(row.bytes), 0) >
+      KNOWLEDGE_FILE_PUBLICATION_LIMITS.pageBytes
   )
     filePublicationError(
       "KNOWLEDGE_FILE_RECOVERY_LIMIT",

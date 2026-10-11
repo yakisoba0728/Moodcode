@@ -32,7 +32,24 @@ export const KNOWLEDGE_FILE_PUBLICATION_LIMITS = Object.freeze({
   pageRows: 32,
   parents: 32,
   owners: 128,
+  reasonBytes: 2048,
 });
+export const KNOWLEDGE_FILE_REQUEST_FIELDS = Object.freeze([
+  "workspaceId",
+  "requestId",
+  "operation",
+  "binding",
+  "path",
+  "expectedTarget",
+  "provenance",
+  "existingPublicationId",
+  "existingPublicationSha256",
+  "body",
+  "bodySha256",
+  "beforeContent",
+  "expiresAt",
+  "deadline",
+] as const);
 function jsonFault(fault: PlainJsonFault): never {
   switch (fault) {
     case "structure":
@@ -194,7 +211,7 @@ export function validateFilePhysicalObservation(
     typeof v.present !== "boolean" ||
     !Array.isArray(v.parentPins) ||
     v.parentPins.length < 1 ||
-    v.parentPins.length > 32 ||
+    v.parentPins.length > KNOWLEDGE_FILE_PUBLICATION_LIMITS.parents ||
     !Array.isArray(v.missingParents) ||
     v.missingParents.length > 31
   )
@@ -353,22 +370,7 @@ export function validatePrepareKnowledgeFilePublication(
     input,
     KNOWLEDGE_FILE_PUBLICATION_LIMITS.checkpointBytes,
   );
-  fileFields(v, [
-    "workspaceId",
-    "requestId",
-    "operation",
-    "binding",
-    "path",
-    "expectedTarget",
-    "provenance",
-    "existingPublicationId",
-    "existingPublicationSha256",
-    "body",
-    "bodySha256",
-    "beforeContent",
-    "expiresAt",
-    "deadline",
-  ]);
+  fileFields(v, KNOWLEDGE_FILE_REQUEST_FIELDS);
   identifier(v.workspaceId);
   identifier(v.requestId);
   const binding = validateBinding(v.binding),
