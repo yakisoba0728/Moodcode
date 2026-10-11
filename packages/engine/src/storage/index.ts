@@ -39,7 +39,7 @@ import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDa
 import { deliverOwnedCommandResultAtomic, readOwnedCommandDeliveries, readOwnedCommandDelivery, findOwnedCommandDeliveryForInput, validateOwnedCommandDeliveryDatabase, pauseImportedOwnedCommandDeliveries, type OwnedCommandDeliveryInput, type OwnedCommandDeliveryPorts } from '../jobs/owned-command-delivery-records.js';
 import { searchHistoryDatabase, type HistorySearchOptions, type HistorySearchPage } from './history-search.js';
 import { readNativeMetrics, type NativeMetricsReport } from './native-metrics.js';
-import { readActiveHistoryWindow, withSessionSegmentAnchor, withSessionDocumentAnchor, withSessionImageAnchor, type ActiveHistoryWindow, type SessionDocumentAnchor, type SessionImageAnchor } from './native-history.js';
+import { readHistoryPageDatabase, readModelHistoryDatabase, type ModelHistoryPage } from './native-history.js';
 import { putAttemptUsage, readAttemptUsage, type AttemptUsageRecord, type AttemptUsageSnapshot } from './native-usage.js';
 import { inspectInputImageIndex, type InputImageIndexOptions, type InputImageIndexReport } from './input-image-index.js';
 import { inspectInputDocumentIndex, type InputDocumentIndexOptions, type InputDocumentIndexReport } from './input-document-index.js';
@@ -94,6 +94,7 @@ import { JobStorage, markImportedJobsPaused, type JobStoragePorts } from '../job
 import type { ExecutionLockMarker } from '../tools/command/execution-lock.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
+export type { ModelHistoryPage } from './native-history.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
 export type { InputDocumentIndexOptions, InputDocumentIndexReport } from './input-document-index.js';
 
@@ -102,15 +103,6 @@ const MAX_PAGE_SIZE = 1_024;
 type DataRow = { data: string };
 type Waiter = { sessionId: string; wake: () => void };
 const ACTIVE_STATES = "'created','running','awaiting_approval','cancelling'";
-export interface ModelHistoryPage {
-  snapshot: SessionSnapshot;
-  omittedRuns: number;
-  omittedMessages: number;
-  beforeRunId: string | null;
-  activeWindow?: ActiveHistoryWindow;
-  sessionImageAnchor?: SessionImageAnchor;
-  sessionDocumentAnchor?: SessionDocumentAnchor;
-}
 const TRANSITIONS: Record<RunState, readonly RunState[]> = {
   created: ['running', 'cancelling', 'cancelled', 'failed', 'interrupted'],
   running: ['awaiting_approval', 'cancelling', 'completed', 'failed', 'interrupted'],
@@ -1076,7 +1068,6 @@ export class SqliteStore implements SessionEngineStore {
       return records;
     }, false);
   }
-  /** Model context reads whole recent Run groups without first loading the entire transcript. */
   searchHistory(sessionId: string, options: HistorySearchOptions): HistorySearchPage {
     return this.transaction(() => { this.getSession(sessionId); return searchHistoryDatabase(this.db, sessionId, options); }, false);
   }
@@ -1084,113 +1075,11 @@ export class SqliteStore implements SessionEngineStore {
     if (!Number.isSafeInteger(maxMessages) || maxMessages < 1 || maxMessages > 4096 || !Number.isSafeInteger(maxBytes) || maxBytes < 1024 || maxBytes > 33_554_432) {
       throw new EngineError('INVALID_MODEL_HISTORY_LIMIT', 'Model history needs bounded message and byte limits');
     }
-    return this.transaction(() => {
-      const session = this.getSession(sessionId);
-      const activePage = (run: Run): ModelHistoryPage => {
-        const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
-        const active = readActiveHistoryWindow(this.db, session, run, lastSeq, maxMessages, maxBytes);
-        const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
-        const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-        return withSessionSegmentAnchor(this.db, withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot: active.snapshot, omittedRuns: totalRuns-1, omittedMessages: totalMessages-active.snapshot.messages.length,
-          beforeRunId: totalRuns > 1 ? run.id : null, activeWindow: active.window }, maxMessages, maxBytes), maxMessages, maxBytes), maxMessages, maxBytes);
-      };
-      const newest = this.db.prepare('SELECT id,state FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 1').get(sessionId);
-      if (newest && !isTerminal(String(newest.state) as RunState)) {
-        // Cardinality first: a long active Run must not scan all message/tool JSON
-        // just to discover that its complete group cannot fit this bounded read.
-        const count = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE run_id=?').get(String(newest.id))?.count);
-        if (count > maxMessages) return activePage(this.getRun(String(newest.id)));
-      }
-      const candidates = this.db.prepare(`SELECT runs.id,runs.ordinal,length(CAST(runs.data AS BLOB)) AS run_bytes,
-        (SELECT count(*) FROM messages WHERE run_id=runs.id) AS message_count,
-        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM messages WHERE run_id=runs.id),0) AS message_bytes,
-        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM tools WHERE run_id=runs.id),0) AS tool_bytes,
-        coalesce((SELECT sum(length(CAST(data AS BLOB))) FROM approvals WHERE run_id=runs.id),0) AS approval_bytes
-        FROM runs WHERE session_id=? ORDER BY ordinal DESC LIMIT 129`).all(sessionId);
-      const selected: string[] = [];
-      let messages = 0, bytes = Buffer.byteLength(JSON.stringify(session)) + 256;
-      for (const row of candidates.slice(0, 128)) {
-        const count = Number(row.message_count);
-        const requiredBytes = Number(row.run_bytes) + Number(row.message_bytes) + Number(row.tool_bytes) + Number(row.approval_bytes) + 128;
-        if (messages + count > maxMessages || bytes + requiredBytes > maxBytes) {
-          if (!selected.length) {
-            const run = this.getRun(String(row.id));
-            if (!isTerminal(run.state)) return activePage(run);
-            throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
-          }
-          break;
-        }
-        selected.push(String(row.id)); messages += count; bytes += requiredBytes;
-      }
-      const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
-      const snapshot: SessionSnapshot = { session, runs: [], messages: [], tools: [], approvals: [], lastSeq };
-      if (selected.length) {
-        const placeholders = selected.map(() => '?').join(',');
-        snapshot.runs = this.rows<Run>(`SELECT data FROM runs WHERE session_id=? AND id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
-        // Native continuation metadata stays available to model projection.
-        snapshot.messages = this.rows<Message>(`SELECT data FROM messages WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
-        snapshot.tools = this.rows<ToolCallRecord>(`SELECT data FROM tools WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
-        snapshot.approvals = this.rows<ApprovalRecord>(`SELECT data FROM approvals WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...selected);
-        while (Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes && snapshot.runs.length > 1) {
-          const dropped = snapshot.runs.shift()!.id;
-          snapshot.messages = snapshot.messages.filter(message => message.runId !== dropped);
-          snapshot.tools = snapshot.tools.filter(tool => tool.runId !== dropped);
-          snapshot.approvals = snapshot.approvals.filter(approval => approval.runId !== dropped);
-        }
-        if (Buffer.byteLength(JSON.stringify(snapshot)) > maxBytes) throw new EngineError('MODEL_HISTORY_LIMIT', 'The newest complete Run exceeds the required model history budget');
-      }
-      const totalRuns = Number(this.db.prepare('SELECT count(*) AS count FROM runs WHERE session_id=?').get(sessionId)?.count);
-      const totalMessages = Number(this.db.prepare('SELECT count(*) AS count FROM messages WHERE session_id=?').get(sessionId)?.count);
-      return withSessionSegmentAnchor(this.db, withSessionDocumentAnchor(this.db, withSessionImageAnchor(this.db, { snapshot, omittedRuns: totalRuns - snapshot.runs.length, omittedMessages: totalMessages - snapshot.messages.length,
-        beforeRunId: totalRuns > snapshot.runs.length ? snapshot.runs[0]?.id ?? null : null }, maxMessages, maxBytes), maxMessages, maxBytes), maxMessages, maxBytes);
-    }, false);
+    return this.transaction(() => readModelHistoryDatabase(this.db, this.getSession(sessionId), maxMessages, maxBytes, id => this.getRun(id)), false);
   }
-  /** GUI pages never expose native replay; the original journal remains intact. */
   getHistory(sessionId: string, beforeRunId?: string, limit = 20): SessionHistoryPage {
     if (!Number.isSafeInteger(limit) || limit < 1 || limit > 50) throw new EngineError('INVALID_PAGE_SIZE', 'History page size must be between 1 and 50');
-    return this.transaction(() => {
-      const session = this.getSession(sessionId);
-      let before = Number.MAX_SAFE_INTEGER;
-      if (beforeRunId !== undefined) {
-        const row = this.db.prepare('SELECT ordinal FROM runs WHERE id=? AND session_id=?').get(beforeRunId, sessionId);
-        if (!row) throw new EngineError('INVALID_HISTORY_CURSOR', 'History cursor does not belong to this session');
-        before = Number(row.ordinal);
-      }
-      const rows = this.db.prepare('SELECT ordinal, data FROM runs WHERE session_id=? AND ordinal<? ORDER BY ordinal DESC LIMIT ?').all(sessionId, before, limit).reverse();
-      const runs = rows.map(row => decode<Run>(row as DataRow));
-      const lastSeq = Number(this.db.prepare('SELECT last_seq FROM sessions WHERE id=?').get(sessionId)?.last_seq);
-      const snapshot: SessionSnapshot = { session, runs, messages: [], tools: [], approvals: [], lastSeq };
-      let truncatedRecords = false;
-      if (runs.length) {
-        const ids = runs.map(run => run.id);
-        const placeholders = ids.map(() => '?').join(',');
-        snapshot.messages = this.rows<Message>(`SELECT json_remove(data,'$.providerReplay') AS data FROM messages WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
-        snapshot.tools = this.rows<ToolCallRecord>(`SELECT data FROM tools WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
-        snapshot.approvals = this.rows<ApprovalRecord>(`SELECT data FROM approvals WHERE session_id=? AND run_id IN (${placeholders}) ORDER BY ordinal`, sessionId, ...ids);
-        // Return whole Run groups whenever possible. Dropped groups remain reachable
-        // through beforeRunId; never cut an active approval's exact preview.
-        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.runs.length > 1) {
-          const dropped = snapshot.runs.shift()!.id;
-          snapshot.messages = snapshot.messages.filter(message => message.runId !== dropped);
-          snapshot.tools = snapshot.tools.filter(tool => tool.runId !== dropped);
-          snapshot.approvals = snapshot.approvals.filter(approval => approval.runId !== dropped);
-        }
-        // Unusually large single Runs expose their recent records with a notice.
-        // Historical native state is still available to the context builder.
-        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.messages.length > 2) {
-          snapshot.messages.splice(1, 1); truncatedRecords = true;
-        }
-        while (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304 && snapshot.tools.some(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied')) {
-          const index = snapshot.tools.findIndex(tool => tool.state === 'completed' || tool.state === 'failed' || tool.state === 'denied');
-          snapshot.tools.splice(index, 1); truncatedRecords = true;
-        }
-        if (Buffer.byteLength(JSON.stringify(snapshot)) > 4_194_304) throw new EngineError('HISTORY_PAGE_TOO_LARGE', 'The current Run exceeds the display page budget; its original records remain stored');
-      }
-      const first = snapshot.runs[0];
-      const ordinal = first ? Number(this.db.prepare('SELECT ordinal FROM runs WHERE id=?').get(first.id)?.ordinal) : 0;
-      const hasMore = Boolean(this.db.prepare('SELECT 1 FROM runs WHERE session_id=? AND ordinal<? LIMIT 1').get(sessionId, ordinal));
-      return { snapshot, hasMore, beforeRunId: first?.id ?? null, truncatedRecords };
-    }, false);
+    return this.transaction(() => readHistoryPageDatabase(this.db, this.getSession(sessionId), beforeRunId, limit), false);
   }
 
   getMetrics(sessionId: string): SessionMetrics {
