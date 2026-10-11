@@ -51,40 +51,30 @@ export interface EngineOptions {
   gitCommits?: boolean;
   prFeedback?: boolean;
   prFeedbackLoopback?: boolean;
-  /** Explicit tools-free host extraction into pending workspace knowledge candidates. */
   knowledgeGeneration?: boolean;
-  /** Explicit host-approved publication to native workspace document revisions. */
   knowledgePublication?: boolean;
-  /** Explicit exact-approved physical workspace-file and skill publication. */
   knowledgeFilePublication?: boolean;
-  /** Explicit host recovery and per-document activation after an archive import. */
   knowledgeImportRecovery?: boolean;
   /** Host-selected current approved documents, consumed as bounded read-only data. */
   knowledgeContextPolicy?: KnowledgeContextPolicy;
-  /** Host-authored pending proposals, saved separately from physical application. */
   proposals?: boolean;
   /** Separate exact-approved idle host file application. */
   proposalApply?: boolean;
-  /** Explicit host team membership, native mailbox/board and current child input delivery. */
   teams?: boolean;
   /** Fixed tool catalogue; host must separately bind an actual selected team member. */
   teamModelTools?: boolean;
   /** Explicit readonly catalogue plus separately host-bound job aliases; children do not inherit. */
   commandJobModelTools?: boolean;
   residentTeams?: boolean;
-  /** Explicit host workflow orchestration through isolated actual child executions. */
   workflows?: boolean;
   codingBatches?: boolean;
-  /** Explicit root lifetime and durable queue-only scheduled input admission. */
   schedules?: boolean;
   /** Root-owned ACP v1 stdio providers; imported definitions do not restore runtime authority. */
   agentBackends?: boolean;
   agentBackendClientEffects?: boolean;
-  /** Explicit read-only observation of existing user-owned terminals as native jobs. */
   jobs?: boolean;
   /** Exact prepared-resource parallel effects; root opt-in, children remain serial. */
   effectBatches?: boolean;
-  /** Explicit independent idle-workspace command owner; disabled by default. */
   hostCommands?: boolean;
   commandLifetimes?: boolean;
   /** Exact host-approved bounded conversation forks; execution approvals are never inherited. */
@@ -116,7 +106,6 @@ export interface EngineOptions {
   activePrefixPolicy?: ActivePrefixPolicy;
   /** PDF page/text token cost is opaque. The default refuses this unknown cost. */
   allowUnknownDocumentTokenCost?: boolean;
-  /** Explicitly admit media whose token cost remains unknown. */
   allowUnknownMediaTokenCost?: boolean;
   documentHistoryPolicy?: DocumentHistoryPolicy;
   agentProfiles?: readonly AgentProfileSpec[];
@@ -128,7 +117,6 @@ export interface EngineOptions {
   configureChild?: (engine: MoodcodeEngine, task: Readonly<ChildTaskRecord>) => void;
 }
 
-/** Opt-in features fixed when the engine is constructed. */
 export interface EngineFeatures {
   readonly sandbox: boolean;
   readonly verification: boolean;

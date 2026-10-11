@@ -42,7 +42,6 @@ import type { KnowledgePublicationStorage } from './knowledge/publication-store.
 import type { KnowledgePublicationService } from './knowledge/publication-service.js';
 import type { KnowledgeFilePublicationService } from './knowledge/file-publication-service.js';
 import type { KnowledgeFilePublicationStorage } from './knowledge/file-publication-store.js';
-import type { KnowledgeFileRecoveryPreview } from './knowledge/file-publication-types.js';
 import type { KnowledgeImportRecoveryService } from './knowledge/import-recovery-service.js';
 import type { ProposalHostService, CreateProposalSetInput } from './proposals/host.js';
 import type { ProposalApplyRecoveryPreview } from './proposals/apply-types.js';
@@ -137,8 +136,8 @@ import { RepositoryContextSource } from './context/repository-contributions.js';
 import { EngineLifetime, EngineStorage } from './engine-kernel.js';
 import { resolveEngineOptions, type EngineFeatures, type EngineOptions } from './engine-options.js';
 import { EngineCommands, NATIVE_COMMANDS_ENABLED } from './engine-commands.js';
-import { EngineKnowledge } from './engine-knowledge.js';
-import { EngineProposals } from './engine-proposals.js';
+import { EngineKnowledge, type FileRecoveryInput } from './engine-knowledge.js';
+import { EngineProposals, type ProposalApplyRecoveryInput } from './engine-proposals.js';
 import { EngineVerification } from './engine-verification.js';
 import { WorkspaceLanguageSync } from './engine-language-sync.js';
 import { EngineRestore } from './engine-restore.js';
@@ -299,10 +298,8 @@ export class MoodcodeEngine implements EngineRuntime {
       catch (error) { const known = this.knowledge.fileGuards.matching(this.executionLockPath);
         if (known) interruptedFileOwners.push(known.publicationId); else if (!this.proposals.applyGuards.matching(this.executionLockPath)) {
           const marker = inspectExecutionLock(this.executionLockPath);
-          // A native Windows owner crash leaves its marker active after the job
-          // handle has closed. Permit inspection of the exactly bound journal;
-          // recovery retains uncertainty and every execution gate keeps the
-          // active marker. This does not confirm cleanup or authorize replay.
+          // A crashed native Windows owner leaves its marker active after the job handle closed; open the exactly bound
+          // journal for inspection only. Uncertainty and every execution gate stay; no cleanup or replay is confirmed.
           const knownWindowsHost = process.platform === 'win32' && marker.status === 'uncertain' &&
             this.store.createHostCommandStorage().hasKnownWindowsExecutionMarker(marker.marker, this.executionLockPath,
               workspaceId => knowledgeHash(knowledgeBinding(workspaceId)));
@@ -419,13 +416,7 @@ export class MoodcodeEngine implements EngineRuntime {
         },
       });
       this.workflowRecords.recoverInterrupted();
-      this.codingBatches = new CodingBatchHost(
-        this,
-        this.store.createCodingBatchStorage(),
-        this.workflowEffects,
-        workflowChildren,
-        this.enabled.codingBatches,
-      );
+      this.codingBatches = new CodingBatchHost(this, this.store.createCodingBatchStorage(), this.workflowEffects, workflowChildren, this.enabled.codingBatches);
       terminalJournal = new SqliteTerminalJournal(join(this.storage.paths.artifactDir, 'terminals.sqlite'));
       this.terminalJournal = terminalJournal;
       this.terminals = new TerminalService({ journal: terminalJournal, ...(options.ptyBackend ? { backend: options.ptyBackend } : {}), resolveOwner: owner => {
@@ -533,17 +524,10 @@ export class MoodcodeEngine implements EngineRuntime {
         onRunStarted: async (run, signal) => {
           const admission = waitChildProviderAdmission(this, signal);
           if (admission) await admission;
-          if (signal.aborted)
-            throw (
-              signal.reason ??
-              new EngineError("CANCELLED", "Run initialization was cancelled")
-            );
-          if (this.enabled.verification)
-            await this.verification.host.start(run, signal);
+          if (signal.aborted) throw (signal.reason ?? new EngineError("CANCELLED", "Run initialization was cancelled"));
+          if (this.enabled.verification) await this.verification.host.start(run, signal);
         },
-        ...(options.diagnosticObservations === true
-          ? { executionObserver: this.executionObserver }
-          : {}),
+        ...(options.diagnosticObservations === true ? { executionObserver: this.executionObserver } : {}),
         ...this.verification.coordinatorHooks(options.lifecycleContinuation === true),
         lifecycleHooks: options.osSandbox ? undefined : this.lifecycleHooks,
         store: this.store,
@@ -552,55 +536,25 @@ export class MoodcodeEngine implements EngineRuntime {
         approvals: this.approvals,
         artifactDir,
         executionLockPath: this.executionLockPath,
-        buildContext: (request) =>
-          this.context.build({
-            ...request,
-            agentInstructions: this.profiles.forRun(
-              request.snapshot.session.id,
-              request.config,
-            )?.instructions,
-          }),
-        contextSnapshot: (sessionId, config) =>
-          this.context.snapshot(sessionId, config),
+        buildContext: (request) => this.context.build({ ...request, agentInstructions: this.profiles.forRun(request.snapshot.session.id, request.config)?.instructions }),
+        contextSnapshot: (sessionId, config) => this.context.snapshot(sessionId, config),
         getContextRevisionId: (sessionId) => this.context.revisionId(sessionId),
         assertContextFresh: async (request, signal) => {
           const run = this.store.getRun(request.runId);
           this.profiles.forRun(run.sessionId, run.config);
-          await this.context.assertFresh(
-            request.sessionId,
-            request.messages,
-            signal,
-            request.runId,
-          );
+          await this.context.assertFresh(request.sessionId, request.messages, signal, request.runId);
           this.profiles.forRun(run.sessionId, run.config);
         },
-        releaseContext: (sessionId, runId) =>
-          this.context.releaseContext(sessionId, runId),
-        getToolProfile: (run) =>
-          this.profiles.pinForRun(run.sessionId, run.config) ?? undefined,
-        getAllowedTools: (run) =>
-          this.allowedTools(
-            this.profiles.forRun(run.sessionId, run.config)?.tools,
-          ),
-        recoverContextOverflow: (request, provider) =>
-          this.context.recoverOverflow(request, provider),
+        releaseContext: (sessionId, runId) => this.context.releaseContext(sessionId, runId),
+        getToolProfile: (run) => this.profiles.pinForRun(run.sessionId, run.config) ?? undefined,
+        getAllowedTools: (run) => this.allowedTools(this.profiles.forRun(run.sessionId, run.config)?.tools),
+        recoverContextOverflow: (request, provider) => this.context.recoverOverflow(request, provider),
         toolRuntime: this.toolRuntime,
-        ...(toolDiscoveryPolicy
-          ? {
-              toolDiscoveryPolicy,
-              coreToolNames: coreTools.map((tool) => tool.name),
-            }
-          : {}),
+        ...(toolDiscoveryPolicy ? { toolDiscoveryPolicy, coreToolNames: coreTools.map((tool) => tool.name) } : {}),
         onToolCheckpoint: async (observation) => {
           await this.watchWorkspace(observation.workspace.id);
-          const changes = await this.changes.recordCheckpoint({
-            ...observation,
-            sessionId: observation.run.sessionId,
-            runId: observation.run.id,
-          });
-          await Promise.all(
-            changes.map((change) => this.languageSync.sync(change)),
-          );
+          const changes = await this.changes.recordCheckpoint({ ...observation, sessionId: observation.run.sessionId, runId: observation.run.id });
+          await Promise.all(changes.map((change) => this.languageSync.sync(change)));
         },
       });
       this.scheduleProducer = new EngineScheduleProducer(this, knowledgeBinding, () => this.scheduleRecords, () => this.lifetime.closing, () => this.enabled.schedules);
@@ -1061,63 +1015,25 @@ export class MoodcodeEngine implements EngineRuntime {
   private assertWorkflowsEnabled(): void { this.lifetime.assertEnabled(this.enabled.workflows, 'WORKFLOWS_DISABLED', 'Workflows require explicit host opt-in'); }
 
   installCodingBatchDispatchGuard(guard: () => void, charge: () => void): void {
-    if (this.codingBatchDispatchGuard)
-      throw new EngineError(
-        "CODING_BATCH_ALREADY_BOUND",
-        "Original child has one batch guard",
-      );
+    if (this.codingBatchDispatchGuard) throw new EngineError("CODING_BATCH_ALREADY_BOUND", "Original child has one batch guard");
     this.codingBatchDispatchGuard = guard;
     this.codingBatchCharge = charge;
   }
-  previewCodingAttemptGroup(input: Parameters<CodingBatchHost["preview"]>[0]) {
-    return this.codingBatches.preview(input);
-  }
-  startCodingAttemptGroup(input: Parameters<CodingBatchHost["start"]>[0]) {
-    return this.codingBatches.start(input);
-  }
-  runCodingAttemptGroup(input: Parameters<CodingBatchHost["run"]>[0]) {
-    return this.codingBatches.run(input);
-  }
-  inspectBatchEvidence(workspaceId: string, groupId: string) {
-    return this.codingBatches.inspect(workspaceId, groupId);
-  }
-  resumeVerifiedBatch(input: Parameters<CodingBatchHost["resume"]>[0]) {
-    return this.codingBatches.resume(input);
-  }
-  skipCodingBatchCase(input: Parameters<CodingBatchHost["skip"]>[0]) {
-    return this.codingBatches.skip(input);
-  }
-  cancelCodingAttemptGroup(input: Parameters<CodingBatchHost["cancel"]>[0]) {
-    return this.codingBatches.cancel(input);
-  }
-  previewCodingAttemptSelection(
-    input: Parameters<CodingBatchHost["previewSelection"]>[0],
-  ) {
-    return this.codingBatches.previewSelection(input);
-  }
-  selectCodingAttempt(input: Parameters<CodingBatchHost["select"]>[0]) {
-    return this.codingBatches.select(input);
-  }
-  captureCodingBatchDeliveryTarget(
-    input: Parameters<CodingBatchHost["captureDelivery"]>[0],
-  ) {
-    return this.codingBatches.captureDelivery(input);
-  }
-  readCodingBatchDeliveryTarget(original: object) {
-    return this.codingBatches.readDelivery(original);
-  }
-  deliverCodingBatchResult(input: Parameters<CodingBatchHost["deliver"]>[0]) {
-    return this.codingBatches.deliver(input);
-  }
-  captureBatchEvidenceExport(workspaceId: string, groupId: string) {
-    return this.codingBatches.captureExport(workspaceId, groupId);
-  }
-  readBatchEvidenceExport(original: object) {
-    return this.codingBatches.readExport(original);
-  }
-  releaseCodingAttemptHandle(original: object) {
-    this.codingBatches.release(original);
-  }
+  previewCodingAttemptGroup(input: Parameters<CodingBatchHost["preview"]>[0]) { return this.codingBatches.preview(input); }
+  startCodingAttemptGroup(input: Parameters<CodingBatchHost["start"]>[0]) { return this.codingBatches.start(input); }
+  runCodingAttemptGroup(input: Parameters<CodingBatchHost["run"]>[0]) { return this.codingBatches.run(input); }
+  inspectBatchEvidence(workspaceId: string, groupId: string) { return this.codingBatches.inspect(workspaceId, groupId); }
+  resumeVerifiedBatch(input: Parameters<CodingBatchHost["resume"]>[0]) { return this.codingBatches.resume(input); }
+  skipCodingBatchCase(input: Parameters<CodingBatchHost["skip"]>[0]) { return this.codingBatches.skip(input); }
+  cancelCodingAttemptGroup(input: Parameters<CodingBatchHost["cancel"]>[0]) { return this.codingBatches.cancel(input); }
+  previewCodingAttemptSelection(input: Parameters<CodingBatchHost["previewSelection"]>[0]) { return this.codingBatches.previewSelection(input); }
+  selectCodingAttempt(input: Parameters<CodingBatchHost["select"]>[0]) { return this.codingBatches.select(input); }
+  captureCodingBatchDeliveryTarget(input: Parameters<CodingBatchHost["captureDelivery"]>[0]) { return this.codingBatches.captureDelivery(input); }
+  readCodingBatchDeliveryTarget(original: object) { return this.codingBatches.readDelivery(original); }
+  deliverCodingBatchResult(input: Parameters<CodingBatchHost["deliver"]>[0]) { return this.codingBatches.deliver(input); }
+  captureBatchEvidenceExport(workspaceId: string, groupId: string) { return this.codingBatches.captureExport(workspaceId, groupId); }
+  readBatchEvidenceExport(original: object) { return this.codingBatches.readExport(original); }
+  releaseCodingAttemptHandle(original: object) { this.codingBatches.release(original); }
   registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.assertWorkflowsEnabled(); return this.workflowService.register(input); }
   getWorkflow(workspaceId: string, workflowId: string, revisionId?: string) {
     this.lifetime.assertOpen();
@@ -1200,12 +1116,8 @@ export class MoodcodeEngine implements EngineRuntime {
   getProposalApply(workspaceId: string, ownerId: string) { return this.proposals.getApply(workspaceId, ownerId); }
   getProposalApplyRequest(workspaceId: string, requestId: string) { return this.proposals.getApplyRequest(workspaceId, requestId); }
   previewProposalApplyRecovery(workspaceId: string): ProposalApplyRecoveryPreview { return this.proposals.previewApplyRecovery(workspaceId); }
-  acknowledgeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    return this.proposals.applyRecoveryDecision('acknowledge', input);
-  }
-  resumeProposalApplyRecovery(input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
-    return this.proposals.applyRecoveryDecision('resume', input);
-  }
+  acknowledgeProposalApplyRecovery(input: ProposalApplyRecoveryInput) { return this.proposals.applyRecoveryDecision('acknowledge', input); }
+  resumeProposalApplyRecovery(input: ProposalApplyRecoveryInput) { return this.proposals.applyRecoveryDecision('resume', input); }
   getProposalSet(workspaceId: string, proposalId: string) { return this.proposals.get(workspaceId, proposalId); }
   listProposalSets(input: Parameters<ProposalHostService['list']>[0]) { return this.proposals.list(input); }
   getProposalDiff(input: Parameters<ProposalHostService['diff']>[0]) { return this.proposals.diff(input); }
@@ -1228,12 +1140,8 @@ export class MoodcodeEngine implements EngineRuntime {
   getWorkspaceKnowledgeFilePublicationReceipt(workspaceId: string, requestId: string) { return this.knowledge.getFilePublicationReceipt(workspaceId, requestId); }
   getWorkspaceKnowledgeFileTarget(workspaceId: string, path: string) { return this.knowledge.getFileTarget(workspaceId, path); }
   previewWorkspaceKnowledgeFileRecovery(workspaceId: string) { return this.knowledge.previewFileRecovery(workspaceId); }
-  acknowledgeWorkspaceKnowledgeFileRecovery(input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    return this.knowledge.fileRecoveryDecision('acknowledge', input);
-  }
-  resumeWorkspaceKnowledgeFileAfterRecovery(input: { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string }) {
-    return this.knowledge.fileRecoveryDecision('resume', input);
-  }
+  acknowledgeWorkspaceKnowledgeFileRecovery(input: FileRecoveryInput) { return this.knowledge.fileRecoveryDecision('acknowledge', input); }
+  resumeWorkspaceKnowledgeFileAfterRecovery(input: FileRecoveryInput) { return this.knowledge.fileRecoveryDecision('resume', input); }
   listWorkspaceKnowledgeFilePublications(workspaceId: string, options?: Parameters<KnowledgeFilePublicationStorage['listPublications']>[1]) { return this.knowledge.listFilePublications(workspaceId, options); }
 
   previewWorkspaceKnowledgePublication(input: Parameters<KnowledgePublicationService['previewPublish']>[0]) { return this.knowledge.previewPublication(input); }
@@ -1445,8 +1353,7 @@ export class MoodcodeEngine implements EngineRuntime {
         this.jobDelivery.close();
         this.ownedCommandDelivery.close();
         this.hostCommandDelivery.close();
-        // Every closer below is invoked while this array is built, before any is awaited;
-        // scheduler.close() and coordinator.close() stop admissions in that synchronous step.
+        // Every closer runs while this array is built, so scheduler and coordinator stop admissions before any await.
         const outcomes = await Promise.allSettled([
           this.commandLifetimes.close(), this.hostCommands.close(), this.gitCommitHost.close(), this.prFeedbackHost.close(), this.backendHost.close(),
           this.scheduleDispatcher.close(), this.codingBatches.close(), this.workflowService.close(), this.proposals.applyService.close(), this.proposals.service.close(),

@@ -18,7 +18,6 @@ import { createVerificationTool } from './verification/tool.js';
 
 type VerificationHooks = Pick<CoordinatorOptions, 'lifecycleContinuation' | 'verificationStop' | 'verificationBeforeProvider'>;
 
-/** Host verification checks, plans, receipts and the controller that decides verification continuations. */
 export class EngineVerification {
   readonly checks = new VerificationCheckRegistry();
   readonly plans: VerificationPlanService;
@@ -79,81 +78,33 @@ export class EngineVerification {
       }, artifacts });
   }
 
-  /** Coordinator hooks for the optional lifecycle continuation and, when verification is enabled, its stop and dispatch boundaries. */
   coordinatorHooks(lifecycleContinuation: boolean): VerificationHooks {
     return {
-      ...(lifecycleContinuation
-        ? {
-            lifecycleContinuation: createLifecycleContinuationPort({
-              store: this.store,
-              controller: this.controller,
-              plans: this.plans,
-              observeSource: (run, signal) => this.observe(run, signal),
-              readCurrentProfile: run => this.profile(run),
-              assertBoundaryCurrent: (run, boundary) =>
-                this.engine.coordinator.assertVerificationBoundaryCurrent(
-                  run,
-                  boundary,
-                ),
-              readRemainingBudget: (run) =>
-                this.engine.coordinator.verificationRemainingBudget(run),
-            }),
+      ...(lifecycleContinuation ? { lifecycleContinuation: createLifecycleContinuationPort({ store: this.store, controller: this.controller, plans: this.plans,
+        observeSource: (run, signal) => this.observe(run, signal), readCurrentProfile: run => this.profile(run),
+        assertBoundaryCurrent: (run, boundary) => this.engine.coordinator.assertVerificationBoundaryCurrent(run, boundary),
+        readRemainingBudget: (run) => this.engine.coordinator.verificationRemainingBudget(run) }) } : {}),
+      ...(this.enabled ? {
+        verificationStop: async (run, boundary, signal) => {
+          if (!this.host.configuration(run.sessionId)) return null;
+          const workspace = this.store.getWorkspace(run.workspaceId);
+          if (!this.plans.get(run.sessionId, run.id)) {
+            try { await this.host.ensurePlan({ sessionId: run.sessionId, runId: run.id, workspace }, signal); }
+            catch (error) { if (!(error instanceof EngineError) || error.code !== "VERIFICATION_CHECK_NOT_FOUND") throw error; }
           }
-        : {}),
-      ...(this.enabled
-        ? {
-            verificationStop: async (run, boundary, signal) => {
-              if (!this.host.configuration(run.sessionId))
-                return null;
-              const workspace = this.store.getWorkspace(run.workspaceId);
-              if (!this.plans.get(run.sessionId, run.id)) {
-                try {
-                  await this.host.ensurePlan(
-                    { sessionId: run.sessionId, runId: run.id, workspace },
-                    signal,
-                  );
-                } catch (error) {
-                  if (
-                    !(error instanceof EngineError) ||
-                    error.code !== "VERIFICATION_CHECK_NOT_FOUND"
-                  )
-                    throw error;
-                }
-              }
-              const source = await this.observe(run, signal, workspace);
-              const result = await this.evaluate(
-                run,
-                boundary,
-                source,
-                signal,
-              );
-              const content = verificationContinuationMessage(result);
-              return content && result.result.stageId
-                ? {
-                    stageId: result.result.stageId,
-                    message: {
-                      role: "user" as const,
-                      content: `[Moodcode verification control v1]\n${content}`,
-                    },
-                  }
-                : null;
-            },
-            verificationBeforeProvider: async (run, boundary, signal) => {
-              const source = await this.observe(run, signal);
-              const result = await this.evaluate(
-                run,
-                boundary,
-                source,
-                signal,
-              );
-              if (result.result.action === "stop")
-                throw new EngineError(
-                  "VERIFICATION_CONTINUATION_BLOCKED",
-                  `Verification continuation stopped (${result.result.reason})`,
-                );
-            },
-          }
-        : {}),
+          const source = await this.observe(run, signal, workspace);
+          const result = await this.evaluate(run, boundary, source, signal);
+          const content = verificationContinuationMessage(result);
+          return content && result.result.stageId
+            ? { stageId: result.result.stageId, message: { role: "user" as const, content: `[Moodcode verification control v1]\n${content}` } }
+            : null;
+        },
+        verificationBeforeProvider: async (run, boundary, signal) => {
+          const source = await this.observe(run, signal);
+          const result = await this.evaluate(run, boundary, source, signal);
+          if (result.result.action === "stop") throw new EngineError("VERIFICATION_CONTINUATION_BLOCKED", `Verification continuation stopped (${result.result.reason})`);
+        },
+      } : {}),
     };
   }
 

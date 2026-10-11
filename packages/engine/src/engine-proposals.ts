@@ -18,9 +18,8 @@ import type { ProposalApplyCapture, ProposalApplyCleanup, ProposalApplyRecoveryP
 import type { ProposalApplyExecutionGuards } from './proposals/execution-guards.js';
 import { ProposalApplyService } from './proposals/apply-service.js';
 
-type ProposalApplyRecoveryInput = { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string };
+export type ProposalApplyRecoveryInput = { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string };
 
-/** Pending proposal sets, their read-only context overlay and exact-approved physical application for one engine. */
 export class EngineProposals {
   readonly source: ProposalSourceCaptureHost;
   readonly records: ProposalStorage;

@@ -4,7 +4,6 @@ import type { EngineLifetime } from './engine-kernel.js';
 import type { LspFactory, LspManager } from './lsp/index.js';
 import type { WorkspaceChangeHub, WorkspaceChangeWatch, WorkspaceFileChange } from './workspace/changes.js';
 
-/** Host language server routing, workspace change consumers and the document changes they deliver to language servers. */
 export class WorkspaceLanguageSync {
   private readonly consumers = new Map<string, { seq: number; running: boolean; done: Promise<void> }>();
   private readonly servers = new Map<string, (path: string) => string | null>();

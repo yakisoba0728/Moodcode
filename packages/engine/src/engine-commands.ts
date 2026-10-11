@@ -21,9 +21,7 @@ import { getReviewDiff } from './review/index.js';
 export const NATIVE_COMMANDS_ENABLED = ['input.accept', 'input.list', 'input.cancel', 'session.pause', 'session.resume', 'session.events', 'engine.getCapabilities', 'run.getTurns', 'turn.getParts', 'artifact.get', 'session.getTasks', 'session.setTasks', 'question.list', 'question.answer', 'question.reject', 'session.getContext', 'session.searchHistory', 'session.getDiagnostics'] as const;
 
 function json(value: unknown): JsonValue {
-  const encoded = JSON.stringify(value);
-  if (encoded === undefined) return null;
-  return JSON.parse(encoded) as JsonValue;
+  return JSON.parse(JSON.stringify(value) ?? 'null') as JsonValue;
 }
 
 /** The commandId of a failed command, echoed only when it satisfies the contract ID rule. */
@@ -37,6 +35,10 @@ function echoCommandId(value: unknown): string {
       && Buffer.byteLength(descriptor.value) <= 256) return descriptor.value;
   } catch { /* Invalid object traps must not escape the command result boundary. */ }
   return '';
+}
+
+function hasMedia(input: { attachments?: readonly unknown[]; documents?: readonly unknown[]; media?: readonly unknown[] }): boolean {
+  return Boolean(input.attachments?.length || input.documents?.length || input.media?.length);
 }
 
 function commandFailure(error: unknown, fallback: string): { code: string; message: string; details?: JsonObject } {
@@ -85,9 +87,7 @@ export class EngineCommands {
         case 'input.accept': {
           const input = normalizeAcceptInput(payload, this.parts.defaults);
           this.applyProfile(input);
-          if ((input.attachments?.length || input.documents?.length || input.media?.length) && !store.lookupInputReceipt(input)) {
-            await this.parts.media.validateFresh(input);
-          }
+          if (hasMedia(input) && !store.lookupInputReceipt(input)) await this.parts.media.validateFresh(input);
           result = scheduler.accept(input); break;
         }
         case 'input.list': result = store.listInputs(payload.sessionId as string, payload.cursor as unknown as InputCursor | undefined, payload.limit as number); break;
@@ -144,78 +144,41 @@ export class EngineCommands {
       const payload = command.payload;
       let result: unknown;
       switch (command.type) {
-        case 'engine.getCapabilities':
-          result = this.parts.getCapabilities();
-          break;
-        case 'workspace.open': {
-          const workspace = await openWorkspace(payload.path as string);
-          result = store.putWorkspace(workspace);
-          break;
-        }
-        case 'workspace.getStatus':
-          result = await getWorkspaceStatus(store.getWorkspace(payload.workspaceId as string));
-          break;
+        case 'engine.getCapabilities': result = this.parts.getCapabilities(); break;
+        case 'workspace.open': result = store.putWorkspace(await openWorkspace(payload.path as string)); break;
+        case 'workspace.getStatus': result = await getWorkspaceStatus(store.getWorkspace(payload.workspaceId as string)); break;
         case 'file.list':
           result = await listWorkspaceFiles(store.getWorkspace(payload.workspaceId as string), payload.path as string | undefined, { ...(payload.limit === undefined ? {} : { limit: payload.limit as number }), ...(payload.continuation === undefined ? {} : { continuation: payload.continuation as string }) });
           break;
-        case 'file.read':
-          result = await readWorkspaceFile(store.getWorkspace(payload.workspaceId as string), payload.path as string);
-          break;
+        case 'file.read': result = await readWorkspaceFile(store.getWorkspace(payload.workspaceId as string), payload.path as string); break;
         case 'session.create': {
           const workspaceId = payload.workspaceId as string;
           store.getWorkspace(workspaceId);
           const session: Session = { id: randomUUID(), workspaceId, title: (payload.title as string | undefined) ?? 'New session', createdAt: new Date().toISOString() };
-          result = store.createSession(session);
-          break;
+          result = store.createSession(session); break;
         }
-        case 'session.list': {
+        case 'session.list':
           store.getWorkspace(payload.workspaceId as string);
-          result = store.listSessions(payload.workspaceId as string);
-          break;
+          result = store.listSessions(payload.workspaceId as string); break;
+        case 'session.getSnapshot': result = store.getSnapshot(payload.sessionId as string); break;
+        case 'session.getHistory': result = store.getHistory(payload.sessionId as string, payload.beforeRunId as string | undefined, payload.limit as number | undefined); break;
+        case 'session.getMetrics': result = store.getMetrics(payload.sessionId as string); break;
+        case 'run.submit': {
+          const input = normalizeSubmitInput(payload);
+          this.applyProfile(input);
+          if (hasMedia(input) && !store.lookupRunReceipt(input)) await this.parts.media.validateFresh(input);
+          result = this.parts.scheduler.submitLegacy(input); break;
         }
-        case 'session.getSnapshot':
-          result = store.getSnapshot(payload.sessionId as string);
-          break;
-        case 'session.getHistory':
-          result = store.getHistory(payload.sessionId as string, payload.beforeRunId as string | undefined, payload.limit as number | undefined);
-          break;
-        case 'session.getMetrics':
-          result = store.getMetrics(payload.sessionId as string);
-          break;
-        case 'run.submit':
-          {
-            const input = normalizeSubmitInput(payload);
-            this.applyProfile(input);
-            if ((input.attachments?.length || input.documents?.length || input.media?.length) && !store.lookupRunReceipt(input)) {
-              await this.parts.media.validateFresh(input);
-            }
-            result = this.parts.scheduler.submitLegacy(input);
-          }
-          break;
-        case 'run.cancel':
-          result = this.parts.coordinator.cancel(payload.runId as string);
-          break;
-        case 'approval.decide':
-          result = this.parts.approvals.decide(payload.approvalId as string, payload.decision as 'allow' | 'deny', payload.fingerprint as string);
-          break;
-        case 'review.getDiff':
-          result = await getReviewDiff(store, payload.runId as string);
-          break;
-        case 'review.previewRestore':
-          result = await restorer.preview(payload.runId as string, payload.checkpointId as string);
-          break;
-        case 'review.restore':
-          result = await restorer.restore(command.commandId, payload.runId as string, payload.checkpointId as string, payload.previewFingerprint as string);
-          break;
-        case 'review.history':
-          result = restorer.history(payload.runId as string);
-          break;
+        case 'run.cancel': result = this.parts.coordinator.cancel(payload.runId as string); break;
+        case 'approval.decide': result = this.parts.approvals.decide(payload.approvalId as string, payload.decision as 'allow' | 'deny', payload.fingerprint as string); break;
+        case 'review.getDiff': result = await getReviewDiff(store, payload.runId as string); break;
+        case 'review.previewRestore': result = await restorer.preview(payload.runId as string, payload.checkpointId as string); break;
+        case 'review.restore': result = await restorer.restore(command.commandId, payload.runId as string, payload.checkpointId as string, payload.previewFingerprint as string); break;
+        case 'review.history': result = restorer.history(payload.runId as string); break;
         case 'events.subscribe':
           store.getSession(payload.sessionId as string);
-          result = { sessionId: payload.sessionId, afterSeq: payload.afterSeq ?? 0 };
-          break;
-        default:
-          throw new EngineError('UNKNOWN_COMMAND', 'Unknown engine command');
+          result = { sessionId: payload.sessionId, afterSeq: payload.afterSeq ?? 0 }; break;
+        default: throw new EngineError('UNKNOWN_COMMAND', 'Unknown engine command');
       }
       return { schemaVersion: SCHEMA_VERSION, commandId, ok: true, result: json(result) };
     } catch (error) {

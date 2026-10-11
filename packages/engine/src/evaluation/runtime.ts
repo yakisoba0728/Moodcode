@@ -230,9 +230,7 @@ interface CleanupProof {
   runtimeCleanupConfirmed: boolean | null;
   noActiveExecution: boolean | null;
   temporaryFilesRemoved: boolean;
-  /** Set when the fixture files were kept. */
   retainedDirectory?: string;
-  /** Set when the fixture files were removed. */
   retainedBytesBeforeRemoval?: number;
   failure: string | null;
 }
@@ -258,8 +256,7 @@ export async function cleanup(
       failure: code,
     });
   if (engine) {
-    // close() joins its owners, but a resolved close is not a recovery acknowledgment.
-    // Capture both native debt and runtime-only quarantine before close hides those facts.
+    // A resolved close is no recovery acknowledgment; capture native and runtime-only debt before close hides it.
     try {
       const workspaces = engine.store.listWorkspaces();
       assert.ok(workspaces.length <= 64, "BASELINE_CLEANUP_SCOPE_LIMIT");
@@ -305,7 +302,6 @@ export async function cleanup(
     return retained(failureCode(error));
   }
 }
-/** A fresh temporary fixture directory; its `repository` child is created by initRepository. */
 export async function fixtureDirectory(prefix: string) {
   const directory = await realpath(await mkdtemp(join(tmpdir(), prefix)));
   return { directory, root: join(directory, "repository") };
@@ -315,7 +311,6 @@ export async function initRepository(root: string): Promise<void> {
   await mkdir(root);
   git(root, "init", "--quiet", "--template=");
 }
-/** A report whose cleanup is unconfirmed or whose files were retained never passes. */
 export async function settleReport(
   report: {
     passed: boolean;

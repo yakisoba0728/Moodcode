@@ -349,8 +349,7 @@ export async function runEngineBenchmark(options: BenchmarkOptions) {
       };
     });
     report.fixture.nativeEventsReplayedPerSample = eventCount;
-    // A fixture model window forces the real owned completed-history summary
-    // path. This is host metadata for a local provider, not a model capability claim.
+    // A fixture model window forces the real summary path; host metadata, not a model capability claim.
     active.context.models.put({
       providerId: "scripted",
       modelId: "local",

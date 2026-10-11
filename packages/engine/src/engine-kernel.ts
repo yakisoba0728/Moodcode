@@ -6,7 +6,6 @@ import type { SqliteStore } from './storage/index.js';
 import type { ChildStorageHostIdentity } from './child-tasks/storage-binding.js';
 import { knowledgeHash } from './knowledge/validation.js';
 
-/** One engine's closing state, host resource signal and tracked host operations. */
 export class EngineLifetime {
   closing = false;
   readonly resources = new AbortController();
@@ -44,7 +43,6 @@ function physicalIdentity(path: string) {
   return { path: realpathSync(path), dev: stat.dev.toString(), ino: stat.ino.toString() };
 }
 
-/** One engine's canonical storage paths and the physical identity its records and children bind to. */
 export class EngineStorage {
   readonly paths: { artifactDir: string; dbPath?: string };
   readonly identity: ChildStorageHostIdentity;

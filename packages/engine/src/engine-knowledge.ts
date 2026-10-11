@@ -30,7 +30,6 @@ import type { KnowledgeContextPolicy } from './knowledge/context-types.js';
 
 export interface ContextOwner { sessionId: string; runId: string | null; profile: unknown }
 
-/** The profile pin a Run was admitted with. */
 export type ProfileIdentity = (run: Run) => ReturnType<AgentProfiles['pinForRun']>;
 
 /** Throws `code` unless a context capture still belongs to its workspace session, active Run and admitted profile. */
@@ -46,9 +45,8 @@ export function assertContextOwnerCurrent(store: SqliteStore, profileIdentity: P
   if (knowledgeHash(owner.profile) !== knowledgeHash(profileIdentity(run))) throw new EngineError(code, messages[3]);
 }
 
-type FileRecoveryInput = { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string };
+export type FileRecoveryInput = { workspaceId: string; requestId: string; approved: true; preview: KnowledgeFileRecoveryPreview; reason: string };
 
-/** Workspace knowledge records, trust, generation, publication, file publication and import recovery for one engine. */
 export class EngineKnowledge {
   readonly filePublications: KnowledgeFilePublicationStorage;
   readonly fileGuards: KnowledgeFileExecutionGuards;

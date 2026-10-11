@@ -19,9 +19,7 @@ export interface ReviewHistoryResult {
   operations: RestoreOperation[];
 }
 
-function metadataFailure(): { code: string; message: string } {
-  return { code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' };
-}
+const metadataFailure = () => ({ code: 'REVIEW_RECORD_FAILED', message: 'Restoration outcome could not be recorded; reconcile the quarantined workspace before further effects' });
 
 /** Checkpoint restoration with journal-backed idempotency: a recorded operation is answered, never replayed. */
 export class EngineRestore {
@@ -90,11 +88,9 @@ export class EngineRestore {
     const binding: RestoreOperationInput = { id: commandId, runId, checkpointId, fingerprint, sessionId: run.sessionId, workspaceId: run.workspaceId };
     let observed: RestoreCommandResult | undefined;
     const lease = this.engine.coordinator.withWorkspaceLease(workspace.id, async (signal) => {
-      // All audit writes stay inside the lease so close cannot release either
-      // SQLite connection while a restoration is still recording its outcome.
+      // Audit writes stay inside the lease so close cannot release a SQLite connection mid-record.
       try {
-        // The public journal may have been updated after synchronous dispatch
-        // admission but before this microtask. Never execute a known operation.
+        // The journal may have changed since synchronous admission; never execute a known operation.
         const previous = this.journal.get(commandId);
         if (previous) {
           if ((Object.keys(binding) as (keyof RestoreOperationInput)[]).some((key) => previous[key] !== binding[key])) conflict();
@@ -139,8 +135,7 @@ export class EngineRestore {
       return observed;
     });
     const pending = lease.catch((error: unknown) => {
-      // A returned service result retains its observed partial effects even
-      // when the coordinator refuses to claim confirmed cleanup.
+      // An observed result keeps its partial effects even when cleanup is unconfirmed.
       if (observed && error instanceof EngineError && error.code === 'CLEANUP_UNCERTAIN') return observed;
       throw error;
     }).finally(() => { this.requests.delete(commandId); });
