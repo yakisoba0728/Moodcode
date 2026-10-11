@@ -6,8 +6,11 @@ import { syncBuiltinESMExports } from "node:module";
 import { join, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import { createEngine, type EngineOptions } from "../engine.js";
-import { PosixPtyBackend } from "./backend.js";
-import { validatePtyDiagnostics, validatePtyOutcome } from "./diagnostics.js";
+import { PosixPtyBackend } from "../terminals/backend.js";
+import {
+  validatePtyDiagnostics,
+  validatePtyOutcome,
+} from "../terminals/diagnostics.js";
 import type {
   PtyCapability,
   PtyDiagnostics,
@@ -15,7 +18,7 @@ import type {
   PtyProcess,
   TerminalOwner,
   TerminalRecord,
-} from "./types.js";
+} from "../terminals/types.js";
 
 export const PTY_REPEATABILITY_SCENARIOS = [
   "normal-exit",

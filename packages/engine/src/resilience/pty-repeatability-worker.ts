@@ -1,7 +1,7 @@
 import {
   runPtyRepeatabilityCase,
   type PtyRepeatabilityScenario,
-} from "./repeatability.js";
+} from "./pty-repeatability.js";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   sourceRuntimeIdentity,

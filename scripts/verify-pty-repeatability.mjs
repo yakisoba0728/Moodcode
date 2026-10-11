@@ -333,8 +333,8 @@ export async function verifyPtyRepeatability(
     repository,
     "packages/engine",
     options.runtime === "source" ? "src" : "dist",
-    "terminals",
-    `repeatability-worker.${options.runtime === "source" ? "ts" : "js"}`,
+    "resilience",
+    `pty-repeatability-worker.${options.runtime === "source" ? "ts" : "js"}`,
   );
   const loader = join(repository, "node_modules/tsx/dist/loader.mjs");
   const prefix = [
