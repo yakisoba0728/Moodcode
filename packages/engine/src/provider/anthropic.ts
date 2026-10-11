@@ -10,6 +10,7 @@ import { readSseData } from './sse.js';
 import { messageImages, providerImages } from '../media/provider.js';
 import { providerDocuments } from '../documents/provider.js';
 import { hostGenerationTransportRequest, type HostGenerationRequest, type ProviderTransportRequest } from './generation.js';
+import { boundedGenerationBody, settles } from './generation-body.js';
 
 export interface AnthropicProviderOptions {
   /** Host-only API prefix; no environment lookup or account discovery. */
@@ -134,11 +135,6 @@ function usageEvent(source: JsonObject, metadata: boolean): Usage {
   return event;
 }
 
-async function settles(operation: Promise<unknown>, timeout: number): Promise<boolean> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try { return await Promise.race([operation.then(() => true, () => false), new Promise<boolean>(resolve => { timer = setTimeout(() => resolve(false), timeout); })]); }
-  finally { clearTimeout(timer); }
-}
 function abortable<T>(operation: Promise<T>, signal: AbortSignal, late?: (value: T) => void): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     let aborted = false;
@@ -147,25 +143,6 @@ function abortable<T>(operation: Promise<T>, signal: AbortSignal, late?: (value:
     operation.then(value => { signal.removeEventListener('abort', abort); if (aborted) late?.(value); else resolve(value); }, error => { signal.removeEventListener('abort', abort); if (!aborted) reject(error); });
     if (signal.aborted) abort();
   });
-}
-
-/** Bound reader cancellation, including an injected non-cooperative stream. */
-function boundedBody(body: ReadableStream<Uint8Array>, signal: AbortSignal, timeout: number): { stream: ReadableStream<Uint8Array>; close(): Promise<boolean> } {
-  const reader = body.getReader();
-  let closing: Promise<boolean> | undefined;
-  const close = () => closing ??= (async () => {
-    const clean = await settles(Promise.resolve().then(() => reader.cancel()), timeout);
-    try { reader.releaseLock(); } catch { return false; }
-    return clean;
-  })();
-  const stream = new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try { const item = await abortable(reader.read(), signal); if (item.done) controller.close(); else controller.enqueue(item.value); }
-      catch (error) { controller.error(error); }
-    },
-    async cancel() { await close(); },
-  });
-  return { stream, close };
 }
 
 /** One stateless Messages turn. Tool effects, attempts and retry budgets remain runner-owned. */
@@ -338,7 +315,7 @@ export class AnthropicProvider implements ProviderAdapter {
       serialized = JSON.stringify(safeJson(payload, this.#limits.maxRequestBytes, 'PROVIDER_INVALID_REQUEST'));
     } catch (error) { throw publicError(error instanceof EngineError ? error : new EngineError('PROVIDER_INVALID_REQUEST', 'Provider request is invalid.')); }
     if (Buffer.byteLength(serialized) > this.#limits.maxRequestBytes) throw new EngineError('PROVIDER_LIMIT_EXCEEDED', 'Provider request exceeds the byte limit.');
-    let response: Response | undefined, body: ReturnType<typeof boundedBody> | undefined;
+    let response: Response | undefined, body: ReturnType<typeof boundedGenerationBody> | undefined;
     const turn = turnTimer(signal, this.#limits.timeoutMs, () => body);
     const { controller, checkCancellation: cancelled } = turn;
     try {
@@ -350,16 +327,16 @@ export class AnthropicProvider implements ProviderAdapter {
       }));
       // A host owner cannot declare iterator cleanup while its actual fetch is still pending.
       response = generation ? await fetching : await abortable<Response>(fetching, controller.signal, late => { if (late.body && !late.body.locked) void settles(late.body.cancel(), this.#limits.cleanupTimeoutMs); });
-      if (generation && response.body) body = boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
+      if (generation && response.body) body = boundedGenerationBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       cancelled();
       if (!response.ok) {
         // Shared bounded parser recognizes structured overflow codes, never remote prose.
-        body ??= response.body ? boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs) : undefined;
+        body ??= response.body ? boundedGenerationBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs) : undefined;
         const rejection = body ? new Response(body.stream, { status: response.status, headers: response.headers }) : response;
         throw await providerHttpFailure(rejection, controller.signal);
       }
       if (!isEventStream(response) || !response.body) malformed();
-      body ??= boundedBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
+      body ??= boundedGenerationBody(response.body, controller.signal, this.#limits.cleanupTimeoutMs);
       const blocks = new Map<number, Block>();
       const text = new CredentialTextRedactor(this.#secrets), reasoning = new CredentialTextRedactor(this.#secrets);
       let started = false, stopped = false, finish: Finish | undefined, argumentBytes = 0, toolCount = 0;
