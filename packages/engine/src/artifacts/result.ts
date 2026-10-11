@@ -2,7 +2,7 @@ import { type ArtifactCheckpointBinding, type ArtifactIdentity, type ArtifactRef
 import type { ToolContext, ToolResult } from '../ports.js';
 import { artifactLimits, type ArtifactLimits } from './limits.js';
 import type { ArtifactStore } from './store.js';
-import { boundedJson, fail, identity, JsonBudgetError, reference, sameIdentity, textPrefix } from './validation.js';
+import { ARTIFACT_OUTCOMES, boundedJson, fail, identity, JsonBudgetError, reference, sameIdentity, textPrefix } from './validation.js';
 
 export interface ToolResultProjection {
   displayContent: string;
@@ -19,7 +19,7 @@ export function createToolResultEnvelope(input: ToolResultProjection, options: P
   const limits = artifactLimits(options);
   if (typeof input.displayContent !== 'string' || input.modelContent !== undefined && typeof input.modelContent !== 'string') fail('INVALID_TOOL_RESULT', 'Tool result text must be a string');
   const outcome = input.outcome ?? 'completed';
-  if (!['completed', 'failed', 'interrupted'].includes(outcome)) fail('INVALID_TOOL_RESULT', 'Invalid tool result outcome');
+  if (!ARTIFACT_OUTCOMES.includes(outcome)) fail('INVALID_TOOL_RESULT', 'Invalid tool result outcome');
   const warnings: string[] = [];
   if (input.warnings !== undefined && !Array.isArray(input.warnings)) fail('INVALID_TOOL_RESULT', 'Tool warnings must be an array');
   for (const item of input.warnings ?? []) {

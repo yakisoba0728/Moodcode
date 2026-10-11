@@ -4,7 +4,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { mkdtemp, realpath, rm, readFile, writeFile, readdir, lstat, symlink, unlink, link, rename, mkdir, open, utimes } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ArtifactIdentity, Checkpoint, JsonValue } from '@moodcode/contracts';
+import type { ArtifactIdentity, ArtifactReference, Checkpoint, JsonValue } from '@moodcode/contracts';
 import { ArtifactStore, bindCheckpointArtifacts, createToolResultEnvelope, enrichLegacyToolResult, projectToolResult } from './index.js';
 const owner: ArtifactIdentity = { sessionId: 'session-a', runId: 'run-a', toolCallId: 'tool-a', turnId: 'turn-a', attemptId: 'attempt-a' };
 const hash = (value: string | Uint8Array) => createHash('sha256').update(value).digest('hex');
@@ -115,6 +115,16 @@ test('checkpoint binding requires matching execution and detects partial artifac
   assert.deepEqual(bindCheckpointArtifacts(checkpoint, owner, [item.reference]), { ...owner, checkpointId: 'checkpoint-a', artifactIds: [item.reference.id], partial: true });
   assert.throws(() => bindCheckpointArtifacts({ ...checkpoint, runId: 'other' }, owner, [item.reference]), errorCode('CHECKPOINT_ARTIFACT_MISMATCH')); assert.throws(() => bindCheckpointArtifacts(checkpoint, owner, [item.reference, item.reference]), errorCode('CHECKPOINT_ARTIFACT_MISMATCH'));
   assert.throws(() => createToolResultEnvelope({ displayContent: '', artifactRefs: [{ ...item.reference, complete: true }] }), errorCode('INVALID_ARTIFACT'));
+});
+test('artifact references strip unknown keys and keep their codes under the contracts accounting rules', async t => {
+  const { directory } = await fixture(t); const store = await ArtifactStore.open({ directory }); const item = await store.put({ identity: owner, content: 'kept' });
+  const refs = (artifactRefs: unknown[]) => createToolResultEnvelope({ displayContent: '', artifactRefs: artifactRefs as ArtifactReference[] }).artifactRefs;
+  assert.deepEqual(refs([{ ...item.reference, path: '/private/artifact' }]), [item.reference]);
+  assert.throws(() => refs([{ ...item.reference, id: 7 }]), errorCode('INVALID_ARTIFACT_ID'));
+  assert.throws(() => refs([{ ...item.reference, id: 'artifact_../manifest' }]), errorCode('INVALID_ARTIFACT_ID'));
+  assert.throws(() => refs([{ ...item.reference, identity: { ...owner, extra: true } }]), errorCode('INVALID_INPUT'));
+  assert.throws(() => refs([{ ...item.reference, storedBytes: item.reference.storedBytes + 1 }]), errorCode('INVALID_ARTIFACT'));
+  assert.throws(() => refs([{ ...item.reference, sha256: 'A'.repeat(64) }]), errorCode('INVALID_ARTIFACT'));
 });
 test('JSON projection rejects malformed values while oversized JSON is omitted', () => {
   assert.throws(() => createToolResultEnvelope({ displayContent: '', structuredData: [NaN] }), errorCode('INVALID_ARTIFACT_DATA'));

@@ -5,7 +5,7 @@ import { join, parse, resolve, sep } from 'node:path';
 import { EngineError, type ArtifactIdentity, type ArtifactReference, type JsonObject } from '@moodcode/contracts';
 import { raceAbort } from '../shared/runtime.js';
 import { artifactLimits, DEFAULT_ARTIFACT_RETENTION_MS, type ArtifactLimits } from './limits.js';
-import { ARTIFACT_ID, artifactId, boundedJson, fail, identity, JsonBudgetError, number, positive, reference, sameIdentity, textPrefix } from './validation.js';
+import { ARTIFACT_ID, ARTIFACT_OUTCOMES, artifactId, boundedJson, fail, identity, JsonBudgetError, number, positive, reference, sameIdentity, textPrefix } from './validation.js';
 
 export type ArtifactSource = string | Uint8Array | AsyncIterable<string | Uint8Array>;
 export interface ArtifactStoreOptions { directory: string; limits?: Partial<ArtifactLimits>; retentionMs?: number; now?: () => number }
@@ -36,6 +36,19 @@ interface Manifest {
   sourceComplete: boolean;
   producerCapturedBytes: number;
   metadata?: JsonObject;
+}
+interface Capture {
+  sha256: string;
+  observedBytes: number;
+  capturedBytes: number;
+  storedBytes: number;
+  producerTruncatedBytes: number | null;
+  artifactTruncatedBytes: number;
+  outcome: ArtifactReference['outcome'];
+  completed: boolean;
+  warnings: string[];
+  previewChunks: Buffer[];
+  previewBytes: number;
 }
 
 const LEFTOVER = /^\.(?:stage|retired)-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -82,6 +95,13 @@ async function safeFile(path: string): Promise<FileHandle> {
     return handle;
   } catch (error) { await handle.close(); throw error; }
 }
+async function writeManifest(staging: string, manifest: Manifest, maxBytes: number): Promise<void> {
+  const encoded = Buffer.from(JSON.stringify(manifest));
+  if (encoded.byteLength > maxBytes) fail('ARTIFACT_METADATA_LIMIT', 'Artifact manifest exceeds its storage limit');
+  let handle: FileHandle | undefined = await open(join(staging, 'manifest.json'), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
+  try { await writeAll(handle, encoded); await handle.sync(); await handle.close(); handle = undefined; }
+  finally { await handle?.close().catch(() => {}); }
+}
 async function syncDirectory(path: string): Promise<void> {
   const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try { await handle.sync(); } finally { await handle.close(); }
@@ -126,7 +146,7 @@ export class ArtifactStore {
     abort(input.signal);
     const owner = identity(input.identity);
     const outcome = input.outcome ?? 'completed';
-    if (!['completed', 'failed', 'interrupted'].includes(outcome)) fail('INVALID_ARTIFACT', 'Invalid producer outcome');
+    if (!ARTIFACT_OUTCOMES.includes(outcome)) fail('INVALID_ARTIFACT', 'Invalid producer outcome');
     const sourceComplete = input.sourceComplete ?? true;
     if (typeof sourceComplete !== 'boolean') fail('INVALID_ARTIFACT', 'sourceComplete must be boolean');
     const mediaType = input.mediaType ?? 'text/plain; charset=utf-8';
@@ -145,93 +165,15 @@ export class ArtifactStore {
     await mkdir(staging, { mode: 0o700 });
     let published = false;
     let handle: FileHandle | undefined;
-    let manifestHandle: FileHandle | undefined;
     try {
       handle = await open(join(staging, 'content'), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-      const digest = createHash('sha256');
-      let observedBytes = 0;
-      let capturedBytes = 0;
-      let storedBytes = 0;
-      const previewChunks: Buffer[] = [];
-      let previewBytes = 0;
-      const previewLimit = Math.max(this.limits.maxDisplayBytes, this.limits.maxModelBytes);
-      let producerTruncatedBytes: number | null = 0;
-      let effectiveOutcome = outcome;
-      let completed = sourceComplete;
-      const warnings: string[] = [];
-      const capture = async (value: string | Uint8Array) => {
-        if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
-        const length = typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength;
-        observedBytes = number(observedBytes + length, 'observedBytes');
-        const count = Math.min(length, this.limits.maxProducerBytes - capturedBytes);
-        // Copy only the bounded capture; never retain a producer's reusable buffer.
-        const bytes = typeof value === 'string'
-          ? Buffer.from(textPrefix(value, count), 'utf8')
-          : Buffer.from(value.subarray(0, count));
-        capturedBytes += bytes.byteLength;
-        const retained = Buffer.from(bytes.subarray(0, this.limits.maxArtifactBytes - storedBytes));
-        if (retained.byteLength) { await writeAll(handle!, retained); digest.update(retained); storedBytes += retained.byteLength; }
-        if (previewBytes < previewLimit) {
-          const preview = Buffer.from(bytes.subarray(0, previewLimit - previewBytes));
-          previewChunks.push(preview); previewBytes += preview.byteLength;
-        }
-        return length > bytes.byteLength;
-      };
-      if (typeof input.content === 'string' || input.content instanceof Uint8Array) {
-        await capture(input.content);
-        producerTruncatedBytes = observedBytes - capturedBytes;
-      } else {
-        if (!input.content || typeof input.content[Symbol.asyncIterator] !== 'function') fail('INVALID_ARTIFACT_DATA', 'Invalid artifact source');
-        const iterator = input.content[Symbol.asyncIterator]();
-        let exhausted = false;
-        let chunks = 0;
-        try {
-          while (true) {
-            let value: string | Uint8Array;
-            // Only producer failures are captured; storage and validation errors abort the put.
-            try {
-              const next = await nextChunk(iterator, input.signal);
-              if (next.done) { exhausted = true; break; }
-              value = next.value;
-            } catch {
-              completed = false; producerTruncatedBytes = null;
-              effectiveOutcome = input.signal?.aborted ? 'interrupted' : 'failed';
-              warnings.push(input.signal?.aborted ? 'Producer was interrupted; only observed bytes were captured.' : 'Producer failed; only observed bytes were captured.');
-              break;
-            }
-            if (++chunks > this.limits.maxProducerChunks) {
-              if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
-              observedBytes = number(observedBytes + (typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength), 'observedBytes');
-              producerTruncatedBytes = null; completed = false;
-              warnings.push('Producer chunk limit was reached; remaining output was not observed.');
-              break;
-            }
-            if (await capture(value)) {
-              // Further bytes were never observed, so total producer loss is unknown.
-              producerTruncatedBytes = null; completed = false; break;
-            }
-          }
-        } finally {
-          if (!exhausted && iterator.return) {
-            // A producer may ignore cancellation while awaiting next(); cleanup must not wait forever.
-            try { void Promise.resolve(iterator.return()).catch(() => {}); } catch {}
-          }
-        }
-      }
-      if (input.signal?.aborted) { completed = false; effectiveOutcome = 'interrupted'; }
-      if (!completed) producerTruncatedBytes = null;
-      const artifactTruncatedBytes = capturedBytes - storedBytes;
-      if (producerTruncatedBytes === null || producerTruncatedBytes > 0) warnings.push('Producer capture is incomplete; uncaptured bytes are unavailable.');
-      if (artifactTruncatedBytes) warnings.push('Artifact storage limit was reached; the retained artifact is a prefix.');
-      const ref = reference({ id, identity: owner, sha256: digest.digest('hex'), storedBytes, observedBytes, producerTruncatedBytes,
+      const captured = await captureSource(input, handle, this.limits, outcome, sourceComplete);
+      const { observedBytes, capturedBytes, storedBytes, producerTruncatedBytes, artifactTruncatedBytes, completed, previewChunks, previewBytes } = captured;
+      const ref = reference({ id, identity: owner, sha256: captured.sha256, storedBytes, observedBytes, producerTruncatedBytes,
         artifactTruncatedBytes, createdAt: new Date(created).toISOString(), expiresAt: new Date(created + this.retentionMs).toISOString(),
-        complete: completed && effectiveOutcome === 'completed' && producerTruncatedBytes === 0 && artifactTruncatedBytes === 0, outcome: effectiveOutcome });
+        complete: completed && captured.outcome === 'completed' && producerTruncatedBytes === 0 && artifactTruncatedBytes === 0, outcome: captured.outcome });
       await handle.sync(); await handle.close(); handle = undefined;
-      const manifest: Manifest = { version: 1, reference: ref, mediaType, sourceComplete: completed, producerCapturedBytes: capturedBytes, ...(metadata === undefined ? {} : { metadata }) };
-      const encoded = Buffer.from(JSON.stringify(manifest));
-      if (encoded.byteLength > this.limits.maxMetadataBytes) fail('ARTIFACT_METADATA_LIMIT', 'Artifact manifest exceeds its storage limit');
-      manifestHandle = await open(join(staging, 'manifest.json'), constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-      await writeAll(manifestHandle, encoded); await manifestHandle.sync(); await manifestHandle.close(); manifestHandle = undefined;
+      await writeManifest(staging, { version: 1, reference: ref, mediaType, sourceComplete: completed, producerCapturedBytes: capturedBytes, ...(metadata === undefined ? {} : { metadata }) }, this.limits.maxMetadataBytes);
       await syncDirectory(staging); await this.checkRoot();
       const exists = await lstat(destination).then(() => true, error => { if (missing(error)) return false; throw error; });
       if (exists) fail('ARTIFACT_ID_CONFLICT', 'Artifact destination already exists');
@@ -241,11 +183,11 @@ export class ArtifactStore {
       const modelContent = textPrefix(raw, this.limits.maxModelBytes);
       const displayBytes = Buffer.byteLength(displayContent);
       const modelBytes = Buffer.byteLength(modelContent);
-      return { reference: ref, displayContent, modelContent, warnings, truncation: { producerCapturedBytes: capturedBytes,
+      return { reference: ref, displayContent, modelContent, warnings: captured.warnings, truncation: { producerCapturedBytes: capturedBytes,
         displayBytes, modelBytes, displayTruncated: capturedBytes > previewBytes || displayContent !== raw || producerTruncatedBytes !== 0 || !completed,
         modelTruncated: capturedBytes > previewBytes || modelContent !== raw || producerTruncatedBytes !== 0 || !completed } };
     } finally {
-      await handle?.close().catch(() => {}); await manifestHandle?.close().catch(() => {});
+      await handle?.close().catch(() => {});
       if (!published) await knownDirectoryCleanup(staging);
     }
   }
@@ -347,6 +289,86 @@ export class ArtifactStore {
     if (result.removed.length || cleaned) await syncDirectory(this.directory);
     return result;
   }
+}
+
+async function captureSource(input: ArtifactInput, handle: FileHandle, limits: Readonly<ArtifactLimits>, outcome: ArtifactReference['outcome'], sourceComplete: boolean): Promise<Capture> {
+  const digest = createHash('sha256');
+  let observedBytes = 0;
+  let capturedBytes = 0;
+  let storedBytes = 0;
+  const previewChunks: Buffer[] = [];
+  let previewBytes = 0;
+  const previewLimit = Math.max(limits.maxDisplayBytes, limits.maxModelBytes);
+  let producerTruncatedBytes: number | null = 0;
+  let effectiveOutcome = outcome;
+  let completed = sourceComplete;
+  const warnings: string[] = [];
+  const capture = async (value: string | Uint8Array) => {
+    if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
+    const length = typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength;
+    observedBytes = number(observedBytes + length, 'observedBytes');
+    const count = Math.min(length, limits.maxProducerBytes - capturedBytes);
+    // Copy only the bounded capture; never retain a producer's reusable buffer.
+    const bytes = typeof value === 'string'
+      ? Buffer.from(textPrefix(value, count), 'utf8')
+      : Buffer.from(value.subarray(0, count));
+    capturedBytes += bytes.byteLength;
+    const retained = Buffer.from(bytes.subarray(0, limits.maxArtifactBytes - storedBytes));
+    if (retained.byteLength) { await writeAll(handle, retained); digest.update(retained); storedBytes += retained.byteLength; }
+    if (previewBytes < previewLimit) {
+      const preview = Buffer.from(bytes.subarray(0, previewLimit - previewBytes));
+      previewChunks.push(preview); previewBytes += preview.byteLength;
+    }
+    return length > bytes.byteLength;
+  };
+  if (typeof input.content === 'string' || input.content instanceof Uint8Array) {
+    await capture(input.content);
+    producerTruncatedBytes = observedBytes - capturedBytes;
+  } else {
+    if (!input.content || typeof input.content[Symbol.asyncIterator] !== 'function') fail('INVALID_ARTIFACT_DATA', 'Invalid artifact source');
+    const iterator = input.content[Symbol.asyncIterator]();
+    let exhausted = false;
+    let chunks = 0;
+    try {
+      while (true) {
+        let value: string | Uint8Array;
+        // Only producer failures are captured; storage and validation errors abort the put.
+        try {
+          const next = await nextChunk(iterator, input.signal);
+          if (next.done) { exhausted = true; break; }
+          value = next.value;
+        } catch {
+          completed = false; producerTruncatedBytes = null;
+          effectiveOutcome = input.signal?.aborted ? 'interrupted' : 'failed';
+          warnings.push(input.signal?.aborted ? 'Producer was interrupted; only observed bytes were captured.' : 'Producer failed; only observed bytes were captured.');
+          break;
+        }
+        if (++chunks > limits.maxProducerChunks) {
+          if (typeof value !== 'string' && !(value instanceof Uint8Array)) fail('INVALID_ARTIFACT_DATA', 'Artifact producer must yield bytes or text');
+          observedBytes = number(observedBytes + (typeof value === 'string' ? Buffer.byteLength(value) : value.byteLength), 'observedBytes');
+          producerTruncatedBytes = null; completed = false;
+          warnings.push('Producer chunk limit was reached; remaining output was not observed.');
+          break;
+        }
+        if (await capture(value)) {
+          // Further bytes were never observed, so total producer loss is unknown.
+          producerTruncatedBytes = null; completed = false; break;
+        }
+      }
+    } finally {
+      if (!exhausted && iterator.return) {
+        // A producer may ignore cancellation while awaiting next(); cleanup must not wait forever.
+        try { void Promise.resolve(iterator.return()).catch(() => {}); } catch {}
+      }
+    }
+  }
+  if (input.signal?.aborted) { completed = false; effectiveOutcome = 'interrupted'; }
+  if (!completed) producerTruncatedBytes = null;
+  const artifactTruncatedBytes = capturedBytes - storedBytes;
+  if (producerTruncatedBytes === null || producerTruncatedBytes > 0) warnings.push('Producer capture is incomplete; uncaptured bytes are unavailable.');
+  if (artifactTruncatedBytes) warnings.push('Artifact storage limit was reached; the retained artifact is a prefix.');
+  return { sha256: digest.digest('hex'), observedBytes, capturedBytes, storedBytes, producerTruncatedBytes, artifactTruncatedBytes,
+    outcome: effectiveOutcome, completed, warnings, previewChunks, previewBytes };
 }
 
 async function nextChunk(iterator: AsyncIterator<string | Uint8Array>, signal?: AbortSignal): Promise<IteratorResult<string | Uint8Array>> {
