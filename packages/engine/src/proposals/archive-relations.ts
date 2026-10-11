@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { sha256Hex } from "../shared/canonical.js";
 import {
+  PROPOSAL_APPLY_LIMITS,
   assertAttemptedPrefix,
   checkpointShape,
   proposalApplyChecks,
@@ -172,8 +173,8 @@ export function validateProposalApplyDatabase(
       revision.proposalId !== owner.proposalId ||
       revision.sourceManifestSha256 !== owner.sourceManifestSha256 ||
       knowledgeHash(revision.binding) !== knowledgeHash(owner.binding) ||
-      revision.files.length > 32 ||
-      revision.totalBytes > 4_194_304
+      revision.files.length > PROPOSAL_APPLY_LIMITS.files ||
+      revision.totalBytes > PROPOSAL_APPLY_LIMITS.totalBytes
     )
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
     const guard = readProposalApplyGuard(
@@ -224,8 +225,8 @@ export function validateProposalApplyDatabase(
             )
             .get(ref.id);
           if (!meta) fail("PROPOSAL_APPLY_BLOB_MISSING");
-          count(meta.data_bytes, 65536);
-          count(meta.content_bytes, 1_048_576);
+          count(meta.data_bytes, PROPOSAL_APPLY_LIMITS.rowBytes);
+          count(meta.content_bytes, PROPOSAL_APPLY_LIMITS.fileBytes);
           if (
             meta.workspace_id !== owner.workspaceId ||
             meta.owner_id !== owner.id ||
@@ -239,20 +240,27 @@ export function validateProposalApplyDatabase(
             fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
           const raw = db
             .prepare(
-              "SELECT data,content FROM proposal_effect_blobs WHERE id=? AND length(CAST(data AS BLOB))<=65536 AND length(content)<=1048576",
+              "SELECT data,content FROM proposal_effect_blobs WHERE id=? AND length(CAST(data AS BLOB))<=? AND length(content)<=?",
             )
-            .get(ref.id)!;
-          const header = fields(immutable(decoded(raw.data, 65536)), [
-            "id",
-            "workspaceId",
-            "ownerId",
-            "checkpointId",
-            "fileIndex",
-            "sha256",
-            "bytes",
-            "headerSha256",
-            "createdAt",
-          ]);
+            .get(
+              ref.id,
+              PROPOSAL_APPLY_LIMITS.rowBytes,
+              PROPOSAL_APPLY_LIMITS.fileBytes,
+            )!;
+          const header = fields(
+            immutable(decoded(raw.data, PROPOSAL_APPLY_LIMITS.rowBytes)),
+            [
+              "id",
+              "workspaceId",
+              "ownerId",
+              "checkpointId",
+              "fileIndex",
+              "sha256",
+              "bytes",
+              "headerSha256",
+              "createdAt",
+            ],
+          );
           const { headerSha256, ...body } = header;
           if (
             knowledgeHash(body) !== headerSha256 ||
@@ -285,7 +293,9 @@ export function validateProposalApplyDatabase(
       id(row.checkpoint_id),
     );
     const owner = readApplyOwner(db, id(row.workspace_id), id(row.owner_id));
-    const ref = checkpoint?.files[count(row.file_index, 31)]?.after;
+    const ref =
+      checkpoint?.files[count(row.file_index, PROPOSAL_APPLY_LIMITS.files - 1)]
+        ?.after;
     if (
       !owner ||
       !checkpoint ||

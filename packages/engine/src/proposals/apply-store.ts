@@ -35,7 +35,7 @@ import type {
 } from "./apply-types.js";
 import type { ProposalRevision } from "./types.js";
 
-const PROPOSAL_APPLY_LIMITS = Object.freeze({
+export const PROPOSAL_APPLY_LIMITS = Object.freeze({
   files: 32,
   fileBytes: 1_048_576,
   totalBytes: 4_194_304,
@@ -672,14 +672,14 @@ export class ProposalApplyStorage {
     requestSha256: string;
   }): ProposalApplyHistory | undefined {
     const r = fields(immutable(input), [
-      "workspaceId",
-      "requestId",
-      "requestSha256",
-    ]);
-    const result = this.getRequest(id(r.workspaceId), id(r.requestId));
-    if (result && result.owner.requestSha256 !== digest(r.requestSha256))
+        "workspaceId",
+        "requestId",
+        "requestSha256",
+      ]),
+      requestSha256 = digest(r.requestSha256),
+      result = this.getRequest(r.workspaceId as string, r.requestId as string);
+    if (result && result.owner.requestSha256 !== requestSha256)
       fail("PROPOSAL_APPLY_REQUEST_CONFLICT");
-    digest(r.requestSha256);
     return result;
   }
   prepare(
@@ -687,11 +687,12 @@ export class ProposalApplyStorage {
     input: PrepareProposalApply,
   ): PrepareProposalApplyResult {
     const normalized = validatePrepareProposalApply(input),
-      duplicate = this.findRequest({
+      requestKey = {
         workspaceId: normalized.workspaceId,
         requestId: normalized.requestId,
         requestSha256: normalized.requestSha256,
-      });
+      },
+      duplicate = this.findRequest(requestKey);
     if (duplicate)
       return Object.freeze({ kind: "duplicate", history: duplicate });
     if (this.#live.size >= PROPOSAL_APPLY_LIMITS.handles)
@@ -703,11 +704,7 @@ export class ProposalApplyStorage {
     if (knowledgeHash(observed) !== knowledgeHash(pins))
       fail("PROPOSAL_APPLY_CAPTURE_REQUIRED");
     return this.#tx(() => {
-      const raced = this.findRequest({
-        workspaceId: normalized.workspaceId,
-        requestId: normalized.requestId,
-        requestSha256: normalized.requestSha256,
-      });
+      const raced = this.findRequest(requestKey);
       if (raced)
         return Object.freeze({ kind: "duplicate" as const, history: raced });
       const revision = this.ports.getRevision(
@@ -863,11 +860,8 @@ export class ProposalApplyStorage {
     )
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
     let total = 0;
-    const effectBodies: {
-      ref: ProposalEffectBlobReference;
-      body: string;
-      createdAt: string;
-    }[] = [];
+    const effectBodies: { ref: ProposalEffectBlobReference; body: string }[] =
+      [];
     const createdAt = new Date(this.#now()).toISOString();
     const files = r.files.map((raw, i) => {
       const f = fields(raw, [
@@ -924,14 +918,12 @@ export class ProposalApplyStorage {
             bytes: Buffer.byteLength(after),
             createdAt,
           };
-          ref = immutable({
+          const { createdAt: _time, ...effect } = immutable({
             ...unsigned,
             headerSha256: knowledgeHash(unsigned),
-          }) as ProposalEffectBlobReference;
-          const { createdAt: _time, ...reference } =
-            ref as ProposalEffectBlobReference & { createdAt: string };
-          ref = reference;
-          effectBodies.push({ ref, body: after, createdAt });
+          });
+          ref = effect as ProposalEffectBlobReference;
+          effectBodies.push({ ref, body: after });
         }
       }
       return Object.freeze({
@@ -988,7 +980,7 @@ export class ProposalApplyStorage {
           checkpoint.ownerId,
           JSON.stringify(checkpoint),
         );
-      for (const { ref, body, createdAt } of effectBodies) {
+      for (const { ref, body } of effectBodies) {
         const header = { ...ref, createdAt };
         this.db
           .prepare(
@@ -1211,9 +1203,6 @@ export class ProposalApplyStorage {
       }
     });
   }
-  hasBlocker(workspaceId: string): boolean {
-    return hasProposalApplyBlocker(this.db, id(workspaceId));
-  }
   previewRecovery(workspaceId: string): ProposalApplyRecoveryPreview {
     id(workspaceId);
     const binding = validateBinding(this.ports.checkBinding(workspaceId)),
@@ -1246,19 +1235,16 @@ export class ProposalApplyStorage {
     if (!owned) fail("PROPOSAL_APPLY_RECOVERY_PREVIEW_REQUIRED");
     const r = fields(immutable(input), ["requestId", "reason", "approved"]);
     id(r.requestId);
-    if (
-      r.approved !== true ||
-      typeof r.reason !== "string" ||
-      !r.reason ||
-      Buffer.byteLength(r.reason) > 1024 ||
-      /[\u0000-\u001f\u007f]/u.test(r.reason)
-    )
-      fail();
+    if (r.approved !== true || !isRecoveryReason(r.reason)) fail();
     const duplicate = this.db
       .prepare(
-        "SELECT id FROM proposal_apply_recovery_decisions WHERE workspace_id=? AND json_extract(data,'$.requestId')=? AND length(CAST(data AS BLOB))<=65536",
+        "SELECT id FROM proposal_apply_recovery_decisions WHERE workspace_id=? AND json_extract(data,'$.requestId')=? AND length(CAST(data AS BLOB))<=?",
       )
-      .get(preview.workspaceId, id(r.requestId));
+      .get(
+        preview.workspaceId,
+        id(r.requestId),
+        PROPOSAL_APPLY_LIMITS.rowBytes,
+      );
     if (duplicate) {
       const old = readApplyDecision(
         this.db,
@@ -1356,6 +1342,14 @@ export class ProposalApplyStorage {
   }
 }
 
+function isRecoveryReason(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value !== "" &&
+    Buffer.byteLength(value) <= 1024 &&
+    !/[\u0000-\u001f\u007f]/u.test(value)
+  );
+}
 function validateProposalApplyRecoveryDecision(
   value: unknown,
 ): ProposalApplyRecoveryDecision {
@@ -1380,10 +1374,7 @@ function validateProposalApplyRecoveryDecision(
     count(r.revision) < 1 ||
     !["acknowledge", "resume"].includes(r.operation as string) ||
     validateBinding(r.binding).workspaceId !== r.workspaceId ||
-    typeof r.reason !== "string" ||
-    !r.reason ||
-    Buffer.byteLength(r.reason) > 1024 ||
-    /[\u0000-\u001f\u007f]/u.test(r.reason) ||
+    !isRecoveryReason(r.reason) ||
     !Array.isArray(r.owners) ||
     !r.owners.length ||
     r.owners.length > PROPOSAL_APPLY_LIMITS.frontierOwners

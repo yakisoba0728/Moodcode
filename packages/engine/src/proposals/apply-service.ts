@@ -197,6 +197,9 @@ export class ProposalApplyService {
       fail("PROPOSAL_APPLY_CLOSED");
     if (signal?.aborted) fail("CANCELLED");
   }
+  private now(): number {
+    return this.ports.now?.() ?? Date.now();
+  }
   private own<T>(operation: () => Promise<T>): Promise<T> {
     let task: Promise<T>;
     try {
@@ -236,7 +239,7 @@ export class ProposalApplyService {
       this.hostSignal,
       ...(caller ? [caller] : []),
     ]);
-    const now = this.ports.now?.() ?? Date.now(),
+    const now = this.now(),
       expiresAt =
         fields.expiresAt?.value === undefined
           ? new Date(now + 60_000).toISOString()
@@ -438,8 +441,7 @@ export class ProposalApplyService {
             beforeEffect: async () => {
               this.assertStateCurrent(state, current);
               if (
-                Date.parse(preview.expiresAt) -
-                  (this.ports.now?.() ?? Date.now()) <
+                Date.parse(preview.expiresAt) - this.now() <
                 EFFECT_VALIDITY_MS
               )
                 fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
@@ -502,9 +504,7 @@ export class ProposalApplyService {
   private assertStateCurrent(state: PreviewState, signal: AbortSignal): void {
     this.open(signal);
     if (state.released) fail("PROPOSAL_APPLY_PREVIEW_INVALID");
-    if (
-      (this.ports.now?.() ?? Date.now()) >= Date.parse(state.preview.expiresAt)
-    )
+    if (this.now() >= Date.parse(state.preview.expiresAt))
       fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
     const check = () => {
       this.ports.assertUnpaused(state.preview.workspaceId);
@@ -537,10 +537,7 @@ export class ProposalApplyService {
         )?.set.sha256 !== state.preview.beforeHead.sha256
       )
         fail("PROPOSAL_APPLY_STALE");
-      if (
-        (this.ports.now?.() ?? Date.now()) >=
-        Date.parse(state.preview.expiresAt)
-      )
+      if (this.now() >= Date.parse(state.preview.expiresAt))
         fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
     };
     this.ports.readTx(check);
@@ -629,11 +626,7 @@ export class ProposalApplyService {
   async close(): Promise<void> {
     this.#close.abort();
     await Promise.allSettled([...this.#pending]);
-    for (const state of this.#retained) {
-      state.released = true;
-      this.ports.physical.release(state.physical);
-    }
-    this.#retained.clear();
+    for (const state of this.#retained) this.release(state);
     await this.ports.physical.close();
   }
 }

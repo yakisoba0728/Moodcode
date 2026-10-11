@@ -495,7 +495,7 @@ export class SqliteStore implements SessionEngineStore {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
   }
   hasUncertainProposalApply(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return this.proposalApplyRecords?.hasBlocker(workspaceId) ?? hasProposalApplyBlocker(this.db, workspaceId); });
+    return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasProposalApplyBlocker(this.db, workspaceId); });
   }
   hasUncertainKnowledgeFilePublication(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasKnowledgeFilePublicationBlocker(this.db, workspaceId); });
