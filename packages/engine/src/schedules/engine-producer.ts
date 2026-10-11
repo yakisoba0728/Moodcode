@@ -65,7 +65,6 @@ interface ObservationTarget extends TargetBase {
   readonly kind: "observation";
   readonly observation: object;
 }
-/** A captured selection, a dispatch input bound to its claim, or an observation of a historical pin. */
 type Target = SelectedTarget | InputTarget | ObservationTarget;
 interface Worker {
   readonly proof: SchedulerWorkerProof;
@@ -182,7 +181,6 @@ export class EngineScheduleProducer {
     const proof = signed(scheduleTargetProofBody(workspaceId, pin));
     return { kind: "target", pin, proof, binding, catalogue };
   }
-  /** Describes the target afresh and requires it to match the pin. */
   private current(workspaceId: string, pin: ScheduleTargetPin): SelectedTarget {
     const target = this.describe(workspaceId, pin.sessionId, pin.config);
     if (knowledgeHash(target.pin) !== knowledgeHash(pin))

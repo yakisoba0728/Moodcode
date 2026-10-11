@@ -41,7 +41,6 @@ export function inheritForkChild(
   source: ForkContextContribution,
 ): void {
   const owner = root.coordinator.getOwnedActiveRun(parentRunId);
-
   const evidence = signedFork({
     version: 1 as const,
     sessionId,
@@ -66,12 +65,9 @@ export function inheritForkChild(
     sessionId,
     evidence as unknown as JsonObject,
   );
-  let entries = originals.get(child.store);
-  if (!entries) {
-    entries = new Map();
-    originals.set(child.store, entries);
-  }
+  const entries = originals.get(child.store) ?? new Map();
   entries.set(sessionId, { evidence, root });
+  originals.set(child.store, entries);
 }
 export function readForkChildData(
   db: DatabaseSync,

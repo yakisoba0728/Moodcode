@@ -54,6 +54,11 @@ export interface ObserveScheduleOccurrenceInput {
   readonly observation: object;
   readonly signal?: AbortSignal;
 }
+interface RequestKey {
+  readonly workspaceId: string;
+  readonly requestId: string;
+  readonly expectedRevision: number;
+}
 interface CachedRequest {
   readonly original: object;
   readonly sha256: string;
@@ -64,7 +69,6 @@ interface CachedRequest {
 /** Bounds in-flight requests; the least recently used finished one makes room, since store receipts keep no-replay. */
 const REQUEST_CACHE_LIMIT = 256;
 
-/** Explicit queue delivery uses one actual acceptance between durable intent and native receipt. */
 export class ScheduleDispatcher {
   private readonly requests = new Map<string, CachedRequest>();
   private readonly lifetime = new AbortController();
@@ -79,19 +83,17 @@ export class ScheduleDispatcher {
     if (this.closed) scheduleHostError("SCHEDULE_CLOSED");
     scheduleHostAbort(this.lifetime.signal);
   }
-  private identity(input: {
-    workspaceId: string;
-    requestId: string;
-    expectedRevision: number;
-  }): void {
-    scheduleIdentifier(input.workspaceId);
-    scheduleIdentifier(input.requestId);
-    scheduleInteger(input.expectedRevision, 1);
+  private identity(input: RequestKey): RequestKey {
+    const { workspaceId, requestId, expectedRevision } = input;
+    scheduleIdentifier(workspaceId);
+    scheduleIdentifier(requestId);
+    scheduleInteger(expectedRevision, 1);
+    return { workspaceId, requestId, expectedRevision };
   }
   private request(
     operation: "dispatch" | "observe",
     original: object,
-    input: { workspaceId: string; requestId: string; expectedRevision: number },
+    input: RequestKey,
   ): {
     current: CachedRequest;
     duplicate?: ScheduleRequestResult<TriggerOccurrence>;
@@ -148,15 +150,11 @@ export class ScheduleDispatcher {
       ["signal"],
     );
     this.open();
-    this.identity(input);
+    const key = this.identity(input);
     scheduleHostAbort(input.signal);
     if (input.approved !== true)
       scheduleHostError("SCHEDULE_APPROVAL_REQUIRED");
-    const selected = this.request("dispatch", input.claim, {
-      workspaceId: input.workspaceId,
-      requestId: input.requestId,
-      expectedRevision: input.expectedRevision,
-    });
+    const selected = this.request("dispatch", input.claim, key);
     if (selected.duplicate) return selected.duplicate;
     let binding: object | undefined, accepted: object | undefined;
     let intent: ScheduleRequestResult<TriggerOccurrence> | undefined;
@@ -171,9 +169,7 @@ export class ScheduleDispatcher {
         scheduleHostError("SCHEDULE_CLAIM_STALE");
       this.ports.host.assertDispatch(binding, input.signal);
       intent = this.ports.native.dispatchClaim(input.claim, {
-        workspaceId: input.workspaceId,
-        requestId: input.requestId,
-        expectedRevision: input.expectedRevision,
+        ...key,
         inputRequestId: image.inputRequestId,
         prompt,
       });
@@ -227,13 +223,9 @@ export class ScheduleDispatcher {
       ["signal"],
     );
     this.open();
-    this.identity(input);
+    const key = this.identity(input);
     scheduleHostAbort(input.signal);
-    const selected = this.request("observe", input.observation, {
-      workspaceId: input.workspaceId,
-      requestId: input.requestId,
-      expectedRevision: input.expectedRevision,
-    });
+    const selected = this.request("observe", input.observation, key);
     if (selected.duplicate) return selected.duplicate;
     let binding: object | undefined, observed: object | undefined;
     try {
@@ -252,11 +244,7 @@ export class ScheduleDispatcher {
       const result = this.ports.native.settleObserved(
         input.observation,
         observed,
-        {
-          workspaceId: input.workspaceId,
-          requestId: input.requestId,
-          expectedRevision: input.expectedRevision,
-        },
+        key,
       );
       return this.finish(selected.current, result);
     } catch (error) {

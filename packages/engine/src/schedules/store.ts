@@ -4,6 +4,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { InputRecord, JsonObject, Workspace } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { sha256Hex } from "../shared/canonical.js";
+import { exactKeys } from "../shared/data.js";
 import type {
   ScheduleSpec,
   ScheduleSpecInput,
@@ -182,17 +183,40 @@ type Cap = {
   image: ScheduleClaimImage;
   claimToken: string | null;
 };
+const SCHEDULE_FIELDS = [
+  "workspaceId",
+  "scheduleId",
+  "requestId",
+  "expectedRevision",
+];
+const OCCURRENCE_FIELDS = [
+  "workspaceId",
+  "occurrenceId",
+  "requestId",
+  "expectedRevision",
+];
+const LEASE_FIELDS = ["workspaceId", "requestId", "expectedRevision", "ttlMs"];
 function data<T>(input: T, required: readonly string[]): T {
   const value = json(input);
   if (
     !value ||
     typeof value !== "object" ||
     Array.isArray(value) ||
-    required.some((key) => !Object.hasOwn(value, key)) ||
-    Object.keys(value).some((key) => !required.includes(key))
+    !exactKeys(value, required)
   )
     fail("INVALID_SCHEDULE_INPUT");
   return value;
+}
+function leaseTimes(ttlMs: unknown, now: number) {
+  const ttl = integer(
+    ttlMs,
+    SCHEDULE_STORAGE_LIMITS.leaseMinMs,
+    SCHEDULE_STORAGE_LIMITS.leaseMaxMs,
+  );
+  return {
+    expiresAt: new Date(now + ttl).toISOString(),
+    lastClockAt: new Date(now).toISOString(),
+  };
 }
 function sync(value: unknown): void {
   if (value !== undefined) {
@@ -297,12 +321,7 @@ export class ScheduleStorage extends ScheduleJournal {
   disableSchedule(
     input: DisableScheduleInput,
   ): ScheduleRequestResult<ScheduleRevision> {
-    const safe = data(input, [
-        "workspaceId",
-        "scheduleId",
-        "requestId",
-        "expectedRevision",
-      ]),
+    const safe = data(input, SCHEDULE_FIELDS),
       request = { ...safe, operation: "disable" } as JsonObject;
     return this.ports.writeTx(() => {
       const duplicate = this.duplicate<ScheduleRevision>(
@@ -329,12 +348,7 @@ export class ScheduleStorage extends ScheduleJournal {
     original: object,
     input: AcquireSchedulerLeaseInput,
   ): SchedulerLeaseResult {
-    const safe = data(input, [
-        "workspaceId",
-        "requestId",
-        "expectedRevision",
-        "ttlMs",
-      ]),
+    const safe = data(input, LEASE_FIELDS),
       request = { ...safe, operation: "lease-acquire" } as JsonObject,
       duplicate = this.duplicate<SchedulerLease>(
         safe.workspaceId,
@@ -356,11 +370,6 @@ export class ScheduleStorage extends ScheduleJournal {
         fail("SCHEDULE_CLOCK_ROLLBACK");
       if (before && Date.parse(before.expiresAt) > now)
         fail("SCHEDULE_LEASE_BUSY");
-      const ttl = integer(
-        safe.ttlMs,
-        SCHEDULE_STORAGE_LIMITS.leaseMinMs,
-        SCHEDULE_STORAGE_LIMITS.leaseMaxMs,
-      );
       return this.commit(
         "lease",
         "scheduler",
@@ -369,8 +378,7 @@ export class ScheduleStorage extends ScheduleJournal {
             workspaceId: safe.workspaceId,
             worker,
             generation: (before?.generation ?? 0) + 1,
-            expiresAt: new Date(now + ttl).toISOString(),
-            lastClockAt: new Date(now).toISOString(),
+            ...leaseTimes(safe.ttlMs, now),
           },
           before,
         ),
@@ -391,12 +399,7 @@ export class ScheduleStorage extends ScheduleJournal {
     original: object,
     input: AcquireSchedulerLeaseInput,
   ): SchedulerLeaseResult {
-    const safe = data(input, [
-        "workspaceId",
-        "requestId",
-        "expectedRevision",
-        "ttlMs",
-      ]),
+    const safe = data(input, LEASE_FIELDS),
       request = { ...safe, operation: "lease-renew" } as JsonObject,
       duplicate = this.duplicate<SchedulerLease>(
         safe.workspaceId,
@@ -420,22 +423,10 @@ export class ScheduleStorage extends ScheduleJournal {
         fail("SCHEDULE_LEASE_STALE");
       if (now < Date.parse(before.lastClockAt)) fail("SCHEDULE_CLOCK_ROLLBACK");
       this.worker(cap.worker, "dispatch");
-      const ttl = integer(
-        safe.ttlMs,
-        SCHEDULE_STORAGE_LIMITS.leaseMinMs,
-        SCHEDULE_STORAGE_LIMITS.leaseMaxMs,
-      );
       return this.commit(
         "lease",
         "scheduler",
-        this.revise(
-          {
-            ...before,
-            expiresAt: new Date(now + ttl).toISOString(),
-            lastClockAt: new Date(now).toISOString(),
-          },
-          before,
-        ),
+        this.revise({ ...before, ...leaseTimes(safe.ttlMs, now) }, before),
         before,
         "lease-renew",
         request,
@@ -590,12 +581,7 @@ export class ScheduleStorage extends ScheduleJournal {
     originalLease: object,
     input: ClaimScheduleOccurrenceInput,
   ): ScheduleClaimResult {
-    const safe = data(input, [
-        "workspaceId",
-        "occurrenceId",
-        "requestId",
-        "expectedRevision",
-      ]),
+    const safe = data(input, OCCURRENCE_FIELDS),
       request = { ...safe, operation: "claim" } as JsonObject,
       duplicate = this.duplicate<TriggerOccurrence>(
         safe.workspaceId,
@@ -722,12 +708,7 @@ export class ScheduleStorage extends ScheduleJournal {
     original: object,
     input: ClaimScheduleOccurrenceInput,
   ): object {
-    const safe = data(input, [
-        "workspaceId",
-        "occurrenceId",
-        "requestId",
-        "expectedRevision",
-      ]),
+    const safe = data(input, OCCURRENCE_FIELDS),
       worker = this.worker(original, "observe"),
       record = this.getOccurrence(safe.workspaceId, safe.occurrenceId);
     if (
@@ -1016,12 +997,7 @@ export class ScheduleStorage extends ScheduleJournal {
     originalDue: object,
     input: AdvanceScheduleDueInput,
   ): ScheduleDueResult {
-    const safe = data(input, [
-        "workspaceId",
-        "scheduleId",
-        "requestId",
-        "expectedRevision",
-      ]),
+    const safe = data(input, SCHEDULE_FIELDS),
       request = { ...safe, operation: "due" } as JsonObject,
       duplicate = this.duplicate<ScheduleRevision>(
         safe.workspaceId,

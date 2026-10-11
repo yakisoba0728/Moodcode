@@ -19,6 +19,7 @@ import {
   knowledgeHash,
 } from "../knowledge/validation.js";
 import { sealRecord, sha256Hex, verifySealed } from "../shared/canonical.js";
+import { exactKeys, isBoundedId } from "../shared/data.js";
 import { requestIdentity } from "../storage/native-schema.js";
 import type {
   ScheduleDueBatch,
@@ -80,17 +81,19 @@ export interface ScheduleInputObservationProof {
   } | null;
   readonly sha256: string;
 }
-export type ScheduleOccurrenceState =
-  | "queued"
-  | "claimed"
-  | "dispatching"
-  | "accepted"
-  | "promoted"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "uncertain"
-  | "paused-import";
+const OCCURRENCE_STATES = [
+  "queued",
+  "claimed",
+  "dispatching",
+  "accepted",
+  "promoted",
+  "completed",
+  "failed",
+  "cancelled",
+  "uncertain",
+  "paused-import",
+] as const;
+export type ScheduleOccurrenceState = (typeof OCCURRENCE_STATES)[number];
 export interface Revision {
   readonly id: string;
   readonly workspaceId: string;
@@ -213,37 +216,75 @@ export function json<T>(
 export function signed<T extends object>(value: T): T & { sha256: string } {
   return sealRecord(value, json);
 }
+const BASE_FIELDS = [
+  "id",
+  "workspaceId",
+  "revision",
+  "previousId",
+  "lastReceiptId",
+  "createdAt",
+  "sha256",
+];
+const FIELDS: Record<Kind, readonly string[]> = {
+  schedule: [
+    ...BASE_FIELDS,
+    "scheduleId",
+    "spec",
+    "cursor",
+    "due",
+    "target",
+    "worker",
+  ],
+  lease: [...BASE_FIELDS, "worker", "generation", "expiresAt", "lastClockAt"],
+  occurrence: [
+    ...BASE_FIELDS,
+    "occurrenceId",
+    "scheduleId",
+    "scheduleRevisionId",
+    "scheduleSha256",
+    "candidate",
+    "state",
+    "leaseRevisionId",
+    "leaseSha256",
+    "worker",
+    "generation",
+    "claimToken",
+    "inputRequestId",
+    "prompt",
+    "promptSha256",
+    "input",
+    "observation",
+    "errorCode",
+  ],
+  transition: [
+    "id",
+    "workspaceId",
+    "kind",
+    "entityId",
+    "operation",
+    "beforeRevisionId",
+    "afterRevisionId",
+    "afterSha256",
+    "requestId",
+    "requestSha256",
+    "requestInput",
+    "createdAt",
+    "sha256",
+  ],
+};
 function fields(value: object, keys: readonly string[]): void {
-  if (
-    keys.some((key) => !Object.hasOwn(value, key)) ||
-    Object.keys(value).some((key) => !keys.includes(key))
-  )
-    fail();
+  if (!exactKeys(value, keys)) fail();
 }
 function payload(value: Revision): Record<string, unknown> {
-  const {
-    id: _id,
-    workspaceId: _workspace,
-    revision: _revision,
-    previousId: _previous,
-    lastReceiptId: _receipt,
-    createdAt: _created,
-    sha256: _sha,
-    ...body
-  } = value;
-  return body;
+  return Object.fromEntries(
+    Object.entries(value).filter(([key]) => !BASE_FIELDS.includes(key)),
+  );
 }
 export function digest<T extends { sha256: string }>(input: T): T {
   return verifySealed(json(input), () => fail());
 }
 export function id(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail("INVALID_SCHEDULE_INPUT");
+  if (!isBoundedId(value)) fail("INVALID_SCHEDULE_INPUT");
   return value;
 }
 export function integer(
@@ -268,7 +309,6 @@ function acceptedInput(record: InputRecord): AcceptInput {
     delivery: record.delivery,
   });
 }
-/** Identity of a scheduled input; the producer's proofs and the journal's audit both use it. */
 export function scheduleInputSha256(record: InputRecord): string {
   return knowledgeHash(acceptedInput(record));
 }
@@ -282,7 +322,6 @@ export function scheduleRunSha256(run: Run): string {
     config: run.config,
   });
 }
-/** Occurrence transition rules shared by the writer and the semantic auditor. */
 export function observedOccurrenceState(
   proof: ScheduleInputObservationProof,
 ): ScheduleOccurrenceState {
@@ -369,70 +408,7 @@ export class ScheduleJournal {
   private parse<T extends Body>(row: NativeRow, kind?: Kind): T {
     if (kind && row.kind !== kind) fail();
     const body = digest(JSON.parse(row.data) as Body);
-    const base = [
-      "id",
-      "workspaceId",
-      "revision",
-      "previousId",
-      "lastReceiptId",
-      "createdAt",
-      "sha256",
-    ];
-    if (row.kind === "schedule")
-      fields(body, [
-        ...base,
-        "scheduleId",
-        "spec",
-        "cursor",
-        "due",
-        "target",
-        "worker",
-      ]);
-    else if (row.kind === "lease")
-      fields(body, [
-        ...base,
-        "worker",
-        "generation",
-        "expiresAt",
-        "lastClockAt",
-      ]);
-    else if (row.kind === "occurrence")
-      fields(body, [
-        ...base,
-        "occurrenceId",
-        "scheduleId",
-        "scheduleRevisionId",
-        "scheduleSha256",
-        "candidate",
-        "state",
-        "leaseRevisionId",
-        "leaseSha256",
-        "worker",
-        "generation",
-        "claimToken",
-        "inputRequestId",
-        "prompt",
-        "promptSha256",
-        "input",
-        "observation",
-        "errorCode",
-      ]);
-    else
-      fields(body, [
-        "id",
-        "workspaceId",
-        "kind",
-        "entityId",
-        "operation",
-        "beforeRevisionId",
-        "afterRevisionId",
-        "afterSha256",
-        "requestId",
-        "requestSha256",
-        "requestInput",
-        "createdAt",
-        "sha256",
-      ]);
+    fields(body, FIELDS[row.kind] ?? FIELDS.transition);
     if (
       typeof body.createdAt !== "string" ||
       !Number.isFinite(Date.parse(body.createdAt)) ||
@@ -1357,18 +1333,7 @@ export class ScheduleJournal {
         validateScheduleOccurrence(occurrence.candidate, schedule.spec);
         if (
           occurrence.inputRequestId !== occurrence.candidate.inputRequestId ||
-          ![
-            "queued",
-            "claimed",
-            "dispatching",
-            "accepted",
-            "promoted",
-            "completed",
-            "failed",
-            "cancelled",
-            "uncertain",
-            "paused-import",
-          ].includes(occurrence.state)
+          !OCCURRENCE_STATES.includes(occurrence.state)
         )
           fail();
         if (

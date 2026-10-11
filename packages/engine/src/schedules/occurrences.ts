@@ -129,16 +129,9 @@ function candidate(
       scheduledAt,
       dataSha256,
     },
+    { scheduledAt: _scheduledAt, ...webhookIdentity } = bodyIdentity,
     key = knowledgeHash(
-      triggerKey.startsWith("webhook:")
-        ? {
-            schemaVersion: 1,
-            scheduleId: spec.id,
-            scheduleSha256: spec.sha256,
-            triggerKey,
-            dataSha256,
-          }
-        : bodyIdentity,
+      triggerKey.startsWith("webhook:") ? webhookIdentity : bodyIdentity,
     );
   const body = {
     ...bodyIdentity,

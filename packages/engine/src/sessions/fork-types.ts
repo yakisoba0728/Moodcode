@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import {
@@ -11,6 +10,9 @@ import {
 } from "@moodcode/contracts";
 import type { ProviderMessage } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import { jsonTextSha256 as forkHash } from "../shared/canonical.js";
+import { isBoundedId } from "../shared/data.js";
+export { forkHash };
 export const FORK_KIND = "conversation.fork.v1";
 export const FORK_IMPORT_KIND = "conversation.fork.import";
 export const FORK_CHILD_KIND = "conversation.fork.child-data";
@@ -26,9 +28,6 @@ export const FORK_LIMITS = Object.freeze({
   handles: 32,
   depth: 8,
 });
-export function forkHash(value: unknown): string {
-  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
-}
 export function forkError(code: string, message: string): never {
   throw new EngineError(code, message);
 }
@@ -147,12 +146,7 @@ export function forkJson<T>(
   return result;
 }
 export function forkId(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
+  if (!isBoundedId(value))
     return forkError("FORK_INVALID", "Fork identity must be bounded text");
   return value;
 }

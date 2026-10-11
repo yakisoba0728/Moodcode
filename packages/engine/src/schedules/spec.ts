@@ -3,6 +3,7 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import { isBoundedId, isCanonicalStamp, isSha256 } from "../shared/data.js";
 import {
   QUEUE_TARGET_LIMITS,
   validateQueueTarget,
@@ -74,19 +75,12 @@ export function scheduleIdentifier(input: unknown): string {
   return input;
 }
 function externalId(input: unknown): string {
-  if (
-    typeof input !== "string" ||
-    !input ||
-    Buffer.byteLength(input) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(input) ||
-    Buffer.from(input).toString("utf8") !== input
-  )
+  if (!isBoundedId(input) || Buffer.from(input).toString("utf8") !== input)
     scheduleError();
   return input;
 }
 export function scheduleSha(input: unknown): string {
-  if (typeof input !== "string" || !/^[a-f0-9]{64}$/u.test(input))
-    scheduleError();
+  if (!isSha256(input)) scheduleError();
   return input;
 }
 export function scheduleInteger(
@@ -105,10 +99,7 @@ export function scheduleInteger(
 }
 export function scheduleTimestamp(input: unknown): string {
   if (
-    typeof input !== "string" ||
-    input.length !== 24 ||
-    !Number.isFinite(Date.parse(input)) ||
-    new Date(input).toISOString() !== input ||
+    !isCanonicalStamp(input) ||
     input < "2000-01-01T00:00:00.000Z" ||
     input >= "2100-01-01T00:00:00.000Z"
   )
@@ -134,7 +125,6 @@ export function validateSchedulePrompt(input: unknown): string {
 export function validateScheduleTarget(input: unknown): ScheduleTargetPin {
   return validateQueueTarget(input);
 }
-/** The fields a ScheduleTargetProof signs for a pin; producer, host and journal all compare against it. */
 export function scheduleTargetProofBody(
   workspaceId: string,
   pin: ScheduleTargetPin,
