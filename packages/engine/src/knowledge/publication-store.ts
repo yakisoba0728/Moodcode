@@ -21,6 +21,7 @@ import type {
   WorkspaceDocumentRevision,
 } from "./publication-types.js";
 import {
+  completedPublicationMismatch,
   exact,
   MAX_APPROVAL_MS,
   validateDocument,
@@ -425,21 +426,7 @@ export class KnowledgePublicationStorage {
         "KNOWLEDGE_RECORD_CONFLICT",
         "Completed publication has no exact receipt",
       );
-    if (
-      document.publicationId !== publication.id ||
-      document.documentKey !== publication.documentKey ||
-      document.body !== publication.body ||
-      document.bodySha256 !== publication.bodySha256 ||
-      document.revision !== publication.expectedHeadRevision + 1 ||
-      !sameKnowledge(document.binding, publication.binding) ||
-      !sameKnowledge(document.provenance, publication.provenance) ||
-      document.status !==
-        (publication.operation === "publish" ? "active" : "revoked") ||
-      receipt.publicationId !== publication.id ||
-      receipt.documentRevisionId !== document.id ||
-      receipt.requestSha256 !== publication.requestSha256 ||
-      receipt.operation !== publication.operation
-    )
+    if (completedPublicationMismatch(publication, document, receipt))
       knowledgeError(
         "KNOWLEDGE_RECORD_CONFLICT",
         "Historical completed publication tuple is inconsistent",

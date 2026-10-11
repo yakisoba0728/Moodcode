@@ -1,6 +1,10 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { KNOWLEDGE_PUBLICATION_TABLES } from "./publication-store.js";
-import { validateKnowledgePublicationArchiveRow } from "./publication-validation.js";
+import {
+  completedPublicationMismatch,
+  validateKnowledgePublicationArchiveRow,
+  workspaceDocumentHeadFor,
+} from "./publication-validation.js";
 import {
   validateKnowledgeGenerationArchiveRow,
 } from "./generation-validation.js";
@@ -300,24 +304,7 @@ export function validateKnowledgePublicationDatabase(
     if (
       !doc ||
       !receipt ||
-      doc.id !== publication.documentRevisionId ||
-      doc.documentKey !== publication.documentKey ||
-      doc.revision !== publication.expectedHeadRevision + 1 ||
-      doc.previousRevisionId !== publication.expectedHeadRevisionId ||
-      doc.body !== publication.body ||
-      doc.bodySha256 !== publication.bodySha256 ||
-      doc.status !==
-        (publication.operation === "publish" ? "active" : "revoked") ||
-      !same(doc.binding, publication.binding) ||
-      !same(doc.provenance, publication.provenance) ||
-      receipt.documentRevisionId !== doc.id ||
-      receipt.requestId !== publication.requestId ||
-      receipt.operation !== publication.operation ||
-      receipt.requestSha256 !== publication.requestSha256 ||
-      receipt.createdAt !== doc.createdAt ||
-      doc.createdAt !== publication.updatedAt ||
-      Date.parse(doc.createdAt) < Date.parse(publication.createdAt) ||
-      Date.parse(doc.createdAt) >= Date.parse(publication.expiresAt)
+      completedPublicationMismatch(publication, doc, receipt)
     )
       invalid(
         "Completed publication does not match its original atomic document and receipt",
@@ -397,14 +384,7 @@ export function validateKnowledgePublicationDatabase(
       head.workspaceId,
       head.revisionId,
     );
-    if (
-      head.documentKey !== doc.documentKey ||
-      head.revision !== doc.revision ||
-      head.publicationId !== doc.publicationId ||
-      head.status !== doc.status ||
-      head.bodySha256 !== doc.bodySha256 ||
-      head.updatedAt !== doc.createdAt
-    )
+    if (!same(head, workspaceDocumentHeadFor(doc)))
       invalid("Document head differs from its actual latest revision");
     check();
     const latest = db

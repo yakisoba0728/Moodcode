@@ -6,7 +6,9 @@ import {
   type KnowledgePublicationHistory,
 } from "./publication-history.js";
 import {
+  completedPublicationMismatch,
   validateKnowledgePublicationArchiveRow,
+  workspaceDocumentHeadFor,
   workspaceDocumentHeadId,
 } from "./publication-validation.js";
 import type {
@@ -45,40 +47,16 @@ export function assertImportedDocumentChain(
   documentKey: string,
   fail: () => never,
 ): void {
-  const { head, document, publication, receipt, history } = chain,
-    provenance = knowledgePublicationProvenance(history);
+  const { head, document, publication, receipt, history } = chain;
   if (
     head.documentKey !== documentKey ||
-    document.documentKey !== documentKey ||
-    head.revisionId !== document.id ||
-    head.revision !== document.revision ||
-    head.status !== document.status ||
     head.status !== "active" ||
-    head.publicationId !== publication.id ||
-    document.publicationId !== publication.id ||
-    head.bodySha256 !== document.bodySha256 ||
-    head.updatedAt !== document.createdAt ||
+    !same(head, workspaceDocumentHeadFor(document)) ||
     publication.state !== "completed" ||
     publication.operation !== "publish" ||
-    document.status !== "active" ||
-    publication.documentRevisionId !== document.id ||
-    publication.documentKey !== documentKey ||
-    publication.body !== document.body ||
-    publication.bodySha256 !== document.bodySha256 ||
-    publication.updatedAt !== document.createdAt ||
-    publication.expectedHeadRevision + 1 !== document.revision ||
-    publication.expectedHeadRevisionId !== document.previousRevisionId ||
-    Date.parse(publication.updatedAt) >= Date.parse(publication.expiresAt) ||
-    receipt.publicationId !== publication.id ||
-    receipt.documentRevisionId !== document.id ||
-    receipt.requestId !== publication.requestId ||
-    receipt.requestSha256 !== publication.requestSha256 ||
-    receipt.operation !== "publish" ||
-    receipt.createdAt !== document.createdAt ||
+    completedPublicationMismatch(publication, document, receipt) ||
     !same(document.binding, history.candidate.binding) ||
-    !same(publication.binding, history.candidate.binding) ||
-    !same(document.provenance, provenance) ||
-    !same(publication.provenance, provenance) ||
+    !same(document.provenance, knowledgePublicationProvenance(history)) ||
     history.candidate.body !== document.body ||
     history.candidate.bodySha256 !== document.bodySha256 ||
     history.candidate.target.kind !== "workspace-document" ||

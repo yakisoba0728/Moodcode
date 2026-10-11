@@ -25,7 +25,9 @@ import {
 } from "./generation-validation.js";
 import { readActiveKnowledgeImportActivation } from "./import-recovery-store.js";
 import {
+  completedPublicationMismatch,
   validateKnowledgePublicationArchiveRow,
+  workspaceDocumentHeadFor,
   workspaceDocumentHeadId,
 } from "./publication-validation.js";
 import type {
@@ -505,15 +507,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
           workspaceId,
           data: rawDocument,
         }).data as WorkspaceDocumentRevision;
-        if (
-          document.documentKey !== key ||
-          document.id !== head.revisionId ||
-          document.revision !== head.revision ||
-          document.publicationId !== head.publicationId ||
-          document.status !== head.status ||
-          document.bodySha256 !== head.bodySha256 ||
-          head.updatedAt !== document.createdAt
-        )
+        if (!same(head, workspaceDocumentHeadFor(document)))
           fail(
             "KNOWLEDGE_CONTEXT_EVIDENCE_INVALID",
             "Actual current postimage document and head disagree",
@@ -622,23 +616,7 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
         if (
           publication.state !== "completed" ||
           publication.operation !== "publish" ||
-          publication.documentRevisionId !== document.id ||
-          publication.documentKey !== key ||
-          publication.body !== document.body ||
-          publication.bodySha256 !== document.bodySha256 ||
-          publication.expectedHeadRevision + 1 !== document.revision ||
-          publication.expectedHeadRevisionId !== document.previousRevisionId ||
-          publication.updatedAt !== document.createdAt ||
-          Date.parse(publication.updatedAt) >=
-            Date.parse(publication.expiresAt) ||
-          !same(publication.binding, document.binding) ||
-          !same(publication.provenance, document.provenance) ||
-          receipt.publicationId !== publication.id ||
-          receipt.documentRevisionId !== document.id ||
-          receipt.requestId !== publication.requestId ||
-          receipt.requestSha256 !== publication.requestSha256 ||
-          receipt.operation !== "publish" ||
-          receipt.createdAt !== document.createdAt ||
+          completedPublicationMismatch(publication, document, receipt) ||
           candidate.workspaceId !== workspaceId ||
           candidate.id !== p.candidateId ||
           candidate.sha256 !== p.candidateSha256 ||

@@ -6,7 +6,11 @@ import {
   type KnowledgePublicationHistory,
   type KnowledgePublicationHistoryPorts,
 } from "./publication-history.js";
-import { MAX_APPROVAL_MS, publicationRow } from "./publication-validation.js";
+import {
+  MAX_APPROVAL_MS,
+  publicationRow,
+  workspaceDocumentHeadFor,
+} from "./publication-validation.js";
 import type {
   KnowledgePublicationCapture,
   KnowledgePublicationCommitResult,
@@ -221,13 +225,7 @@ export class KnowledgePublicationService {
     if (
       head.workspaceId !== workspaceId ||
       head.documentKey !== key ||
-      revision.workspaceId !== workspaceId ||
-      revision.documentKey !== key ||
-      revision.id !== head.revisionId ||
-      revision.revision !== head.revision ||
-      revision.publicationId !== head.publicationId ||
-      revision.bodySha256 !== head.bodySha256 ||
-      revision.status !== head.status
+      !same(head, workspaceDocumentHeadFor(revision))
     )
       fail(
         "KNOWLEDGE_PUBLICATION_EVIDENCE_INVALID",

@@ -17,6 +17,7 @@ import {
   KNOWLEDGE_LIMITS,
   knowledgeError,
   knowledgeHash,
+  sameKnowledge as same,
   sha256,
   stamp,
   validateBinding,
@@ -327,6 +328,34 @@ export function workspaceDocumentHeadFor(
     bodySha256: document.bodySha256,
     updatedAt: document.createdAt,
   });
+}
+export function completedPublicationMismatch(
+  publication: KnowledgePublicationRecord,
+  document: WorkspaceDocumentRevision,
+  receipt: KnowledgePublicationReceipt,
+): boolean {
+  return (
+    document.id !== publication.documentRevisionId ||
+    document.publicationId !== publication.id ||
+    document.documentKey !== publication.documentKey ||
+    document.revision !== publication.expectedHeadRevision + 1 ||
+    document.previousRevisionId !== publication.expectedHeadRevisionId ||
+    document.body !== publication.body ||
+    document.bodySha256 !== publication.bodySha256 ||
+    document.status !==
+      (publication.operation === "publish" ? "active" : "revoked") ||
+    !same(document.binding, publication.binding) ||
+    !same(document.provenance, publication.provenance) ||
+    receipt.publicationId !== publication.id ||
+    receipt.documentRevisionId !== document.id ||
+    receipt.requestId !== publication.requestId ||
+    receipt.requestSha256 !== publication.requestSha256 ||
+    receipt.operation !== publication.operation ||
+    receipt.createdAt !== document.createdAt ||
+    document.createdAt !== publication.updatedAt ||
+    Date.parse(document.createdAt) < Date.parse(publication.createdAt) ||
+    Date.parse(document.createdAt) >= Date.parse(publication.expiresAt)
+  );
 }
 export function validateHead(value: unknown): WorkspaceDocumentHead {
   const r = immutableKnowledgeJson(value);

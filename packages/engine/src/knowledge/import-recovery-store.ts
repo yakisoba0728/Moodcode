@@ -8,6 +8,11 @@ import {
   type GuardedWriteOptions,
 } from "../storage/transaction.js";
 import type { KnowledgeHostBinding } from "./types.js";
+import type { WorkspaceDocumentRevision } from "./publication-types.js";
+import {
+  workspaceDocumentHeadFor,
+  workspaceDocumentHeadId,
+} from "./publication-validation.js";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
@@ -645,7 +650,7 @@ function resumeDecision(
   return d;
 }
 function activationHeadId(ws: string, key: string): string {
-  return knowledgeHash({ workspaceId: ws, documentKey: key });
+  return workspaceDocumentHeadId(ws, key);
 }
 function currentActivation(
   db: DatabaseSync,
@@ -1610,17 +1615,9 @@ function graphProof(
     !same(publication.provenance, document.provenance)
   )
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-  const head = signed({
-    id: activationHeadId(ws, p.documentKey),
-    workspaceId: ws,
-    documentKey: p.documentKey,
-    revision: document.revision,
-    revisionId: document.id,
-    publicationId: publication.id,
-    status: document.status,
-    bodySha256: document.bodySha256,
-    updatedAt: document.createdAt,
-  });
+  const head = workspaceDocumentHeadFor(
+    document as unknown as WorkspaceDocumentRevision,
+  );
   if (head.sha256 !== p.headSha256) fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   const provenance = publication.provenance as ObjectData;
   const candidate = load("knowledge_candidates", id(provenance.candidateId));
