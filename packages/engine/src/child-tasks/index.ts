@@ -120,6 +120,7 @@ interface Live {
   timer: ReturnType<typeof setTimeout>;
 }
 const clone = <T>(value: T): T => structuredClone(value);
+const poolKey = (pool: Pool): string => pool.parentRunId ?? pool.rootRunId;
 function validBudget(b: ChildBudget): boolean {
   return (
     !!b &&
@@ -179,6 +180,12 @@ function boundedOutcome(
     usage: clone(value.usage),
     ...(over || value.truncated === true ? { truncated: true } : {}),
   };
+}
+/** A promise-returning host hook cannot reserve authority after dispatch; its rejection is observed. */
+function assertSyncVoid(result: unknown, message: string): void {
+  if (result === undefined) return;
+  void Promise.resolve(result).catch(() => {});
+  throw new EngineError("INVALID_CHILD_ADMISSION_HOOK", message);
 }
 function cancelled(): EngineError {
   return new EngineError("CANCELLED", "Child task was cancelled");
@@ -269,8 +276,7 @@ export class ChildTaskManager {
               p.reserved[k] > p.capacity[k],
           ),
       ) ||
-      new Set(pools.map((p) => p.parentRunId ?? p.rootRunId)).size !==
-        pools.length
+      new Set(pools.map(poolKey)).size !== pools.length
     )
       throw new EngineError(
         "INVALID_CHILD_JOURNAL",
@@ -326,7 +332,7 @@ export class ChildTaskManager {
     const journal = this.journal(task.sessionId);
     const stored = journal.tasks.find((value) => value.id === task.id);
     const pool = journal.pools.find(
-      (value) => (value.parentRunId ?? value.rootRunId) === task.parentRunId,
+      (value) => poolKey(value) === task.parentRunId,
     );
     if (
       !stored ||
@@ -508,9 +514,7 @@ export class ChildTaskManager {
         "Concurrent child admission changed request or worktree ownership",
       );
     const rootRunId = parent?.rootRunId ?? input.parentRunId;
-    let pool = journal.pools.find(
-      (p) => (p.parentRunId ?? p.rootRunId) === input.parentRunId,
-    );
+    let pool = journal.pools.find((p) => poolKey(p) === input.parentRunId);
     if (pool && pool.rootRunId !== rootRunId)
       throw new EngineError(
         "CHILD_PARENT_MISMATCH",
@@ -560,15 +564,10 @@ export class ChildTaskManager {
     try {
       this.options.worktrees.claimOwnership(input.sessionId, worktree.id, id);
       if (this.closing || parentSignal.aborted) throw cancelled();
-      const result = this.options.beforeDispatch?.(clone(task));
-      if (result !== undefined) {
-        // A promise-returning callback cannot reserve authority after dispatch.
-        void Promise.resolve(result).catch(() => {});
-        throw new EngineError(
-          "INVALID_CHILD_ADMISSION_HOOK",
-          "Child admission hook must synchronously return void",
-        );
-      }
+      assertSyncVoid(
+        this.options.beforeDispatch?.(clone(task)),
+        "Child admission hook must synchronously return void",
+      );
       if (this.closing || parentSignal.aborted) throw cancelled();
     } catch (error) {
       this.failBeforeDispatch(task, error);
@@ -649,16 +648,11 @@ export class ChildTaskManager {
         state: live.controller.signal.aborted ? "cancelling" : "running",
         childRunId: handle.runId,
       });
-      if (!live.controller.signal.aborted && handle.admitted) {
-        const result: unknown = handle.admitted();
-        if (result !== undefined) {
-          void Promise.resolve(result).catch(() => {});
-          throw new EngineError(
-            "INVALID_CHILD_ADMISSION_HOOK",
-            "Child provider admission must synchronously return void",
-          );
-        }
-      }
+      if (!live.controller.signal.aborted && handle.admitted)
+        assertSyncVoid(
+          handle.admitted(),
+          "Child provider admission must synchronously return void",
+        );
       if (live.controller.signal.aborted)
         await within(handle.cancel(), this.timeout);
       const outcome = await raceAbort(
@@ -705,8 +699,12 @@ export class ChildTaskManager {
     }
   }
   async wait(sessionId: string, id: string): Promise<ChildTaskRecord> {
-    this.get(sessionId, id);
-    return this.live.get(id)?.finished ?? this.get(sessionId, id);
+    const task = this.get(sessionId, id);
+    return this.live.get(id)?.finished ?? task;
+  }
+  private async settle(live: Live): Promise<ChildTaskRecord> {
+    if (live.handle) await within(live.handle.cancel(), this.timeout);
+    return within(live.finished, this.timeout * 2);
   }
   async cancel(sessionId: string, id: string): Promise<ChildTaskRecord> {
     const task = this.get(sessionId, id);
@@ -720,8 +718,7 @@ export class ChildTaskManager {
     this.update(sessionId, id, { state: "cancelling" });
     live.controller.abort();
     try {
-      if (live.handle) await within(live.handle.cancel(), this.timeout);
-      return await within(live.finished, this.timeout * 2);
+      return await this.settle(live);
     } catch {
       return this.update(sessionId, id, {
         state: "uncertain",
@@ -787,10 +784,7 @@ export class ChildTaskManager {
     const tasks = [...this.live.entries()];
     for (const [, live] of tasks) live.controller.abort();
     const results = await Promise.allSettled(
-      tasks.map(async ([id, live]) => {
-        if (live.handle) await within(live.handle.cancel(), this.timeout);
-        return within(live.finished, this.timeout * 2);
-      }),
+      tasks.map(([, live]) => this.settle(live)),
     );
     const pending = await Promise.allSettled(
       [...this.pendingCleanup].map((p) => within(p, this.timeout)),

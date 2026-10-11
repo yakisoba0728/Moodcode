@@ -1,10 +1,6 @@
 import { EngineError } from "@moodcode/contracts";
 
-interface AdmissionGate {
-  promise: Promise<void>;
-  release(): void;
-}
-const gates = new WeakMap<object, AdmissionGate>();
+const gates = new WeakMap<object, Promise<void>>();
 
 /** The original child handle releases provider work after durable task admission. */
 export function holdChildProviderAdmission(engine: object): () => void {
@@ -14,21 +10,19 @@ export function holdChildProviderAdmission(engine: object): () => void {
       "Child provider admission is already held",
     );
   let resolve!: () => void;
-  const gate: AdmissionGate = {
-    promise: new Promise<void>((done) => {
+  gates.set(
+    engine,
+    new Promise<void>((done) => {
       resolve = done;
     }),
-    release: () => {},
-  };
+  );
   let released = false;
-  gate.release = () => {
+  return () => {
     if (released) return;
     released = true;
     resolve();
     gates.delete(engine);
   };
-  gates.set(engine, gate);
-  return gate.release;
 }
 
 export function waitChildProviderAdmission(
@@ -56,9 +50,6 @@ export function waitChildProviderAdmission(
       );
     signal.addEventListener("abort", abort, { once: true });
     if (signal.aborted) abort();
-    gate.promise.then(
-      () => finish(),
-      (error) => finish(error),
-    );
+    gate.then(() => finish());
   });
 }
