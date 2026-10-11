@@ -10,7 +10,7 @@ import type {
   ScheduleOccurrenceCandidate,
   ScheduleTargetPin,
 } from "./types.js";
-import { validateScheduleSpec } from "./spec.js";
+import { SCHEDULE_LIMITS, validateScheduleSpec } from "./spec.js";
 import {
   formatScheduleInput,
   validateScheduleOccurrence,
@@ -20,17 +20,18 @@ import {
 import {
   SCHEDULE_STORAGE_LIMITS,
   ScheduleJournal,
+  abandonedOccurrenceState,
   digest,
   fail,
   id,
   integer,
   json,
+  observedOccurrenceState,
   signed,
   type Revision,
   type ScheduleAcceptedInputProof,
   type ScheduleDueBatchProof,
   type ScheduleInputObservationProof,
-  type ScheduleOccurrenceState,
   type ScheduleRequestResult,
   type ScheduleRevision,
   type ScheduleTargetProof,
@@ -266,14 +267,9 @@ export class ScheduleStorage extends ScheduleJournal {
       if (proof.workspaceId !== safe.workspaceId) fail();
       if (
         !before &&
-        (Number(
-          this.db
-            .prepare(
-              "SELECT count(*) AS n FROM schedule_heads WHERE kind='schedule'",
-            )
-            .get()!.n,
-        ) >= SCHEDULE_STORAGE_LIMITS.globalSchedules ||
-          this.inspectSchedules(safe.workspaceId).length >=
+        (this.headCount("schedule") >=
+          SCHEDULE_STORAGE_LIMITS.globalSchedules ||
+          this.headCount("schedule", safe.workspaceId) >=
             SCHEDULE_STORAGE_LIMITS.schedules)
       )
         fail("SCHEDULE_LIMIT");
@@ -319,21 +315,10 @@ export class ScheduleStorage extends ScheduleJournal {
       const before = this.getSchedule(safe.workspaceId, safe.scheduleId);
       if (!before || before.revision !== safe.expectedRevision)
         fail("SCHEDULE_STALE");
-      const { sha256: _sha, ...definition } = before.spec;
-      const spec = validateScheduleSpec({ ...definition, enabled: false });
       return this.commit(
         "schedule",
         safe.scheduleId,
-        this.revise(
-          {
-            ...before,
-            spec,
-            cursor: initialScheduleCursor(spec),
-            due: null,
-            worker: null,
-          },
-          before,
-        ),
+        this.disabledRevision(before),
         before,
         "disable",
         request,
@@ -435,7 +420,11 @@ export class ScheduleStorage extends ScheduleJournal {
         fail("SCHEDULE_LEASE_STALE");
       if (now < Date.parse(before.lastClockAt)) fail("SCHEDULE_CLOCK_ROLLBACK");
       this.worker(cap.worker, "dispatch");
-      const ttl = integer(safe.ttlMs, 1000, 300000);
+      const ttl = integer(
+        safe.ttlMs,
+        SCHEDULE_STORAGE_LIMITS.leaseMinMs,
+        SCHEDULE_STORAGE_LIMITS.leaseMaxMs,
+      );
       return this.commit(
         "lease",
         "scheduler",
@@ -458,13 +447,7 @@ export class ScheduleStorage extends ScheduleJournal {
   }
   private occurrenceBudget(): void {
     if (
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='occurrence'",
-          )
-          .get()!.n,
-      ) >= SCHEDULE_STORAGE_LIMITS.globalOccurrences
+      this.headCount("occurrence") >= SCHEDULE_STORAGE_LIMITS.globalOccurrences
     )
       fail("SCHEDULE_LIMIT");
   }
@@ -548,7 +531,10 @@ export class ScheduleStorage extends ScheduleJournal {
       if (duplicate) return duplicate;
       sync(this.ports.assertTriggerCurrent(original, proof, schedule.spec));
       this.occurrenceBudget();
-      if (this.inspectOccurrences(safe.workspaceId).length >= 512)
+      if (
+        this.headCount("occurrence", safe.workspaceId) >=
+        SCHEDULE_STORAGE_LIMITS.occurrences
+      )
         fail("SCHEDULE_LIMIT");
       const record = this.candidateRecord(schedule, candidate);
       return this.commit(
@@ -900,27 +886,7 @@ export class ScheduleStorage extends ScheduleJournal {
           record = this.inputRecord(this.scheduleFor(before), before);
         if (!record) fail("SCHEDULE_INPUT_INVALID");
         this.observation(record, proof);
-        let state: ScheduleOccurrenceState =
-          proof.state === "cancelled"
-            ? "cancelled"
-            : proof.state === "pending"
-              ? "accepted"
-              : "promoted";
-        if (
-          proof.runState &&
-          [
-            "completed",
-            "failed",
-            "cancelled",
-            "interrupted",
-            "uncertain",
-          ].includes(proof.runState)
-        )
-          state =
-            proof.cleanupConfirmed === true &&
-            ["completed", "failed", "cancelled"].includes(proof.runState)
-              ? (proof.runState as ScheduleOccurrenceState)
-              : "uncertain";
+        const state = observedOccurrenceState(proof);
         return {
           ...before,
           state,
@@ -951,10 +917,7 @@ export class ScheduleStorage extends ScheduleJournal {
       "abandon",
       (before) => ({
         ...before,
-        state:
-          before.state === "claimed" && safe.operation === "cancelled"
-            ? "cancelled"
-            : "uncertain",
+        state: abandonedOccurrenceState(before.state, safe.operation),
         errorCode: safe.errorCode,
       }),
       "observe",
@@ -1019,13 +982,7 @@ export class ScheduleStorage extends ScheduleJournal {
   }
   recoverInterrupted(): void {
     if (
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='occurrence'",
-          )
-          .get()!.n,
-      ) > 512
+      this.headCount("occurrence") > SCHEDULE_STORAGE_LIMITS.globalOccurrences
     )
       fail("SCHEDULE_LIMIT");
     this.ports.writeTx(() => {
@@ -1103,7 +1060,7 @@ export class ScheduleStorage extends ScheduleJournal {
         proof.previousCursorSha256 !== knowledgeHash(before.cursor) ||
         proof.batch.executionAuthority !== false ||
         proof.batch.clockRollback ||
-        proof.batch.occurrences.length > 32
+        proof.batch.occurrences.length > SCHEDULE_LIMITS.due
       )
         fail("SCHEDULE_DUE_STALE");
       validateScheduleCursor(proof.batch.nextCursor, before.spec);
@@ -1127,7 +1084,10 @@ export class ScheduleStorage extends ScheduleJournal {
             .map((row) => row.candidate.triggerKey),
         );
         if (claimedSlots.has(candidate.triggerKey)) continue;
-        if (this.inspectOccurrences(safe.workspaceId).length >= 512)
+        if (
+          this.headCount("occurrence", safe.workspaceId) >=
+          SCHEDULE_STORAGE_LIMITS.occurrences
+        )
           fail("SCHEDULE_LIMIT");
         const record = this.candidateRecord(before, candidate),
           requestId = `due:${knowledgeHash({ requestId: safe.requestId, occurrenceId: candidate.occurrenceId })}`;

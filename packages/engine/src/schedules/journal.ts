@@ -2,9 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import {
   EngineError,
+  isTerminal,
   type InputRecord,
   type JsonObject,
   type RunConfig,
+  type RunState,
 } from "@moodcode/contracts";
 import {
   normalizeAcceptInput,
@@ -22,7 +24,7 @@ import type {
   ScheduleSpec,
   ScheduleOccurrenceCandidate,
 } from "./types.js";
-import { validateScheduleSpec } from "./spec.js";
+import { SCHEDULE_LIMITS, validateScheduleSpec } from "./spec.js";
 import {
   formatScheduleInput,
   validateScheduleOccurrence,
@@ -251,6 +253,33 @@ export function integer(
     fail("SCHEDULE_LIMIT");
   return Number(value);
 }
+/** Occurrence transition rules shared by the writer and the semantic auditor. */
+export function observedOccurrenceState(
+  proof: ScheduleInputObservationProof,
+): ScheduleOccurrenceState {
+  if (proof.runState && isTerminal(proof.runState as RunState))
+    return proof.cleanupConfirmed === true &&
+      ["completed", "failed", "cancelled"].includes(proof.runState)
+      ? (proof.runState as ScheduleOccurrenceState)
+      : "uncertain";
+  return proof.state === "cancelled"
+    ? "cancelled"
+    : proof.state === "pending"
+      ? "accepted"
+      : "promoted";
+}
+export function abandonedOccurrenceState(
+  prior: ScheduleOccurrenceState,
+  requested: unknown,
+): ScheduleOccurrenceState {
+  return prior === "claimed" && requested === "cancelled"
+    ? "cancelled"
+    : "uncertain";
+}
+function disabledScheduleSpec(spec: ScheduleSpec): ScheduleSpec {
+  const { sha256: _sha, ...definition } = spec;
+  return validateScheduleSpec({ ...definition, enabled: false });
+}
 /** Recovery, import and the abandon of a live claim, which frees its recover reserve, may spend the headroom ordinary appends leave. */
 const ADMINISTRATIVE_OPERATIONS = new Set([
   "recover",
@@ -305,7 +334,11 @@ export class ScheduleJournal {
     kind?: Kind,
   ): T {
     const row = this.row(revisionId, workspaceId);
-    if (!row || (kind && row.kind !== kind)) fail();
+    if (!row) fail();
+    return this.parse<T>(row, kind);
+  }
+  private parse<T extends Body>(row: NativeRow, kind?: Kind): T {
+    if (kind && row.kind !== kind) fail();
     const body = digest(JSON.parse(row.data) as Body);
     const base = [
       "id",
@@ -462,7 +495,7 @@ export class ScheduleJournal {
       .get(id(workspaceId), kind, id(entityId));
     if (!head) return;
     const row = this.row(String(head.revision_id), workspaceId)!;
-    const body = this.read<T>(row.id, workspaceId, kind),
+    const body = this.parse<T>(row, kind),
       latest = this.db
         .prepare(
           "SELECT max(revision) AS revision FROM schedule_revisions WHERE workspace_id=? AND kind=? AND entity_id=?",
@@ -517,6 +550,19 @@ export class ScheduleJournal {
       )
       .get()!;
     return { rows: Number(sizes.n), bytes: Number(sizes.bytes) };
+  }
+  protected headCount(
+    kind: "schedule" | "occurrence",
+    workspaceId?: string,
+  ): number {
+    const scope = workspaceId === undefined ? [] : [workspaceId];
+    return Number(
+      this.db
+        .prepare(
+          `SELECT count(*) AS n FROM schedule_heads WHERE kind=?${scope.length ? " AND workspace_id=?" : ""}`,
+        )
+        .get(kind, ...scope)!.n,
+    );
   }
   /** Rows and bytes recovery and import still need once `next` heads its entity. */
   private administrativeReserve(
@@ -722,6 +768,19 @@ export class ScheduleJournal {
       lastReceiptId: randomUUID(),
       createdAt: at === undefined ? this.time() : new Date(at).toISOString(),
     }) as T & Revision;
+  }
+  protected disabledRevision(before: ScheduleRevision): ScheduleRevision {
+    const spec = disabledScheduleSpec(before.spec);
+    return this.revise(
+      {
+        ...before,
+        spec,
+        cursor: initialScheduleCursor(spec),
+        due: null,
+        worker: null,
+      },
+      before,
+    );
   }
   protected target(proof: ScheduleTargetProof, spec: ScheduleSpec): void {
     digest(proof);
@@ -943,13 +1002,7 @@ export class ScheduleJournal {
       run.id !== proof.runId ||
       run.state !== meta.state ||
       ((!historical ||
-        [
-          "completed",
-          "failed",
-          "cancelled",
-          "interrupted",
-          "uncertain",
-        ].includes(proof.runState ?? "")) &&
+        (proof.runState !== null && isTerminal(proof.runState as RunState))) &&
         proof.runState !== run.state) ||
       proof.runSha256 !==
         knowledgeHash({
@@ -1003,9 +1056,9 @@ export class ScheduleJournal {
   private semantic(
     record: ScheduleRevision | SchedulerLease | TriggerOccurrence,
     kind: "schedule" | "lease" | "occurrence",
+    receipt: ScheduleTransitionReceipt,
   ): void {
-    const receipt = this.receipt(record),
-      request = receipt.requestInput,
+    const request = receipt.requestInput,
       before = record.previousId
         ? this.read<ScheduleRevision | SchedulerLease | TriggerOccurrence>(
             record.previousId,
@@ -1048,12 +1101,9 @@ export class ScheduleJournal {
           knowledgeHash(after.target) !== knowledgeHash(prior.target)
         )
           fail();
-        const { sha256: _sha, ...definition } = prior.spec;
         if (
           knowledgeHash(after.spec) !==
-            knowledgeHash(
-              validateScheduleSpec({ ...definition, enabled: false }),
-            ) ||
+            knowledgeHash(disabledScheduleSpec(prior.spec)) ||
           knowledgeHash(after.cursor) !==
             knowledgeHash(initialScheduleCursor(after.spec))
         )
@@ -1075,7 +1125,7 @@ export class ScheduleJournal {
           proof.previousCursorSha256 !== knowledgeHash(prior.cursor) ||
           proof.batch.clockRollback ||
           proof.batch.executionAuthority !== false ||
-          proof.batch.occurrences.length > 32 ||
+          proof.batch.occurrences.length > SCHEDULE_LIMITS.due ||
           knowledgeHash(proof.batch.nextCursor) !== knowledgeHash(after.cursor)
         )
           fail();
@@ -1093,8 +1143,8 @@ export class ScheduleJournal {
       integer(expiry, 1);
       if (
         expiry - now !== request.ttlMs ||
-        Number(request.ttlMs) < 1000 ||
-        Number(request.ttlMs) > 300000 ||
+        Number(request.ttlMs) < SCHEDULE_STORAGE_LIMITS.leaseMinMs ||
+        Number(request.ttlMs) > SCHEDULE_STORAGE_LIMITS.leaseMaxMs ||
         (prior && now < Date.parse(prior.lastClockAt))
       )
         fail();
@@ -1195,40 +1245,19 @@ export class ScheduleJournal {
       };
     } else if (receipt.operation === "observe") {
       if (!after.input || !after.observation) fail();
-      const proof = after.observation;
-      let state: ScheduleOccurrenceState =
-        proof.state === "cancelled"
-          ? "cancelled"
-          : proof.state === "pending"
-            ? "accepted"
-            : "promoted";
-      if (
-        proof.runState &&
-        [
-          "completed",
-          "failed",
-          "cancelled",
-          "interrupted",
-          "uncertain",
-        ].includes(proof.runState)
-      )
-        state =
-          proof.cleanupConfirmed === true &&
-          ["completed", "failed", "cancelled"].includes(proof.runState)
-            ? (proof.runState as ScheduleOccurrenceState)
-            : "uncertain";
+      const state = observedOccurrenceState(after.observation);
       expected = {
         ...expected,
         state,
         input: after.input,
-        observation: proof,
+        observation: after.observation,
         errorCode: state === "uncertain" ? "SCHEDULE_RUN_UNCERTAIN" : null,
       };
     } else if (receipt.operation === "abandon") {
-      const state =
-        prior.state === "claimed" && request.requestedOperation === "cancelled"
-          ? "cancelled"
-          : "uncertain";
+      const state = abandonedOccurrenceState(
+        prior.state,
+        request.requestedOperation,
+      );
       if (typeof request.errorCode !== "string") fail();
       expected = { ...expected, state, errorCode: request.errorCode };
     } else if (receipt.operation === "recover") {
@@ -1250,28 +1279,13 @@ export class ScheduleJournal {
     if (knowledgeHash(expected) !== knowledgeHash(payload(after))) fail();
   }
   validate(check: () => void = () => {}): void {
-    const sizes = this.db
-      .prepare(
-        "SELECT count(*) AS n,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM schedule_revisions",
-      )
-      .get()!;
+    const sizes = this.sizes();
     if (
-      Number(sizes.n) > 8192 ||
-      Number(sizes.bytes) > 33554432 ||
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='occurrence'",
-          )
-          .get()!.n,
-      ) > 512 ||
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='schedule'",
-          )
-          .get()!.n,
-      ) > 32
+      sizes.rows > SCHEDULE_STORAGE_LIMITS.rows ||
+      sizes.bytes > SCHEDULE_STORAGE_LIMITS.bytes ||
+      this.headCount("occurrence") >
+        SCHEDULE_STORAGE_LIMITS.globalOccurrences ||
+      this.headCount("schedule") > SCHEDULE_STORAGE_LIMITS.globalSchedules
     )
       fail("SCHEDULE_LIMIT");
     for (const header of this.db
@@ -1281,7 +1295,7 @@ export class ScheduleJournal {
       .all()) {
       check();
       const row = this.row(String(header.id), String(header.workspace_id))!,
-        body = this.read<Body>(row.id, row.workspace_id);
+        body = this.parse<Body>(row);
       if (row.previous_id) {
         const before = this.row(row.previous_id, row.workspace_id);
         if (
@@ -1314,7 +1328,7 @@ export class ScheduleJournal {
       const record = body as
           ScheduleRevision | SchedulerLease | TriggerOccurrence,
         receipt = this.receipt(record);
-      this.semantic(record, row.kind);
+      this.semantic(record, row.kind, receipt);
       if (
         receipt.kind !== row.kind ||
         receipt.entityId !== row.entity_id ||
@@ -1429,20 +1443,9 @@ export class ScheduleJournal {
   pauseImported(archiveSha: string, workspaceId?: string): void {
     if (!/^[a-f0-9]{64}$/.test(archiveSha)) fail();
     if (
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='occurrence'",
-          )
-          .get()!.n,
-      ) > 512 ||
-      Number(
-        this.db
-          .prepare(
-            "SELECT count(*) AS n FROM schedule_heads WHERE kind='schedule'",
-          )
-          .get()!.n,
-      ) > 32
+      this.headCount("occurrence") >
+        SCHEDULE_STORAGE_LIMITS.globalOccurrences ||
+      this.headCount("schedule") > SCHEDULE_STORAGE_LIMITS.globalSchedules
     )
       fail("SCHEDULE_LIMIT");
     for (const head of this.db
@@ -1455,21 +1458,10 @@ export class ScheduleJournal {
         String(head.entity_id),
       )!;
       if (!before.spec.enabled) continue;
-      const { sha256: _sha, ...definition } = before.spec,
-        spec = validateScheduleSpec({ ...definition, enabled: false });
       this.commit(
         "schedule",
         before.scheduleId,
-        this.revise(
-          {
-            ...before,
-            spec,
-            cursor: initialScheduleCursor(spec),
-            due: null,
-            worker: null,
-          },
-          before,
-        ),
+        this.disabledRevision(before),
         before,
         "import-disable",
         {
