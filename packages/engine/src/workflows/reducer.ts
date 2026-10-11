@@ -2,10 +2,14 @@ import type { JsonObject } from "@moodcode/contracts";
 import type { ChildBudget } from "../child-tasks/index.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { WorkflowSpec } from "./types.js";
-import { workflowError, validateWorkflowStageResult } from "./spec.js";
+import { workflowError, workflowStageValue } from "./spec.js";
 
-export type WorkflowState = "pending" | "running" | "completed" | "failed" | "cancelled" | "uncertain" | "paused-import";
-export type WorkflowStageStatus = "blocked" | "ready" | "dispatching" | "running" | "completed" | "failed" | "cancelled" | "uncertain";
+export const WORKFLOW_STATES = ["pending", "running", "completed", "failed", "cancelled", "uncertain", "paused-import"] as const;
+export type WorkflowState = (typeof WORKFLOW_STATES)[number];
+const WORKFLOW_TERMINAL_STATES: readonly WorkflowState[] = ["completed", "failed", "cancelled", "uncertain", "paused-import"];
+export const WORKFLOW_STAGE_STATES = ["blocked", "ready", "dispatching", "running", "completed", "failed", "cancelled", "uncertain"] as const;
+export type WorkflowStageStatus = (typeof WORKFLOW_STAGE_STATES)[number];
+export const CHILD_OUTCOME_STATES = ["completed", "failed", "cancelled", "uncertain"] as const;
 export interface WorkflowOwnerProof {
   readonly workspaceId: string;
   readonly sessionId: string;
@@ -43,7 +47,7 @@ export interface WorkflowChildAdmissionProof {
 }
 export interface WorkflowChildCompletionProof {
   readonly child: WorkflowChildAdmissionProof;
-  readonly state: "completed" | "failed" | "cancelled" | "uncertain";
+  readonly state: (typeof CHILD_OUTCOME_STATES)[number];
   readonly result: JsonObject | null;
   readonly outcomeSha256: string;
   readonly usage: Omit<ChildBudget, "durationMs">;
@@ -89,17 +93,21 @@ export type WorkflowTransitionEvent =
   | { readonly operation: "settle"; readonly stageId: string; readonly completion: WorkflowChildCompletionProof }
   | { readonly operation: "cancel" }
   | { readonly operation: "uncertain" }
-  | { readonly operation: "fail" }
-  | { readonly operation: "pause-import" };
+  | { readonly operation: "fail" };
+const FORCED = { cancel: "cancelled", fail: "failed", uncertain: "uncertain" } as const;
 
 export function initialWorkflowStages(spec: WorkflowSpec): Omit<WorkflowStageState, "id" | "revision">[] {
   return spec.stages.map(stage => ({ stageId: stage.id, state: stage.dependsOn.length ? "blocked" : "ready", child: null, result: null, resultSha256: null, outcomeSha256: null, requestId: null, promptSha256: null, selectedDependencies: [] }));
 }
+/** Recovery and import force a state past the reducer: both keep the result, and recovery marks in-flight stages uncertain. */
+export function forcedWorkflowState(before: WorkflowInstanceRevision, operation: "pause-import" | "uncertain"): { state: WorkflowState; stages: WorkflowStageState[]; result: JsonObject | null } {
+  return { state: operation === "pause-import" ? "paused-import" : "uncertain", result: before.result, stages: before.stages.map(stage => operation === "uncertain" && ["dispatching", "running"].includes(stage.state) ? { ...stage, state: "uncertain" } : stage) };
+}
 /** Only explicit host events transition state. No transition restarts or dispatches a child. */
 export function reduceWorkflow(spec: WorkflowSpec, before: WorkflowInstanceRevision, event: WorkflowTransitionEvent): { state: WorkflowState; stages: WorkflowStageState[]; result: JsonObject | null } {
-  if (["completed", "failed", "cancelled", "uncertain", "paused-import"].includes(before.state)) workflowError("WORKFLOW_TERMINAL");
+  if (WORKFLOW_TERMINAL_STATES.includes(before.state)) workflowError("WORKFLOW_TERMINAL");
   const stages = structuredClone(before.stages) as WorkflowStageState[];
-  if (event.operation === "cancel" || event.operation === "uncertain" || event.operation === "fail" || event.operation === "pause-import") return { state: event.operation === "pause-import" ? "paused-import" : event.operation === "cancel" ? "cancelled" : event.operation === "fail" ? "failed" : "uncertain", stages, result: null };
+  if (!("stageId" in event)) return { state: FORCED[event.operation], stages, result: null };
   const index = stages.findIndex(stage => stage.stageId === event.stageId), stage = stages[index], definition = spec.stages.find(stage => stage.id === event.stageId);
   if (!stage || !definition) workflowError("WORKFLOW_STAGE_MISSING");
   let next: WorkflowStageState;
@@ -116,7 +124,7 @@ export function reduceWorkflow(spec: WorkflowSpec, before: WorkflowInstanceRevis
     const proof = event.completion;
     if (stage.state !== "running" || !stage.child || stage.child.sha256 !== proof.child.sha256) workflowError("WORKFLOW_CHILD_STALE");
     if (proof.state === "completed" && (!proof.complete || proof.result === null)) workflowError("WORKFLOW_RESULT_INCOMPLETE");
-    const result = proof.state === "completed" ? validateWorkflowStageResult(spec, stage.stageId, proof.result).value : null;
+    const result = proof.state === "completed" ? workflowStageValue(spec, stage.stageId, proof.result) : null;
     next = { ...stage, state: proof.state, result, resultSha256: result === null ? null : knowledgeHash(result), outcomeSha256: proof.outcomeSha256 };
   }
   stages[index] = next;
@@ -129,6 +137,7 @@ export function reduceWorkflow(spec: WorkflowSpec, before: WorkflowInstanceRevis
     if (def.join === "all" ? completed.length === dependencies.length : completed.length > 0) stages[position] = { ...item, state: "ready", selectedDependencies: (def.join === "any" ? completed.slice(0,1) : completed).map(stage => stage.stageId) };
   }
   const resultStage = stages.find(stage => stage.stageId === spec.resultStageId)!;
-  const state: WorkflowState = stages.some(stage => stage.state === "uncertain") ? "uncertain" : resultStage.state === "completed" && stages.every(stage => !["dispatching", "running"].includes(stage.state)) ? "completed" : stages.some(stage => stage.state === "failed") && !stages.some(stage => ["ready", "dispatching", "running"].includes(stage.state)) ? "failed" : stages.some(stage => stage.state === "cancelled") && !stages.some(stage => ["ready", "dispatching", "running"].includes(stage.state)) ? "cancelled" : "running";
+  const active = stages.some(stage => ["ready", "dispatching", "running"].includes(stage.state));
+  const state: WorkflowState = stages.some(stage => stage.state === "uncertain") ? "uncertain" : resultStage.state === "completed" && stages.every(stage => !["dispatching", "running"].includes(stage.state)) ? "completed" : !active && stages.some(stage => stage.state === "failed") ? "failed" : !active && stages.some(stage => stage.state === "cancelled") ? "cancelled" : "running";
   return { state, stages, result: state === "completed" ? resultStage.result : null };
 }

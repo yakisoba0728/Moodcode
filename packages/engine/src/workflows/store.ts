@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import { isAbsolute, resolve } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { JsonObject, Workspace } from "@moodcode/contracts";
-import type { WorkflowSpec, WorkflowSpecInput } from "./types.js";
+import type {
+  WorkflowSpec,
+  WorkflowSpecInput,
+  WorkflowStageSpec,
+} from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   readBoundedBody,
@@ -15,32 +19,31 @@ import {
   validateChildStorageRecord,
 } from "../child-tasks/storage-binding.js";
 import {
+  WORKFLOW_LIMITS,
   validateWorkflowSpec,
   validateWorkflowValue,
-  validateWorkflowStageResult,
   workflowError,
   workflowIdentifier,
   workflowInteger,
   workflowJson,
   workflowObject,
   workflowSha,
+  workflowStageValue,
   validateNewWorkflowWorktreeSharing,
   validateWorkflowWorktreeSharing,
 } from "./spec.js";
 import {
+  CHILD_OUTCOME_STATES,
+  WORKFLOW_STAGE_STATES,
+  WORKFLOW_STATES,
+  forcedWorkflowState,
   initialWorkflowStages,
   reduceWorkflow,
   type WorkflowStageState,
+  type WorkflowState,
   type WorkflowTransitionEvent,
 } from "./reducer.js";
 import type {
-  WorkflowChildAdmissionProof,
-  WorkflowChildCompletionProof,
-  WorkflowInstanceRevision,
-  WorkflowOwnerProof,
-  WorkflowWorktreePin,
-} from "./reducer.js";
-export type {
   WorkflowChildAdmissionProof,
   WorkflowChildCompletionProof,
   WorkflowInstanceRevision,
@@ -58,21 +61,23 @@ export interface WorkflowSpecRevision {
   readonly lastReceiptId: string;
   readonly sha256: string;
 }
+const WORKFLOW_OPERATIONS = [
+  "register",
+  "create",
+  "prepare",
+  "admit",
+  "settle",
+  "cancel",
+  "fail",
+  "uncertain",
+  "pause-import",
+] as const;
 export interface WorkflowTransitionReceipt {
   readonly id: string;
   readonly workspaceId: string;
   readonly instanceId: string | null;
   readonly workflowId: string;
-  readonly operation:
-    | "register"
-    | "create"
-    | "prepare"
-    | "admit"
-    | "settle"
-    | "cancel"
-    | "fail"
-    | "uncertain"
-    | "pause-import";
+  readonly operation: (typeof WORKFLOW_OPERATIONS)[number];
   readonly stageId: string | null;
   readonly beforeRevisionId: string | null;
   readonly afterRevisionId: string;
@@ -184,6 +189,68 @@ interface NativeRow {
   data: string;
   bytes: number;
 }
+const RECORD_KEYS: Readonly<Record<Kind, readonly string[]>> = {
+  spec: [
+    "id",
+    "workspaceId",
+    "workflowId",
+    "revision",
+    "previousId",
+    "spec",
+    "createdAt",
+    "lastReceiptId",
+    "sha256",
+  ],
+  instance: [
+    "id",
+    "instanceId",
+    "workspaceId",
+    "workflowId",
+    "specRevisionId",
+    "specSha256",
+    "owner",
+    "parameters",
+    "parametersSha256",
+    "worktrees",
+    "revision",
+    "previousId",
+    "state",
+    "stages",
+    "result",
+    "lastReceiptId",
+    "createdAt",
+    "sha256",
+  ],
+  stage: [
+    "id",
+    "workspaceId",
+    "instanceId",
+    "workflowId",
+    "owner",
+    "revision",
+    "previousId",
+    "stage",
+    "createdAt",
+    "sha256",
+  ],
+  transition: [
+    "id",
+    "workspaceId",
+    "instanceId",
+    "workflowId",
+    "operation",
+    "stageId",
+    "beforeRevisionId",
+    "afterRevisionId",
+    "afterSha256",
+    "requestId",
+    "requestSha256",
+    "requestInput",
+    "ownerSha256",
+    "createdAt",
+    "sha256",
+  ],
+};
 function json<T>(value: T, cap?: number): T {
   const result = workflowJson(value);
   if (cap !== undefined && Buffer.byteLength(JSON.stringify(result)) > cap)
@@ -351,6 +418,31 @@ function childProof(
     workflowInteger(cap, 16777216, 1);
   return proof;
 }
+/** The child admission belongs to the instance owner and to the stage's worktree, request and definition. */
+function assertChildBinding(
+  instance: WorkflowInstanceRevision,
+  stage: WorkflowStageState,
+  definition: WorkflowStageSpec,
+  proof: WorkflowChildAdmissionProof,
+  code: string,
+): void {
+  if (
+    proof.rootSessionId !== instance.owner.sessionId ||
+    proof.rootRunId !== instance.owner.runId ||
+    proof.parentRunId !== instance.owner.runId ||
+    proof.worktreeId !== instance.worktrees[stage.stageId]?.id ||
+    proof.requestId !== stage.requestId ||
+    proof.promptSha256 !== stage.promptSha256 ||
+    knowledgeHash(proof.tools) !== knowledgeHash(definition.tools) ||
+    knowledgeHash(proof.allocation) !== knowledgeHash(definition.allocation)
+  )
+    workflowError(code);
+}
+function taskOutcomeSha(task: Record<string, unknown>): string {
+  return knowledgeHash(
+    task.outcome ?? { state: task.state, errorCode: task.errorCode ?? null },
+  );
+}
 
 /** All writes use the real primary transaction. Producer callbacks authenticate ORIGINAL handles. */
 export class WorkflowStorage {
@@ -425,70 +517,8 @@ export class WorkflowStorage {
       workflowError("WORKFLOW_DATABASE_INVALID");
     const value = verifyDigest(JSON.parse(row.data) as RecordBody),
       body = value as unknown as Record<string, unknown>;
-    const keys: Record<Kind, string[]> = {
-      spec: [
-        "id",
-        "workspaceId",
-        "workflowId",
-        "revision",
-        "previousId",
-        "spec",
-        "createdAt",
-        "lastReceiptId",
-        "sha256",
-      ],
-      instance: [
-        "id",
-        "instanceId",
-        "workspaceId",
-        "workflowId",
-        "specRevisionId",
-        "specSha256",
-        "owner",
-        "parameters",
-        "parametersSha256",
-        "worktrees",
-        "revision",
-        "previousId",
-        "state",
-        "stages",
-        "result",
-        "lastReceiptId",
-        "createdAt",
-        "sha256",
-      ],
-      stage: [
-        "id",
-        "workspaceId",
-        "instanceId",
-        "workflowId",
-        "owner",
-        "revision",
-        "previousId",
-        "stage",
-        "createdAt",
-        "sha256",
-      ],
-      transition: [
-        "id",
-        "workspaceId",
-        "instanceId",
-        "workflowId",
-        "operation",
-        "stageId",
-        "beforeRevisionId",
-        "afterRevisionId",
-        "afterSha256",
-        "requestId",
-        "requestSha256",
-        "requestInput",
-        "ownerSha256",
-        "createdAt",
-        "sha256",
-      ],
-    };
-    if (!keys[row.kind]) workflowError("WORKFLOW_DATABASE_INVALID");
-    fields(value, keys[row.kind]);
+    if (!RECORD_KEYS[row.kind]) workflowError("WORKFLOW_DATABASE_INVALID");
+    fields(value, RECORD_KEYS[row.kind]);
     for (const name of ["id", "workspaceId", "workflowId"] as const)
       workflowIdentifier(body[name]);
     date(body.createdAt);
@@ -499,17 +529,7 @@ export class WorkflowStorage {
     if (row.kind === "transition") {
       const receipt = value as WorkflowTransitionReceipt;
       if (
-        ![
-          "register",
-          "create",
-          "prepare",
-          "admit",
-          "settle",
-          "cancel",
-          "fail",
-          "uncertain",
-          "pause-import",
-        ].includes(receipt.operation) ||
+        !WORKFLOW_OPERATIONS.includes(receipt.operation) ||
         knowledgeHash(json(receipt.requestInput)) !== receipt.requestSha256
       )
         workflowError("WORKFLOW_DATABASE_INVALID");
@@ -940,7 +960,7 @@ export class WorkflowStorage {
       workflowError("WORKFLOW_DATABASE_INVALID");
     return record;
   }
-  getInstance(
+  inspectWorkflow(
     workspaceId: string,
     instanceId: string,
   ): WorkflowInstanceRevision | undefined {
@@ -951,12 +971,6 @@ export class WorkflowStorage {
     );
     if (instance) this.checkInstance(instance);
     return instance;
-  }
-  inspectWorkflow(
-    workspaceId: string,
-    instanceId: string,
-  ): WorkflowInstanceRevision | undefined {
-    return this.getInstance(workspaceId, instanceId);
   }
   createInstance(
     original: object,
@@ -1152,17 +1166,7 @@ export class WorkflowStorage {
       ) !== instance.parametersSha256
     )
       workflowError("WORKFLOW_DATABASE_INVALID");
-    if (
-      ![
-        "pending",
-        "running",
-        "completed",
-        "failed",
-        "cancelled",
-        "uncertain",
-        "paused-import",
-      ].includes(instance.state)
-    )
+    if (!WORKFLOW_STATES.includes(instance.state))
       workflowError("WORKFLOW_DATABASE_INVALID");
     workflowSha(instance.specSha256);
     workflowSha(instance.parametersSha256);
@@ -1179,6 +1183,9 @@ export class WorkflowStorage {
       ids.add(pin.id);
     }
     validateWorkflowWorktreeSharing(spec,Object.fromEntries(Object.entries(instance.worktrees).map(([id,pin])=>[id,pin.id])));
+    let tasks: Record<string, unknown>[] | undefined;
+    const journal = () =>
+      (tasks ??= this.childTasks(instance.owner.sessionId));
     for (const stage of instance.stages) {
       const definition = spec.stages.find((def) => def.id === stage.stageId);
       if (!definition) workflowError("WORKFLOW_DATABASE_INVALID");
@@ -1198,16 +1205,7 @@ export class WorkflowStorage {
       workflowIdentifier(stage.id);
       workflowInteger(stage.revision, Number.MAX_SAFE_INTEGER, 1);
       if (
-        ![
-          "blocked",
-          "ready",
-          "dispatching",
-          "running",
-          "completed",
-          "failed",
-          "cancelled",
-          "uncertain",
-        ].includes(stage.state) ||
+        !WORKFLOW_STAGE_STATES.includes(stage.state) ||
         !Array.isArray(stage.selectedDependencies) ||
         new Set(stage.selectedDependencies).size !==
           stage.selectedDependencies.length ||
@@ -1253,21 +1251,15 @@ export class WorkflowStorage {
       )
         workflowError("WORKFLOW_DATABASE_INVALID");
       if (stage.child !== null) {
-        const proof = childProof(stage.child),
-          pin = instance.worktrees[stage.stageId]!;
-        if (
-          proof.rootSessionId !== instance.owner.sessionId ||
-          proof.rootRunId !== instance.owner.runId ||
-          proof.parentRunId !== instance.owner.runId ||
-          proof.worktreeId !== pin.id ||
-          proof.requestId !== stage.requestId ||
-          proof.promptSha256 !== stage.promptSha256 ||
-          knowledgeHash(proof.tools) !== knowledgeHash(definition.tools) ||
-          knowledgeHash(proof.allocation) !==
-            knowledgeHash(definition.allocation)
-        )
-          workflowError("WORKFLOW_DATABASE_INVALID");
-        const { task, storage } = this.childSQL(instance, proof);
+        const proof = childProof(stage.child);
+        assertChildBinding(
+          instance,
+          stage,
+          definition,
+          proof,
+          "WORKFLOW_DATABASE_INVALID",
+        );
+        const { task, storage } = this.childSQL(instance, proof, journal);
         if (stage.state === "completed") {
           const outcome = task.outcome as
             | { content?: unknown; truncated?: boolean; usage?: unknown }
@@ -1288,7 +1280,7 @@ export class WorkflowStorage {
           )
             workflowError("WORKFLOW_DATABASE_INVALID");
           json(stage.result, WORKFLOW_STORAGE_LIMITS.resultBytes);
-          validateWorkflowStageResult(spec, stage.stageId, stage.result);
+          workflowStageValue(spec, stage.stageId, stage.result);
         } else if (stage.result !== null || stage.resultSha256 !== null)
           workflowError("WORKFLOW_DATABASE_INVALID");
       } else if (stage.result !== null || stage.resultSha256 !== null)
@@ -1310,26 +1302,51 @@ export class WorkflowStorage {
       workflowError("WORKFLOW_DATABASE_INVALID");
     this.receipt(instance);
   }
+  private childDocument(
+    sessionId: string,
+    kind: string,
+    cap: number,
+  ): unknown {
+    return JSON.parse(
+      boundedData(
+        this.db,
+        "session_documents",
+        "session_id=? AND kind=?",
+        [sessionId, kind],
+        cap,
+        "WORKFLOW_CHILD_INVALID",
+      ),
+    );
+  }
+  /** The root session's engine.child_tasks journal entries. */
+  private childTasks(sessionId: string): Record<string, unknown>[] {
+    const journal = this.childDocument(
+      sessionId,
+      "engine.child_tasks",
+      262144,
+    ) as { schemaVersion: number; tasks: Record<string, unknown>[] };
+    if (
+      journal.schemaVersion !== 1 ||
+      !Array.isArray(journal.tasks) ||
+      journal.tasks.length > 32
+    )
+      workflowError("WORKFLOW_CHILD_INVALID");
+    return journal.tasks;
+  }
   private childSQL(
     instance: WorkflowInstanceRevision,
     proof: WorkflowChildAdmissionProof,
+    journal = () => this.childTasks(instance.owner.sessionId),
   ): {
     task: Record<string, unknown>;
     storage: ReturnType<typeof validateChildStorageRecord>;
   } {
-    const document = (kind: string, cap: number) =>
-      JSON.parse(
-        boundedData(
-          this.db,
-          "session_documents",
-          "session_id=? AND kind=?",
-          [instance.owner.sessionId, kind],
-          cap,
-          "WORKFLOW_CHILD_INVALID",
-        ),
-      ) as unknown;
     const storage = validateChildStorageRecord(
-      document(childStorageKind(proof.taskId), 32768),
+      this.childDocument(
+        instance.owner.sessionId,
+        childStorageKind(proof.taskId),
+        32768,
+      ),
     );
     if (
       storage.sha256 !== proof.storageSha256 ||
@@ -1355,17 +1372,7 @@ export class WorkflowStorage {
       )
     )
       workflowError("WORKFLOW_CHILD_INVALID");
-    const journal = document("engine.child_tasks", 262144) as {
-      schemaVersion: number;
-      tasks: Record<string, unknown>[];
-    };
-    if (
-      journal.schemaVersion !== 1 ||
-      !Array.isArray(journal.tasks) ||
-      journal.tasks.length > 32
-    )
-      workflowError("WORKFLOW_CHILD_INVALID");
-    const task = journal.tasks.find((task) => task.id === proof.taskId);
+    const task = journal().find((task) => task.id === proof.taskId);
     if (
       !task ||
       task.rootRunId !== instance.owner.runId ||
@@ -1438,7 +1445,7 @@ export class WorkflowStorage {
           .get(workspaceId, `receipt:${instanceId}`, requestId)
       )
         workflowError("WORKFLOW_REQUEST_CONFLICT");
-      const before = this.getInstance(workspaceId, instanceId);
+      const before = this.inspectWorkflow(workspaceId, instanceId);
       if (
         !before ||
         (atCurrent
@@ -1452,58 +1459,85 @@ export class WorkflowStorage {
       }
       if (original !== null) this.assertOwner(original, before.owner, settling);
       const event = eventFactory(before),
-        spec = this.spec(before).spec;
-      const reduced = reduceWorkflow(spec, before, event),
-        createdAt = this.now(),
-        stages = reduced.stages.map((stage) => {
-          const prior = before.stages.find(
-            (prior) => prior.stageId === stage.stageId,
-          )!;
-          return knowledgeHash(stage) === knowledgeHash(prior)
-            ? stage
-            : { ...stage, id: randomUUID(), revision: prior.revision + 1 };
-        });
-      const record = signed({
-        ...before,
-        ...reduced,
-        stages,
-        id: randomUUID(),
-        revision: before.revision + 1,
-        previousId: before.id,
-        lastReceiptId: randomUUID(),
-        createdAt,
-      });
-      this.insert(
-        "instance",
-        instanceId,
-        record,
-        before.owner,
-        scope,
-        requestId,
-        digest,
-        record.revision,
-        before.id,
-      );
-      for (const stage of stages) {
-        const prior = before.stages.find(
-          (old) => old.stageId === stage.stageId,
-        )!;
-        if (stage.id !== prior.id)
-          this.appendStage(record, stage, prior, requestId, digest);
-      }
-      const receipt = this.appendReceipt(
-        record,
-        before,
-        event.operation,
-        "stageId" in event ? event.stageId : null,
-        requestId,
-        digest,
-        requestInput,
-      );
-      this.moveHead(workspaceId, "instance", instanceId, record, before);
+        result = this.commitInstance(
+          before,
+          reduceWorkflow(this.spec(before).spec, before, event),
+          event.operation,
+          "stageId" in event ? event.stageId : null,
+          requestId,
+          digest,
+          requestInput,
+        );
       this.assertHeadroom();
-      return { record, receipt, duplicate: false };
+      return { ...result, duplicate: false };
     });
+  }
+  /** Writes the next instance revision, a new revision for each changed stage, the receipt and the head. */
+  private commitInstance(
+    before: WorkflowInstanceRevision,
+    next: {
+      state: WorkflowState;
+      stages: readonly WorkflowStageState[];
+      result: JsonObject | null;
+    },
+    operation: WorkflowTransitionReceipt["operation"],
+    stageId: string | null,
+    requestId: string,
+    digest: string,
+    requestInput: JsonObject,
+  ): { record: WorkflowInstanceRevision; receipt: WorkflowTransitionReceipt } {
+    const createdAt = this.now(),
+      stages = next.stages.map((stage) => {
+        const prior = before.stages.find(
+          (prior) => prior.stageId === stage.stageId,
+        )!;
+        return knowledgeHash(stage) === knowledgeHash(prior)
+          ? stage
+          : { ...stage, id: randomUUID(), revision: prior.revision + 1 };
+      });
+    const record = signed({
+      ...before,
+      ...next,
+      stages,
+      id: randomUUID(),
+      revision: before.revision + 1,
+      previousId: before.id,
+      lastReceiptId: randomUUID(),
+      createdAt,
+    });
+    this.insert(
+      "instance",
+      before.instanceId,
+      record,
+      before.owner,
+      `instance:${before.instanceId}`,
+      requestId,
+      digest,
+      record.revision,
+      before.id,
+    );
+    for (const stage of stages) {
+      const prior = before.stages.find((old) => old.stageId === stage.stageId)!;
+      if (stage.id !== prior.id)
+        this.appendStage(record, stage, prior, requestId, digest);
+    }
+    const receipt = this.appendReceipt(
+      record,
+      before,
+      operation,
+      stageId,
+      requestId,
+      digest,
+      requestInput,
+    );
+    this.moveHead(
+      before.workspaceId,
+      "instance",
+      before.instanceId,
+      record,
+      before,
+    );
+    return { record, receipt };
   }
   prepareStage(
     original: object,
@@ -1521,7 +1555,7 @@ export class WorkflowStorage {
     if (
       typeof input.prompt !== "string" ||
       !input.prompt ||
-      Buffer.byteLength(input.prompt) > 32768 ||
+      Buffer.byteLength(input.prompt) > WORKFLOW_LIMITS.promptBytes ||
       Buffer.from(input.prompt).toString("utf8") !== input.prompt
     )
       workflowError("WORKFLOW_LIMIT");
@@ -1555,23 +1589,15 @@ export class WorkflowStorage {
           ),
           stage = before.stages.find(
             (stage) => stage.stageId === input.stageId,
-          ),
-          pin = before.worktrees[input.stageId];
-        if (
-          !definition ||
-          !stage ||
-          !pin ||
-          proof.rootRunId !== before.owner.runId ||
-          proof.rootSessionId !== before.owner.sessionId ||
-          proof.parentRunId !== before.owner.runId ||
-          proof.worktreeId !== pin.id ||
-          proof.requestId !== stage.requestId ||
-          proof.promptSha256 !== stage.promptSha256 ||
-          knowledgeHash(proof.tools) !== knowledgeHash(definition.tools) ||
-          knowledgeHash(proof.allocation) !==
-            knowledgeHash(definition.allocation)
-        )
-          workflowError("WORKFLOW_CHILD_INVALID");
+          );
+        if (!definition || !stage) workflowError("WORKFLOW_CHILD_INVALID");
+        assertChildBinding(
+          before,
+          stage,
+          definition,
+          proof,
+          "WORKFLOW_CHILD_INVALID",
+        );
         this.childSQL(before, proof);
         return { operation: "admit", stageId: input.stageId, child: proof };
       },
@@ -1604,9 +1630,7 @@ export class WorkflowStorage {
         childProof(proof.child);
         workflowSha(proof.outcomeSha256);
         if (
-          !["completed", "failed", "cancelled", "uncertain"].includes(
-            proof.state,
-          ) ||
+          !CHILD_OUTCOME_STATES.includes(proof.state) ||
           typeof proof.complete !== "boolean"
         )
           workflowError("WORKFLOW_CHILD_INVALID");
@@ -1618,12 +1642,7 @@ export class WorkflowStorage {
           task.state !== proof.state ||
           (proof.state !== "uncertain" &&
             (!storage.confirmedClose ||
-              knowledgeHash(
-                task.outcome ?? {
-                  state: task.state,
-                  errorCode: task.errorCode ?? null,
-                },
-              ) !== proof.outcomeSha256))
+              taskOutcomeSha(task) !== proof.outcomeSha256))
         )
           workflowError("WORKFLOW_CHILD_INVALID");
         if (proof.state === "completed") {
@@ -1655,11 +1674,12 @@ export class WorkflowStorage {
     original: object,
     input: WorkflowControlInput,
   ): WorkflowRequestResult<WorkflowInstanceRevision> {
+    const data = json(input);
     return this.mutate(
       original,
-      json(input),
-      json(input).operation,
-      () => ({ operation: json(input).operation }),
+      data,
+      data.operation,
+      () => ({ operation: data.operation }),
       true,
     );
   }
@@ -1668,64 +1688,20 @@ export class WorkflowStorage {
     operation: "pause-import" | "uncertain",
     requestId: string,
   ): void {
-    const digest = knowledgeHash({
-        operation,
-        instanceId: before.instanceId,
-        revision: before.revision,
-        requestId,
-      }),
-      stages = before.stages.map((stage) =>
-        operation === "uncertain" &&
-        ["dispatching", "running"].includes(stage.state)
-          ? {
-              ...stage,
-              id: randomUUID(),
-              revision: stage.revision + 1,
-              state: "uncertain" as const,
-            }
-          : stage,
-      );
-    const record = signed({
-      ...before,
-      id: randomUUID(),
-      revision: before.revision + 1,
-      previousId: before.id,
-      state:
-        operation === "pause-import"
-          ? ("paused-import" as const)
-          : ("uncertain" as const),
-      stages,
-      lastReceiptId: randomUUID(),
-      createdAt: this.now(),
-    });
-    this.insert(
-      "instance",
-      before.instanceId,
-      record,
-      before.owner,
-      `instance:${before.instanceId}`,
-      requestId,
-      digest,
-      record.revision,
-      before.id,
-    );
-    for (const stage of stages) {
-      const prior = before.stages.find((old) => old.stageId === stage.stageId)!;
-      if (stage.id !== prior.id)
-        this.appendStage(record, stage, prior, requestId, digest);
-    }
-    this.appendReceipt(record, before, operation, null, requestId, digest, {
+    const requestInput = {
       operation,
       instanceId: before.instanceId,
       revision: before.revision,
       requestId,
-    });
-    this.moveHead(
-      before.workspaceId,
-      "instance",
-      before.instanceId,
-      record,
+    };
+    this.commitInstance(
       before,
+      forcedWorkflowState(before, operation),
+      operation,
+      null,
+      requestId,
+      knowledgeHash(requestInput),
+      requestInput,
     );
   }
   recoverInterrupted(): void {
@@ -1743,7 +1719,7 @@ export class WorkflowStorage {
       .all(...(workspaceId === undefined ? [] : [workspaceId]));
     if (rows.length > 1024) workflowError("WORKFLOW_LIMIT");
     return rows.map((row) =>
-      this.getInstance(String(row.workspace_id), String(row.entity_id))!,
+      this.inspectWorkflow(String(row.workspace_id), String(row.entity_id))!,
     );
   }
   private replay(after: WorkflowSpecRevision | WorkflowInstanceRevision): void {
@@ -1835,17 +1811,7 @@ export class WorkflowStorage {
             receipt.requestId !== `recover:${before.id}`))
       )
         workflowError("WORKFLOW_DATABASE_INVALID");
-      reduced = {
-        state:
-          receipt.operation === "pause-import" ? "paused-import" : "uncertain",
-        result: before.result,
-        stages: before.stages.map((stage) =>
-          receipt.operation === "uncertain" &&
-          ["dispatching", "running"].includes(stage.state)
-            ? { ...stage, state: "uncertain" }
-            : stage,
-        ),
-      };
+      reduced = forcedWorkflowState(before, receipt.operation);
     } else {
       const stageId = receipt.stageId,
         stage = after.stages.find((stage) => stage.stageId === stageId);
@@ -1871,7 +1837,7 @@ export class WorkflowStorage {
         if (
           typeof request.prompt !== "string" ||
           !request.prompt ||
-          Buffer.byteLength(request.prompt) > 32768
+          Buffer.byteLength(request.prompt) > WORKFLOW_LIMITS.promptBytes
         )
           workflowError("WORKFLOW_DATABASE_INVALID");
         event = {
@@ -1902,22 +1868,14 @@ export class WorkflowStorage {
         ]);
         if (
           !stage?.child ||
-          !["completed", "failed", "cancelled", "uncertain"].includes(
-            stage.state,
-          ) ||
+          !(CHILD_OUTCOME_STATES as readonly string[]).includes(stage.state) ||
           !stage.outcomeSha256
         )
           workflowError("WORKFLOW_DATABASE_INVALID");
         const { task, storage } = this.childSQL(after, stage.child);
         if (
           task.state !== stage.state ||
-          stage.outcomeSha256 !==
-            knowledgeHash(
-              task.outcome ?? {
-                state: task.state,
-                errorCode: task.errorCode ?? null,
-              },
-            ) ||
+          stage.outcomeSha256 !== taskOutcomeSha(task) ||
           (stage.state !== "uncertain" && !storage.confirmedClose)
         )
           workflowError("WORKFLOW_DATABASE_INVALID");
@@ -1980,7 +1938,20 @@ export class WorkflowStorage {
   }
   validate(check: () => void = () => {}): void {
     const referencedStages = new Set<string>(),
-      stageRows: string[] = [];
+      stageRows: string[] = [],
+      verifiedHeads = new Set<string>();
+    /** The database does not change during validation, so each head is verified once. */
+    const verifyHead = (
+      workspaceId: string,
+      kind: "spec" | "instance" | "stage",
+      entityId: string,
+    ): boolean => {
+      const key = [workspaceId, kind, entityId].join("\0");
+      if (verifiedHeads.has(key)) return true;
+      if (!this.head(workspaceId, kind, entityId)) return false;
+      verifiedHeads.add(key);
+      return true;
+    };
     const sizes = this.db
       .prepare(
         "SELECT count(*) AS count,coalesce(sum(length(CAST(data AS BLOB))),0) AS bytes FROM workflow_revisions",
@@ -2019,7 +1990,7 @@ export class WorkflowStorage {
         this.replay(body as WorkflowInstanceRevision | WorkflowSpecRevision);
       if (
         native.kind !== "transition" &&
-        !this.head(native.workspace_id, native.kind, native.entity_id)
+        !verifyHead(native.workspace_id, native.kind, native.entity_id)
       )
         workflowError("WORKFLOW_DATABASE_INVALID");
       if (native.previous_id === null && native.revision !== 1)
@@ -2059,7 +2030,7 @@ export class WorkflowStorage {
       )
       .all()) {
       check();
-      this.head(
+      verifyHead(
         String(row.workspace_id),
         row.kind as "spec" | "instance" | "stage",
         String(row.entity_id),

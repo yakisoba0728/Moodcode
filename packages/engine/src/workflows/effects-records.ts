@@ -43,6 +43,14 @@ export function advanceEffect(
     workflowJson,
   );
 }
+const EFFECT_STATES = [
+  "observed",
+  "merge-dispatching",
+  "merged",
+  "uncertain",
+  "paused-import",
+] as const;
+const DELIVERY_STATES = ["accepted", "paused-import"] as const;
 export interface WorkflowFilePin {
   readonly path: string;
   readonly device: string;
@@ -65,8 +73,7 @@ export interface WorkflowEffectRecord {
   readonly evidence: WorkflowChildEvidence;
   readonly files: readonly WorkflowFilePin[];
   readonly artifacts: readonly WorkflowFilePin[];
-  readonly state:
-    "observed" | "merge-dispatching" | "merged" | "uncertain" | "paused-import";
+  readonly state: (typeof EFFECT_STATES)[number];
   readonly merge: null | {
     readonly toolCallId: string;
     readonly runId: string;
@@ -92,7 +99,7 @@ export interface WorkflowDeliveryRecord {
   readonly inputRequestId: string;
   readonly requestId: string;
   readonly input: InputReceipt;
-  readonly state: "accepted" | "paused-import";
+  readonly state: (typeof DELIVERY_STATES)[number];
   readonly sha256: string;
 }
 function body(db: DatabaseSync, sessionId: string, kind: string): unknown {
@@ -209,13 +216,7 @@ export function readWorkflowEffect(
     r.instanceId !== instanceId ||
     r.stageId !== stageId ||
     !["editor", "validator"].includes(r.role) ||
-    ![
-      "observed",
-      "merge-dispatching",
-      "merged",
-      "uncertain",
-      "paused-import",
-    ].includes(r.state)
+    !EFFECT_STATES.includes(r.state)
   )
     effectFail();
   const stage = nativeRevision(db, r.stageRevisionId, r.workspaceId, "stage"),
@@ -473,7 +474,7 @@ export function readWorkflowDelivery(
     r.version !== 1 ||
     r.sessionId !== sessionId ||
     r.instanceId !== instanceId ||
-    !["accepted", "paused-import"].includes(r.state) ||
+    !DELIVERY_STATES.includes(r.state) ||
     r.source.state !== "completed"
   )
     effectFail();

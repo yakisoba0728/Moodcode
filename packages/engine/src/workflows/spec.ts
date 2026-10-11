@@ -597,20 +597,27 @@ export function validateWorkflowSpec(input: unknown): WorkflowSpec {
     workflowError("WORKFLOW_SPEC_STALE");
   return workflowJson({ ...definition, sha256 });
 }
+/** A stage result checked against an already validated spec. */
+export function workflowStageValue(
+  spec: WorkflowSpec,
+  stageId: string,
+  value: unknown,
+): JsonObject {
+  const selected = spec.stages.find(
+    (item) => item.id === workflowIdentifier(stageId),
+  );
+  if (!selected) workflowError("WORKFLOW_UNKNOWN_STAGE");
+  return validateWorkflowValue(selected.resultSchema, value) as JsonObject;
+}
 export function validateWorkflowStageResult(
   input: WorkflowSpec,
   stageId: string,
   value: unknown,
 ): WorkflowStageResult {
-  const spec = validateWorkflowSpec(input),
-    selected = spec.stages.find(
-      (item) => item.id === workflowIdentifier(stageId),
-    );
-  if (!selected) workflowError("WORKFLOW_UNKNOWN_STAGE");
   const result = {
-    stageId: selected.id,
+    stageId,
     authority: "advisory-data" as const,
-    value: validateWorkflowValue(selected.resultSchema, value) as JsonObject,
+    value: workflowStageValue(validateWorkflowSpec(input), stageId, value),
   };
   return sealRecord(result, workflowJson);
 }

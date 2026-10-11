@@ -6,11 +6,8 @@ import { CHILD_BUDGET_KEYS } from "../child-tasks/journal.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { sealRecord } from "../shared/canonical.js";
 import { assertNativeSignal, plainRecord } from "../shared/data.js";
-import type {
-  WorkflowSpecRevision,
-  WorkflowOwnerProof,
-  WorkflowWorktreePin,
-} from "./store.js";
+import type { WorkflowSpecRevision } from "./store.js";
+import type { WorkflowOwnerProof, WorkflowWorktreePin } from "./reducer.js";
 import type {
   WorkflowModelPin,
   WorkflowProfilePin,
