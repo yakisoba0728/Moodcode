@@ -1,8 +1,5 @@
 import { randomUUID } from "node:crypto";
-import {
-  isImportedKnowledgeUncertaintyResolved,
-  resolvedImportedKnowledgeOwners,
-} from "./import-recovery-store.js";
+import { importedUncertaintyResolver } from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import {
   casReplace,
@@ -206,6 +203,7 @@ SELECT g.* FROM knowledge_generations g WHERE g.workspace_id=?1 AND (g.state IN 
 function unresolvedGenerations(
   db: DatabaseSync,
   workspaceId: string,
+  imported = importedUncertaintyResolver(db, workspaceId),
 ): { rows: Row[]; generations: KnowledgeGenerationRecord[] } {
   const acknowledged: { id: string; sha256: string; binding: KnowledgeHostBinding }[] = [];
   for (const row of db
@@ -223,9 +221,7 @@ function unresolvedGenerations(
   const rows = boundedRows(db, UNRESOLVED_GENERATIONS_SQL, [
     workspaceId,
     JSON.stringify(acknowledged),
-    JSON.stringify(
-      resolvedImportedKnowledgeOwners(db, workspaceId, "generation"),
-    ),
+    JSON.stringify(imported.owners("generation")),
   ]);
   return {
     rows,
@@ -241,16 +237,26 @@ export function hasKnowledgeGenerationBlocker(
   workspaceId: string,
 ): boolean {
   identifier(workspaceId);
+  const imported = importedUncertaintyResolver(db, workspaceId);
   const barrier = db
     .prepare(
       "SELECT * FROM knowledge_generation_workspace_barriers WHERE workspace_id=?",
     )
     .get(workspaceId) as Row | undefined;
   if (barrier) {
-    const value = decode(barrier, "knowledge_generation_workspace_barriers") as KnowledgeGenerationWorkspaceBarrier;
-    if (value.state !== "clear" && !isImportedKnowledgeUncertaintyResolved(db, workspaceId, "generation-barrier", value.workspaceId, value.sha256)) return true;
+    const value = decode(
+      barrier,
+      "knowledge_generation_workspace_barriers",
+    ) as KnowledgeGenerationWorkspaceBarrier;
+    if (
+      value.state !== "clear" &&
+      !imported.resolved("generation-barrier", value.workspaceId, value.sha256)
+    )
+      return true;
   }
-  return unresolvedGenerations(db, workspaceId).generations.length > 0;
+  return (
+    unresolvedGenerations(db, workspaceId, imported).generations.length > 0
+  );
 }
 
 export class KnowledgeGenerationStorage {

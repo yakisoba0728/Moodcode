@@ -81,6 +81,7 @@ CREATE INDEX knowledge_import_activation_workspace ON knowledge_import_document_
 
 const KNOWLEDGE_IMPORT_RECOVERY_LIMITS = Object.freeze({
   rowBytes: 65_536,
+  fileRowBytes: 1_048_576,
   frontierBytes: 16_777_216,
   frontierRows: 65_536,
   handles: 128,
@@ -482,6 +483,36 @@ function parsed(text: string): unknown {
     return fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   }
 }
+function rowLimit(table: string): number {
+  return [
+    "knowledge_file_publications",
+    "knowledge_file_checkpoints",
+    "knowledge_file_recovery_acknowledgments",
+  ].includes(table)
+    ? KNOWLEDGE_IMPORT_RECOVERY_LIMITS.fileRowBytes
+    : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes;
+}
+/** The parsed row if its workspace, key and self-hash hold; `strict` rejects a malformed hash as invalid. */
+function hashedRow(
+  text: string,
+  ws: string,
+  key: string,
+  { workspaceKey = false, strict = false } = {},
+): ObjectData | undefined {
+  const data = parsed(text) as ObjectData;
+  if (
+    !data ||
+    typeof data !== "object" ||
+    data.workspaceId !== ws ||
+    (data.id ?? (workspaceKey ? data.workspaceId : undefined)) !== key
+  )
+    return undefined;
+  const { sha256, ...body } = data;
+  if (strict) digest(sha256);
+  return typeof sha256 === "string" && knowledgeHash(body) === sha256
+    ? data
+    : undefined;
+}
 function read<T extends KnowledgeImportRecoveryData>(
   db: DatabaseSync,
   table: KnowledgeImportRecoveryTable,
@@ -573,6 +604,31 @@ function frontier(
     fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
   return Object.freeze({ frontier: f, head });
 }
+/** The head's acknowledgment, which must bind this exact frontier, pause and uncertainty pins. */
+function acknowledgment(
+  db: DatabaseSync,
+  view: KnowledgeImportFrontierView,
+  beforeRead?: BeforeRead,
+): KnowledgeImportRecoveryDecision | undefined {
+  if (!view.head.acknowledgeDecisionId) return undefined;
+  const ack = read<KnowledgeImportRecoveryDecision>(
+    db,
+    "knowledge_import_recovery_decisions",
+    view.head.acknowledgeDecisionId,
+    view.frontier.workspaceId,
+    beforeRead,
+  );
+  if (
+    !ack ||
+    ack.operation !== "acknowledge" ||
+    ack.frontierId !== view.frontier.id ||
+    ack.frontierSha256 !== view.frontier.sha256 ||
+    ack.pauseSha256 !== view.frontier.pauseSha256 ||
+    ack.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
+  )
+    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
+  return ack;
+}
 function resumeDecision(
   db: DatabaseSync,
   view: KnowledgeImportFrontierView,
@@ -598,26 +654,9 @@ function resumeDecision(
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   if (view.frontier.uncertainties.length && !view.head.acknowledgeDecisionId)
     fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-  if (view.head.acknowledgeDecisionId) {
-    const ack = read<KnowledgeImportRecoveryDecision>(
-      db,
-      "knowledge_import_recovery_decisions",
-      view.head.acknowledgeDecisionId,
-      view.frontier.workspaceId,
-      beforeRead,
-    );
-    if (
-      !ack ||
-      ack.operation !== "acknowledge" ||
-      ack.frontierId !== view.frontier.id ||
-      ack.frontierSha256 !== view.frontier.sha256 ||
-      ack.pauseSha256 !== view.frontier.pauseSha256 ||
-      ack.uncertaintyPinsSha256 !== d.uncertaintyPinsSha256 ||
-      !same(ack.binding, d.binding) ||
-      ack.createdAt > d.createdAt
-    )
-      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-  }
+  const ack = acknowledgment(db, view, beforeRead);
+  if (ack && (!same(ack.binding, d.binding) || ack.createdAt > d.createdAt))
+    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   return d;
 }
 function activationHeadId(ws: string, key: string): string {
@@ -710,29 +749,16 @@ function originalPinCurrent(
   ws: string,
   pin: KnowledgeImportUncertaintyPin,
 ): boolean {
-  const row = raw(
-    db,
-    uncertaintyTables[pin.kind],
-    pin.id,
-    ws,
-    pin.kind === "file" ? 1_048_576 : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
-  );
-  if (!row) return false;
-  const data = parsed(row.data) as ObjectData;
-  if (
-    !data ||
-    typeof data !== "object" ||
-    data.workspaceId !== ws ||
-    (data.id ??
-      (pin.kind === "generation-barrier" ? data.workspaceId : undefined)) !==
-      pin.id
-  )
-    return false;
-  const { sha256, ...body } = data;
-  if (typeof sha256 !== "string" || knowledgeHash(body) !== sha256)
-    return false;
+  const table = uncertaintyTables[pin.kind],
+    row = raw(db, table, pin.id, ws, rowLimit(table)),
+    data =
+      row &&
+      hashedRow(row.data, ws, pin.id, {
+        workspaceKey: pin.kind === "generation-barrier",
+      });
   return (
-    sha256 === pin.sha256 &&
+    !!data &&
+    data.sha256 === pin.sha256 &&
     (pin.kind.endsWith("barrier")
       ? data.state !== "clear"
       : pin.kind === "file-guard"
@@ -745,25 +771,60 @@ function acknowledgedImportPins(
   workspaceId: string,
 ): readonly KnowledgeImportUncertaintyPin[] | undefined {
   const view = frontier(db, workspaceId);
-  if (!view || !resumeDecision(db, view) || !view.head.acknowledgeDecisionId)
-    return undefined;
-  const ack = read<KnowledgeImportRecoveryDecision>(
-    db,
-    "knowledge_import_recovery_decisions",
-    view.head.acknowledgeDecisionId,
-    workspaceId,
-  );
-  if (
-    !ack ||
-    ack.operation !== "acknowledge" ||
-    ack.frontierId !== view.frontier.id ||
-    ack.frontierSha256 !== view.frontier.sha256 ||
-    ack.uncertaintyPinsSha256 !== knowledgeHash(view.frontier.uncertainties)
-  )
-    return undefined;
-  return view.frontier.uncertainties;
+  return view && resumeDecision(db, view) && view.head.acknowledgeDecisionId
+    ? view.frontier.uncertainties
+    : undefined;
 }
-/** Only unchanged originally imported uncertainty is resolved; later owners are never covered. */
+/**
+ * Only unchanged originally imported uncertainty is resolved; later owners are never covered.
+ * The import frontier is read on first use and each pin is checked at most once per resolver.
+ */
+export function importedUncertaintyResolver(
+  db: DatabaseSync,
+  workspaceId: string,
+) {
+  let pins: readonly KnowledgeImportUncertaintyPin[] | undefined;
+  const checked = new Map<KnowledgeImportUncertaintyPin, boolean>();
+  const acknowledged = () =>
+    (pins ??= acknowledgedImportPins(db, workspaceId) ?? []);
+  const current = (pin: KnowledgeImportUncertaintyPin): boolean => {
+    if (!checked.has(pin))
+      checked.set(pin, originalPinCurrent(db, workspaceId, pin));
+    return checked.get(pin)!;
+  };
+  return Object.freeze({
+    resolved(
+      kind: KnowledgeImportUncertaintyKind,
+      ownerId: string,
+      sha256: string,
+    ): boolean {
+      const all = acknowledged();
+      return (
+        all.some(
+          (p) => p.kind === kind && p.id === ownerId && p.sha256 === sha256,
+        ) &&
+        all
+          .filter(
+            (p) =>
+              !p.kind.endsWith("barrier") ||
+              (p.kind === kind && p.id === ownerId),
+          )
+          .every(current)
+      );
+    },
+    /** The owner pins of one kind that resolved() accepts. */
+    owners(
+      kind: "generation" | "file",
+    ): readonly KnowledgeImportUncertaintyPin[] {
+      const all = acknowledged(),
+        owners = all.filter((p) => p.kind === kind);
+      return owners.length &&
+        all.filter((p) => !p.kind.endsWith("barrier")).every(current)
+        ? owners
+        : [];
+    },
+  });
+}
 export function isImportedKnowledgeUncertaintyResolved(
   db: DatabaseSync,
   workspaceId: string,
@@ -775,34 +836,19 @@ export function isImportedKnowledgeUncertaintyResolved(
   id(ownerId);
   digest(sha256);
   if (!Object.hasOwn(uncertaintyTables, kind)) fail();
-  const pins = acknowledgedImportPins(db, workspaceId);
-  return (
-    !!pins?.some(
-      (p) => p.kind === kind && p.id === ownerId && p.sha256 === sha256,
-    ) &&
-    pins
-      .filter(
-        (p) =>
-          !p.kind.endsWith("barrier") || (p.kind === kind && p.id === ownerId),
-      )
-      .every((p) => originalPinCurrent(db, workspaceId, p))
+  return importedUncertaintyResolver(db, workspaceId).resolved(
+    kind,
+    ownerId,
+    sha256,
   );
 }
-/** The owner pins of one kind that isImportedKnowledgeUncertaintyResolved accepts, read once per frontier. */
 export function resolvedImportedKnowledgeOwners(
   db: DatabaseSync,
   workspaceId: string,
   kind: "generation" | "file",
 ): readonly KnowledgeImportUncertaintyPin[] {
   id(workspaceId);
-  const pins = acknowledgedImportPins(db, workspaceId) ?? [],
-    owners = pins.filter((p) => p.kind === kind);
-  return owners.length &&
-    pins
-      .filter((p) => !p.kind.endsWith("barrier"))
-      .every((p) => originalPinCurrent(db, workspaceId, p))
-    ? owners
-    : [];
+  return importedUncertaintyResolver(db, workspaceId).owners(kind);
 }
 
 const historicalTables = Object.freeze([
@@ -849,22 +895,16 @@ function nativeFrontier(
       .all()
       .map((row) => String(row.name))
       .filter((key) => key !== "data");
-    for (const header of db
+    const maximum = rowLimit(table);
+    for (const { data, ...header } of db
       .prepare(
-        `SELECT ${columns.join(",")},length(CAST(data AS BLOB)) AS body_bytes FROM ${table} WHERE workspace_id=? ORDER BY id`,
+        `SELECT ${columns.join(",")},length(CAST(data AS BLOB)) AS body_bytes,CASE WHEN length(CAST(data AS BLOB))<=? THEN data END AS data FROM ${table} WHERE workspace_id=? ORDER BY id`,
       )
-      .iterate(ws)) {
+      .iterate(maximum, ws)) {
       check();
       const size = Number(header.body_bytes);
       bytes += size;
       rows++;
-      const maximum = [
-        "knowledge_file_publications",
-        "knowledge_file_checkpoints",
-        "knowledge_file_recovery_acknowledgments",
-      ].includes(table)
-        ? 1_048_576
-        : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes;
       if (
         !Number.isSafeInteger(size) ||
         size < 2 ||
@@ -879,10 +919,10 @@ function nativeFrontier(
         header.workspace_id !== ws
       )
         fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-      const row = raw(db, table, header.id, ws, maximum);
-      if (!row) fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
+      if (typeof data !== "string" || Buffer.byteLength(data) !== size)
+        fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
       hash.update(JSON.stringify(header));
-      hash.update(row.data);
+      hash.update(data);
     }
   }
   return hash.digest("hex");
@@ -913,29 +953,16 @@ function captureUncertainties(
       .iterate(...params)) {
       if (result.length >= KNOWLEDGE_IMPORT_RECOVERY_LIMITS.uncertaintyPins)
         fail("KNOWLEDGE_IMPORT_RECOVERY_READ_LIMIT");
-      const row = raw(
-        db,
-        table,
-        id(header.id),
-        ws,
-        kind === "file" ? 1_048_576 : KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
-      );
+      const key = id(header.id),
+        row = raw(db, table, key, ws, rowLimit(table));
       if (!row) fail("KNOWLEDGE_IMPORT_RECOVERY_STALE");
-      const data = parsed(row.data) as ObjectData;
-      if (
-        !data ||
-        typeof data !== "object" ||
-        (data.id ??
-          (kind === "generation-barrier" ? data.workspaceId : undefined)) !==
-          header.id ||
-        data.workspaceId !== ws
-      )
-        fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-      const { sha256, ...body } = data;
-      if (digest(sha256) !== knowledgeHash(body))
-        fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
+      const data =
+        hashedRow(row.data, ws, key, {
+          workspaceKey: kind === "generation-barrier",
+          strict: true,
+        }) ?? fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
       result.push(
-        Object.freeze({ kind, id: String(header.id), sha256: String(sha256) }),
+        Object.freeze({ kind, id: key, sha256: String(data.sha256) }),
       );
     }
   }
@@ -1576,19 +1603,10 @@ function graphProof(
 ): void {
   const load = (table: string, key: string): ObjectData => {
     const row = raw(db, table, key, ws);
-    if (!row) fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-    const value = parsed(row.data) as ObjectData;
-    if (
-      !value ||
-      typeof value !== "object" ||
-      value.id !== key ||
-      value.workspaceId !== ws
-    )
-      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-    const { sha256, ...body } = value;
-    if (digest(sha256) !== knowledgeHash(body))
-      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-    return value;
+    return (
+      (row && hashedRow(row.data, ws, key, { strict: true })) ??
+      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT")
+    );
   };
   const document = load("workspace_document_revisions", p.documentRevisionId),
     publication = load("knowledge_publications", p.publicationId),
@@ -1673,25 +1691,9 @@ export function validateKnowledgeImportRecoveryDatabase(
         const view = frontier(db, ws);
         if (!view) fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
         if (view.head.state === "resumed") resumeDecision(db, view);
-        if (view.head.acknowledgeDecisionId) {
-          const ack = read<KnowledgeImportRecoveryDecision>(
-            db,
-            "knowledge_import_recovery_decisions",
-            view.head.acknowledgeDecisionId,
-            ws,
-          );
-          if (
-            !ack ||
-            ack.operation !== "acknowledge" ||
-            ack.frontierId !== view.frontier.id ||
-            ack.frontierSha256 !== view.frontier.sha256 ||
-            ack.pauseSha256 !== view.frontier.pauseSha256 ||
-            ack.uncertaintyPinsSha256 !==
-              knowledgeHash(view.frontier.uncertainties) ||
-            ack.createdAt > view.head.updatedAt
-          )
-            fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
-        }
+        const ack = acknowledgment(db, view);
+        if (ack && ack.createdAt > view.head.updatedAt)
+          fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
       } else if (table === "knowledge_import_recovery_decisions") {
         const d = row as KnowledgeImportRecoveryDecision,
           f = read<KnowledgeImportFrontier>(

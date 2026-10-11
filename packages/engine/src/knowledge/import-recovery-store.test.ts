@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { lstatSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -573,4 +573,67 @@ test("an async trusted proof callback cannot escape the primary transaction or a
   );
   assert.deepEqual(f.rows(), before);
   native.release(p);
+});
+test("native frontier digests keep their original row header and body hash input", (t) => {
+  const f = fixture(t);
+  // Hash input: per table its JSON name, then per row its non-data header JSON and raw body.
+  const reference = (includeRecovery: boolean) => {
+    const hash = createHash("sha256");
+    for (const table of [
+      "workspace_trust_revisions",
+      "workspace_trust_heads",
+      "knowledge_generation_plans",
+      "knowledge_candidates",
+      "knowledge_request_receipts",
+      "knowledge_import_pauses",
+      "knowledge_generations",
+      "knowledge_generation_attempts",
+      "knowledge_generation_recovery_acknowledgments",
+      "knowledge_generation_workspace_barriers",
+      "workspace_document_revisions",
+      "workspace_document_heads",
+      "knowledge_publications",
+      "knowledge_publication_receipts",
+      "knowledge_file_observations",
+      "knowledge_file_heads",
+      "knowledge_file_publications",
+      "knowledge_file_checkpoints",
+      "knowledge_file_publication_receipts",
+      "knowledge_file_recovery_acknowledgments",
+      "knowledge_file_workspace_barriers",
+      "knowledge_file_execution_guards",
+      ...(includeRecovery ? KNOWLEDGE_IMPORT_RECOVERY_TABLES : []),
+    ]) {
+      hash.update(JSON.stringify(table));
+      const columns = f.db
+        .prepare(`PRAGMA table_info(${table})`)
+        .all()
+        .map((row) => String(row.name))
+        .filter((name) => name !== "data");
+      for (const header of f.db
+        .prepare(
+          `SELECT ${columns.join(",")},length(CAST(data AS BLOB)) AS body_bytes FROM ${table} WHERE workspace_id=? ORDER BY id`,
+        )
+        .all("workspace")) {
+        hash.update(JSON.stringify(header));
+        hash.update(
+          String(
+            f.db
+              .prepare(`SELECT data FROM ${table} WHERE id=?`)
+              .get(header.id as string)!.data,
+          ),
+        );
+      }
+    }
+    return hash.digest("hex");
+  };
+  assert.equal(f.frontier.nativeFrontierSha256, reference(false));
+  const first = f.preview();
+  assert.equal(first.currentFrontierSha256, reference(true));
+  f.native.commit(first, {
+    requestId: "resume",
+    approved: true,
+    reason: "host explicit resume",
+  });
+  assert.equal(f.preview().currentFrontierSha256, reference(true));
 });
