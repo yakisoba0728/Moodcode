@@ -15,6 +15,9 @@ import {
 } from "./segments.js";
 import { types } from "node:util";
 
+function protocolError(message: string): never {
+  throw new EngineError("PROVIDER_PROTOCOL_ERROR", message);
+}
 /** Owned by one actual provider Attempt, retaining bounded copied PCM only. */
 export class ProviderAudioCapture {
   #parts: Buffer[] = [];
@@ -51,10 +54,7 @@ export class ProviderAudioCapture {
         "bytes,channels,providerMediaId,sampleRate,type" ||
       Object.values(descriptors).some((d) => !("value" in d) || !d.enumerable)
     )
-      throw new EngineError(
-        "PROVIDER_PROTOCOL_ERROR",
-        "Media output must be ordinary data",
-      );
+      protocolError("Media output must be ordinary data");
     const { providerMediaId, sampleRate, channels, bytes } = event;
     if (
       typeof providerMediaId !== "string" ||
@@ -71,10 +71,7 @@ export class ProviderAudioCapture {
           this.#sampleRate !== sampleRate ||
           this.#channels !== channels))
     )
-      throw new EngineError(
-        "PROVIDER_PROTOCOL_ERROR",
-        "Audio stream identity or layout changed",
-      );
+      protocolError("Audio stream identity or layout changed");
     if (
       this.#parts.length >= 256 ||
       bytes.byteLength > available ||
@@ -93,11 +90,7 @@ export class ProviderAudioCapture {
     return bytes.byteLength;
   }
   end(event: Extract<ProviderEvent, { type: "media.end" }>): void {
-    if (types.isProxy(event))
-      throw new EngineError(
-        "PROVIDER_PROTOCOL_ERROR",
-        "Media end must be ordinary data",
-      );
+    if (types.isProxy(event)) protocolError("Media end must be ordinary data");
     const d = Object.getOwnPropertyDescriptors(event);
     if (
       Object.keys(d).sort().join(",") !== "providerMediaId,type" ||
@@ -107,10 +100,7 @@ export class ProviderAudioCapture {
       event.providerMediaId !== this.#id ||
       this.#bytes % (this.#channels! * 2)
     )
-      throw new EngineError(
-        "PROVIDER_PROTOCOL_ERROR",
-        "Media end does not match the actual captured stream",
-      );
+      protocolError("Media end does not match the actual captured stream");
     this.#ended = true;
   }
   async store(

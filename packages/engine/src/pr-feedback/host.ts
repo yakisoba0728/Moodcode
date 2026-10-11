@@ -113,6 +113,13 @@ function fileHash(root: string, path: string): string {
     prFail("PR_SOURCE_STALE");
   return sha256Hex(data);
 }
+const POLL_FIELDS = [
+  "workspaceId",
+  "sessionId",
+  "watchId",
+  "requestId",
+  "expectedRevision",
+];
 interface SnapshotHandle {
   readonly watch: PrWatchRecord;
   readonly snapshot: PrRemoteSnapshot;
@@ -412,21 +419,14 @@ export class PrFeedbackHost {
     });
   }
   private reader(p: PrWatchPreview) {
-    let r = this.readers.get(p.apiBase);
-    if (!r) {
-      r = new GitHubPrReader(p.apiBase, this.allowLoopback);
-      this.readers.set(p.apiBase, r);
-    }
+    const r =
+      this.readers.get(p.apiBase) ??
+      new GitHubPrReader(p.apiBase, this.allowLoopback);
+    this.readers.set(p.apiBase, r);
     return r;
   }
   private pollInput(input: PollPrWatchInput) {
-    const p = prFields(input, [
-      "workspaceId",
-      "sessionId",
-      "watchId",
-      "requestId",
-      "expectedRevision",
-    ]) as unknown as PollPrWatchInput;
+    const p = prFields(input, POLL_FIELDS) as unknown as PollPrWatchInput;
     for (const x of [p.workspaceId, p.sessionId, p.watchId, p.requestId])
       prId(x);
     prInt(p.expectedRevision, 2048, 1);
@@ -532,11 +532,7 @@ export class PrFeedbackHost {
     signal?: AbortSignal,
   ) {
     const p = prFields(input, [
-      "workspaceId",
-      "sessionId",
-      "watchId",
-      "requestId",
-      "expectedRevision",
+      ...POLL_FIELDS,
       "deliveryId",
       "event",
     ]) as unknown as PollPrWatchInput & { deliveryId: string; event: string };
@@ -676,14 +672,14 @@ export class PrFeedbackHost {
     if (!input.runId)
       return { status: "pending", mergeAuthority: false, occurrence: o };
     const run = this.engine.store.getRun(input.runId),
-      state = this.engine.verificationPlans.get(sessionId, run.id);
-    if (run.state !== "completed" || !state)
-      return {
+      state = this.engine.verificationPlans.get(sessionId, run.id),
+      incomplete = {
         status: "incomplete",
         mergeAuthority: false,
         occurrence: o,
         runId: run.id,
       };
+    if (run.state !== "completed" || !state) return incomplete;
     const source = await this.verification.observe(
         {
           sessionId,
@@ -696,13 +692,7 @@ export class PrFeedbackHost {
     for (const c of plan.checks)
       this.engine.verificationChecks.assertCurrent(c);
     const receipts = this.verifiedReceipts(state, plan, source.sha256, false);
-    if (!receipts)
-      return {
-        status: "incomplete",
-        mergeAuthority: false,
-        occurrence: o,
-        runId: run.id,
-      };
+    if (!receipts) return incomplete;
     const doc = this.engine.store.getSessionDocument(
       sessionId,
       verificationDocumentKind(run.id),

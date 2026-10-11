@@ -66,10 +66,7 @@ export class ApprovalManager implements ApprovalPort {
       if (signal.aborted) throw cancelled();
       if (prior) {
         const live = this.pending.get(prior.id);
-        if (prior.status === 'pending' && !live) {
-          this.expire(prior.id, 'recovery');
-          throw expired(prior.id);
-        }
+        if (prior.status === 'pending' && !live) this.expireAndThrow(prior.id, 'recovery');
         if (!sameRequest(prior, request)) {
           throw new EngineError('APPROVAL_REQUEST_CONFLICT', 'A different approval is already bound to this tool call', { approvalId: prior.id });
         }
@@ -77,10 +74,7 @@ export class ApprovalManager implements ApprovalPort {
         if (prior.status !== 'pending') {
           throw new EngineError('APPROVAL_STALE', 'A resolved approval cannot authorize another execution', { approvalId: prior.id });
         }
-        if (!live || !sameRequest(live.input, request)) {
-          this.expire(prior.id, 'stale');
-          throw expired(prior.id);
-        }
+        if (!live || !sameRequest(live.input, request)) this.expireAndThrow(prior.id, 'stale');
         return this.wait(prior.id, live, signal);
       }
 
@@ -126,27 +120,13 @@ export class ApprovalManager implements ApprovalPort {
       this.settle(id, prior);
       return copy(prior);
     }
-    if (prior.status === 'expired') {
-      throw expired(id);
-    }
+    if (prior.status === 'expired') throw expired(id);
     const live = this.pending.get(id);
-    if (!live) {
-      this.expire(id, 'recovery');
-      throw expired(id);
-    }
-    if (!sameRequest(prior, live.input)) {
-      this.expire(id, 'stale');
-      throw expired(id);
-    }
-    if (live.cancellation) {
-      this.expire(id, 'cancelled');
-      throw expired(id);
-    }
+    if (!live) this.expireAndThrow(id, 'recovery');
+    if (!sameRequest(prior, live.input)) this.expireAndThrow(id, 'stale');
+    if (live.cancellation) this.expireAndThrow(id, 'cancelled');
     const run = this.store.getRun(prior.runId);
-    if (run.sessionId !== prior.sessionId || !active(run)) {
-      this.expire(id, 'run_inactive');
-      throw expired(id);
-    }
+    if (run.sessionId !== prior.sessionId || !active(run)) this.expireAndThrow(id, 'run_inactive');
     const record: ApprovalRecord = { ...prior, status, resolvedAt: new Date().toISOString() };
     // Failed commits leave the wait alive and permit a decision retry.
     this.store.commit(record.runId, 'approval.resolved', { ...this.payload(record), decision }, { approval: copy(record) });
@@ -233,6 +213,11 @@ export class ApprovalManager implements ApprovalPort {
       throw error;
     }
     this.settle(id, undefined, reason === 'cancelled' ? cancelled(id) : expired(id));
+  }
+
+  private expireAndThrow(id: string, reason: ExpirationReason): never {
+    this.expire(id, reason);
+    throw expired(id);
   }
 
   private settle(id: string, record?: ApprovalRecord, error?: unknown): void {

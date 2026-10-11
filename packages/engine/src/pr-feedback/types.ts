@@ -58,6 +58,7 @@ export function prInt(
     prFail();
   return v;
 }
+export const prPositive = (v: unknown) => prInt(v, Number.MAX_SAFE_INTEGER, 1);
 export function prFields(
   v: unknown,
   keys: readonly string[],
@@ -311,7 +312,7 @@ export function validatePrPolicy(v: unknown): PrPolicy {
       (q.kind === "status" && q.appId !== null)
     )
       prFail();
-    if (q.appId !== null) prInt(q.appId, Number.MAX_SAFE_INTEGER, 1);
+    if (q.appId !== null) prPositive(q.appId);
     if (seen.has(knowledgeHash(q))) prFail();
     seen.add(knowledgeHash(q));
   }

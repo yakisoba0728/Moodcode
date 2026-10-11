@@ -2,7 +2,6 @@ import { EngineError } from "@moodcode/contracts";
 import type { DatabaseSync } from "node:sqlite";
 import { SEGMENT_DOCUMENT_KIND } from "./segment-store.js";
 
-/** Shared by the admission guards and the bounded open/archive readers in native-validation.ts. */
 export const MEDIA_STORAGE_CAPS = Object.freeze({
   indexDocuments: 128,
   indexDocumentBytes: 65536,

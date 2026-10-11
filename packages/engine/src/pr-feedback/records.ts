@@ -18,6 +18,7 @@ import {
   prFail,
   prId,
   prInt,
+  prPositive,
   prDigest,
   prGitSha,
   prJson,
@@ -38,12 +39,11 @@ import {
   type RegisterPrWatchInput,
   type PrPollResult,
 } from "./types.js";
-export const prWatchKind = (id: string) =>
-  "pr.watch." + knowledgeHash(prId(id)).slice(0, 40);
-export const prOccurrenceKind = (id: string) =>
-  "pr.feedback." + knowledgeHash(prId(id)).slice(0, 40);
-export const prInputKind = (id: string) =>
-  "pr.input." + knowledgeHash(prId(id)).slice(0, 40);
+const prKind = (prefix: string) => (id: string) =>
+  prefix + knowledgeHash(prId(id)).slice(0, 40);
+export const prWatchKind = prKind("pr.watch.");
+export const prOccurrenceKind = prKind("pr.feedback.");
+export const prInputKind = prKind("pr.input.");
 export interface PrRecordPorts {
   writeTx<T>(operation: () => T): T;
   writeDocument(
@@ -241,8 +241,8 @@ function validatePrSnapshot(
   validatePrRepository(s.repository);
   prGitSha(s.base);
   prGitSha(s.head);
-  prInt(s.repositoryId, Number.MAX_SAFE_INTEGER, 1);
-  prInt(s.headRepositoryId, Number.MAX_SAFE_INTEGER, 1);
+  prPositive(s.repositoryId);
+  prPositive(s.headRepositoryId);
   validatePrRepository({ ...s.headRepository, number: s.repository.number });
   if (
     s.version !== 1 ||
@@ -275,7 +275,7 @@ function validatePrSnapshot(
       "observedRevision",
       "text",
     ]);
-    prInt(c.id, Number.MAX_SAFE_INTEGER, 1);
+    prPositive(c.id);
     prId(c.name);
     if (
       c.head !== s.head ||
@@ -285,7 +285,7 @@ function validatePrSnapshot(
       Buffer.byteLength(c.text) > 1024
     )
       prFail();
-    if (c.kind === "check") prInt(c.appId, Number.MAX_SAFE_INTEGER, 1);
+    if (c.kind === "check") prPositive(c.appId);
     else if (c.appId !== null) prFail();
     const key = prCheckKey(c);
     if (identities.has(key)) prFail();
@@ -295,8 +295,8 @@ function validatePrSnapshot(
     prFail("PR_REQUIRED_POLICY_INVALID");
   const reviewIds = new Set<number>();
   for (const r of s.reviews) {
-    prInt(r.id, Number.MAX_SAFE_INTEGER, 1);
-    prInt(r.authorId, Number.MAX_SAFE_INTEGER, 1);
+    prPositive(r.id);
+    prPositive(r.authorId);
     if (
       r.head !== s.head ||
       reviewIds.has(r.id) ||
@@ -446,7 +446,7 @@ function validatePrOccurrence(value: unknown): PrFeedbackOccurrence {
     )
       prFail("PR_REPAIR_INVALID");
     prId(o.accepted.inputId);
-    prInt(o.accepted.admittedSeq, Number.MAX_SAFE_INTEGER, 1);
+    prPositive(o.accepted.admittedSeq);
   } else if (
     o.source !== null ||
     o.accepted !== null ||
@@ -793,26 +793,9 @@ export class PrFeedbackStorage {
     );
   }
   private requestRows(session: string, id: string, requestId: string) {
-    return [
-      ...event(
-        this.db,
-        session,
-        "pr.watch.transition",
-        "id",
-        id,
-        "requestId",
-        requestId,
-      ),
-      ...event(
-        this.db,
-        session,
-        "pr.request.duplicate",
-        "id",
-        id,
-        "requestId",
-        requestId,
-      ),
-    ];
+    return ["pr.watch.transition", "pr.request.duplicate"].flatMap((type) =>
+      event(this.db, session, type, "id", id, "requestId", requestId),
+    );
   }
   request(input: PollPrWatchInput): PrPollResult | null {
     const i = prJson(input);

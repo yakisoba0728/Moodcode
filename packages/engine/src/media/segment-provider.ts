@@ -19,6 +19,9 @@ import {
 } from "./segments.js";
 import { decodeExactBase64 } from "./validation.js";
 
+function invalid(message: string): never {
+  throw new EngineError("PROVIDER_INVALID_REQUEST", message);
+}
 export interface ProviderSegmentSource {
   attachment: InputMediaAttachment;
   assets: DecodedMediaAsset[];
@@ -50,17 +53,11 @@ export function declaredMediaModels(value: unknown): ReadonlySet<string> {
 }
 function own(value: unknown, key: string): unknown {
   if (!value || typeof value !== "object" || types.isProxy(value))
-    throw new EngineError(
-      "PROVIDER_INVALID_REQUEST",
-      "Media request must contain ordinary data",
-    );
+    invalid("Media request must contain ordinary data");
   const d = Object.getOwnPropertyDescriptor(value, key);
   if (!d) return undefined;
   if (!d.enumerable || !("value" in d))
-    throw new EngineError(
-      "PROVIDER_INVALID_REQUEST",
-      "Media request cannot contain accessors",
-    );
+    invalid("Media request cannot contain accessors");
   return d.value;
 }
 function entries(value: unknown): unknown[] {
@@ -71,10 +68,7 @@ function entries(value: unknown): unknown[] {
     value.length > 4096 ||
     Reflect.ownKeys(value).length !== value.length + 1
   )
-    throw new EngineError(
-      "PROVIDER_INVALID_REQUEST",
-      "Media request requires a bounded dense array",
-    );
+    invalid("Media request requires a bounded dense array");
   return Array.from({ length: value.length }, (_, i) => own(value, String(i)));
 }
 /** Re-decodes real verified source bytes. Timestamp or frame DTOs cannot stand in for a decoder. */
@@ -93,10 +87,7 @@ export function providerSegments(
       refs = raw === undefined ? [] : attachments(raw);
     messages.push({ message, media: refs });
     if (refs.length && own(message, "role") !== "user")
-      throw new EngineError(
-        "PROVIDER_INVALID_REQUEST",
-        "Media belongs to original user inputs",
-      );
+      invalid("Media belongs to original user inputs");
     for (const ref of refs) {
       if (!supported(ref.kind))
         throw new EngineError(
@@ -112,20 +103,13 @@ export function providerSegments(
           "Media source occurrence cap exceeded",
         );
       const old = wanted.get(ref.id);
-      if (old && !sameAttachment(old, ref))
-        throw new EngineError(
-          "PROVIDER_INVALID_REQUEST",
-          "Conflicting media source",
-        );
+      if (old && !sameAttachment(old, ref)) invalid("Conflicting media source");
       wanted.set(ref.id, ref);
     }
   }
   const values = entries(own(request, "resolvedMedia") ?? []);
   if (values.length !== wanted.size)
-    throw new EngineError(
-      "PROVIDER_INVALID_REQUEST",
-      "Actual media source resolution missing",
-    );
+    invalid("Actual media source resolution missing");
   const resolved = new Map<string, ProviderSegmentSource>();
   let assets = 0,
     bytesTotal = 0;
@@ -137,10 +121,7 @@ export function providerSegments(
       !Object.hasOwn(safe, "attachment") ||
       !Object.hasOwn(safe, "data")
     )
-      throw new EngineError(
-        "PROVIDER_INVALID_REQUEST",
-        "Invalid resolved media",
-      );
+      invalid("Invalid resolved media");
     const ref = attachment(safe.attachment),
       expected = wanted.get(ref.id);
     if (
@@ -149,18 +130,14 @@ export function providerSegments(
       resolved.has(ref.id) ||
       typeof safe.data !== "string"
     )
-      throw new EngineError(
-        "PROVIDER_INVALID_REQUEST",
-        "Invalid resolved source",
-      );
-    const raw = decodeExactBase64(safe.data, ref, (stage) => {
-      throw new EngineError(
-        "PROVIDER_INVALID_REQUEST",
+      invalid("Invalid resolved source");
+    const raw = decodeExactBase64(safe.data, ref, (stage) =>
+      invalid(
         stage === "encoding"
           ? "Invalid resolved source"
           : "Source bytes changed",
-      );
-    });
+      ),
+    );
     const decoded = decodeMediaSegments(
       raw,
       ref.mimeType,
@@ -193,10 +170,7 @@ export function providerSegments(
         for (const raw of entries(own(message, family) ?? [])) {
           const value = jobJson(raw, 4096) as Record<string, unknown>;
           if (!Number.isSafeInteger(value.bytes) || Number(value.bytes) < 1)
-            throw new EngineError(
-              "PROVIDER_INVALID_REQUEST",
-              "Other media byte accounting is invalid",
-            );
+            invalid("Other media byte accounting is invalid");
           wireAssets++;
           wireBytes += Number(value.bytes);
         }
@@ -216,11 +190,7 @@ export function messageSegments(
 ): Array<{ source: InputMediaAttachment; asset: DecodedMediaAsset }> {
   return attachments(own(message, "media") ?? []).flatMap((ref) => {
     const source = sources.get(ref.id);
-    if (!source)
-      throw new EngineError(
-        "PROVIDER_INVALID_REQUEST",
-        "Actual source unavailable",
-      );
+    if (!source) invalid("Actual source unavailable");
     return source.assets.map((asset) => ({ source: source.attachment, asset }));
   });
 }

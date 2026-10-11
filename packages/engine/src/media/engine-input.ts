@@ -89,8 +89,7 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
         providerEntered = true;
         iterator = provider.streamTurn(resolved, signal)[Symbol.asyncIterator]();
       })();
-      // Forward the real cleanup result. An async-generator wrapper can become
-      // closed after inner next() throws and falsely report return().done=true.
+      // An async-generator wrapper could falsely report return().done=true after inner next() throws.
       const stream: AsyncIterableIterator<ProviderEvent> = {
         [Symbol.asyncIterator]() { return stream; },
         async next() { await initialize(); const result = await iterator!.next(); if (result.done === true) confirmedDone = true; return result; },
@@ -106,7 +105,6 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
   };
 }
 
-/** Input media stores, admission checks and the provider map whose adapters resolve engine-owned media bytes. */
 export class EngineInputMedia {
   readonly models = new ModelRegistry();
   readonly images: ImageAttachmentStore;

@@ -7,6 +7,7 @@ import {
   prFail,
   prGitSha,
   prInt,
+  prPositive,
   prRequiredState,
   prSign,
   validatePrRepository,
@@ -32,6 +33,8 @@ function text(v: unknown, max = 512): string {
     .toString("utf8")
     .replace(/\u0000/g, "");
 }
+const repoPath = (r: { owner: string; name: string }) =>
+  "/repos/" + encodeURIComponent(r.owner) + "/" + encodeURIComponent(r.name);
 function stamp(v: unknown): string {
   if (typeof v !== "string" || !Number.isFinite(Date.parse(v)))
     prFail("PR_HTTP_SCHEMA");
@@ -167,12 +170,7 @@ export class GitHubPrReader {
     signal: AbortSignal,
   ): Promise<PrRemoteSnapshot> {
     validatePrRepository(repo);
-    const prefix =
-        "/repos/" +
-        encodeURIComponent(repo.owner) +
-        "/" +
-        encodeURIComponent(repo.name),
-      pullPath = prefix + "/pulls/" + repo.number;
+    const pullPath = repoPath(repo) + "/pulls/" + repo.number;
     const first = (await this.get(pullPath, signal)) as Record<string, any>;
     if (
       first?.number !== repo.number ||
@@ -196,13 +194,7 @@ export class GitHubPrReader {
         name: headRepo.name,
         number: repo.number,
       }),
-      headPrefix =
-        "/repos/" +
-        encodeURIComponent(headIdentity.owner) +
-        "/" +
-        encodeURIComponent(headIdentity.name) +
-        "/commits/" +
-        head;
+      headPrefix = repoPath(headIdentity) + "/commits/" + head;
     const runs = await this.pages(
         headPrefix + "/check-runs?filter=all",
         "checks",
@@ -232,12 +224,8 @@ export class GitHubPrReader {
       prFail("PR_HEAD_CHANGED_DURING_READ");
     const choices = new Map<string, PrCheckSnapshot>();
     for (const r of runs) {
-      const id = prInt(r.id, Number.MAX_SAFE_INTEGER, 1),
-        appId = prInt(
-          (r.app as Record<string, unknown>)?.id,
-          Number.MAX_SAFE_INTEGER,
-          1,
-        ),
+      const id = prPositive(r.id),
+        appId = prPositive((r.app as Record<string, unknown>)?.id),
         name = text(r.name, 128);
       if (!name || r.head_sha !== head) prFail("PR_CHECK_SHA_MISMATCH");
       if (
@@ -276,7 +264,7 @@ export class GitHubPrReader {
       if (!old || id > old.id) choices.set(key, item);
     }
     for (const r of statuses) {
-      const id = prInt(r.id, Number.MAX_SAFE_INTEGER, 1),
+      const id = prPositive(r.id),
         name = text(r.context, 128);
       if (
         !name ||
@@ -310,12 +298,8 @@ export class GitHubPrReader {
     const reviewMap = new Map<number, PrReviewSnapshot>();
     for (const r of reviewRows) {
       if (r.commit_id !== head || !r.submitted_at) continue;
-      const id = prInt(r.id, Number.MAX_SAFE_INTEGER, 1),
-        authorId = prInt(
-          (r.user as Record<string, unknown>)?.id,
-          Number.MAX_SAFE_INTEGER,
-          1,
-        ),
+      const id = prPositive(r.id),
+        authorId = prPositive((r.user as Record<string, unknown>)?.id),
         state = String(r.state);
       if (!PR_REVIEW_STATES.includes(state)) prFail("PR_HTTP_SCHEMA");
       const item: PrReviewSnapshot = {
@@ -334,8 +318,8 @@ export class GitHubPrReader {
         version: 1 as const,
         provider: "github" as const,
         repository: repo,
-        repositoryId: prInt(baseRepo.id, Number.MAX_SAFE_INTEGER, 1),
-        headRepositoryId: prInt(headRepo.id, Number.MAX_SAFE_INTEGER, 1),
+        repositoryId: prPositive(baseRepo.id),
+        headRepositoryId: prPositive(headRepo.id),
         headRepository: { owner: headIdentity.owner, name: headIdentity.name },
         base,
         head,

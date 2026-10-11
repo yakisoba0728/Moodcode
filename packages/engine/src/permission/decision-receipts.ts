@@ -41,8 +41,7 @@ export function readPolicyDecisionReceipts(reader: TrajectoryReader, options: Tr
     result.inspectedThroughSeq = event.seq;
   }
   const boundaryReached = options.throughSeq !== undefined && result.inspectedThroughSeq >= options.throughSeq;
-  // Native paging may stop at its own byte cap before the count limit. Advance
-  // until an empty page or the requested boundary, never infer a global frontier.
+  // Native paging may stop at its byte cap first: advance to an empty page or the boundary, never infer a global frontier.
   if (!boundaryReached && result.inspectedThroughSeq > afterSeq) result.nextCursor = { sessionId: session.id, afterSeq: result.inspectedThroughSeq, throughSeq: options.throughSeq ?? null };
   return result;
 }
