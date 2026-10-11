@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { RunConfig, JsonObject } from "@moodcode/contracts";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { SqliteStore } from "../storage/index.js";
 import type { ChildBudget } from "../child-tasks/index.js";
 import {
@@ -24,14 +24,15 @@ export interface ChildEvidence {
   sourceIds: string[];
   sha256: string;
 }
+export type ForkParentRuntime = Pick<EngineRuntime, "store" | "coordinator">;
 const originals = new WeakMap<
   SqliteStore,
-  Map<string, { evidence: ChildEvidence; root: MoodcodeEngine }>
+  Map<string, { evidence: ChildEvidence; root: ForkParentRuntime }>
 >();
 /** Only the trusted EngineChildren creation callback populates this lifetime binding. */
 export function inheritForkChild(
-  root: MoodcodeEngine,
-  child: MoodcodeEngine,
+  root: ForkParentRuntime,
+  child: Pick<EngineRuntime, "store">,
   sessionId: string,
   parentRunId: string,
   allocation: ChildBudget,

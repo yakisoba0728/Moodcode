@@ -1,4 +1,5 @@
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { WorkflowEffects } from "../workflows/effects.js";
 import type { ActualWorkflowChildObservationPort } from "../workflows/service.js";
 import type { WorkflowInstanceRevision } from "../workflows/reducer.js";
@@ -33,6 +34,23 @@ interface LiveGroup {
   binding?: object;
   exportSha: string | null;
 }
+type CodingBatchRuntime = Pick<
+  EngineRuntime,
+  "store" | "coordinator" | "profiles" | "toolRuntime" | "children"
+> &
+  Pick<
+    MoodcodeEngine,
+    | "registerWorkflow"
+    | "previewWorkflowStart"
+    | "releaseWorkflowStartPreview"
+    | "startWorkflow"
+    | "startWorkflowStage"
+    | "observeWorkflowStage"
+    | "inspectWorkflow"
+    | "inspectWorkflowEffect"
+    | "bindWorkflowModelTools"
+    | "releaseWorkflowModelTools"
+  >;
 export class CodingBatchHost {
   private readonly consumedPreviews = new WeakSet<object>();
   private readonly previews = new Map<
@@ -59,7 +77,7 @@ export class CodingBatchHost {
     { groupId: string; workspaceId: string; sourceSha: string }
   >();
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: CodingBatchRuntime,
     private readonly native: CodingBatchStorage,
     private readonly effects: WorkflowEffects,
     private readonly children: ActualWorkflowChildObservationPort,

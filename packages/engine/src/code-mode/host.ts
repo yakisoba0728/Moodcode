@@ -6,7 +6,7 @@ import type {
   ToolCallRecord,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ToolContext, PreparedTool, ToolResult } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -15,6 +15,7 @@ import {
   describeQueueTarget,
   jobTargetChanged,
   type QueueTargetPin,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import {
   probeCodeModeRuntime,
@@ -69,7 +70,8 @@ export class CodeModeHost {
   private readonly flights = new Map<string, Flight>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<EngineRuntime, "coordinator"> &
+      QueueTargetRuntime,
     private readonly native: CodeModeStorage,
     private readonly binding: (ws: string) => KnowledgeHostBinding,
     private readonly enabled: boolean,

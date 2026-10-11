@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { PreparedTool, ToolContext, ToolDefinition } from "../ports.js";
 import type { CommandProcessControl } from "../tools/command/observation.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -80,7 +80,10 @@ export class CommandLifetimeService {
     { sha: string; promise: Promise<CommandLifetimeRecord> }
   >();
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "store" | "coordinator" | "profiles" | "toolRuntime"
+    >,
     private readonly host: HostCommandService,
     private readonly enabled: () => boolean,
   ) {

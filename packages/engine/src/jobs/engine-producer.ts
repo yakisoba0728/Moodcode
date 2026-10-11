@@ -10,7 +10,7 @@ import {
   type RunConfig,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -18,6 +18,7 @@ import {
   describeQueueTarget,
   jobTargetChanged,
   type QueueTargetPin,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import type { ActualTerminalJobPort } from "./host.js";
 import {
@@ -94,7 +95,11 @@ export class EngineJobProducer {
   private closed = false;
   private readonly journalIdentity: string;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "coordinator" | "scheduler" | "terminals"
+    > &
+      QueueTargetRuntime,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,

@@ -7,7 +7,7 @@ import {
   type ToolCallRecord,
   isTerminal,
 } from "@moodcode/contracts";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { PreparedTool, ToolContext } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -93,7 +93,7 @@ export class OwnedCommandJobHost implements CommandExecutionObserver {
   >();
   private isClosed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<EngineRuntime, "store" | "coordinator">,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,

@@ -16,9 +16,23 @@ function fail(): never {
     "The actual retained command source is unavailable, uncertain or imported",
   );
 }
+type CommandReadRuntime = Pick<
+  MoodcodeEngine,
+  | "readTerminalJobSource"
+  | "getCommandJob"
+  | "getOwnedCommandJob"
+  | "captureOwnedCommandJobOutput"
+  | "readOwnedCommandJobOutput"
+  | "releaseOwnedCommandJobHandle"
+  | "getHostCommand"
+  | "captureHostCommandOutput"
+  | "readHostCommandOutput"
+  | "readHostCommandArtifacts"
+  | "releaseHostCommandHandle"
+>;
 /** All routes begin with current private producers; historical DTOs cannot supply source authority. */
 export function captureCommandReadSource(
-  engine: MoodcodeEngine,
+  engine: CommandReadRuntime,
   terminal: EngineJobProducer,
   selection: CommandJobReadSelection,
   workspaceId: string,

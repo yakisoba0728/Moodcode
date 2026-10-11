@@ -1,4 +1,8 @@
-import { childForkContext, inheritForkChild } from "./fork-child.js";
+import {
+  childForkContext,
+  inheritForkChild,
+  type ForkParentRuntime,
+} from "./fork-child.js";
 import type { ChildBudget } from "../child-tasks/index.js";
 import { replayCompatible } from "../provider/replay.js";
 import {
@@ -13,7 +17,7 @@ import {
   normalizeSubmitInput,
   normalizeEngineBudgets,
 } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ProviderAdapter } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { projectForkTranscript } from "./fork-native.js";
@@ -73,7 +77,16 @@ export class ConversationForkHost {
   private readonly imports = new Map<object, ForkImportPreview>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      | "store"
+      | "coordinator"
+      | "scheduler"
+      | "profiles"
+      | "toolRuntime"
+      | "children"
+      | "getCapabilities"
+    >,
     private readonly binding: (workspaceId: string) => KnowledgeHostBinding,
     private readonly provider: (id: string) => ProviderAdapter | undefined,
     private readonly enabled: boolean,
@@ -371,8 +384,8 @@ export class ConversationForkHost {
     );
   }
   inheritChild(
-    parent: MoodcodeEngine,
-    child: MoodcodeEngine,
+    parent: ForkParentRuntime,
+    child: Pick<EngineRuntime, "store">,
     sessionId: string,
     parentRunId: string,
     allocation: ChildBudget,

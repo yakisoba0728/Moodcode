@@ -113,6 +113,7 @@ import { McpClient, registerMcp, type McpRegistration } from './mcp/index.js';
 import { AgentProfiles, type AgentProfileSpec } from './agents/index.js';
 import { TerminalService, SqliteTerminalJournal, type PtyBackend } from './terminals/index.js';
 import { EngineChildren, type EngineChildRequest } from './child-tasks/engine-host.js';
+import type { EngineRuntime } from './engine-runtime.js';
 import { EngineTeamOwners } from './teams/engine-owners.js';
 import { EngineWorkflowOwners } from './workflows/engine-owner.js';
 import { WorkflowHost } from './workflows/host.js';
@@ -402,7 +403,7 @@ function withInputMedia(provider: ProviderAdapter, images: ImageAttachmentStore,
   };
 }
 
-export class MoodcodeEngine {
+export class MoodcodeEngine implements EngineRuntime {
   readonly store: SqliteStore;
   readonly coordinator: RunCoordinator;
   readonly scheduler: InputScheduler;

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { EngineError, isTerminal } from '@moodcode/contracts';
-import type { MoodcodeEngine } from '../engine.js';
+import type { EngineRuntime } from '../engine-runtime.js';
 import type { TeamMemberOwnerProof, TeamMemberRevision } from './types.js';
 import { knowledgeHash } from '../knowledge/validation.js';
 
@@ -13,7 +13,7 @@ function fail(): never { throw new EngineError('TEAM_OWNER_STALE', 'Team members
 export class EngineTeamOwners {
   private readonly originals = new WeakMap<object, Capture>();
   private readonly epoch = randomUUID();
-  constructor(private readonly engine: MoodcodeEngine) {}
+  constructor(private readonly engine: Pick<EngineRuntime, 'store' | 'coordinator' | 'children'>) {}
 
   capture(selection: Selection): object {
     const session = this.engine.store.getSession(selection.rootSessionId);

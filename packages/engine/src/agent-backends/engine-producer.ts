@@ -8,6 +8,7 @@ import {
   normalizeEngineBudgets,
 } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { TurnRequest } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -123,6 +124,16 @@ function captureFile(path: string, cap: number): FilePin {
   };
 }
 
+type BackendRuntime = Pick<
+  EngineRuntime,
+  "store" | "coordinator" | "profiles" | "toolRuntime" | "getCapabilities"
+> &
+  Pick<
+    MoodcodeEngine,
+    | "captureOwnedCommandJobOutput"
+    | "readOwnedCommandJobOutput"
+    | "releaseOwnedCommandJobHandle"
+  >;
 /** Only this actual Engine can bind launch/configuration data to a provider Attempt. */
 export class EngineAgentBackendProducer implements BackendLaunchPort {
   private readonly epoch = randomUUID();
@@ -157,7 +168,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
   private readonly admittedConnections = new WeakMap<object, string>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: BackendRuntime,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,

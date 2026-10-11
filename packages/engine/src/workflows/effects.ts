@@ -10,6 +10,7 @@ import {
   type ToolCallRecord,
 } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type {
   ToolContext,
   ToolDefinition,
@@ -22,6 +23,7 @@ import { readStableFile } from "../shared/fs.js";
 import {
   describeQueueTarget,
   jobTargetChanged,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import { runGit } from "../workspace/git.js";
 import { createChildMergeTool } from "../child-tasks/merge.js";
@@ -210,7 +212,12 @@ batchPolicy?: {
 private closed = false;
   private readonly merge: ToolDefinition;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "coordinator" | "scheduler" | "children" | "verificationChecks"
+    > &
+      QueueTargetRuntime &
+      Pick<MoodcodeEngine, "getWorkflow">,
     private readonly binding: (workspaceId: string) => KnowledgeHostBinding,
     private readonly service: () => WorkflowService,
     private readonly owners: ActualWorkflowOwnerPort,

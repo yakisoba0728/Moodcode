@@ -6,6 +6,7 @@ import { randomUUID } from "node:crypto";
 import { relative, resolve, isAbsolute } from "node:path";
 import { existsSync, realpathSync } from "node:fs";
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ToolContext, PreparedTool } from "../ports.js";
 import type { RunConfigInput, JsonObject } from "@moodcode/contracts";
 import { normalizeSubmitInput } from "@moodcode/contracts/validation";
@@ -15,6 +16,7 @@ import { knowledgeHash } from "../knowledge/validation.js";
 import {
   describeQueueTarget,
   jobTargetChanged,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import { McpClient } from "../mcp/client.js";
 import { StdioMcpTransport } from "../mcp/stdio.js";
@@ -60,7 +62,12 @@ export class SandboxHost implements CommandExecutionObserver {
   private readonly mcpBinders = new WeakMap<object, () => SandboxRecord>();
   private readonly childGuards = new Map<string, () => void>();
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "coordinator" | "lifecycleHooks"
+    > &
+      QueueTargetRuntime &
+      Pick<MoodcodeEngine, "connectMcp">,
     private readonly native: SandboxStorage,
     private readonly options: {
       enabled: boolean;

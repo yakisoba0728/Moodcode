@@ -2,6 +2,7 @@ import { teamObject, teamId, teamSha, teamInteger } from "./validation.js";
 import { randomUUID, createHash } from "node:crypto";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ToolContext } from "../ports.js";
 import type { TeamMemberRevision, TeamTaskRevision } from "./types.js";
 import {
@@ -184,7 +185,11 @@ export function validateTeamBoardRecord(value: unknown): TeamBoardRecord {
 /** Advisory submissions/reviews; actual effects always use the ordinary native tools and approval. */
 export class TeamWorkflowBoard {
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<EngineRuntime, "store"> &
+      Pick<
+        MoodcodeEngine,
+        "getTeamMember" | "getTeamTask" | "readTeamTaskPage"
+      >,
     private readonly complete: (
       input: import("./service.js").TeamTaskMutationInput,
     ) => unknown,

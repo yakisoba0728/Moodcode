@@ -1,6 +1,6 @@
 import { EngineError, type EngineBudgets, type RunConfig } from '@moodcode/contracts';
 import { normalizeEngineBudgets, normalizeSubmitInput } from '@moodcode/contracts/validation';
-import type { MoodcodeEngine } from '../engine.js';
+import type { EngineRuntime } from '../engine-runtime.js';
 import type { KnowledgeHostBinding } from '../knowledge/types.js';
 import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
 import { exactKeys, isBoundedId, isSha256 } from '../shared/data.js';
@@ -91,8 +91,9 @@ export function jobTargetChanged(change: QueueTargetChange): never {
   throw new EngineError(code, message);
 }
 export interface QueueTarget { readonly pin: QueueTargetPin; readonly binding: KnowledgeHostBinding; readonly catalogue: ToolCatalogue }
+export type QueueTargetRuntime = Pick<EngineRuntime, 'store' | 'profiles' | 'toolRuntime' | 'getCapabilities'>;
 /** Pins the current session, provider, profile and tool catalogue; each producer retains its own ORIGINAL authority. */
-export function describeQueueTarget(engine: MoodcodeEngine, readBinding: (workspaceId: string) => KnowledgeHostBinding, workspaceId: string, sessionId: string,
+export function describeQueueTarget(engine: QueueTargetRuntime, readBinding: (workspaceId: string) => KnowledgeHostBinding, workspaceId: string, sessionId: string,
   input: RunConfig, changed: (change: QueueTargetChange) => never): QueueTarget {
   const config = { ...input, budgets: normalizeEngineBudgets(input.budgets) };
   const binding = readBinding(workspaceId);

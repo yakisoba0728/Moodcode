@@ -3,7 +3,7 @@ import { lstatSync, realpathSync } from "node:fs";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolContext } from "../ports.js";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -148,7 +148,10 @@ export class HostCommandService {
   >();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "store" | "coordinator" | "toolRuntime"
+    >,
     private readonly native: HostCommandStorage,
     private readonly checkBinding: (id: string) => KnowledgeHostBinding,
     private readonly options: {

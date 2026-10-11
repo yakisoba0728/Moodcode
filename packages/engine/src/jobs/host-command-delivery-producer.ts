@@ -1,6 +1,8 @@
-import type { MoodcodeEngine } from "../engine.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
-import { EngineCommandDeliveryProducer } from "./command-delivery-input.js";
+import {
+  EngineCommandDeliveryProducer,
+  type CommandDeliveryRuntime,
+} from "./command-delivery-input.js";
 import type { EngineHostCommandDeliverySource } from "./host-command-delivery-source.js";
 import {
   HOST_COMMAND_RESULT_PROFILE,
@@ -13,7 +15,7 @@ export class EngineHostCommandDeliveryProducer extends EngineCommandDeliveryProd
   HostCommandDeliveryTargetProof
 > {
   constructor(
-    engine: MoodcodeEngine,
+    engine: CommandDeliveryRuntime,
     checkBinding: (workspaceId: string) => KnowledgeHostBinding,
     enabled: () => boolean,
     source: EngineHostCommandDeliverySource,

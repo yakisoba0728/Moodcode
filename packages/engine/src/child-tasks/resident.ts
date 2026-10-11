@@ -15,6 +15,7 @@ import {
 } from "@moodcode/contracts";
 import { normalizeEngineBudgets } from "@moodcode/contracts/validation";
 import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ChildBudget, ChildOutcome, ChildTaskRecord } from "./index.js";
 import {
   CHILD_BUDGET_KEYS,
@@ -283,8 +284,12 @@ export class ResidentChild {
   private lastContent = "";
   private mirrorRevision = 0;
   constructor(
-    private readonly root: MoodcodeEngine,
-    readonly engine: MoodcodeEngine,
+    private readonly root: Pick<EngineRuntime, "store">,
+    readonly engine: Pick<
+      EngineRuntime,
+      "store" | "coordinator" | "scheduler" | "profiles" | "toolRuntime"
+    > &
+      Pick<MoodcodeEngine, "waitForRun">,
     readonly task: ChildTaskRecord,
     readonly config: RunConfig,
     initial: Run,

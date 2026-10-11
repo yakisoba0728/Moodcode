@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { types } from "node:util";
 import { EngineError, type JsonObject } from "@moodcode/contracts";
 import type { ToolContext, ToolDefinition, PreparedTool } from "../ports.js";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { sameCanonical } from "../shared/canonical.js";
 import {
@@ -107,7 +107,10 @@ export class CommandJobModelHost {
   private snapshotCount = 0;
   private snapshotBytes = 0;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      "store" | "coordinator" | "profiles"
+    >,
     private readonly enabled: () => boolean,
     private readonly captureSource: (
       selection: CommandJobReadSelection,

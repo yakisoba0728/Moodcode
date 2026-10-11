@@ -6,7 +6,7 @@ import { types } from "node:util";
 import { setTimeout as delay } from "node:timers/promises";
 import { EngineError, type InputRecord, type Run } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
@@ -23,6 +23,7 @@ import type {
 import {
   describeQueueTarget,
   jobTargetChanged,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import { GitHubPrReader, PrHttpError, validatePrApiBase } from "./github.js";
 import { PrFeedbackStorage, validatePrPreview } from "./records.js";
@@ -136,7 +137,15 @@ export class PrFeedbackHost {
   private readonly firstDispatch = new Set<string>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      | "coordinator"
+      | "scheduler"
+      | "repository"
+      | "verificationChecks"
+      | "verificationPlans"
+    > &
+      QueueTargetRuntime,
     readonly records: PrFeedbackStorage,
     private readonly binding: (workspaceId: string) => KnowledgeHostBinding,
     private readonly verification: VerificationHostService,

@@ -7,12 +7,13 @@ import {
   type RunConfigInput,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   describeQueueTarget,
   jobTargetChanged,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import type {
@@ -30,6 +31,12 @@ import {
   jobJson,
   signJobData,
 } from "./validation.js";
+
+export type CommandDeliveryRuntime = Pick<
+  EngineRuntime,
+  "coordinator" | "scheduler"
+> &
+  QueueTargetRuntime;
 
 export function acceptedRequest(input: InputRecord): AcceptInput {
   return {
@@ -281,7 +288,7 @@ export class EngineCommandDeliveryProducer<
   private readonly retained = new Set<object>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: CommandDeliveryRuntime,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,
@@ -289,7 +296,7 @@ export class EngineCommandDeliveryProducer<
     private readonly source: CommandSettledSource<S>,
     private readonly profile: CommandResultProfile<S, P>,
     private readonly findDelivery: (
-      store: MoodcodeEngine["store"],
+      store: EngineRuntime["store"],
       input: {
         workspaceId: string;
         sessionId: string;

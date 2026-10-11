@@ -11,7 +11,7 @@ import {
 import { join } from "node:path";
 import { types } from "node:util";
 import type { Run } from "@moodcode/contracts";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
@@ -130,7 +130,15 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
   private readonly retained = new Set<object>();
   private readonly epoch = randomUUID();
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<
+      EngineRuntime,
+      | "store"
+      | "coordinator"
+      | "profiles"
+      | "toolRuntime"
+      | "children"
+      | "getCapabilities"
+    >,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,

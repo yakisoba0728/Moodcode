@@ -6,7 +6,7 @@ import {
   type Run,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { ChildTaskRecord } from "./index.js";
 import {
   childStoragePhysicalIdentity,
@@ -39,7 +39,7 @@ export interface ChildTeamInputEvidence extends ChildTeamTarget {
 }
 export interface LiveChildTeamExecution {
   task: ChildTaskRecord;
-  engine: MoodcodeEngine;
+  engine: Pick<EngineRuntime, "store" | "coordinator">;
   sessionId: string;
   runId: string;
   closed: boolean;

@@ -1,6 +1,6 @@
 import { realpath } from 'node:fs/promises';
 import { EngineError, type Run } from '@moodcode/contracts';
-import type { MoodcodeEngine } from '../engine.js';
+import type { EngineRuntime } from '../engine-runtime.js';
 import type { ToolContext } from '../ports.js';
 import { acquireExecutionLock } from '../tools/command/execution-lock.js';
 import { delegationBaseCommit } from '../worktrees/safe-checkout.js';
@@ -11,7 +11,7 @@ import { DELEGATION_READ_TOOLS, assertDelegationBudget, delegationDigest, delega
 import { childRequestFingerprint, childRequestKind } from './storage-binding.js';
 
 export interface EngineDelegationPorts {
-  engine: MoodcodeEngine;
+  engine: Pick<EngineRuntime, 'store' | 'coordinator' | 'profiles' | 'toolRuntime' | 'getCapabilities'>;
   worktrees: WorktreeManager;
   tasks: ChildTaskManager;
   executionLockPath: string;

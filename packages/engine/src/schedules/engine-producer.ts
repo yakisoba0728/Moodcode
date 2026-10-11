@@ -8,12 +8,13 @@ import {
   type RunConfig,
 } from "@moodcode/contracts";
 import { normalizeAcceptInput } from "@moodcode/contracts/validation";
-import type { MoodcodeEngine } from "../engine.js";
+import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import {
   describeQueueTarget,
   type QueueTargetChange,
+  type QueueTargetRuntime,
 } from "../runner/queue-target.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
@@ -89,7 +90,8 @@ export class EngineScheduleProducer {
   private readonly retained = new Set<object>();
   private closed = false;
   constructor(
-    private readonly engine: MoodcodeEngine,
+    private readonly engine: Pick<EngineRuntime, "coordinator" | "scheduler"> &
+      QueueTargetRuntime,
     private readonly checkBinding: (
       workspaceId: string,
     ) => KnowledgeHostBinding,

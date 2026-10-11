@@ -11,7 +11,16 @@ export class EngineHostCommandDeliverySource {
     object,
     { handle: object; pin: HostCommandSettlementPin }
   >();
-  constructor(private readonly engine: MoodcodeEngine) {}
+  constructor(
+    private readonly engine: Pick<
+      MoodcodeEngine,
+      | "getHostCommand"
+      | "captureHostCommandOutput"
+      | "readHostCommandOutput"
+      | "readHostCommandArtifacts"
+      | "releaseHostCommandHandle"
+    >,
+  ) {}
   captureSettledSource(input: { workspaceId: string; jobId: string }): object {
     const record = this.engine.getHostCommand(input.workspaceId, input.jobId);
     if (!record)
