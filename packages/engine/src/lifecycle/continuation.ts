@@ -15,7 +15,6 @@ import type {
 import type { SqliteStore } from "../storage/index.js";
 import type {
   VerificationController,
-  VerificationControllerSnapshot,
   VerificationRemainingBudget,
 } from "../verification/controller.js";
 import {
@@ -32,7 +31,6 @@ import {
   verificationNumber,
   verificationPlain,
   verificationText,
-  type VerificationSnapshot,
   type VerificationSource,
 } from "../verification/types.js";
 import { boundedLifecycleJson, freezeLifecycle } from "./validation.js";
@@ -177,12 +175,8 @@ export function createLifecycleContinuationPort(
     return { ...current };
   };
   const read = (run: Run, boundary: VerificationBoundary): Graph | null => {
-    const controller: VerificationControllerSnapshot | null =
-        ports.controller.get(run.sessionId, run.id),
-      snapshot: VerificationSnapshot | null = ports.plans.get(
-        run.sessionId,
-        run.id,
-      );
+    const controller = ports.controller.get(run.sessionId, run.id),
+      snapshot = ports.plans.get(run.sessionId, run.id);
     if (
       !controller ||
       !snapshot ||

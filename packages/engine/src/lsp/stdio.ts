@@ -392,8 +392,7 @@ export class StdioLspConnection implements LspConnection {
     }
     this.pending.clear();
     this.listeners.clear();
-    // Observe the background rejection while preserving the original close
-    // promise so an explicit host close still receives cleanup uncertainty.
+    // Observe the background rejection; an explicit close() still gets the same cleanup promise.
     void this.shutdown().catch(() => {});
   }
   close(): Promise<void> {

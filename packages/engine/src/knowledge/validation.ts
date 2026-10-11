@@ -9,7 +9,6 @@ import {
 } from "../shared/canonical.js";
 import {
   assertNativeSignal,
-  exactKeys,
   plainJson,
   plainRecord,
   recordGuards,
@@ -68,13 +67,6 @@ function object(value: unknown): ObjectValue {
     );
   return value as ObjectValue;
 }
-function fields(value: ObjectValue, names: readonly string[]): void {
-  if (!exactKeys(value, names))
-    knowledgeError(
-      "INVALID_KNOWLEDGE",
-      "Knowledge object fields do not match the contract",
-    );
-}
 const RECORD_FAULTS: Record<RecordFault, string> = {
   id: "Knowledge identity must be bounded text",
   integer: "Knowledge count must be a bounded nonnegative safe integer",
@@ -97,7 +89,7 @@ export const {
   stamp,
   seal: withKnowledgeHash,
 } = guards;
-const { sha: digest, verify } = guards;
+const { sha: digest, verify, exact: fields } = guards;
 export function resealKnowledge<T extends { readonly sha256: string }>(
   record: T,
   patch: Partial<Omit<T, "sha256">>,

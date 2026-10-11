@@ -172,16 +172,19 @@ export class KnowledgeStorage {
     integer(value, 8_640_000_000_000_000);
     return stamp(new Date(value).toISOString());
   }
-  private row(
+  private record<T extends KnowledgeArchiveData>(
     table: KnowledgeStorageTable,
     id: string,
     workspaceId: string,
-  ): DataRow | undefined {
-    return this.#db
+  ): T | undefined {
+    identifier(workspaceId);
+    identifier(id);
+    const row = this.#db
       .prepare(
         `SELECT id,workspace_id,data FROM ${table} WHERE id=? AND workspace_id=?`,
       )
       .get(id, workspaceId) as DataRow | undefined;
+    return row ? (this.decode(row, table) as T) : undefined;
   }
   private decode(
     row: DataRow,
@@ -218,7 +221,6 @@ export class KnowledgeStorage {
       )
       .run(...values);
   }
-  /** Read-only descriptive binding, useful when constructing an exact host trust preview. */
   readHostBinding(workspaceId: string): KnowledgeHostBinding {
     identifier(workspaceId);
     const workspace = immutableKnowledgeJson(
@@ -262,13 +264,12 @@ export class KnowledgeStorage {
       );
   }
   getTrust(workspaceId: string): TrustRevision | undefined {
-    identifier(workspaceId);
-    const row = this.row("workspace_trust_heads", workspaceId, workspaceId);
-    if (!row) return undefined;
-    const head = this.decode(
-      row,
+    const head = this.record<KnowledgeTrustHead>(
       "workspace_trust_heads",
-    ) as KnowledgeTrustHead;
+      workspaceId,
+      workspaceId,
+    );
+    if (!head) return undefined;
     const revision = this.getTrustRevision(workspaceId, head.revisionId);
     if (!revision || revision.revision !== head.revision)
       knowledgeError(
@@ -281,12 +282,7 @@ export class KnowledgeStorage {
     workspaceId: string,
     revisionId: string,
   ): TrustRevision | undefined {
-    identifier(workspaceId);
-    identifier(revisionId);
-    const row = this.row("workspace_trust_revisions", revisionId, workspaceId);
-    return row
-      ? (this.decode(row, "workspace_trust_revisions") as TrustRevision)
-      : undefined;
+    return this.record("workspace_trust_revisions", revisionId, workspaceId);
   }
   /** Active authority requires the exact current revision, physical binding and live source hashes. */
   assertTrusted(workspaceId: string, expectedRevision: number): TrustRevision {
@@ -540,15 +536,7 @@ export class KnowledgeStorage {
     workspaceId: string,
     planId: string,
   ): KnowledgeGenerationPlan | undefined {
-    identifier(workspaceId);
-    identifier(planId);
-    const row = this.row("knowledge_generation_plans", planId, workspaceId);
-    return row
-      ? (this.decode(
-          row,
-          "knowledge_generation_plans",
-        ) as KnowledgeGenerationPlan)
-      : undefined;
+    return this.record("knowledge_generation_plans", planId, workspaceId);
   }
   /** Descriptive plans must still match the exact stored plan and current host scope. */
   assertGenerationPlanCurrent(input: KnowledgeGenerationPlan): void {
@@ -772,12 +760,7 @@ export class KnowledgeStorage {
     workspaceId: string,
     candidateId: string,
   ): KnowledgeCandidate | undefined {
-    identifier(workspaceId);
-    identifier(candidateId);
-    const row = this.row("knowledge_candidates", candidateId, workspaceId);
-    return row
-      ? (this.decode(row, "knowledge_candidates") as KnowledgeCandidate)
-      : undefined;
+    return this.record("knowledge_candidates", candidateId, workspaceId);
   }
   /** Indexed historical lookup supports finishing a completed owner without replaying its provider. */
   getCandidateByGeneration(

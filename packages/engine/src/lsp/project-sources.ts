@@ -84,15 +84,15 @@ export async function captureTypeScriptProjectSources(
         "UNSAFE_LSP_WORKSPACE",
         "Project sources require the canonical ordinary workspace root",
       );
+    const at = (relative: string) =>
+      relative ? join(workspace.root, relative) : workspace.root;
+    const stat = (relative: string) => lstat(at(relative), { bigint: true });
     const directories = new Map<string, string>();
     const paths: string[] = [];
     let entries = 0;
     async function walk(relative: string): Promise<void> {
       check(observedSignal);
-      const absolute = relative
-        ? join(workspace.root, relative)
-        : workspace.root;
-      const before = await lstat(absolute, { bigint: true });
+      const before = await stat(relative);
       if (!before.isDirectory() || before.isSymbolicLink())
         fail(
           "LSP_PROJECT_SOURCE_STALE",
@@ -106,7 +106,7 @@ export async function captureTypeScriptProjectSources(
         directory: boolean;
         ordinary?: boolean;
       }[] = [];
-      const directory = await opendir(absolute);
+      const directory = await opendir(at(relative));
       for await (const entry of directory) {
         check(observedSignal);
         if (++entries > TYPESCRIPT_PROJECT_SOURCE_LIMITS.entries)
@@ -174,13 +174,9 @@ export async function captureTypeScriptProjectSources(
             const index = cursor++,
               path = paths[index]!;
             check(observedSignal);
-            const before = await lstat(join(workspace.root, path), {
-              bigint: true,
-            });
+            const before = await stat(path);
             const file = await readExactText(workspace, path, observedSignal);
-            const after = await lstat(join(workspace.root, path), {
-              bigint: true,
-            });
+            const after = await stat(path);
             if (identity(before) !== identity(after))
               fail(
                 "LSP_PROJECT_SOURCE_STALE",
@@ -202,10 +198,7 @@ export async function captureTypeScriptProjectSources(
     if (failedRead?.status === "rejected") throw failedRead.reason;
     for (const [path, captured] of fileIdentities) {
       check(observedSignal);
-      if (
-        identity(await lstat(join(workspace.root, path), { bigint: true })) !==
-        captured
-      )
+      if (identity(await stat(path)) !== captured)
         fail(
           "LSP_PROJECT_SOURCE_STALE",
           "Project file changed before snapshot completion",
@@ -213,13 +206,7 @@ export async function captureTypeScriptProjectSources(
     }
     for (const [path, captured] of directories) {
       check(observedSignal);
-      if (
-        identity(
-          await lstat(path ? join(workspace.root, path) : workspace.root, {
-            bigint: true,
-          }),
-        ) !== captured
-      )
+      if (identity(await stat(path)) !== captured)
         fail(
           "LSP_PROJECT_SOURCE_STALE",
           "Project membership changed before snapshot completion",

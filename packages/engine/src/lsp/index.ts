@@ -16,6 +16,7 @@ import {
   endPosition,
   lineStarts,
   positionOffset,
+  type TextPosition,
   type TextRange,
 } from "../formatters/edits.js";
 import { HOST_ID, LANGUAGE_ID, type LspConnection } from "./stdio.js";
@@ -25,7 +26,6 @@ import {
   type LspNavigationKind,
   type LspNavigationSnapshot,
 } from "./navigation.js";
-import type { TextPosition } from "../formatters/edits.js";
 import type { LspProjectSourceSnapshot } from "./project-sources.js";
 export * from "./navigation.js";
 export * from "./typescript-native.js";
@@ -672,8 +672,7 @@ export class LspManager {
         "FORMAT_PREIMAGE_STALE",
         "File or synchronized document changed during formatting",
       );
-    const version = doc.version;
-    const hash = doc.hash;
+    const { version, hash } = doc;
     const edits = await this.request(
       entry,
       "textDocument/formatting",
@@ -766,9 +765,8 @@ export class LspManager {
           "LSP_NAVIGATION_STALE",
           "The synchronized document changed during navigation",
         );
-      const version = doc.version,
-        hash = doc.hash;
-      const source = { content: doc.content, hash };
+      const { version, hash } = doc,
+        source = { content: doc.content, hash };
       if (position) positionOffset(source.content, position);
       const activeSignal = AbortSignal.any([
         operationSignal,

@@ -59,8 +59,7 @@ async function invoke(
     }, timeoutMs);
     if (signal.aborted) abort();
   });
-  // Both handlers remain attached after the race. A late rejection never escapes
-  // as an unhandled rejection, and a late result is never published or cached.
+  // Handlers stay attached after the race: a late rejection is observed and a late result is dropped.
   const callback: Promise<CallbackSettlement> = Promise.resolve()
     .then(async (): Promise<CallbackSettlement> => {
       if (combined.aborted) return { kind: "cancel" } as const;
@@ -72,8 +71,7 @@ async function invoke(
     .catch(() => ({ kind: "error" }) as const);
   try {
     const result = await Promise.race([callback, interruption]);
-    // JavaScript cannot preempt a synchronous host callback. Its result still
-    // loses authority when it blocked the event loop past its deadline.
+    // A synchronous callback cannot be preempted; one that blocked past its deadline loses authority.
     if (
       (result.kind === "result" || result.kind === "error") &&
       performance.now() - started >= timeoutMs
@@ -163,8 +161,7 @@ async function dispatch(
       ...(code ? { code } : {}),
       ...(reason ? { reason } : {}),
       outcomes,
-      // A transform is usable only on the fully current successful observation
-      // path. Hash receipts may remain as evidence after a later hook denies.
+      // Transforms apply only on a completed observe; their hash receipts stay as evidence otherwise.
       ...(action === "observe" && status === "completed"
         ? {
             ...(inputRewrite ? { inputRewrite } : {}),
@@ -220,31 +217,24 @@ async function dispatch(
       stage: invocation.stage,
       elapsedMs: Math.max(0, Math.round(performance.now() - callbackStarted)),
     };
-    if (signal.aborted || settled.kind === "cancel") {
-      outcomes.push({
-        ...base,
-        status: "cancelled",
-        action: "stop",
-        code: "LIFECYCLE_CANCELLED",
-      });
-      return finish(
-        "stop",
+    const stop = (
+      status: "cancelled" | "stale",
+      code: string,
+      reason: string,
+    ): LifecycleDispatchOutcome => {
+      outcomes.push({ ...base, status, action: "stop", code });
+      return finish("stop", status, code, reason);
+    };
+    if (signal.aborted || settled.kind === "cancel")
+      return stop(
         "cancelled",
         "LIFECYCLE_CANCELLED",
         "Lifecycle callback was cancelled",
       );
-    }
     try {
       registry.assertCurrent(capture);
     } catch {
-      outcomes.push({
-        ...base,
-        status: "stale",
-        action: "stop",
-        code: "LIFECYCLE_REGISTRY_STALE",
-      });
-      return finish(
-        "stop",
+      return stop(
         "stale",
         "LIFECYCLE_REGISTRY_STALE",
         "Lifecycle registry changed while the callback was running",
@@ -273,7 +263,7 @@ async function dispatch(
             );
           const effectiveSha256 = jsonTextSha256(result.input),
             inputBytes = Buffer.byteLength(JSON.stringify(result.input));
-          const updated = lifecycleInvocation(
+          currentInvocation = lifecycleInvocation(
             {
               ...currentInvocation,
               metadata: {
@@ -289,7 +279,6 @@ async function dispatch(
             originalSha256: invocation.metadata.inputSha256,
             effectiveSha256,
           };
-          currentInvocation = updated;
           transform = {
             kind: result.kind,
             expectedInputSha256: result.expectedInputSha256,
@@ -401,8 +390,7 @@ async function dispatch(
             ? "LIFECYCLE_HOOK_TIMEOUT"
             : "LIFECYCLE_HOOK_FAILED"),
         action = descriptor.failurePolicy;
-      // Do not publish arbitrary callback exception text: it can contain request
-      // data or host secrets. The stable typed failure code is sufficient here.
+      // Callback exception text can carry request data or host secrets; only the typed code is published.
       outcomes.push({
         ...base,
         status: settled.kind === "timeout" ? "timed-out" : "failed",

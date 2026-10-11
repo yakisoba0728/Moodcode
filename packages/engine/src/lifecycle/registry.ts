@@ -36,6 +36,11 @@ interface LifecycleCaptureState {
   >;
   released: boolean;
 }
+const released = () =>
+  new EngineError(
+    "LIFECYCLE_CAPTURE_RELEASED",
+    "Lifecycle capture is no longer active",
+  );
 
 /** Explicit trusted host registration only. This registry never discovers or executes workspace hook files. */
 export class LifecycleHookRegistry {
@@ -211,21 +216,12 @@ export class LifecycleHookRegistry {
     const state = this.captureState(capture);
     if (state.released) return;
     state.released = true;
-    state.abort.abort(
-      new EngineError(
-        "LIFECYCLE_CAPTURE_RELEASED",
-        "Lifecycle capture is no longer active",
-      ),
-    );
+    state.abort.abort(released());
     state.invocations.clear();
   }
   assertCurrent(capture: LifecycleCapture): void {
     const state = this.captureState(capture);
-    if (state.released)
-      throw new EngineError(
-        "LIFECYCLE_CAPTURE_RELEASED",
-        "Lifecycle capture is no longer active",
-      );
+    if (state.released) throw released();
     if (capture.registryRevision !== this.generation)
       throw new EngineError(
         "LIFECYCLE_REGISTRY_STALE",

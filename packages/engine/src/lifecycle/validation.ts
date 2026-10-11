@@ -57,14 +57,11 @@ export function lifecycleLimits(
     );
   return Object.freeze(result);
 }
-/** Per model turn: before-model, after-model and model-context for the turn's
- * context and each of its bounded steer and catalogue rebuilds (16 each). */
+// Per turn: before/after-model plus model-context for the turn and up to 16 steer and 16 catalogue rebuilds.
 const RUN_TURN_INVOCATIONS = 35;
-/** Per tool call: tool-prepare, tool-prepared and tool-settled. */
+// Per tool call: prepare, prepared, settled. Per Run: completed, post-continuation and failure before-stop.
 const RUN_TOOL_INVOCATIONS = 3;
-/** Completed, post-continuation and failure before-stop. */
 const RUN_STOP_INVOCATIONS = 3;
-/** A Run capture admits the invocations its turn and tool limits imply, no fewer than the configured bound and no more than its maximum. */
 export function lifecycleInvocationLimit(
   limits: Readonly<LifecycleLimits>,
   run?: Readonly<Pick<RunLimits, "maxTurns" | "maxToolCalls">>,
@@ -107,6 +104,14 @@ export function boundedLifecycleJson(
   let nodes = 0,
     minimumBytes = 0;
   const parents = new Set<object>();
+  const charge = (bytes: number) => {
+    minimumBytes += bytes;
+    if (minimumBytes > maxBytes)
+      throw new EngineError(
+        "LIFECYCLE_METADATA_LIMIT",
+        "Lifecycle JSON exceeds its byte limit",
+      );
+  };
   const clone = (item: unknown, depth: number): JsonValue => {
     if (++nodes > 512 || depth > 8)
       throw new EngineError(
@@ -118,12 +123,7 @@ export function boundedLifecycleJson(
       typeof item === "boolean" ||
       (typeof item === "number" && Number.isFinite(item))
     ) {
-      minimumBytes += JSON.stringify(item).length;
-      if (minimumBytes > maxBytes)
-        throw new EngineError(
-          "LIFECYCLE_METADATA_LIMIT",
-          "Lifecycle JSON exceeds its byte limit",
-        );
+      charge(JSON.stringify(item).length);
       return item;
     }
     if (typeof item === "string") {
@@ -132,12 +132,7 @@ export function boundedLifecycleJson(
           "LIFECYCLE_METADATA_LIMIT",
           "Lifecycle string exceeds its byte limit",
         );
-      minimumBytes += Buffer.byteLength(item) + 2;
-      if (minimumBytes > maxBytes)
-        throw new EngineError(
-          "LIFECYCLE_METADATA_LIMIT",
-          "Lifecycle JSON exceeds its byte limit",
-        );
+      charge(Buffer.byteLength(item) + 2);
       return item;
     }
     if (
@@ -176,7 +171,7 @@ export function boundedLifecycleJson(
     const entries = keys.filter(
       (key) => !(array && key === "length"),
     ) as string[];
-    minimumBytes += 2 + Math.max(0, entries.length - 1);
+    let bytes = 2 + Math.max(0, entries.length - 1);
     for (const key of entries) {
       const descriptor = descriptors[key]!;
       if (
@@ -189,13 +184,9 @@ export function boundedLifecycleJson(
           "INVALID_LIFECYCLE_METADATA",
           "Lifecycle JSON keys and values must be plain enumerable data",
         );
-      if (!array) minimumBytes += Buffer.byteLength(key) + 3;
+      if (!array) bytes += Buffer.byteLength(key) + 3;
     }
-    if (minimumBytes > maxBytes)
-      throw new EngineError(
-        "LIFECYCLE_METADATA_LIMIT",
-        "Lifecycle JSON exceeds its byte limit",
-      );
+    charge(bytes);
     if (
       array &&
       (entries.length !== item.length ||
@@ -236,6 +227,10 @@ const sha = (value: unknown) =>
   typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 const isJsonObject = (value: unknown): value is JsonObject =>
   !!value && typeof value === "object" && !Array.isArray(value);
+const oneOf =
+  (...values: string[]) =>
+  (value: unknown) =>
+    values.includes(value as string);
 export function lifecycleIdentity(
   identity: unknown,
 ): Readonly<LifecycleRunIdentity> {
@@ -301,8 +296,7 @@ const schemas: Record<
       providerId: scalarString,
       modelId: scalarString,
       turnIndex: integer,
-      finishReason: (value) =>
-        ["stop", "tool_calls", "length"].includes(value as string),
+      finishReason: oneOf("stop", "tool_calls", "length"),
       toolCallCount: integer,
       outputBytes: integer,
     },
@@ -330,10 +324,7 @@ const schemas: Record<
     required: {
       toolCallId: scalarString,
       toolName: scalarString,
-      outcome: (value) =>
-        ["completed", "failed", "denied", "interrupted"].includes(
-          value as string,
-        ),
+      outcome: oneOf("completed", "failed", "denied", "interrupted"),
       outputBytes: integer,
     },
     optional: {
@@ -341,14 +332,12 @@ const schemas: Record<
       attemptId: scalarString,
       fingerprint: (value) => scalarString(value, 1_024),
       errorCode: scalarString,
-      cleanup: (value) =>
-        ["confirmed", "uncertain", "not-dispatched"].includes(value as string),
+      cleanup: oneOf("confirmed", "uncertain", "not-dispatched"),
     },
   },
   "before-stop": {
     required: {
-      outcome: (value) =>
-        ["completed", "failed", "cancelled"].includes(value as string),
+      outcome: oneOf("completed", "failed", "cancelled"),
       turnCount: integer,
       toolCallCount: integer,
       outputBytes: integer,
