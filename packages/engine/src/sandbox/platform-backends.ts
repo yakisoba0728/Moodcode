@@ -153,13 +153,8 @@ export interface GitControlPaths {
   literal: readonly string[];
   subpath: readonly string[];
 }
-/**
- * Writes that let unsandboxed Git later run planted hooks or config commands or
- * switch to a planted gitdir: `<root>/.git` control entries, plus the effective
- * hooks directory and every config include target inside a write grant, with each
- * directory entry on their way there so they cannot be renamed or re-pointed.
- * Reads and other `.git` writes stay allowed.
- */
+/** Denied writes that would let unsandboxed Git run planted hooks/config or switch gitdir: `<root>/.git` control entries,
+ * the effective hooks directory and config include targets inside a write grant, plus every directory entry on the way. */
 export function gitControlPaths(
   root: string,
   writePaths: readonly string[],

@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { EngineError, SESSION_SCHEMA_VERSION, type JsonValue, type MessagePart, type ProviderAttempt, type ProviderToolCall, type Run, type TurnRecord } from '@moodcode/contracts';
 import type { EngineStore, ExecutionRecordStore, ProviderAdapter, ProviderEvent, ProviderMessage, TurnRequest } from '../ports.js';
 import { BudgetAccount } from '../config/budgets.js';
 import type { AttemptCleanupSettlement } from '../storage/attempt-cleanup.js';
+import { sha256Hex } from '../shared/canonical.js';
 
 type Wait = <T>(operation: () => Promise<T>, signal: AbortSignal, label: string) => Promise<T>;
 const timestamp = () => new Date().toISOString();
@@ -48,10 +49,9 @@ export class TurnExecutor {
       this.attempt = { schemaVersion: SESSION_SCHEMA_VERSION, id: randomUUID(), sessionId: this.turn.sessionId, runId: this.turn.runId, turnId: this.id, index,
         providerId: provider.id, modelId: request.modelId, state: 'prepared', createdAt: timestamp(), ...(contextRevisionId ? { contextRevisionId } : {}) };
       this.records?.putAttempt(this.attempt);
-      // Each attempt owns detached data; adapter mutation must not change the
-      // original tools/messages used by a retry or its durable request digest.
+      // Detached per attempt: adapter mutation must not reach a retry's tools/messages or the request digest.
       const dispatchedRequest: TurnRequest = structuredClone({ ...request, turnId: this.id, attemptId: this.attempt.id, ...(this.records ? { includeMetadata: true } : {}) });
-      const encoded = JSON.stringify(dispatchedRequest), requestSha256 = createHash('sha256').update(encoded).digest('hex');
+      const encoded = JSON.stringify(dispatchedRequest), requestSha256 = sha256Hex(encoded);
       const cleanupStore = this.records?.createAttemptCleanup && this.records.dispatchAttemptCleanup && this.records.settleAttemptCleanup ? this.records : undefined;
       if (this.records && [this.records.createAttemptCleanup, this.records.dispatchAttemptCleanup, this.records.settleAttemptCleanup].some(Boolean) && !cleanupStore) {
         throw new EngineError('CLEANUP_UNCERTAIN', 'Provider cleanup storage is only partially configured');
@@ -73,19 +73,17 @@ export class TurnExecutor {
       let failure: unknown;
       try {
         if (combined.aborted) throw combined.reason;
-        // Validate the fixed logical request on every attempt, including after retry backoff.
-        // A stale source ends this Turn; it must not silently replace a retry's messages.
+        // Revalidated on every attempt; a stale source ends this Turn instead of replacing a retry's messages.
         if (this.options.assertContextFresh) {
           const checking = structuredClone(dispatchedRequest);
           await this.options.wait(() => this.options.assertContextFresh!(checking, combined), combined, 'Context freshness');
           if (combined.aborted) throw combined.reason;
-          if (createHash('sha256').update(JSON.stringify(checking)).digest('hex') !== requestSha256)
+          if (sha256Hex(JSON.stringify(checking)) !== requestSha256)
             throw new EngineError('CONTEXT_REVISION_STALE', 'Context freshness validation attempted to rewrite a frozen request');
           if (this.options.currentContextRevisionId && this.options.currentContextRevisionId() !== contextRevisionId)
             throw new EngineError('CONTEXT_REVISION_STALE', 'Context revision changed during attempt freshness validation');
         }
-        // Record dispatch intent first. If its transaction fails, the ordinary
-        // attempt still has no dispatch timestamp and can prove no-dispatch.
+        // Intent first: if its transaction fails, the attempt has no dispatch timestamp and proves no-dispatch.
         this.options.beforeAdapterIntent?.(dispatchedRequest, combined);
         cleanupStore?.dispatchAttemptCleanup!(this.attempt.id); cleanupDispatched = true;
         const dispatched: ProviderAttempt = { ...this.attempt, state: 'dispatched', dispatchedAt: timestamp() };
@@ -111,8 +109,7 @@ export class TurnExecutor {
         failure = (combined.aborted ? combined.reason : error) ?? new EngineError('PROVIDER_ERROR', 'Provider failed without an error value');
       } finally {
         clearTimeout(requestTimer); clearTimeout(inactivityTimer);
-        // This finally also runs when the consumer closes at a yield. The outer
-        // generator closing is not evidence that the actual provider has closed.
+        // Also runs when the consumer closes at a yield, which is no evidence the provider closed.
         const reason = streamDone ? 'natural-done' : signal.aborted ? 'cancel' : failure !== undefined ? 'error' : 'consumer-close';
         let settlement: AttemptCleanupSettlement;
         if (streamDone) settlement = { outcome: 'confirmed', method: 'iterator-next-done', reason };
@@ -121,8 +118,7 @@ export class TurnExecutor {
           timerAbort.abort(new EngineError('PROVIDER_STREAM_CLOSED', 'Provider attempt stream is closing'));
           let method: AttemptCleanupSettlement['method'] = 'iterator-unavailable';
           if (iterator) {
-            // Reading a custom iterator's return or done property can itself
-            // fail. Such a failure is an unknown cleanup observation as well.
+            // Reading a custom iterator's return or done can itself throw; that is also an unknown cleanup.
             let close: AsyncIterator<ProviderEvent>['return'];
             try { close = iterator.return; } catch { method = 'return-rejected'; }
             if (method !== 'return-rejected') {
@@ -194,9 +190,7 @@ export class TurnExecutor {
       message: 'Execution dispatch, effects or cleanup could not be established', requiresRecovery: true as const,
       ...(this.summaryDependency ? { summaryDependency: this.summaryDependency } : {}) };
     if (this.attempt && !SETTLED.includes(this.attempt.state)) {
-      // A cleanup dispatch intent can be uncertain even when the separate
-      // ordinary dispatch transaction failed. Preserve that prepared boundary;
-      // the cleanup row and uncertain Turn continue to block new execution.
+      // Cleanup intent can be uncertain even if the ordinary dispatch failed; the cleanup row and uncertain Turn still block execution.
       const attemptState = ambiguous && this.attempt.state === 'prepared' && !this.attempt.dispatchedAt ? 'interrupted' : state;
       this.attempt = { ...this.attempt, state: attemptState, completedAt: timestamp(), ...(attemptState === 'uncertain' ? { uncertainty: reason } : {}) };
       this.records?.putAttempt(this.attempt);

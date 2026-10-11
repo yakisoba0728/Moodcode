@@ -286,10 +286,7 @@ function operationFromRow(row: Row): RestoreOperation {
   }
 }
 
-/**
- * Separate durable audit history; never updates terminal Runs or primary journal rows.
- * Each start/finish commits a FULL synchronous SQLite transaction before returning.
- */
+/** Separate durable audit history (never terminal Runs or primary journal rows); each start/finish commits a FULL synchronous transaction. */
 export class ReviewJournal {
   private readonly db: DatabaseSync;
   private readonly owner: DatabaseSync;

@@ -128,15 +128,7 @@ export class SandboxHost implements CommandExecutionObserver {
     this.childGuards.get(g.sessionId)?.();
     let captured: RunConfig = g.target.config;
     if (config) {
-      const cfg = normalizeSubmitInput(
-        {
-          sessionId: g.sessionId,
-          requestId: "sandbox-validation",
-          prompt: "sandbox-validation",
-          config,
-        },
-        this.engine.getCapabilities().defaults,
-      ).config;
+      const cfg = this.normalized(g.sessionId, "sandbox-validation", config);
       if (knowledgeHash(cfg) === g.target.runConfigSha256) captured = cfg;
       else if (
         !originalResident ||
@@ -144,16 +136,29 @@ export class SandboxHost implements CommandExecutionObserver {
       )
         sandboxError("SANDBOX_TARGET_STALE");
     }
-    const target = describeQueueTarget(
-      this.engine,
-      this.options.binding,
-      g.workspaceId,
-      g.sessionId,
-      captured,
-      jobTargetChanged,
-    ).pin;
+    const target = this.target(g.workspaceId, g.sessionId, captured);
     if (knowledgeHash(target) !== knowledgeHash(g.target))
       sandboxError("SANDBOX_TARGET_STALE");
+  }
+  private normalized(
+    sessionId: string,
+    label: string,
+    config: RunConfigInput,
+  ): RunConfig {
+    return normalizeSubmitInput(
+      { sessionId, requestId: label, prompt: label, config },
+      this.engine.getCapabilities().defaults,
+    ).config;
+  }
+  private target(workspaceId: string, sessionId: string, config: RunConfig) {
+    return describeQueueTarget(
+      this.engine,
+      this.options.binding,
+      workspaceId,
+      sessionId,
+      config,
+      jobTargetChanged,
+    ).pin;
   }
   async preview(input: PreviewSandboxGrantInput): Promise<object> {
     this.active();
@@ -196,23 +201,8 @@ export class SandboxHost implements CommandExecutionObserver {
     for (const p of [...read, ...write])
       if (excluded.some((e) => p === e || p.startsWith(e + "/")))
         sandboxError("SANDBOX_PATH");
-    const config = normalizeSubmitInput(
-        {
-          sessionId: x.sessionId,
-          requestId: "sandbox-preview",
-          prompt: "sandbox-preview",
-          config: x.config,
-        },
-        this.engine.getCapabilities().defaults,
-      ).config,
-      target = describeQueueTarget(
-        this.engine,
-        this.options.binding,
-        x.workspaceId,
-        x.sessionId,
-        config,
-        jobTargetChanged,
-      ).pin,
+    const config = this.normalized(x.sessionId, "sandbox-preview", x.config),
+      target = this.target(x.workspaceId, x.sessionId, config),
       { pins, profile } = restriction(root, read, write, excluded),
       launch = seatbeltLaunch(
         this.backend.executable!.path,
@@ -348,8 +338,7 @@ export class SandboxHost implements CommandExecutionObserver {
     const run = this.engine.store.getRun(context.runId),
       g = this.grants.get(context.sessionId);
     if (!g) sandboxError("SANDBOX_GRANT_REQUIRED");
-    // The private resident guard authenticates this exact current native Run,
-    // its saved configuration and remaining lifetime allocation before narrowing.
+    // The resident guard authenticates this Run, its saved config and remaining allocation before narrowing.
     const originalResident =
       this.childGuards.has(context.sessionId) &&
       assertResidentProviderDispatch(this.engine, run);
@@ -403,11 +392,14 @@ export class SandboxHost implements CommandExecutionObserver {
       entry.record.revision,
     );
   }
-  started(original: object, pid: number) {
+  private entry(original: object, phase: "start" | "settle"): Flight {
     const e = this.entries.get(original);
     if (!e) sandboxError("SANDBOX_ORIGINAL_REQUIRED");
-    this.engine.coordinator.readOwnedCommandContext(e.context, "start");
-    this.update(e, "running", { groupPid: pid });
+    this.engine.coordinator.readOwnedCommandContext(e.context, phase);
+    return e;
+  }
+  started(original: object, pid: number) {
+    this.update(this.entry(original, "start"), "running", { groupPid: pid });
   }
   output(
     _original: object,
@@ -415,11 +407,8 @@ export class SandboxHost implements CommandExecutionObserver {
     _bytes: Buffer,
   ): void {}
   closed(original: object, c: CommandExecutionCompletion) {
-    const e = this.entries.get(original);
-    if (!e) sandboxError("SANDBOX_ORIGINAL_REQUIRED");
-    this.engine.coordinator.readOwnedCommandContext(e.context, "settle");
     this.update(
-      e,
+      this.entry(original, "settle"),
       c.outcome.cleanupConfirmed && !c.observationFailure
         ? "closed"
         : "uncertain",
@@ -469,9 +458,7 @@ export class SandboxHost implements CommandExecutionObserver {
         });
     child.backend = g.backend;
     const cfg = child.engine.getCapabilities().defaults as RunConfigInput,
-      target = describeQueueTarget(
-        child.engine,
-        child.options.binding,
+      target = child.target(
         workspace.id,
         sessionId,
         child.engine.profiles.apply(
@@ -483,8 +470,7 @@ export class SandboxHost implements CommandExecutionObserver {
             config: cfg,
           }).config,
         ),
-        jobTargetChanged,
-      ).pin,
+      ),
       read = map(g.readPaths),
       write = map(g.writePaths),
       excluded = child.options.excluded,
@@ -566,13 +552,9 @@ export class SandboxHost implements CommandExecutionObserver {
         !g.readPaths.some((p) => pin.path === p || pin.path.startsWith(p + "/"))
       )
         sandboxError("SANDBOX_PATH");
-    const profile = seatbeltProfile(
-        g.readPaths,
-        [],
-        g.excluded,
-        [realpathSync(process.execPath)],
-        null,
-      ),
+    const readonlyProfile = (grant: SandboxGrant) =>
+        seatbeltProfile(grant.readPaths, [], grant.excluded, [realpathSync(process.execPath)], null),
+      profile = readonlyProfile(g),
       launch = sandboxSign({
         ...g.launch,
         profile,
@@ -608,15 +590,7 @@ export class SandboxHost implements CommandExecutionObserver {
         sandboxError("SANDBOX_MCP_UNBOUND");
       this.current(current);
       for (const pin of pins) assertPin(pin);
-      if (
-        seatbeltProfile(
-          current.readPaths,
-          [],
-          current.excluded,
-          [realpathSync(process.execPath)],
-          null,
-        ) !== profile
-      )
+      if (readonlyProfile(current) !== profile)
         sandboxError("SANDBOX_MCP_GRANT_STALE");
       return launch;
     };
@@ -675,14 +649,7 @@ export class SandboxHost implements CommandExecutionObserver {
     try {
       const connected = await this.engine.connectMcp(client);
       registered = true;
-      expectedTarget = describeQueueTarget(
-        this.engine,
-        this.options.binding,
-        g.workspaceId,
-        g.sessionId,
-        g.target.config,
-        jobTargetChanged,
-      ).pin;
+      expectedTarget = this.target(g.workspaceId, g.sessionId, g.target.config);
       this.mcpBinders.set(client, () => {
         this.active();
         if (binding) sandboxError("SANDBOX_MCP_ALREADY_BOUND");

@@ -5,6 +5,8 @@ import path from 'node:path';
 import { EngineError, isTerminal, type Checkpoint, type CheckpointFile, type FileDiff, type ReviewDiff, type Run, type Workspace } from '@moodcode/contracts';
 import type { EngineStore } from '../ports.js';
 import { sha256Hex } from '../shared/canonical.js';
+import { isSha256 } from '../shared/data.js';
+import { sameIdentity } from '../shared/fs.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from '../tools/command/execution-lock.js';
 
 const MAX_SESSIONS = 1_000;
@@ -15,7 +17,6 @@ const MAX_FILE_BYTES = 16 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 32 * 1024 * 1024;
 const MAX_REVIEW_BYTES = 64 * 1024 * 1024;
 const MAX_RESTORE_METADATA_BYTES = 4 * 1024 * 1024;
-const SHA256 = /^[a-f0-9]{64}$/;
 
 export interface RestoreOptions {
   executionLockPath?: string;
@@ -79,7 +80,7 @@ function assertRestoreActive(signal?: AbortSignal): void {
 function validateRestoreOptions(options: RestoreOptions): void {
   if (typeof options !== 'object' || options === null || Array.isArray(options)
     || options.executionLockPath !== undefined && (typeof options.executionLockPath !== 'string' || !path.isAbsolute(options.executionLockPath) || options.executionLockPath.includes('\0'))
-    || options.previewFingerprint !== undefined && (typeof options.previewFingerprint !== 'string' || !SHA256.test(options.previewFingerprint))
+    || options.previewFingerprint !== undefined && !isSha256(options.previewFingerprint)
     || options.signal !== undefined && (typeof options.signal !== 'object' || options.signal === null || typeof options.signal.aborted !== 'boolean' || typeof options.signal.addEventListener !== 'function')) {
     throw new EngineError('INVALID_RESTORE_OPTIONS', 'Restore options require an absolute lock path, AbortSignal, and optional SHA-256 preview fingerprint');
   }
@@ -87,7 +88,7 @@ function validateRestoreOptions(options: RestoreOptions): void {
 
 function imageProblem(content: string | null, expectedHash: string | null): string | undefined {
   if (content === null) return expectedHash === null ? undefined : 'Absent image has a non-null hash';
-  if (typeof content !== 'string' || typeof expectedHash !== 'string' || !SHA256.test(expectedHash)) return 'Invalid content image or SHA-256 hash';
+  if (typeof content !== 'string' || !isSha256(expectedHash)) return 'Invalid content image or SHA-256 hash';
   if (Buffer.byteLength(content, 'utf8') > MAX_FILE_BYTES) return 'Content image exceeds the per-file restoration limit';
   if (Buffer.from(content, 'utf8').toString('utf8') !== content) return 'Recorded content is not representable as exact UTF-8 text';
   return sha256Hex(content) === expectedHash ? undefined : 'Recorded content does not match its SHA-256 hash';
@@ -114,8 +115,7 @@ export function getReviewDiff(store: EngineStore, runId: string): ReviewDiff {
   };
   chargeText(runId);
   let recordedFiles = 0;
-  // Bound already-loaded history before sorting or hashing. The store port returns
-  // a full array: truly streaming memory bounds need a paged checkpoint lookup.
+  // Bound loaded history before sorting or hashing; true streaming bounds would need a paged checkpoint lookup.
   for (const checkpoint of checkpoints) {
     charge(256);
     for (const value of [checkpoint.id, checkpoint.runId, checkpoint.toolCallId, checkpoint.kind, checkpoint.createdAt]) chargeText(value);
@@ -280,12 +280,7 @@ async function safeTarget(root: string, relative: string, signal?: AbortSignal):
   for (const component of parts.slice(0, -1)) {
     assertRestoreActive(signal);
     current = path.join(current, component);
-    let info: Stats;
-    try { info = await lstat(current); }
-    catch (error) {
-      if (errorCode(error) === 'ENOENT') throw new RestoreConflictError('Parent directory is missing; directory effects are outside this checkpoint');
-      throw error;
-    }
+    const info = await checkedLstat(current, 'Parent directory is missing; directory effects are outside this checkpoint');
     if (info.isSymbolicLink() || !info.isDirectory()) throw new RestoreConflictError('Parent path is a symlink or is no longer a directory');
   }
   return path.join(root, ...parts);
@@ -299,18 +294,14 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function sameFile(left: Stats, right: Stats): boolean {
-  return left.dev === right.dev && left.ino === right.ino;
-}
-
 function sameObservation(left: Stats, right: Stats): boolean {
-  return sameFile(left, right) && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs && right.nlink === 1;
+  return sameIdentity(left, right) && left.size === right.size && left.mtimeMs === right.mtimeMs && left.ctimeMs === right.ctimeMs && right.nlink === 1;
 }
 
-async function checkedLstat(absolute: string): Promise<Stats> {
+async function checkedLstat(absolute: string, missing = 'Target disappeared after its content was checked'): Promise<Stats> {
   try { return await lstat(absolute); }
   catch (error) {
-    if (errorCode(error) === 'ENOENT') throw new RestoreConflictError('Target disappeared after its content was checked');
+    if (errorCode(error) === 'ENOENT') throw new RestoreConflictError(missing);
     throw error;
   }
 }
@@ -356,12 +347,7 @@ function pathCounts(checkpoint: Checkpoint): Map<string, number> {
 
 async function guardPresent(root: string, file: CheckpointFile, writable: boolean, signal?: AbortSignal) {
   const absolute = await safeTarget(root, file.path, signal);
-  let initial: Stats;
-  try { initial = await lstat(absolute); }
-  catch (error) {
-    if (errorCode(error) === 'ENOENT') throw new RestoreConflictError('Current file is missing; it does not match the recorded postimage');
-    throw error;
-  }
+  const initial = await checkedLstat(absolute, 'Current file is missing; it does not match the recorded postimage');
   if (!initial.isFile() || initial.isSymbolicLink() || initial.nlink !== 1) throw new RestoreConflictError('Current target is not a regular file with a single link');
   let handle;
   try { handle = await open(absolute, (writable ? constants.O_RDWR : constants.O_RDONLY) | constants.O_NOFOLLOW | constants.O_NONBLOCK); }
@@ -371,7 +357,7 @@ async function guardPresent(root: string, file: CheckpointFile, writable: boolea
   }
   try {
     const opened = await handle.stat();
-    if (!opened.isFile() || opened.nlink !== 1 || !sameFile(initial, opened)) throw new RestoreConflictError('Current target changed while it was being opened');
+    if (!opened.isFile() || opened.nlink !== 1 || !sameIdentity(initial, opened)) throw new RestoreConflictError('Current target changed while it was being opened');
     if (opened.size !== Buffer.byteLength(file.after ?? '', 'utf8')) throw new RestoreConflictError('Current file size does not match the recorded postimage; external edits were preserved');
     const { sha256 } = await hashHandle(handle, signal);
     const observed = await handle.stat();
@@ -407,7 +393,7 @@ async function observeCurrent(root: string, relative: string, signal?: AbortSign
   const handle = await open(absolute, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
     const opened = await handle.stat();
-    if (!opened.isFile() || opened.nlink !== 1 || !sameFile(initial, opened)) throw new RestoreConflictError('Target identity changed during observation');
+    if (!opened.isFile() || opened.nlink !== 1 || !sameIdentity(initial, opened)) throw new RestoreConflictError('Target identity changed during observation');
     if (opened.size > MAX_FILE_BYTES) throw new RestoreConflictError('Current file exceeds the restoration read limit');
     const { sha256, bytes } = await hashHandle(handle, signal);
     const observed = await handle.stat();
@@ -448,8 +434,7 @@ async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint,
   if (activeRunIds.length) warnings.push('An active workspace Run prevents restoration; the readonly preview made no effects.');
   if (!options.executionLockPath) warnings.push('No shared execution lock is configured; the caller must serialize restoration with workspace effects.');
   const sortedRuns = [...activeRunIds].sort();
-  // The fingerprint binds restore targets and observed state. A caller may add
-  // the shared lease after a readonly preview without changing those targets.
+  // Binds targets and observed state, so a caller may add the shared lease after a readonly preview.
   const fingerprint = sha256Hex(JSON.stringify({ version: 1, workspaceId: workspace.id, root: workspace.root, checkpointId: checkpoint.id, runId: checkpoint.runId, toolCallId: checkpoint.toolCallId, files, identities, activeRunIds: sortedRuns, warnings: restoreWarnings(checkpoint) }));
   return { checkpointId: checkpoint.id, runId: checkpoint.runId, workspaceId: workspace.id, atomic: false, fingerprint, files, diff, activeRunIds: sortedRuns, canRestore: !sortedRuns.length && files.every((file) => file.status === 'ready'), warnings,
     limits: { maxFiles: MAX_FILES, maxFileBytes: MAX_FILE_BYTES, maxTotalBytes: MAX_TOTAL_BYTES, maxMetadataBytes: MAX_RESTORE_METADATA_BYTES }, totalBytes };
@@ -549,7 +534,7 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
           const target = await guardPresent(checkedWorkspace.root, file, file.before !== null, checkedOptions.signal);
           try {
             const initial = preflightIdentity.get(file);
-            if (initial && !sameFile(initial, target.observed)) throw new RestoreConflictError('Target identity changed after restoration preflight; the replacement file was preserved');
+            if (initial && !sameIdentity(initial, target.observed)) throw new RestoreConflictError('Target identity changed after restoration preflight; the replacement file was preserved');
             if (file.before === null) {
               await safeTarget(checkedWorkspace.root, file.path, checkedOptions.signal);
               const current = await checkedLstat(target.absolute);
@@ -593,8 +578,7 @@ export async function restoreCheckpoint(store: EngineStore, workspace: Workspace
     if (checkedOptions.signal?.aborted && attempted.some((attempt) => attempt.mayHaveChanged)) result.cancelled = true;
     return result;
   } finally {
-    // Ignore abort during accounting: every started effect must settle and be
-    // observed before a known partial failure/cancellation releases the marker.
+    // Ignore abort here: every started effect is observed before a partial failure/cancellation releases the marker.
     for (const attempt of attempted) {
       if (!attempt.mayHaveChanged) continue;
       try {

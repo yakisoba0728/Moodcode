@@ -4,9 +4,9 @@ import {
   type RunConfigInput,
 } from "@moodcode/contracts";
 import { types } from "node:util";
-import { createHash } from "node:crypto";
 import type { ScheduleTargetPin } from "../schedules/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 import type { SandboxLaunch } from "../tools/command/process-control.js";
 export type { SandboxLaunch };
 export const SANDBOX_LIMITS = Object.freeze({
@@ -98,8 +98,7 @@ export function sandboxObject<T>(input: T, keys: readonly string[]): T {
     sandboxError("SANDBOX_INVALID");
   return c;
 }
-export const sandboxSha = (value: string | Uint8Array) =>
-  createHash("sha256").update(value).digest("hex");
+export const sandboxSha = sha256Hex;
 export function sandboxSign<T extends object>(body: T): T & { sha256: string } {
   const { sha256: _old, ...clean } = body as T & { sha256?: string };
   return sandboxJson({ ...clean, sha256: knowledgeHash(clean) }) as T & {

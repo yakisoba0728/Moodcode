@@ -13,6 +13,7 @@ import {
   type SandboxRecord,
 } from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { isSha256 } from "../shared/data.js";
 import { readBoundedBody } from "../storage/evidence-read.js";
 import {
   findEventPayloads,
@@ -58,11 +59,7 @@ function caps(db: DatabaseSync): void {
       sandboxError("SANDBOX_LIMIT");
   }
 }
-/**
- * Admission keeps room for the new head and for every head's remaining
- * revisions plus one paused-import revision, pruning the oldest closed chains
- * that no MCP binding references. Other states are never pruned.
- */
+/** Keeps room for a new head and every head's remaining revisions plus one paused-import revision by pruning the oldest unreferenced closed chains. */
 function reclaim(db: DatabaseSync, records: readonly SandboxRecord[]): void {
   const { rowBytes, totalBytes } = SANDBOX_LIMITS,
     need = { rows: 0, eventBytes: 0, headBytes: 0 },
@@ -182,8 +179,6 @@ export function sameRestriction(a: SandboxGrant, b: SandboxGrant): boolean {
     ]);
   return restriction(a) === restriction(b);
 }
-const hex = (value: unknown): boolean =>
-  typeof value === "string" && /^[a-f0-9]{64}$/.test(value);
 function path(value: unknown): boolean {
   return (
     typeof value === "string" &&
@@ -209,7 +204,7 @@ function validatePin(input: unknown): void {
     !["device", "inode", "mode", "size", "mtimeNs"].every(
       (k) => typeof p[k] === "string" && /^\d{1,32}$/.test(p[k] as string),
     ) ||
-    (p.kind === "file" ? !hex(p.sha256) : p.sha256 !== null)
+    (p.kind === "file" ? !isSha256(p.sha256) : p.sha256 !== null)
   )
     sandboxError("SANDBOX_RECORD_INVALID");
 }
@@ -268,10 +263,10 @@ function validateSandboxRecord(input: unknown): SandboxRecord {
     g.target.workspaceId !== g.workspaceId ||
     g.target.sessionId !== g.sessionId ||
     g.version !== 1 ||
-    !hex(g.ownerEpoch) ||
-    !hex(g.rootBindingSha256) ||
-    !hex(r.requestSha256) ||
-    (r.previousSha256 !== null && !hex(r.previousSha256)) ||
+    !isSha256(g.ownerEpoch) ||
+    !isSha256(g.rootBindingSha256) ||
+    !isSha256(r.requestSha256) ||
+    (r.previousSha256 !== null && !isSha256(r.previousSha256)) ||
     typeof r.id !== "string" ||
     !r.id ||
     typeof r.requestId !== "string" ||
@@ -289,7 +284,7 @@ function validateSandboxRecord(input: unknown): SandboxRecord {
     backend.fileIsolation !== true ||
     backend.networkIsolation !== true ||
     backend.descendantIsolation !== true ||
-    !hex(backend.evidenceSha256) ||
+    !isSha256(backend.evidenceSha256) ||
     backend.code !== null
   )
     sandboxError("SANDBOX_RECORD_INVALID");
@@ -307,7 +302,7 @@ function validateSandboxRecord(input: unknown): SandboxRecord {
     Buffer.byteLength(g.profile) > SANDBOX_LIMITS.profileBytes ||
     launch.version !== 1 ||
     launch.backend !== backend.backend ||
-    !hex(launch.grantSha256) ||
+    !isSha256(launch.grantSha256) ||
     launch.profile !== g.profile ||
     launch.executable !== backend.executable.path ||
     (r.groupPid !== null &&
@@ -340,7 +335,7 @@ function validateSandboxRecord(input: unknown): SandboxRecord {
       validateCommandArtifactDescriptor(r.completion.stderr);
       if (
         typeof r.completion.checkpointId !== "string" ||
-        !hex(r.completion.checkpointSha256) ||
+        !isSha256(r.completion.checkpointSha256) ||
         !Array.isArray(r.completion.partialEffects) ||
         r.completion.partialEffects.some((p: unknown) => typeof p !== "string")
       )

@@ -88,9 +88,7 @@ export class RunToolDiscovery {
       if (pending.action === 'replace') bases.push(new Set(pending.names));
       else for (const name of pending.names) added.add(name);
     }
-    // Uncommitted replacement cannot release capacity for another operation.
-    // Check every replacement base with all outstanding adds, regardless of
-    // commit/discard order. Regular coordinator state tools execute serially.
+    // Uncommitted replacements release no capacity: every base must fit all outstanding adds, in any commit order (state tools run serially).
     for (const base of bases) this.names(source, new Set([...base, ...added]));
     const payload = {
       query, registryRevision: source.revision, policyVersion: source.policyVersion,

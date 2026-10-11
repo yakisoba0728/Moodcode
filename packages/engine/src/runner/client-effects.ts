@@ -1,7 +1,7 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
-import { dirname, isAbsolute, relative, sep } from 'node:path';
+import { dirname, isAbsolute } from 'node:path';
 import { types } from 'node:util';
 import { EngineError, type JsonObject, type JsonValue, type Message, type ProviderToolCall, type ToolCallRecord } from '@moodcode/contracts';
 import type { CoordinatorOptions, ProviderRequestOwner, ToolContext, ToolResult, TurnRequest } from '../ports.js';
@@ -11,6 +11,8 @@ import {
 } from '../agent-backends/client-effects.js';
 import type { ChildBudget } from '../child-tasks/index.js';
 import { immutableKnowledgeJson, knowledgeHash, sha256, withKnowledgeHash } from '../knowledge/validation.js';
+import { sha256Hex } from '../shared/canonical.js';
+import { within } from '../shared/fs.js';
 import { checkAbort, TERMINAL_TOOL_STATES, uncertain } from './abort.js';
 import type { Owner } from './index.js';
 import type { ApprovedMcpToolOwner } from './mcp-execution-observer.js';
@@ -67,8 +69,7 @@ function settledTool(proof: ProviderRequestOwner, toolCallId: string, providerTo
 async function assertParentInside(root: string, path: string): Promise<void> {
   for (let at = dirname(path); ;) {
     try {
-      const rel = relative(root, await realpath(at));
-      if (rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) throw new EngineError('PATH_OUTSIDE_WORKSPACE', 'Client write parent escaped the workspace');
+      if (!within(root, await realpath(at))) throw new EngineError('PATH_OUTSIDE_WORKSPACE', 'Client write parent escaped the workspace');
       return;
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -99,7 +100,7 @@ async function captureSourceHash(path: string): Promise<string | null> {
       const after = await source.stat();
       if (position > 1048576 || after.size !== opened.size || after.mtimeMs !== opened.mtimeMs || after.ctimeMs !== opened.ctimeMs || position !== after.size)
         throw new EngineError('UNSAFE_PATCH_PATH', 'The bounded source changed during capture');
-      return createHash('sha256').update(bytes.subarray(0, position)).digest('hex');
+      return sha256Hex(bytes.subarray(0, position));
     } finally {
       try { await source.close(); }
       catch { throw new EngineError('CLEANUP_UNCERTAIN', 'The source capture descriptor did not confirm closure'); }

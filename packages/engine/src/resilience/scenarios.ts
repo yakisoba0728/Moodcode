@@ -212,8 +212,7 @@ export async function runLocalScenario(
       );
     }
     const calls = reopenedProviders.calls();
-    // In the known-cancelled alternative only the original queued observer can run;
-    // unknown cancellation never grants replay or clears quarantine.
+    // Only a known cancellation lets the queued observer run; unknown cancellation never replays or clears quarantine.
     assert.equal(calls.command, 0);
     assert.equal(
       calls.observer,

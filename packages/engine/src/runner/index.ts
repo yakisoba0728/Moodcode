@@ -36,14 +36,12 @@ import { ProviderClientEffects, type OriginalProviderRequest } from './client-ef
 import { ToolOwnerContexts } from './tool-owner-context.js';
 
 const CLEANUP_GRACE_MS = 1_000;
-// Closing the owned generator can join a pending wait, then the adapter's
-// separate one-second return deadline and its durable settlement.
+// Closing the generator can join a pending wait, then the adapter's one-second return deadline and its settlement.
 const PROVIDER_CLEANUP_GRACE_MS = CLEANUP_GRACE_MS * 3;
 const EFFECT_TOOLS = new Set(['apply_patch', 'run_command']);
 const READ_TOOLS = new Set(['list_files', 'read_file', 'search_files']);
 const COMMAND_LIFETIME_TOOLS = new Set(['run_command_job', 'command_job_input', 'wait_command_job']);
 
-/** Routes settled tools to the deprecated per-feature CoordinatorOptions hooks. */
 function deprecatedHookParticipant(options: CoordinatorOptions): RunParticipant {
   return { toolSettled: tool => {
     if (COMMAND_LIFETIME_TOOLS.has(tool.name)) options.onCommandLifetimeToolSettled?.(tool);
@@ -249,9 +247,7 @@ export class RunCoordinator implements CoordinatorPort {
 
   /** Current native state paired with the original configuration of this actual owner. */
   getOwnedActiveRun(runId: string): Run {
-    const owner = this.owners.get(runId);
-    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Run requires its original active coordinator owner');
-    this.assertLive(owner);
+    const owner = this.liveOwner(runId, 'Run requires its original active coordinator owner');
     const current = this.options.store.getRun(runId);
     if (current.sessionId !== owner.run.sessionId || current.workspaceId !== owner.run.workspaceId || JSON.stringify(current.config) !== JSON.stringify(owner.run.config) || current.prompt !== owner.run.prompt) throw new EngineError('RUN_OWNER_STALE', 'Native Run changed after original admission');
     return structuredClone({ ...owner.run, state: current.state });
@@ -422,13 +418,16 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   assertWorkspaceAvailable(workspaceId: string, excludedRunId?: string): void {
-    // A queued drain during an audit decision must wait without changing the
-    // session's durable pause. The decision owns this temporary reservation.
+    // A drain during an audit decision waits without changing the durable pause; the decision owns this reservation.
     if (this.workspaceLeases.get(workspaceId)?.summaryRecovery) throw new EngineError('WORKSPACE_BUSY', 'A summary recovery decision is in progress');
     this.assertWorkspaceCleanupConfirmed(workspaceId);
     if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
-    if (this.options.store.hasActiveRuns) { if (this.options.store.hasActiveRuns(workspaceId, excludedRunId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run'); }
-    else for (const session of this.options.store.listSessions(workspaceId)) if (this.options.store.getSnapshot(session.id).runs.some(run => run.id !== excludedRunId && !isTerminal(run.state))) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run');
+    if (this.hasActiveRun(workspaceId, excludedRunId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace has an active Run');
+  }
+  // Persisted runs can be active without a local owner; legacy stores without hasActiveRuns scan snapshots.
+  private hasActiveRun(workspaceId: string, excludedRunId?: string): boolean {
+    return this.options.store.hasActiveRuns?.(workspaceId, excludedRunId)
+      ?? this.options.store.listSessions(workspaceId).some(session => this.options.store.getSnapshot(session.id).runs.some(run => run.id !== excludedRunId && !isTerminal(run.state)));
   }
 
   /** Resume may coexist with a live Run, but must never clear uncertain cleanup. */
@@ -475,11 +474,7 @@ export class RunCoordinator implements CoordinatorPort {
     return owner;
   }
 
-  /**
-   * Hold workspace admission through every effect, observation and cleanup in
-   * operation's promise. close() signals abort and waits for that promise;
-   * operation must not await close() or detach work from its settlement.
-   */
+  /** Holds admission until operation settles; close() aborts and waits, so operation must not await close() or detach work. */
   withWorkspaceLease<T>(workspaceId: string, operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
     return this.workspaceLease(workspaceId, operation, 'maintenance');
   }
@@ -531,16 +526,11 @@ export class RunCoordinator implements CoordinatorPort {
         if ([...this.owners.values()].some(owner => owner.run.workspaceId === workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'A live workspace execution owner prevents a recovery decision');
       } else this.assertWorkspaceCleanupConfirmed(workspaceId);
       if (this.workspaceLeases.has(workspaceId)) throw new EngineError('WORKSPACE_BUSY', 'Workspace maintenance is in progress');
-      // Persisted runs can be active without a local owner. SQL stores check
-      // the workspace directly; custom legacy stores retain the snapshot path.
-      const active = this.options.store.hasActiveRuns?.(workspaceId, originalRunId)
-        ?? this.options.store.listSessions(workspaceId).some(session => this.options.store.getSnapshot(session.id).runs.some(run => run.id !== originalRunId && !isTerminal(run.state)));
-      if (active) throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
+      if (this.hasActiveRun(workspaceId, originalRunId)) throw new EngineError('WORKSPACE_BUSY', 'An active workspace run prevents maintenance');
     } catch (error) { return Promise.reject(error); }
     let settled!: () => void;
     const lease: WorkspaceLease = { abort: new AbortController(), done: new Promise<void>((resolve) => { settled = resolve; }), summaryRecovery, ...(originalRunId ? { commandRunId: originalRunId } : {}) };
-    // No await precedes this registration: immediately following submit/lease
-    // calls see the reservation even before operation's microtask starts.
+    // Registered before any await, so following submit/lease calls see it before operation starts.
     this.workspaceLeases.set(workspaceId, lease);
     const pending = Promise.resolve().then(async () => {
       try {
@@ -553,8 +543,7 @@ export class RunCoordinator implements CoordinatorPort {
         if (!summaryRecovery && hostProposal && nativeUncertainty() === true) {
           lease.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Proposal effects remain recorded in their native quarantine');
         }
-        // Preserve observed partial/cancelled restore results after abort. The
-        // callback's settlement, rather than the signal, confirms cleanup.
+        // Partial/cancelled results survive abort: settlement, not the signal, confirms cleanup.
         return result;
       } catch (error) {
         if (!summaryRecovery && hostGeneration && nativeUncertainty() === true) {
@@ -615,8 +604,7 @@ export class RunCoordinator implements CoordinatorPort {
     const failures: unknown[] = [];
     let resolve!: () => void;
     let reject!: (error: unknown) => void;
-    // Store the promise before abort dispatch: listeners may synchronously
-    // reenter close(), and must receive this same pending promise.
+    // Set before abort dispatch: listeners may reenter close() synchronously and must get this promise.
     this.closePromise = new Promise<void>((yes, no) => { resolve = yes; reject = no; });
     for (const lease of leases) lease.abort.abort(new EngineError('ENGINE_CLOSED', 'Run coordinator is closing'));
     for (const owner of pending) {
@@ -639,95 +627,39 @@ export class RunCoordinator implements CoordinatorPort {
     checkAbort(owner.abort.signal);
   }
 
-  private readonly childGroupSlots = new WeakMap<
-    object,
-    {
-      runId: string;
-      allocation: ChildBudget;
-      total: ChildBudget;
-      used: boolean;
-    }
-  >();
+  private readonly childGroupSlots = new WeakMap<object, { runId: string; allocation: ChildBudget; total: ChildBudget; used: boolean }>();
   /** All members reserve real parent capacity before the first batch child. Slots never refund. */
-  reserveChildRunGroup(
-    runId: string,
-    allocations: readonly ChildBudget[],
-  ): object[] {
-    if (!allocations.length || allocations.length > 24)
-      throw new EngineError(
-        "CHILD_BUDGET_EXCEEDED",
-        "Bounded member allocations required",
-      );
+  reserveChildRunGroup(runId: string, allocations: readonly ChildBudget[]): object[] {
+    if (!allocations.length || allocations.length > 24) throw new EngineError('CHILD_BUDGET_EXCEEDED', 'Bounded member allocations required');
     const total = { turns: 0, toolCalls: 0, outputBytes: 0, durationMs: 0 };
-    for (const allocation of allocations)
-      for (const key of CHILD_BUDGET_KEYS) {
-        if (!Number.isSafeInteger(allocation[key]) || allocation[key] < 1)
-          throw new EngineError(
-            "CHILD_BUDGET_EXCEEDED",
-            "Positive allocations required",
-          );
-        total[key] += allocation[key];
-      }
+    for (const allocation of allocations) for (const key of CHILD_BUDGET_KEYS) {
+      if (!Number.isSafeInteger(allocation[key]) || allocation[key] < 1) throw new EngineError('CHILD_BUDGET_EXCEEDED', 'Positive allocations required');
+      total[key] += allocation[key];
+    }
     this.reserveChildRun(runId, total);
-    return allocations.map((allocation) => {
+    return allocations.map(allocation => {
       const original = Object.freeze(Object.create(null));
-      this.childGroupSlots.set(original, {
-        runId,
-        allocation: { ...allocation },
-        total: { ...total },
-        used: false,
-      });
+      this.childGroupSlots.set(original, { runId, allocation: { ...allocation }, total: { ...total }, used: false });
       return original;
     });
   }
-  assertChildRunGroupSlot(
-    original: object,
-    runId: string,
-    allocation: ChildBudget,
-  ): void {
-    const slot = this.childGroupSlots.get(original),
-      owner = this.owners.get(runId);
-    if (
-      !slot ||
-      slot.runId !== runId ||
-      slot.used ||
-      !owner ||
-      knowledgeHash(slot.allocation) !== knowledgeHash(allocation)
-    )
-      throw new EngineError(
-        "CHILD_RESERVATION_STALE",
-        "Original reserved member required",
-      );
+  assertChildRunGroupSlot(original: object, runId: string, allocation: ChildBudget): void {
+    const slot = this.childGroupSlots.get(original), owner = this.owners.get(runId);
+    if (!slot || slot.runId !== runId || slot.used || !owner || knowledgeHash(slot.allocation) !== knowledgeHash(allocation)) throw new EngineError('CHILD_RESERVATION_STALE', 'Original reserved member required');
     this.assertLive(owner);
   }
-  childRunGroupCapacity(
-    original: object,
-    runId: string,
-    allocation: ChildBudget,
-  ): ChildBudget {
+  childRunGroupCapacity(original: object, runId: string, allocation: ChildBudget): ChildBudget {
     this.assertChildRunGroupSlot(original, runId, allocation);
-    const slot = this.childGroupSlots.get(original)!,
-      remaining = this.getRemainingChildBudget(runId);
-    return {
-      ...remaining,
-      turns: remaining.turns + slot.total.turns,
-      toolCalls: remaining.toolCalls + slot.total.toolCalls,
-      outputBytes: remaining.outputBytes + slot.total.outputBytes,
-    };
+    const { total } = this.childGroupSlots.get(original)!, remaining = this.getRemainingChildBudget(runId);
+    return { ...remaining, turns: remaining.turns + total.turns, toolCalls: remaining.toolCalls + total.toolCalls, outputBytes: remaining.outputBytes + total.outputBytes };
   }
-  consumeChildRunGroupSlot(
-    original: object,
-    runId: string,
-    allocation: ChildBudget,
-  ): void {
+  consumeChildRunGroupSlot(original: object, runId: string, allocation: ChildBudget): void {
     this.assertChildRunGroupSlot(original, runId, allocation);
     this.childGroupSlots.get(original)!.used = true;
   }
   /** Child allocations permanently reduce the active parent's absolute caps. */
   reserveChildRun(runId: string, allocation: ChildBudget): ChildRunReservation {
-    const owner = this.owners.get(runId);
-    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child allocation requires an active owned parent Run');
-    this.assertLive(owner);
+    const owner = this.liveOwner(runId, 'Child allocation requires an active owned parent Run');
     const remainingBudget = this.remainingChildBudget(owner);
     if (!allocation || typeof allocation !== 'object' || Array.isArray(allocation) || Object.keys(allocation).some(key => !(CHILD_BUDGET_KEYS as readonly string[]).includes(key))
       || !CHILD_BUDGET_KEYS.every(key => Number.isSafeInteger(allocation[key]) && allocation[key] >= 0 && allocation[key] <= remainingBudget[key])
@@ -738,15 +670,18 @@ export class RunCoordinator implements CoordinatorPort {
   }
 
   getRemainingChildBudget(runId: string): ChildBudget {
-    const owner = this.owners.get(runId);
-    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child budget inspection requires an active owned parent Run');
-    this.assertLive(owner); return this.remainingChildBudget(owner);
+    return this.remainingChildBudget(this.liveOwner(runId, 'Child budget inspection requires an active owned parent Run'));
   }
 
   getRunCancellationSignal(runId: string): AbortSignal {
+    return this.liveOwner(runId, 'Child cancellation ownership requires an active owned parent Run').abort.signal;
+  }
+
+  private liveOwner(runId: string, message: string): Owner {
     const owner = this.owners.get(runId);
-    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', 'Child cancellation ownership requires an active owned parent Run');
-    this.assertLive(owner); return owner.abort.signal;
+    if (!owner) throw new EngineError('PARENT_RUN_NOT_ACTIVE', message);
+    this.assertLive(owner);
+    return owner;
   }
 
   getRunUsage(runId: string): Readonly<RunUsage> {
@@ -802,8 +737,7 @@ export class RunCoordinator implements CoordinatorPort {
     this.finalUsage.delete(run.id);
     this.finalUsage.set(run.id, Object.freeze({ turns: owner.budget.snapshot().logicalTurns, toolCalls: owner.toolCount, outputBytes: owner.outputBytes }));
     if (this.finalUsage.size > 256) this.finalUsage.delete(this.finalUsage.keys().next().value!);
-    // Provider/tool settlement has completed. Owned children must not outlive
-    // either successful parent completion or failure/cancellation.
+    // Owned children must not outlive the parent, whatever its outcome.
     if (!owner.abort.signal.aborted) owner.abort.abort(new EngineError('PARENT_RUN_TERMINAL', 'The owning parent Run reached a terminal state'));
     return this.options.store.getRun(run.id);
   }
@@ -843,8 +777,7 @@ export class RunCoordinator implements CoordinatorPort {
         if (owner.discovery) {
           const dispatch = owner.discovery.capture(); owner.catalogue = profile ? this.options.toolRuntime!.bindProfile(dispatch.catalogue, profile) : dispatch.catalogue; reservedBytes = dispatch.reservedBytes; toolCatalogueSha256 = dispatch.toolCatalogueSha256;
         } else {
-          // catalogue() creates a new opaque handle. Reuse a current capture so
-          // identity comparison at the dispatch boundary does not cause churn.
+          // catalogue() returns a new opaque handle; reusing a current one keeps dispatch identity checks stable.
           if (owner.catalogue) {
             try { assertCatalogueCurrent(); return; }
             catch (error) { if (!(error instanceof EngineError) || error.code !== 'TOOL_CATALOGUE_STALE') throw error; }
@@ -889,8 +822,7 @@ export class RunCoordinator implements CoordinatorPort {
       for (let turnIndex = 0; turnIndex < run.config.limits.maxTurns; turnIndex++) {
         contextTurnIndex = turnIndex;
         this.assertLive(owner);
-        // Context construction may await a provider summary. Drain any steer that
-        // arrived during that await before fixing the next dispatch cutoff.
+        // Context construction may await a summary; drain steers that arrived meanwhile before fixing the cutoff.
         let steerRebuilds = 0, catalogueRebuilds = 0;
         while (true) {
           if (this.sessionHooks?.boundary(run)) {
@@ -924,116 +856,46 @@ export class RunCoordinator implements CoordinatorPort {
         const records = executionRecords(this.options.store);
         const revisionId = this.options.getContextRevisionId?.(run.sessionId);
         owner.turn = new TurnExecutor({
-          run,
-          index: turnIndex,
-          inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId],
-          budget: owner.budget,
-          store: this.options.store,
-          wait: abortable,
+          run, index: turnIndex, inputIds: records?.listRunInputIds?.(run.id) ?? [run.inputId], budget: owner.budget, store: this.options.store, wait: abortable,
           ...(revisionId ? { contextRevisionId: revisionId } : {}),
-          currentContextRevisionId: () =>
-            this.options.getContextRevisionId?.(run.sessionId),
+          currentContextRevisionId: () => this.options.getContextRevisionId?.(run.sessionId),
           beforeAdapterIntent: () => {
             this.assertLive(owner);
             assertCatalogueCurrent();
-            if (owner.lifecycle)
-              this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
             this.options.beforeProviderDispatch?.(run);
           },
           beforeAdapterDispatch: (request, signal) => {
-            if (
-              !request.turnId ||
-              !request.attemptId ||
-              !records?.getAttemptCleanup
-            )
-              return;
-            const cleanup = records.getAttemptCleanup(
-              request.attemptId,
-              run.sessionId,
-            );
-            this.providerRequests.set(request, {
-              owner,
-              signal,
-              pendingRead: false,
-              proof: {
-                workspaceId: run.workspaceId,
-                sessionId: run.sessionId,
-                runId: run.id,
-                turnId: request.turnId,
-                attemptId: request.attemptId,
-                providerId: provider.id,
-                modelId: request.modelId,
-                requestSha256: cleanup.requestSha256,
-                configSha256: knowledgeHash(run.config),
-                catalogueSha256: knowledgeHash(
-                  owner.catalogue ?? request.tools,
-                ),
-                contextRevisionId: cleanup.contextRevisionId ?? null,
-              },
-            });
+            if (!request.turnId || !request.attemptId || !records?.getAttemptCleanup) return;
+            const cleanup = records.getAttemptCleanup(request.attemptId, run.sessionId);
+            this.providerRequests.set(request, { owner, signal, pendingRead: false, proof: {
+              workspaceId: run.workspaceId, sessionId: run.sessionId, runId: run.id, turnId: request.turnId, attemptId: request.attemptId,
+              providerId: provider.id, modelId: request.modelId, requestSha256: cleanup.requestSha256, configSha256: knowledgeHash(run.config),
+              catalogueSha256: knowledgeHash(owner.catalogue ?? request.tools), contextRevisionId: cleanup.contextRevisionId ?? null,
+            } });
             this.options.beforeActualProviderRequest?.(request);
           },
-          afterAdapterSettlement: (request) => {
-            this.providerRequests.delete(request);
-          },
+          afterAdapterSettlement: request => { this.providerRequests.delete(request); },
           assertContextFresh: async (request, signal) => {
             await this.options.assertContextFresh?.(request, signal);
             assertCatalogueCurrent();
-            if (owner.lifecycleContinuation)
-              await this.options.lifecycleContinuation!.assertFresh(
-                run,
-                owner.lifecycleContinuation,
-                signal,
-              );
-            if (
-              owner.verificationContinuation &&
-              owner.verificationBoundary &&
-              this.options.verificationBeforeProvider
-            )
-              await this.options.verificationBeforeProvider(
-                run,
-                owner.verificationBoundary,
-                signal,
-              );
+            if (owner.lifecycleContinuation) await this.options.lifecycleContinuation!.assertFresh(run, owner.lifecycleContinuation, signal);
+            if (owner.verificationContinuation && owner.verificationBoundary && this.options.verificationBeforeProvider) await this.options.verificationBeforeProvider(run, owner.verificationBoundary, signal);
             this.assertLive(owner);
-            if (owner.lifecycle)
-              this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
+            if (owner.lifecycle) this.options.lifecycleHooks!.assertCurrent(owner.lifecycle);
             assertCatalogueCurrent();
           },
-          ...(this.options.recoverContextOverflow
-            ? {
-                recoverContextOverflow: async () => {
-                  assertCatalogueCurrent();
-                  const failedAttemptId = owner.turn?.attemptId;
-                  await abortable(
-                    () =>
-                      this.options.recoverContextOverflow!(
-                        {
-                          ...contextRequest(),
-                          ...(owner.turn && failedAttemptId
-                            ? {
-                                activePrefixStage: {
-                                  stage: "overflow-recovery" as const,
-                                  currentTurnId: owner.turn.id,
-                                  failedAttemptId,
-                                  cleanupConfirmed: true as const,
-                                },
-                              }
-                            : {}),
-                        },
-                        provider,
-                      ),
-                    owner.abort.signal,
-                    "Context overflow recovery",
-                  );
-                  // TurnExecutor replaces only messages on overflow retry. Retain the
-                  // same advertised schemas and handler capture or stop before retry.
-                  messages = structuredClone(await context(true));
-                  this.checkContext(owner, messages);
-                  return messages;
-                },
-              }
-            : {}),
+          ...(this.options.recoverContextOverflow ? { recoverContextOverflow: async () => {
+            assertCatalogueCurrent();
+            const failedAttemptId = owner.turn?.attemptId;
+            await abortable(() => this.options.recoverContextOverflow!({ ...contextRequest(),
+              ...(owner.turn && failedAttemptId ? { activePrefixStage: { stage: 'overflow-recovery' as const, currentTurnId: owner.turn.id, failedAttemptId, cleanupConfirmed: true as const } } : {}),
+            }, provider), owner.abort.signal, 'Context overflow recovery');
+            // Overflow retry replaces only messages, so the advertised catalogue must stay fixed.
+            messages = structuredClone(await context(true));
+            this.checkContext(owner, messages);
+            return messages;
+          } } : {}),
         });
         const turn = await this.providerTurn(owner, provider, messages, turnIndex);
         owner.verificationContinuation = undefined; owner.verificationBoundary = undefined; owner.lifecycleContinuation = undefined;
@@ -1085,9 +947,7 @@ export class RunCoordinator implements CoordinatorPort {
       throw new EngineError('TURN_LIMIT', 'Model turn budget was exceeded');
     } catch (error) {
       const failure = owner.cleanupError ?? errorOf(error);
-      // Context construction can report cancellation before any Turn exists.
-      // Use the same durable cancelling transition and session pause as an
-      // external cancellation before settling the authoritative result.
+      // Cancellation can surface before any Turn exists; record it like an external cancel before settling.
       if (failure.code === 'RUN_CANCELLED' && this.options.store.getRun(run.id).state !== 'cancelling') {
         try { this.cancel(run.id); }
         catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Run cancellation could not be durably recorded'); }
@@ -1095,30 +955,24 @@ export class RunCoordinator implements CoordinatorPort {
       try { owner.turn?.fail(failure); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Execution records could not be durably settled'); }
       for (const tool of owner.activeTools.values()) if (!TERMINAL_TOOL_STATES.includes(tool.state)) this.setTool(owner, tool, 'interrupted', { error: prefixBytes(failure.message, 2_048) });
-      // Windows native cancellation and code mode can prove physical cleanup
-      // before the Run interrupts their Tool. Settle those observations only
-      // after Turn.fail has closed the original Part; a Tool interruption alone
-      // proves no cleanup.
-      for (const tool of owner.interruptedWindowsCommands ?? []) {
-        try { this.toolSettled(tool, true); }
-        catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Native command cancellation observation could not be durably settled'); }
+      // Deferred Windows command and code-mode observations settle only after Turn.fail closed their Part.
+      for (const key of ['interruptedWindowsCommands', 'interruptedCodeModeTools'] as const) {
+        for (const tool of owner[key] ?? []) {
+          try { this.toolSettled(tool, true); }
+          catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', key === 'interruptedWindowsCommands' ? 'Native command cancellation observation could not be durably settled' : 'Code-mode cancellation observation could not be durably settled'); }
+        }
+        owner[key] = undefined;
       }
-      owner.interruptedWindowsCommands = undefined;
-      for (const tool of owner.interruptedCodeModeTools ?? []) {
-        try { this.toolSettled(tool, true); }
-        catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Code-mode cancellation observation could not be durably settled'); }
-      }
-      owner.interruptedCodeModeTools = undefined;
       try { this.options.approvals.cancelRun(run.id); }
       catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Pending approval cleanup could not be confirmed'); }
-      const terminalError = owner.cleanupError ?? failure;
+      const terminalError = owner.cleanupError ?? failure, cancelled = terminalError.code === 'RUN_CANCELLED';
       if (!owner.lifecycleStopChecked && !owner.abort.signal.aborted) {
         owner.lifecycleStopChecked = true;
         // Terminal observation cannot replace producer failure or cleanup uncertainty.
-        try { await this.lifecycle(owner, 'before-stop', owner.lifecycleContinuationsUsed ? `${owner.turn?.id ?? run.id}:failure-stop` : `${run.id}:stop`, { outcome: terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes, continuationsUsed: owner.lifecycleContinuationsUsed }, false); } catch { /* Preserve the authoritative execution failure. */ }
+        try { await this.lifecycle(owner, 'before-stop', owner.lifecycleContinuationsUsed ? `${owner.turn?.id ?? run.id}:failure-stop` : `${run.id}:stop`, { outcome: cancelled ? 'cancelled' : 'failed', errorCode: terminalError.code, turnCount: owner.budget.snapshot().logicalTurns, toolCallCount: owner.toolCount, outputBytes: owner.outputBytes, continuationsUsed: owner.lifecycleContinuationsUsed }, false); } catch { /* Preserve the authoritative execution failure. */ }
       }
-      try { await this.options.onCommandLifetimesSettling?.(owner.run.id, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed'); } catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Transferred command cleanup remains unconfirmed'); }
-      return this.finish(owner, terminalError.code === 'RUN_CANCELLED' ? 'cancelled' : 'failed', owner.cleanupError ?? (terminalError.code === 'RUN_CANCELLED' ? undefined : terminalError));
+      try { await this.options.onCommandLifetimesSettling?.(owner.run.id, cancelled ? 'cancelled' : 'failed'); } catch { owner.cleanupError = new EngineError('CLEANUP_UNCERTAIN', 'Transferred command cleanup remains unconfirmed'); }
+      return this.finish(owner, cancelled ? 'cancelled' : 'failed', owner.cleanupError ?? (cancelled ? undefined : terminalError));
     } finally { clearTimeout(timer); if (owner.lifecycle) this.options.lifecycleHooks!.release(owner.lifecycle); this.options.releaseContext?.(run.sessionId, run.id); }
   }
 
@@ -1128,8 +982,7 @@ export class RunCoordinator implements CoordinatorPort {
     registry.assertCurrent(capture);
     if (!capture.hooks.some(hook => hook.stages.includes(stage))) return undefined;
     const outcome = await registry.dispatch(capture, { invocationId, identity: capture.identity, stage, metadata } as LifecycleInvocation, owner.abort.signal);
-    // Store bounded identity/status only. Host-returned metadata and reason text
-    // do not become durable request data or replay/cleanup authority.
+    // Bounded identity/status only: host metadata and reasons never become durable request or replay authority.
     const payload: JsonObject = { invocationId, stage, registryRevision: outcome.registryRevision, status: outcome.status, action: outcome.action,
       ...(outcome.inputRewrite ? { originalInputSha256: outcome.inputRewrite.originalSha256, effectiveInputSha256: outcome.inputRewrite.effectiveSha256 } : {}),
       outcomes: outcome.outcomes.map(item => ({ hookId: item.hookId, hookRevision: item.hookRevision, status: item.status, action: item.action, elapsedMs: item.elapsedMs, ...(item.code ? { code: item.code } : {}), ...(item.transform ? { transform: { ...item.transform } } : {}) })) };
@@ -1286,8 +1139,7 @@ export class RunCoordinator implements CoordinatorPort {
             if (Buffer.byteLength(JSON.stringify(call), 'utf8') > owner.run.config.limits.maxContextBytes) throw new EngineError('CONTEXT_LIMIT', 'Tool call input exceeds the context byte budget');
             owner.callIds.add(call.id);
             calls.push(structuredClone(call));
-            // Preserve complete proposals before provider completion. They are
-            // observations only; execution still requires a validated finish.
+            // Proposals are durable observations only; execution still requires a validated finish.
             flush();
             const internalId = randomUUID(); owner.invocations.set(call.id, internalId);
             owner.turn!.toolProposal(message.id, internalId, call);
@@ -1377,8 +1229,7 @@ export class RunCoordinator implements CoordinatorPort {
 
   private toolOutputBudget(owner: Owner): number {
     if(owner.effectOutputShare!==undefined)return owner.effectOutputShare;
-    // Tool observations share the run budget with every assistant delta. Keep a
-    // quarter of the configured budget (at most 4 KiB) for a final explanation.
+    // Keep a quarter of the budget (at most 4 KiB) for the final assistant explanation.
     const availableCap = owner.run.config.limits.maxOutputBytes - owner.childReserved.outputBytes;
     const reserve = Math.min(4_096, Math.max(1, Math.floor(availableCap / 4)));
     return Math.floor(Math.max(0, availableCap - owner.outputBytes - reserve) / owner.readBatchWidth);
@@ -1599,8 +1450,7 @@ export class RunCoordinator implements CoordinatorPort {
       if(clientRead?.approved&&clientRead.signal?.aborted&&!owner.abort.signal.aborted&&call.name==='run_command'&&clientRead.result?.data&&typeof clientRead.result.data==='object'&&!Array.isArray(clientRead.result.data)&&clientRead.result.data.cleanupConfirmed===true){return this.toolResult(owner,record,call,{...clientRead.result,isError:true});}
       if(batch&&!uncertain(error))batchCleanup=true;
       const original = errorOf(error, 'TOOL_ERROR', 'Tool operation failed');
-      // An effect may have happened without a durable checkpoint or released lease.
-      // These gaps must stop the loop even when abort arrived at the same boundary.
+      // An effect may lack a durable checkpoint or released lease; stop the loop even if abort arrived too.
       const failure = uncertain(error) && original.code !== 'CLEANUP_UNCERTAIN'
         ? new EngineError('CLEANUP_UNCERTAIN', `Tool ${record.name} effects or cleanup are unconfirmed (${original.code})`)
         : original;
@@ -1623,8 +1473,7 @@ export class RunCoordinator implements CoordinatorPort {
             await abortable(() => Promise.resolve(this.options.onToolCheckpoint!({ workspace: structuredClone(workspace), run: structuredClone(this.options.store.getRun(owner.run.id)), toolCallId: record.id,
               ...this.turnRefs(owner), checkpoints: structuredClone(checkpoints), signal: owner.abort.signal })), AbortSignal.timeout(2_000), 'Workspace checkpoint observation');
           } catch {
-            // Observer/LSP delivery is metadata. Durable checkpoint ownership and
-            // the tool's real effect/cleanup result remain authoritative.
+            // Observer delivery is metadata; the checkpoint and the tool's own result stay authoritative.
             try { this.options.store.commit(owner.run.id, 'workspace.observation_failed', { toolCallId: record.id, checkpointIds: checkpoints.map(checkpoint => checkpoint.id) }); } catch { /* Preserve an existing tool failure. */ }
           }
         }
