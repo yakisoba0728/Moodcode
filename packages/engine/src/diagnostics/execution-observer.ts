@@ -239,22 +239,7 @@ export class EngineExecutionObserver {
         this.storage.settle(owned.dispatch);
       }
     } catch (error) {
-      // Advisory metadata never replaces the tool's real failure, cleanup, or result.
-      try {
-        this.store.commit(
-          owned.identity.runId,
-          "execution.observation_failed",
-          {
-            toolCallId: owned.identity.toolCallId,
-            code:
-              error instanceof EngineError
-                ? error.code
-                : "EXECUTION_OBSERVATION_FAILED",
-          },
-        );
-      } catch {
-        /* Preserve the original execution result. */
-      }
+      this.#recordFailure(owned, error, "EXECUTION_OBSERVATION_FAILED");
     } finally {
       this.release(prepared);
     }
@@ -265,21 +250,7 @@ export class EngineExecutionObserver {
     try {
       if (owned.dispatch) this.storage.release(owned.dispatch);
     } catch (error) {
-      try {
-        this.store.commit(
-          owned.identity.runId,
-          "execution.observation_failed",
-          {
-            toolCallId: owned.identity.toolCallId,
-            code:
-              error instanceof EngineError
-                ? error.code
-                : "EXECUTION_OBSERVATION_RELEASE_FAILED",
-          },
-        );
-      } catch {
-        /* Durable dispatched metadata remains unknown for restart inspection. */
-      }
+      this.#recordFailure(owned, error, "EXECUTION_OBSERVATION_RELEASE_FAILED");
     } finally {
       if (owned.before) this.source.release(owned.before);
       if (owned.after) this.source.release(owned.after);
@@ -291,5 +262,16 @@ export class EngineExecutionObserver {
   }
   close(): Promise<void> {
     return this.source.close();
+  }
+  /** Advisory metadata never replaces the tool's real failure, cleanup or result. */
+  #recordFailure(owned: Owned, error: unknown, fallback: string): void {
+    try {
+      this.store.commit(owned.identity.runId, "execution.observation_failed", {
+        toolCallId: owned.identity.toolCallId,
+        code: error instanceof EngineError ? error.code : fallback,
+      });
+    } catch {
+      /* A dispatched record stays unknown for restart inspection. */
+    }
   }
 }

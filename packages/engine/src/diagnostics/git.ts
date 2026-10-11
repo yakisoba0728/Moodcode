@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, resolve } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import { checkAbort } from './checks.js';
+import { checkAbort, settledValue } from './checks.js';
 import type { GitDiagnostic, WorkspaceDiagnostic } from './types.js';
 
 interface GitProbeOptions { executable: string; timeoutMs: number; signal?: AbortSignal }
@@ -111,15 +111,9 @@ export async function probeWorkspace(requested: string, git: GitDiagnostic, opti
     runDiagnosticGit(['ls-files', '--format=%(objectmode)'], options, root),
   ]);
   checkAbort(options.signal);
-  const branchResult = results[0]!;
-  const filterResult = results[1]!;
-  const modesResult = results[2]!;
-  if (branchResult.status === 'rejected') throw branchResult.reason;
-  if (filterResult.status === 'rejected') throw filterResult.reason;
-  if (modesResult.status === 'rejected') throw modesResult.reason;
-  const branch = branchResult.value;
-  const filters = filterResult.value;
-  const modes = modesResult.value;
+  const branch = settledValue(results[0]);
+  const filters = settledValue(results[1]);
+  const modes = settledValue(results[2]);
   if (branch.code !== undefined || (branch.exitCode !== 0 && branch.exitCode !== 1)) return { ...failure(branch.code ?? 'GIT_BRANCH_FAILED'), root };
   const name = branch.exitCode === 1 ? null : branch.stdout.toString('utf8').replace(/\r?\n$/, '');
   if (name === '' || name?.includes('\0')) return { ...failure('GIT_BRANCH_INVALID'), root };

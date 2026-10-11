@@ -8,6 +8,11 @@ export function checkAbort(signal?: AbortSignal): void {
   if (signal?.aborted) throw new EngineError('ABORTED', 'Diagnostics cancelled');
 }
 
+export function settledValue<T>(result: PromiseSettledResult<T>): T {
+  if (result.status === 'rejected') throw result.reason;
+  return result.value;
+}
+
 export function assessNodeVersion(version: string): NodeAssessment {
   const match = /^v?(\d+)\.(\d+)\.(\d+)(?:-([A-Za-z0-9.-]+))?$/.exec(version);
   const major = match === null ? null : Number(match[1]);

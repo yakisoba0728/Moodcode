@@ -5,16 +5,11 @@ import { dirname, isAbsolute, join, posix, resolve, win32 } from "node:path";
 import { types } from "node:util";
 import { EngineError, type Workspace } from "@moodcode/contracts";
 import { jsonTextSha256 } from "../shared/canonical.js";
+import { errnoCode } from "../shared/fs.js";
 import { runGit } from "../workspace/git.js";
+import { settledValue } from "./checks.js";
+import type { ExecutionSourceSnapshot } from "./execution-observation-types.js";
 
-/** Entire physical workspace outside .git metadata; ignored files are also charged. */
-export interface ExecutionSourceSnapshot {
-  readonly schemaVersion: 1;
-  readonly completeness: "full" | "unknown";
-  readonly sha256: string | null;
-  readonly fileCount: number;
-  readonly bytes: number;
-}
 export interface WorkspaceExecutionSourceCapture {
   readonly id: string;
 }
@@ -361,15 +356,7 @@ export class WorkspaceExecutionSource {
             if (item.kind === "directory")
               physicalDirectory = `${child.dev}:${child.ino}`;
           } catch (error) {
-            if (
-              !(
-                error &&
-                typeof error === "object" &&
-                "code" in error &&
-                error.code === "ENOENT"
-              ) ||
-              item.kind === "directory"
-            )
+            if (errnoCode(error) !== "ENOENT" || item.kind === "directory")
               throw error;
           }
           result.push({
@@ -475,10 +462,7 @@ export class WorkspaceExecutionSource {
             timeoutMs: this.#limits.durationMs,
           }),
         ]);
-        const results = values.map((value) => {
-          if (value.status === "rejected") throw value.reason;
-          return value.value;
-        });
+        const results = values.map(settledValue);
         if (
           ![0, 128].includes(results[0]!.code) ||
           ![0, 1].includes(results[1]!.code) ||
@@ -490,13 +474,7 @@ export class WorkspaceExecutionSource {
           try {
             pins.push({ path, ...(await read(join(gitDirectory, path))) });
           } catch (error) {
-            if (!(
-              error &&
-              typeof error === "object" &&
-              "code" in error &&
-              error.code === "ENOENT"
-            ))
-              throw error;
+            if (errnoCode(error) !== "ENOENT") throw error;
           }
         }
         return jsonTextSha256({
@@ -547,13 +525,7 @@ export class WorkspaceExecutionSource {
           }
         } finally {
           await directory.close().catch((error: unknown) => {
-            if (!(
-              error &&
-              typeof error === "object" &&
-              "code" in error &&
-              error.code === "ERR_DIR_CLOSED"
-            ))
-              throw error;
+            if (errnoCode(error) !== "ERR_DIR_CLOSED") throw error;
           });
         }
         children.sort();
@@ -576,32 +548,25 @@ export class WorkspaceExecutionSource {
           }
         }
       };
+      const assertPinsUnchanged = async () => {
+        for (const [path, pin] of [...directories, ...filePins]) {
+          check();
+          if (
+            identity(
+              await lstat(path ? join(workspace.root, path) : workspace.root, {
+                bigint: true,
+              }),
+            ) !== pin
+          )
+            fail("EXECUTION_SOURCE_STALE");
+        }
+      };
       await walk("", 0);
-      for (const [path, pin] of [...directories, ...filePins]) {
-        check();
-        if (
-          identity(
-            await lstat(path ? join(workspace.root, path) : workspace.root, {
-              bigint: true,
-            }),
-          ) !== pin
-        )
-          fail("EXECUTION_SOURCE_STALE");
-      }
+      await assertPinsUnchanged();
       if ((await git()) !== beforeGit) fail("EXECUTION_SOURCE_STALE");
       this.#checkBinding(workspace);
       check();
-      for (const [path, pin] of [...directories, ...filePins]) {
-        check();
-        if (
-          identity(
-            await lstat(path ? join(workspace.root, path) : workspace.root, {
-              bigint: true,
-            }),
-          ) !== pin
-        )
-          fail("EXECUTION_SOURCE_STALE");
-      }
+      await assertPinsUnchanged();
       if (jsonTextSha256(await exclusionPins()) !== jsonTextSha256(exclusions))
         fail("EXECUTION_SOURCE_STALE");
       check();

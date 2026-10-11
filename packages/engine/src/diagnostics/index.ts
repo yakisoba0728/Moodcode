@@ -1,5 +1,5 @@
 import { EngineError } from '@moodcode/contracts';
-import { assessCommandPlatform, assessNodeVersion, checkAbort, probeArtifactParent, probeSqlite } from './checks.js';
+import { assessCommandPlatform, assessNodeVersion, checkAbort, probeArtifactParent, probeSqlite, settledValue } from './checks.js';
 import { probeGit, probeWorkspace } from './git.js';
 import type { DiagnosticsOptions, DiagnosticsReport } from './types.js';
 
@@ -8,11 +8,6 @@ export type * from './types.js';
 export const DIAGNOSTICS_LIMITS = Object.freeze({ defaultTimeoutMs: 3_000, maxTimeoutMs: 10_000, defaultReportBytes: 16_384, minReportBytes: 2_048, maxReportBytes: 65_536, maxPathBytes: 4_096, maxCredentialNames: 32, maxCredentialNameBytes: 128 });
 
 function invalid(message: string): never { throw new EngineError('INVALID_DIAGNOSTICS_OPTIONS', message); }
-
-function settledValue<T>(result: PromiseSettledResult<T>): T {
-  if (result.status === 'rejected') throw result.reason;
-  return result.value;
-}
 
 function validate(options: DiagnosticsOptions): Required<Pick<DiagnosticsOptions, 'timeoutMs' | 'maxReportBytes' | 'gitExecutable' | 'credentialEnvNames'>> & DiagnosticsOptions {
   if (typeof options !== 'object' || options === null || Array.isArray(options)) return invalid('Diagnostics options must be an object');
