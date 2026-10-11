@@ -8,29 +8,57 @@ import {
   readSync,
   realpathSync,
 } from "node:fs";
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import { types } from "node:util";
-import type { Run } from "@moodcode/contracts";
+import {
+  EngineError,
+  type JsonObject,
+  type Run,
+  type Workspace,
+} from "@moodcode/contracts";
 import { profilePin } from "../agents/index.js";
+import type {
+  ChildExecution,
+  ChildExecutionView,
+  EngineChildRequest,
+} from "../child-tasks/engine-host.js";
+import type { ChildRunHandle, ChildTaskRecord } from "../child-tasks/index.js";
+import { CHILD_OUTCOME_STATES } from "../child-tasks/journal.js";
+import {
+  CHILD_STORAGE_MIRROR_KIND,
+  childRequestFingerprint,
+  validateChildStorageRecord,
+} from "../child-tasks/storage-binding.js";
+import type { MoodcodeEngine } from "../engine.js";
 import type { EngineRuntime } from "../engine-runtime.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import { raceAbort } from "../shared/runtime.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { runGit } from "../workspace/git.js";
 import type { ManagedWorktree } from "../worktrees/index.js";
+import type { WorkflowChildEvidence } from "./effect-evidence.js";
 import type {
   ActualWorkflowOwnerPort,
   WorkflowParentConfiguration,
 } from "./host.js";
 import { workflowAbort, workflowHostRecord } from "./host.js";
-import type { WorkflowOwnerProof, WorkflowWorktreePin } from "./reducer.js";
+import type {
+  WorkflowChildAdmissionProof,
+  WorkflowChildCompletionProof,
+  WorkflowOwnerProof,
+  WorkflowWorktreePin,
+} from "./reducer.js";
+import type { ActualWorkflowChildObservationPort } from "./service.js";
 import {
   workflowError,
   workflowIdentifier,
   workflowJson,
   WORKFLOW_ROLE_TOOLS,
 } from "./spec.js";
+import type { WorkflowStageSpec } from "./types.js";
 
 /** Every tool some stage role may be granted. */
 const STAGE_TOOLS = [...new Set(Object.values(WORKFLOW_ROLE_TOOLS).flat())];
@@ -436,4 +464,396 @@ export class EngineWorkflowOwners implements ActualWorkflowOwnerPort {
     this.originals.delete(original);
     this.retained.delete(original);
   }
+}
+
+/** Registers the stage's root verification checks in the child, rebased onto its workspace. */
+function stageVerification(
+  root: MoodcodeEngine,
+  verification: NonNullable<WorkflowStageSpec["verification"]>,
+) {
+  return (child: MoodcodeEngine, sessionId: string, workspace: Workspace) => {
+    for (const id of verification.checkIds) {
+      const check = root.verificationChecks.capture(id);
+      const rootWorkspace = root.store.getWorkspace(check.workspaceId),
+        cwdRelative = relative(rootWorkspace.root, check.cwd);
+      if (
+        cwdRelative === ".." ||
+        cwdRelative.startsWith(`..${sep}`) ||
+        isAbsolute(cwdRelative)
+      )
+        throw new EngineError(
+          "WORKFLOW_VERIFICATION_STALE",
+          "Verification working directory escapes the actual parent workspace",
+        );
+      const { registrationSha256, ...definition } = check;
+      child.registerVerificationCheck({
+        ...definition,
+        workspaceId: workspace.id,
+        cwd: join(workspace.root, cwdRelative),
+      });
+    }
+    return child.configureVerificationSession(sessionId, 0, {
+      checkIds: [...verification.checkIds],
+      sourcePaths: [...verification.sourcePaths],
+      maxRepairs: 0,
+    });
+  };
+}
+
+/** Native evidence of a settled stage Run, read before its child engine closes. */
+function stageEvidence(
+  engine: MoodcodeEngine,
+  sessionId: string,
+  run: Run,
+): WorkflowChildEvidence {
+  const snapshot = engine.store.getSnapshot(sessionId),
+    turns = engine.store.listTurns(run.id),
+    attempts = turns
+      .map((turn) => engine.store.getLatestAttemptForTurn(turn.id))
+      .filter((value): value is NonNullable<typeof value> => !!value),
+    parts = turns.flatMap((turn) => engine.store.listParts(turn.id)),
+    cleanups = attempts
+      .map((a) => engine.store.getAttemptCleanup(a.id, sessionId))
+      .filter((value): value is NonNullable<typeof value> => !!value),
+    verification = engine.getVerificationState(sessionId, run.id);
+  const attemptUsages = attempts
+    .map((a) => engine.store.getAttemptUsage(a.id))
+    .filter((v): v is NonNullable<typeof v> => !!v);
+  const body = {
+    version: 1 as const,
+    run: structuredClone(run),
+    snapshot,
+    turns,
+    attempts,
+    parts,
+    cleanups,
+    verification,
+    checkpoints: engine.store.listCheckpoints(run.id),
+    attemptUsages,
+  };
+  return workflowJson({ ...body, sha256: knowledgeHash(body) });
+}
+
+/** Original admission and completion handles from the private child engines, including fast completion. */
+export function workflowChildObservationPort(
+  children: ChildExecutionView,
+  owners: ActualWorkflowOwnerPort,
+): ActualWorkflowChildObservationPort {
+  interface OriginalChild {
+    owner: object;
+    request: EngineChildRequest;
+    execution: ChildExecution;
+    proof: WorkflowChildAdmissionProof;
+  }
+  const originals = new WeakMap<object, OriginalChild>();
+  const completions = new WeakMap<
+    object,
+    { child: OriginalChild; proof: WorkflowChildCompletionProof }
+  >();
+  function fail(): never {
+    throw new EngineError(
+      "WORKFLOW_CHILD_STALE",
+      "Workflow requires its original admitted child execution",
+    );
+  }
+  const observeWait = async <T>(
+    pending: Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> => {
+    workflowAbort(signal);
+    if (!signal) return pending;
+    return raceAbort(
+      pending,
+      signal,
+      () => new EngineError("CANCELLED", "Workflow observation was cancelled"),
+    );
+  };
+  const verify = (child: OriginalChild): ChildTaskRecord => {
+    const { request, execution, proof } = child;
+    const task = children.tasks.get(request.sessionId, proof.taskId);
+    const admission = children.admission(request.sessionId, request.requestId);
+    if (
+      !admission ||
+      admission.fingerprint !== childRequestFingerprint(request) ||
+      children.execution(task.id) !== execution ||
+      !execution.storageRecord
+    )
+      fail();
+    const record = children.rootStorageRecord(request.sessionId, task.id);
+    if (
+      !record ||
+      record.sha256 !== execution.storageRecord.sha256 ||
+      record.sha256 !== proof.storageSha256 ||
+      !children.sameStorageHost(record) ||
+      task.fingerprint !== proof.taskFingerprint ||
+      task.childRunId !== proof.childRunId ||
+      task.parentRunId !== proof.parentRunId ||
+      task.rootRunId !== proof.rootRunId ||
+      task.requestId !== proof.requestId ||
+      task.worktreeId !== proof.worktreeId ||
+      knowledgeHash(task.toolNames) !== knowledgeHash(proof.tools) ||
+      knowledgeHash(task.budget) !== knowledgeHash(proof.allocation) ||
+      record.binding.child.sessionId !== execution.sessionId ||
+      record.binding.child.runId !== execution.runId ||
+      record.binding.child.workspaceId !== proof.childWorkspaceId ||
+      execution.admittedRun.prompt !== request.prompt ||
+      sha256Hex(execution.admittedRun.prompt) !== proof.promptSha256
+    )
+      fail();
+    const parent = owners.read(child.owner);
+    owners.assertSettling(child.owner, parent);
+    owners.assertWorktreeCurrent(
+      child.owner,
+      owners.worktree(child.owner, proof.worktreeId),
+    );
+    if (
+      parent.sessionId !== proof.rootSessionId ||
+      parent.runId !== proof.parentRunId
+    )
+      fail();
+    if (!execution.closed) {
+      const mirror = execution.engine.store.getSessionDocument(
+        execution.sessionId,
+        CHILD_STORAGE_MIRROR_KIND,
+      );
+      const run = execution.engine.store.getRun(execution.runId);
+      if (
+        !mirror ||
+        validateChildStorageRecord(mirror.data).sha256 !==
+          proof.storageSha256 ||
+        knowledgeHash(run.config) !==
+          knowledgeHash(execution.admittedRun.config) ||
+        run.prompt !== request.prompt
+      )
+        fail();
+    } else if (!record.confirmedClose && task.state !== "uncertain") fail();
+    return task;
+  };
+  return {
+    start: async (originalOwner, value, signal, stage) => {
+      workflowAbort(signal);
+      const owner = owners.read(originalOwner);
+      owners.assertCurrent(originalOwner, owner);
+      const request = structuredClone(value);
+      if (
+        request.sessionId !== owner.sessionId ||
+        request.parentRunId !== owner.runId ||
+        request.parentTaskId !== undefined
+      )
+        fail();
+      owners.assertWorktreeCurrent(
+        originalOwner,
+        owners.worktree(originalOwner, request.worktreeId),
+      );
+      const configuration = owners.configuration(originalOwner);
+      const staged = stage ? structuredClone(stage) : undefined;
+      children.stage(request.sessionId, request.requestId, {
+        guard: () => {
+          workflowAbort(signal);
+          owners.assertCurrent(originalOwner, owner);
+          owners.assertWorktreeCurrent(
+            originalOwner,
+            owners.worktree(originalOwner, request.worktreeId),
+          );
+        },
+        ...(staged?.verification
+          ? { prepare: stageVerification(children.root, staged.verification) }
+          : {}),
+        ...(staged ? { settle: stageEvidence } : {}),
+      });
+      let task: ChildTaskRecord;
+      try {
+        const starting = await children.start(request, signal);
+        const admission = children.admission(
+          request.sessionId,
+          request.requestId,
+        );
+        if (
+          !admission ||
+          admission.fingerprint !== childRequestFingerprint(request)
+        )
+          fail();
+        await observeWait(
+          Promise.race([
+            admission.confirmed,
+            children.tasks.wait(request.sessionId, starting.id).then(() => {
+              throw new EngineError(
+                "WORKFLOW_DISPATCH_UNCERTAIN",
+                "Original child did not confirm provider admission",
+              );
+            }),
+          ]),
+          signal,
+        );
+        task = children.tasks.get(request.sessionId, starting.id);
+      } finally {
+        children.unstage(request.sessionId, request.requestId);
+      }
+      const execution = children.execution(task.id);
+      if (
+        !execution?.storageRecord ||
+        !task.childRunId ||
+        task.childRunId !== execution.runId ||
+        execution.admittedRun.config.providerId !==
+          configuration.model.providerId ||
+        execution.admittedRun.config.modelId !== configuration.model.modelId ||
+        execution.admittedRun.config.reasoningEffort !==
+          configuration.model.reasoningEffort
+      )
+        fail();
+      const fields: Omit<WorkflowChildAdmissionProof, "sha256"> = {
+        rootSessionId: task.sessionId,
+        rootRunId: task.rootRunId,
+        parentRunId: task.parentRunId,
+        taskId: task.id,
+        taskFingerprint: task.fingerprint,
+        childSessionId: execution.sessionId,
+        childRunId: execution.runId,
+        childWorkspaceId: execution.admittedRun.workspaceId,
+        worktreeId: task.worktreeId,
+        storageSha256: execution.storageRecord.sha256,
+        requestId: task.requestId,
+        promptSha256: sha256Hex(execution.admittedRun.prompt),
+        tools: [...task.toolNames],
+        allocation: structuredClone(task.budget),
+      };
+      const child: OriginalChild = {
+        owner: originalOwner,
+        request,
+        execution,
+        proof: { ...fields, sha256: knowledgeHash(fields) },
+      };
+      verify(child);
+      const original = Object.freeze({});
+      originals.set(original, child);
+      return original;
+    },
+    readAdmission: (original) => {
+      const child = originals.get(original);
+      if (!child) fail();
+      verify(child);
+      return structuredClone(child.proof);
+    },
+    observe: async (originalOwner, originalChild, signal) => {
+      workflowAbort(signal);
+      const child = originals.get(originalChild);
+      if (!child || child.owner !== originalOwner) fail();
+      verify(child);
+      let actual: Awaited<ReturnType<ChildRunHandle["wait"]>> | undefined;
+      try {
+        actual = await observeWait(child.execution.wait(), signal);
+      } catch {
+        workflowAbort(signal);
+        // The actual journal below must independently record the unconfirmed outcome.
+      }
+      const settled = await observeWait(
+        children.tasks.wait(child.request.sessionId, child.proof.taskId),
+        signal,
+      );
+      workflowAbort(signal);
+      verify(child);
+      let state: WorkflowChildCompletionProof["state"];
+      let result: JsonObject | null = null;
+      let complete = false;
+      const measured = child.execution.engine.coordinator.getRunUsage(
+        child.execution.runId,
+      );
+      if (settled.state === "uncertain") state = "uncertain";
+      else {
+        const outcome = settled.outcome;
+        if (
+          !actual ||
+          !outcome ||
+          !child.execution.closed ||
+          !CHILD_OUTCOME_STATES.includes(settled.state) ||
+          actual.state !== outcome.state ||
+          knowledgeHash(actual.usage) !== knowledgeHash(outcome.usage) ||
+          knowledgeHash(measured) !== knowledgeHash(actual.usage)
+        )
+          fail();
+        const limit = Math.min(settled.budget.outputBytes, 4096);
+        if (
+          Buffer.byteLength(actual.content) <= limit &&
+          actual.content !== outcome.content
+        )
+          fail();
+        const truncated =
+          Buffer.byteLength(actual.content) > limit ||
+          outcome.truncated === true;
+        state = outcome.state;
+        if (state === "completed") {
+          if (truncated)
+            throw new EngineError(
+              "WORKFLOW_RESULT_INCOMPLETE",
+              "Workflow results require complete child output",
+            );
+          let parsed: unknown;
+          try {
+            parsed = JSON.parse(actual.content);
+          } catch {
+            throw new EngineError(
+              "WORKFLOW_RESULT_INVALID",
+              "Workflow child output must be a JSON object",
+            );
+          }
+          const data = workflowJson(parsed);
+          if (!data || typeof data !== "object" || Array.isArray(data))
+            throw new EngineError(
+              "WORKFLOW_RESULT_INVALID",
+              "Workflow child result must be an object",
+            );
+          result = data as JsonObject;
+          complete = true;
+        }
+      }
+      const fields: Omit<WorkflowChildCompletionProof, "sha256"> = {
+        child: structuredClone(child.proof),
+        state,
+        result,
+        complete,
+        outcomeSha256: knowledgeHash(
+          settled.outcome ?? {
+            state: settled.state,
+            errorCode: settled.errorCode ?? null,
+          },
+        ),
+        usage: { ...measured },
+      };
+      const original = Object.freeze({});
+      completions.set(original, {
+        child,
+        proof: { ...fields, sha256: knowledgeHash(fields) },
+      });
+      return original;
+    },
+    readExecution: (original) => {
+      const completion = completions.get(original);
+      if (!completion) fail();
+      verify(completion.child);
+      const evidence = completion.child.execution.evidence as
+        WorkflowChildEvidence | undefined;
+      if (!evidence || evidence.run.id !== completion.proof.child.childRunId)
+        fail();
+      return structuredClone(evidence);
+    },
+    readCompletion: (original) => {
+      const completion = completions.get(original);
+      if (!completion) fail();
+      const task = verify(completion.child);
+      if (
+        knowledgeHash(
+          task.outcome ?? {
+            state: task.state,
+            errorCode: task.errorCode ?? null,
+          },
+        ) !== completion.proof.outcomeSha256
+      )
+        fail();
+      return structuredClone(completion.proof);
+    },
+    release: (original) => {
+      originals.delete(original);
+      completions.delete(original);
+    },
+  };
 }

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { EngineError, isTerminal, type Run } from '@moodcode/contracts';
+import type { ChildExecutionView } from '../child-tasks/engine-host.js';
+import type { MoodcodeEngine } from '../engine.js';
 import type { EngineRuntime } from '../engine-runtime.js';
 import type { TeamMemberOwnerProof, TeamMemberRevision } from './types.js';
 import { knowledgeHash } from '../knowledge/validation.js';
@@ -8,6 +10,27 @@ import { teamOwnerIdentity } from './validation.js';
 interface Selection { workspaceId: string; rootSessionId: string; rootRunId?: string; childTaskId?: string }
 interface Capture { selection: Selection; runId: string; epoch: string }
 function fail(): never { throw new EngineError('TEAM_OWNER_STALE', 'Team membership requires its original actual engine owner'); }
+function modelOwnerStale(message: string): never { throw new EngineError('TEAM_MODEL_OWNER_STALE', message); }
+
+/** An actual live owner selects the private child engine; caller IDs alone do not. */
+export function teamChildEngine(children: Pick<ChildExecutionView, 'teamBridge' | 'execution'>, owner: TeamMemberOwnerProof): MoodcodeEngine {
+  if (owner.kind !== 'child' || !owner.childTaskId) modelOwnerStale('Expected the original actual child owner');
+  const original = children.teamBridge.capture(owner.rootSessionId, owner.childTaskId);
+  try {
+    const target = children.teamBridge.readTarget(original);
+    if (target.childRunId !== owner.runId || target.childSessionId !== owner.sessionId || target.storageBindingSha256 !== owner.childStorageSha256
+      || target.rootRunId !== owner.rootRunId || target.workspaceId !== owner.workspaceId) modelOwnerStale('Child tool owner changed after actual admission');
+    const execution = children.execution(owner.childTaskId);
+    if (!execution || execution.closed) modelOwnerStale('Child tool owner is unavailable');
+    return execution.engine;
+  } finally { children.teamBridge.release(original); }
+}
+
+/** A resident child's current Run, else the Run the owner proof names. */
+export function teamChildRunId(children: Pick<ChildExecutionView, 'execution'>, owner: TeamMemberOwnerProof): string {
+  const execution = owner.childTaskId ? children.execution(owner.childTaskId) : undefined;
+  return execution?.resident?.currentRunId ?? owner.runId;
+}
 
 /** The private live engine graph authenticates owners; descriptive IDs never grant input authority. */
 export class EngineTeamOwners {

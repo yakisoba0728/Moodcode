@@ -235,6 +235,52 @@ export function uncertainResidentPatch(
     ),
   };
 }
+type ResidentStore = Pick<
+  EngineRuntime["store"],
+  "getSessionDocument" | "putResidentDocument"
+>;
+/** The root's validated resident history for one child task, if it has one. */
+export function readResidentRecord(
+  store: Pick<ResidentStore, "getSessionDocument">,
+  sessionId: string,
+  taskId: string,
+): { record: ResidentChildRecord; revision: number } | undefined {
+  const document = store.getSessionDocument(
+    sessionId,
+    RESIDENT_KIND_PREFIX + taskId,
+  );
+  return document
+    ? {
+        record: validateResidentRecord(document.data),
+        revision: document.revision,
+      }
+    : undefined;
+}
+/** Marks a live resident history that no engine owns as uncertain; true when it did. */
+export function markResidentUncertain(
+  store: ResidentStore,
+  sessionId: string,
+  taskId: string,
+  owned: boolean,
+): boolean {
+  const resident = readResidentRecord(store, sessionId, taskId);
+  if (
+    !resident ||
+    owned ||
+    !["running", "idle"].includes(resident.record.state)
+  )
+    return false;
+  store.putResidentDocument(
+    sessionId,
+    RESIDENT_KIND_PREFIX + taskId,
+    resident.revision,
+    nextResidentRecord(
+      resident.record,
+      uncertainResidentPatch(resident.record),
+    ) as unknown as JsonObject,
+  );
+  return true;
+}
 export function childRunConfig(
   config: RunConfig,
   budget: ChildBudget,
