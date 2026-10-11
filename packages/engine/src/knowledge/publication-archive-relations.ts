@@ -24,7 +24,7 @@ import type {
 import {
   identifier,
   knowledgeError,
-  knowledgeHash,
+  sameKnowledge as same,
   validateKnowledgeArchiveRow,
 } from "./validation.js";
 
@@ -95,9 +95,6 @@ const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> = {
 };
 function invalid(message: string): never {
   return knowledgeError("KNOWLEDGE_PUBLICATION_RELATION_INVALID", message);
-}
-function same(left: unknown, right: unknown): boolean {
-  return knowledgeHash(left) === knowledgeHash(right);
 }
 
 /** Historical graph validation only: no freshness check, owner capture, activation or replay. */

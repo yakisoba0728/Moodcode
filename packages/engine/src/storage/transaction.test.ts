@@ -23,9 +23,15 @@ test('guarded writes enter the host transaction exactly once and synchronously',
   assert.throws(() => guardedWrite(db, { writeTx: () => undefined as never }, () => 1, detached), /detached/u);
   assert.throws(() => guardedWrite(db, { writeTx: operation => operation() }, () => 1, detached), /required/u);
   assert.throws(() => guardedWrite(db, { writeTx: operation => port.writeTx(() => { operation(); return operation(); }) }, () => 1, detached), /required/u);
+  const swallowed = <T>(operation: () => T): T => { try { return operation(); } catch { return 'forged' as T; } };
+  assert.throws(() => guardedWrite(db, { writeTx: swallowed }, () => 'written', detached), /detached/u);
+  assert.throws(() => guardedWrite(db, { writeTx: operation => port.writeTx(() => { operation(); return swallowed(operation); }) }, () => 'written', detached), /detached/u);
   assert.throws(() => guardedWrite(db, port, () => Promise.resolve(1), { ...detached, async: raise('async') }), /async/u);
   assert.equal(db.isTransaction, false);
   assert.throws(() => guardedWrite(db, port, () => Promise.resolve(1), { ...detached, innerAsyncCheck: false }), /detached/u);
+  const asyncResult = { ...detached, innerAsyncCheck: false, asyncResult: raise('asyncResult') };
+  assert.throws(() => guardedWrite(db, port, () => Promise.resolve(1), asyncResult), /asyncResult/u);
+  assert.throws(() => guardedWrite(db, { writeTx: () => Promise.resolve(1) as never }, () => 1, asyncResult), /detached/u);
   const lazy = { then: 'not callable' };
   assert.throws(() => guardedWrite(db, port, () => lazy, strict), /required/u);
   assert.equal(guardedWrite(db, port, () => lazy, { ...strict, isThenable: value => typeof Reflect.get(Object(value), 'then') === 'function' }), lazy);

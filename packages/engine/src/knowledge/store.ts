@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isKnowledgeImportPaused } from './import-recovery-store.js';
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
+import { guardedWrite, type GuardedWriteOptions } from '../storage/transaction.js';
 import type {
   KnowledgeArchiveData, KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeCandidateSummary,
   KnowledgeGenerationEvidence, KnowledgeGenerationHandle, KnowledgeGenerationPlan, KnowledgeHostBinding,
@@ -9,8 +10,9 @@ import type {
 } from './types.js';
 import {
   KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, identifier, immutableKnowledgeJson, integer, knowledgeError,
-  knowledgeHash, sha256, stamp, validateBinding, validateCandidate, validateGenerationEvidence,
+  knowledgeHash, sameKnowledge, sha256, stamp, validateBinding, validateCandidate, validateGenerationEvidence,
   validateGenerationInput, validateGenerationPlan, validateKnowledgeArchiveRow, validateTrustInput, validateTrustRevision,
+  withKnowledgeHash as hashed,
 } from './validation.js';
 
 /** Migration fragment only. The authoritative store chooses its own migration/version. */
@@ -57,8 +59,14 @@ CREATE INDEX knowledge_receipt_workspace_page ON knowledge_request_receipts(work
 type DataRow = { id: string; workspace_id: string; data: string };
 type HandleState = { plan: KnowledgeGenerationPlan; evidence: KnowledgeGenerationEvidence };
 function encoded(value: unknown): string { return JSON.stringify(value); }
-function hashed<T extends object>(body: T): T & { readonly sha256: string } { return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) }); }
 function synchronous(value: unknown): void { if (value !== undefined) knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Knowledge freshness ports must return void synchronously inside the owner transaction'); }
+const WRITE: GuardedWriteOptions = {
+  join: false, innerAsyncCheck: true,
+  required: () => knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Knowledge writes must use one transaction on their own database'),
+  async: () => knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Knowledge writes cannot cross an await'),
+  detached: () => knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Host write transaction did not execute its operation'),
+  asyncResult: () => knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Host write transaction must return its result synchronously'),
+};
 
 /** Bounded host records on the caller's SQLite connection. No provider, shell or file write is performed. */
 export class KnowledgeStorage {
@@ -70,18 +78,7 @@ export class KnowledgeStorage {
     if (!ports || typeof ports.writeTx !== 'function' || typeof ports.getWorkspace !== 'function' || typeof ports.checkHostBinding !== 'function' || typeof ports.assertTrustSourcesCurrent !== 'function' || typeof ports.assertSourcesCurrent !== 'function' || typeof ports.assertTargetCurrent !== 'function' || ports.readGenerationEvidence !== undefined && typeof ports.readGenerationEvidence !== 'function' || ports.now !== undefined && typeof ports.now !== 'function') knowledgeError('INVALID_KNOWLEDGE_PORTS', 'Knowledge storage needs synchronous host owner and freshness ports');
     this.#db = db; this.#ports = Object.freeze({ ...ports }); Object.freeze(this);
   }
-  private write<T>(operation: () => T): T {
-    let entered = false;
-    const result = this.#ports.writeTx(() => {
-      if (entered || !this.#db.isTransaction) knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Knowledge writes must use one transaction on their own database');
-      entered = true; const value = operation();
-      if (value && typeof value === 'object' && 'then' in value) knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Knowledge writes cannot cross an await');
-      return value;
-    });
-    if (!entered) knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Host write transaction did not execute its operation');
-    if (result && typeof result === 'object' && 'then' in result) knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Host write transaction must return its result synchronously');
-    return result;
-  }
+  private write<T>(operation: () => T): T { return guardedWrite(this.#db, this.#ports, operation, WRITE); }
   private now(): string {
     const value = this.#ports.now?.() ?? Date.now(); integer(value, 8_640_000_000_000_000);
     return stamp(new Date(value).toISOString());
@@ -107,7 +104,7 @@ export class KnowledgeStorage {
     return binding;
   }
   private assertBinding(binding: KnowledgeHostBinding): void {
-    if (knowledgeHash(binding) !== knowledgeHash(this.readHostBinding(binding.workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Knowledge was captured under another root or storage binding');
+    if (!sameKnowledge(binding, this.readHostBinding(binding.workspaceId))) knowledgeError('KNOWLEDGE_BINDING_MISMATCH', 'Knowledge was captured under another root or storage binding');
   }
   assertUnpaused(workspaceId: string): void {
     if (isKnowledgeImportPaused(this.#db, workspaceId)) knowledgeError('KNOWLEDGE_IMPORT_PAUSED', 'Imported knowledge requires explicit host recovery before generation or publication');
@@ -245,7 +242,7 @@ export class KnowledgeStorage {
       if (duplicate) return this.getCandidate(state.plan.workspaceId, duplicate.recordId) ?? knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate receipt has no durable observation');
       this.currentPlan(state.plan);
       const evidence = this.evidence(state.plan, state.evidence.ownerId);
-      if (knowledgeHash(evidence) !== knowledgeHash(state.evidence)) knowledgeError('KNOWLEDGE_GENERATION_BINDING_MISMATCH', 'Native generation evidence changed after owner capture');
+      if (!sameKnowledge(evidence, state.evidence)) knowledgeError('KNOWLEDGE_GENERATION_BINDING_MISMATCH', 'Native generation evidence changed after owner capture');
       if (sha256(request.body) !== evidence.outputSha256 || Buffer.byteLength(request.body) !== evidence.outputBytes) knowledgeError('KNOWLEDGE_GENERATION_BINDING_MISMATCH', 'Candidate body is not the exact native owner output');
       const existing = this.#db.prepare('SELECT id FROM knowledge_candidates WHERE plan_id=? OR (workspace_id=? AND generation_owner_id=?) LIMIT 1').get(state.plan.id, state.plan.workspaceId, evidence.ownerId);
       if (existing) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'A generation output already has its immutable candidate');
@@ -274,7 +271,7 @@ export class KnowledgeStorage {
     this.unexpired(candidate.expiresAt, this.now());
     const plan = this.getGenerationPlan(workspaceId, candidate.planId) ?? knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate source plan is missing');
     this.currentPlan(plan);
-    if (candidate.trustRevisionId !== plan.trustRevisionId || candidate.trustRevision !== plan.expectedTrustRevision || knowledgeHash(candidate.binding) !== knowledgeHash(plan.binding) || knowledgeHash(candidate.source) !== knowledgeHash(plan.source) || knowledgeHash(candidate.target) !== knowledgeHash(plan.target) || candidate.requestSha256 !== plan.requestSha256 || candidate.providerId !== plan.providerId || candidate.modelId !== plan.modelId) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate provenance does not match its durable plan');
+    if (candidate.trustRevisionId !== plan.trustRevisionId || candidate.trustRevision !== plan.expectedTrustRevision || !sameKnowledge(candidate.binding, plan.binding) || !sameKnowledge(candidate.source, plan.source) || !sameKnowledge(candidate.target, plan.target) || candidate.requestSha256 !== plan.requestSha256 || candidate.providerId !== plan.providerId || candidate.modelId !== plan.modelId) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate provenance does not match its durable plan');
     return candidate;
   }
   getImportPause(workspaceId: string): KnowledgeImportPause | undefined {

@@ -2,10 +2,17 @@ import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
+import { recordGuards } from "../shared/data.js";
+import {
+  guardedWrite,
+  type GuardedWriteOptions,
+} from "../storage/transaction.js";
 import type { KnowledgeHostBinding } from "./types.js";
 import {
   immutableKnowledgeJson,
   knowledgeHash,
+  sameKnowledge as same,
+  samePhysicalRoot as sameRoot,
   validateBinding,
   validateKnowledgeArchiveRow,
 } from "./validation.js";
@@ -88,61 +95,31 @@ function fail(
 ): never {
   throw new EngineError(code, message);
 }
-function id(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value ||
-    Buffer.byteLength(value) > 256 ||
-    /[\u0000-\u001f\u007f]/u.test(value)
-  )
-    fail();
-  return value;
-}
-function digest(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) fail();
-  return value;
-}
-function count(value: unknown): number {
-  if (!Number.isSafeInteger(value) || (value as number) < 0) fail();
-  return value as number;
-}
-function date(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    value.length !== 24 ||
-    !Number.isFinite(Date.parse(value)) ||
-    new Date(value).toISOString() !== value
-  )
-    fail();
-  return value;
-}
+const guards = recordGuards({
+  json: immutableKnowledgeJson,
+  fail: (fault) =>
+    fault === "hash" ? fail("KNOWLEDGE_IMPORT_RECOVERY_HASH_MISMATCH") : fail(),
+});
+const {
+  id,
+  sha: digest,
+  integer: count,
+  stamp: date,
+  seal: signed,
+  verify: hashCheck,
+} = guards;
 function object(value: unknown, keys: readonly string[]): ObjectData {
-  const result = immutableKnowledgeJson(value);
-  if (!result || typeof result !== "object" || Array.isArray(result)) fail();
-  const found = Object.keys(result);
-  if (found.length !== keys.length || found.some((key) => !keys.includes(key)))
-    fail();
-  return result as ObjectData;
+  return guards.exact(immutableKnowledgeJson(value), keys);
 }
-function hashCheck(value: ObjectData): void {
-  const { sha256, ...body } = value;
-  if (digest(sha256) !== knowledgeHash(body))
-    fail("KNOWLEDGE_IMPORT_RECOVERY_HASH_MISMATCH");
-}
-function signed<T>(body: T): T & { readonly sha256: string } {
-  return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
-}
-function same(a: unknown, b: unknown): boolean {
-  return knowledgeHash(a) === knowledgeHash(b);
-}
-function sameRoot(a: KnowledgeHostBinding, b: KnowledgeHostBinding): boolean {
-  return (
-    a.workspaceId === b.workspaceId &&
-    a.root === b.root &&
-    a.rootDevice === b.rootDevice &&
-    a.rootInode === b.rootInode
-  );
-}
+const WRITE: GuardedWriteOptions = {
+  join: true,
+  innerAsyncCheck: false,
+  isThenable: (value) =>
+    !!value &&
+    typeof value === "object" &&
+    typeof Reflect.get(value, "then") === "function",
+  required: () => fail("KNOWLEDGE_IMPORT_RECOVERY_TRANSACTION_REQUIRED"),
+};
 function scope(binding: unknown, workspaceId: unknown): KnowledgeHostBinding {
   const actual = validateBinding(binding);
   if (actual.workspaceId !== workspaceId)
@@ -1080,21 +1057,7 @@ export class KnowledgeImportRecoveryStorage {
     });
   }
   private tx<T>(operation: () => T): T {
-    if (this.#db.isTransaction) return operation();
-    let entered = 0;
-    const output = this.#ports.writeTx(() => {
-      if (++entered !== 1 || !this.#db.isTransaction)
-        fail("KNOWLEDGE_IMPORT_RECOVERY_TRANSACTION_REQUIRED");
-      return operation();
-    });
-    if (
-      entered !== 1 ||
-      (output &&
-        typeof output === "object" &&
-        typeof Reflect.get(output, "then") === "function")
-    )
-      fail("KNOWLEDGE_IMPORT_RECOVERY_TRANSACTION_REQUIRED");
-    return output;
+    return guardedWrite(this.#db, this.#ports, operation, WRITE);
   }
   private now(): number {
     const now = this.#ports.now?.() ?? Date.now();

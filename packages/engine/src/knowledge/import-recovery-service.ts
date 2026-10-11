@@ -19,9 +19,13 @@ import type {
   TrustSourcePin,
 } from "./types.js";
 import {
+  assertKnowledgeSignal,
   identifier,
   immutableKnowledgeJson,
   knowledgeHash,
+  knowledgeHostRecord,
+  sameKnowledge as same,
+  samePhysicalRoot,
   stamp,
   validateBinding,
   validateCandidate,
@@ -118,62 +122,33 @@ function deadlineReason(): EngineError {
   ownedDeadlineReasons.add(error);
   return error;
 }
+const RECOVERY_MESSAGE =
+  "Knowledge import requires explicit approval of a current original bounded recovery preview";
 function fail(code: string): never {
-  throw new EngineError(
-    code,
-    "Knowledge import requires explicit approval of a current original bounded recovery preview",
-  );
-}
-function same(left: unknown, right: unknown): boolean {
-  return knowledgeHash(left) === knowledgeHash(right);
+  throw new EngineError(code, RECOVERY_MESSAGE);
 }
 function guard(
   input: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): asserts input is Record<string, unknown> {
-  if (
-    !input ||
-    typeof input !== "object" ||
-    types.isProxy(input) ||
-    Array.isArray(input) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(input))
-  )
-    fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY");
-  const descriptors = Object.getOwnPropertyDescriptors(input);
-  if (
-    required.some((key) => !Object.hasOwn(descriptors, key)) ||
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        ![...required, ...optional].includes(key) ||
-        !descriptors[key]!.enumerable ||
-        !Object.hasOwn(descriptors[key]!, "value"),
-    )
-  )
-    fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY");
+  knowledgeHostRecord(
+    input,
+    required,
+    optional,
+    "INVALID_KNOWLEDGE_IMPORT_RECOVERY",
+    RECOVERY_MESSAGE,
+  );
 }
 function sync(value: unknown): void {
   if (value !== undefined) fail("KNOWLEDGE_IMPORT_ASYNC_PORT");
 }
 function actualSignal(value: unknown): asserts value is AbortSignal {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    !(value instanceof AbortSignal) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype
-  )
-    fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  for (const key of Reflect.ownKeys(descriptors))
-    if (
-      !Object.hasOwn(descriptors[key as keyof typeof descriptors]!, "value") ||
-      ["aborted", "reason", "addEventListener", "removeEventListener"].includes(
-        String(key),
-      )
-    )
-      fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY");
+  assertKnowledgeSignal(
+    value,
+    "INVALID_KNOWLEDGE_IMPORT_RECOVERY",
+    RECOVERY_MESSAGE,
+  );
 }
 function abort(signal?: AbortSignal): void {
   if (signal?.aborted) {
@@ -187,18 +162,6 @@ function abort(signal?: AbortSignal): void {
       throw reason;
     fail("KNOWLEDGE_IMPORT_CANCELLED");
   }
-}
-function physicalRebinding(
-  original: KnowledgeHostBinding,
-  current: KnowledgeHostBinding,
-): void {
-  if (
-    original.workspaceId !== current.workspaceId ||
-    original.root !== current.root ||
-    original.rootDevice !== current.rootDevice ||
-    original.rootInode !== current.rootInode
-  )
-    fail("KNOWLEDGE_IMPORT_RELOCATION_UNSUPPORTED");
 }
 
 /** Tools-free host recovery; source/trust reads do not manufacture a new producer or historical receipt. */
@@ -329,7 +292,8 @@ export class KnowledgeImportRecoveryService {
       document.bodySha256 !== history.candidate.bodySha256
     )
       fail("KNOWLEDGE_IMPORT_EVIDENCE_INVALID");
-    physicalRebinding(document.binding, binding);
+    if (!samePhysicalRoot(document.binding, binding))
+      fail("KNOWLEDGE_IMPORT_RELOCATION_UNSUPPORTED");
     const trust = validateTrustRevision(raw.currentTrust);
     if (
       !same(trust.binding, binding) ||

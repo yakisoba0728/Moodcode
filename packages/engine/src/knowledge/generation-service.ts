@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { types } from 'node:util';
 import { EngineError, type ReasoningEffort } from '@moodcode/contracts';
 import {
   validateHostGenerationRequest,
@@ -14,7 +13,8 @@ import type { KnowledgeCandidate, KnowledgeGenerationPlan } from './types.js';
 import {
   canonicalKnowledge,
   identifier,
-  knowledgeHash,
+  knowledgeHostRecord,
+  sameKnowledge,
   sha256,
 } from './validation.js';
 import { normalizeKnowledgeGenerationBudget } from './generation-budget.js';
@@ -113,35 +113,14 @@ export function assertKnowledgeGenerationHostInput(
   required: readonly string[],
   optional: readonly string[] = [],
 ): void {
-  if (
-    !value ||
-    typeof value !== 'object' ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    throw new EngineError(
-      'INVALID_KNOWLEDGE_GENERATION',
-      'Generation host input must be plain data',
-    );
-  const descriptors = Object.getOwnPropertyDescriptors(value),
-    keys = Reflect.ownKeys(descriptors);
-  if (
-    keys.some(
-      (key) =>
-        typeof key !== 'string' ||
-        (!required.includes(key) && !optional.includes(key)),
-    ) ||
-    required.some((key) => !Object.hasOwn(descriptors, key)) ||
-    keys.some(
-      (key) =>
-        !descriptors[key as string]!.enumerable ||
-        !Object.hasOwn(descriptors[key as string]!, 'value'),
-    )
-  )
-    throw new EngineError(
-      'INVALID_KNOWLEDGE_GENERATION',
-      'Generation host input has unsupported fields',
-    );
+  knowledgeHostRecord(
+    value,
+    required,
+    optional,
+    'INVALID_KNOWLEDGE_GENERATION',
+    'Generation host input must be plain data',
+    'Generation host input has unsupported fields',
+  );
 }
 function errorCode(error: unknown): string {
   return error instanceof EngineError
@@ -202,7 +181,7 @@ export class KnowledgeGenerationService {
         candidate.planId !== generation.planId ||
         candidate.bodySha256 !== attempt.outputSha256 ||
         candidate.requestSha256 !== generation.logicalRequestSha256 ||
-        knowledgeHash(candidate.binding) !== knowledgeHash(generation.binding))
+        !sameKnowledge(candidate.binding, generation.binding))
     )
       throw new EngineError(
         'KNOWLEDGE_RECORD_CONFLICT',
@@ -259,10 +238,8 @@ export class KnowledgeGenerationService {
       });
       if (
         originalProjection.workspaceId !== workspaceId ||
-        knowledgeHash(originalProjection.binding) !==
-          knowledgeHash(plan.binding) ||
-        knowledgeHash(originalProjection.manifest) !==
-          knowledgeHash(plan.source) ||
+        !sameKnowledge(originalProjection.binding, plan.binding) ||
+        !sameKnowledge(originalProjection.manifest, plan.source) ||
         built.requestSha256 !== plan.requestSha256 ||
         built.requestBytes !== plan.requestBytes
       )

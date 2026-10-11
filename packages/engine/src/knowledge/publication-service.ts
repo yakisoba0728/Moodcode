@@ -9,7 +9,9 @@ import type {
   WorkspaceDocumentHead, WorkspaceDocumentRevision,
 } from './publication-types.js';
 import type { KnowledgeCandidate, KnowledgeGenerationPlan, KnowledgeHostBinding, KnowledgeSourceManifest, TrustRevision, TrustSourcePin } from './types.js';
-import { identifier, immutableKnowledgeJson, knowledgeHash, sha256, stamp, validateBinding, validateTrustRevision } from './validation.js';
+import {
+  assertKnowledgeSignal, identifier, immutableKnowledgeJson, knowledgeError as fail, knowledgeHash, knowledgeHostRecord, sameKnowledge as same, sha256, stamp, validateBinding, validateTrustRevision,
+} from './validation.js';
 
 export interface KnowledgePublicationNativePort {
   findRequest(input: PrepareKnowledgePublication): KnowledgePublicationRecord | undefined;
@@ -72,29 +74,16 @@ export interface WorkspaceKnowledgePublicationResult extends KnowledgePublicatio
 type PreviewState = { readonly preview: KnowledgePublicationPreview; used: boolean; requestId?: string };
 type CommitState = { readonly state: PreviewState; readonly request: PrepareKnowledgePublication; readonly deadline: number; readonly signal?: AbortSignal; readonly leaseSignal: AbortSignal };
 const MAX_PREVIEWS = 128, MAX_OPERATIONS = 32, MAX_PREVIEW_BYTES = 262_144, MAX_PREVIEW_MS = 300_000;
-function fail(code: string, message: string): never { throw new EngineError(code, message); }
-function same(left: unknown, right: unknown): boolean { return knowledgeHash(left) === knowledgeHash(right); }
 function sync(value: unknown): void { if (value !== undefined) fail('KNOWLEDGE_ASYNC_PORT', 'Publication currentness ports must complete synchronously'); }
-/** Descriptor checks run before reading any host input; proxy/accessor traps are never invoked. */
 function hostInput(value: unknown, required: readonly string[], optional: readonly string[] = []): void {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
-    fail('INVALID_KNOWLEDGE_PUBLICATION', 'Publication input must be plain data');
-  const descriptors = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(descriptors);
-  if (required.some(key => !Object.hasOwn(descriptors, key)) || keys.some(key => typeof key !== 'string' ||
-    (!required.includes(key) && !optional.includes(key)) || !descriptors[key]!.enumerable || !Object.hasOwn(descriptors[key]!, 'value')))
-    fail('INVALID_KNOWLEDGE_PUBLICATION', 'Publication input fields contain unsupported values');
+  knowledgeHostRecord(value, required, optional, 'INVALID_KNOWLEDGE_PUBLICATION', 'Publication input must be plain data', 'Publication input fields contain unsupported values');
 }
 function publicationRow<T>(table: KnowledgePublicationTable, value: unknown): T {
   const data = immutableKnowledgeJson(value) as unknown as { id: string; workspaceId: string };
   return validateKnowledgePublicationArchiveRow({ table, key: data.id, workspaceId: data.workspaceId, data }).data as T;
 }
 function actualSignal(value: unknown): asserts value is AbortSignal {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || !(value instanceof AbortSignal) || Object.getPrototypeOf(value) !== AbortSignal.prototype)
-    fail('INVALID_KNOWLEDGE_PUBLICATION', 'Publication signal must be an actual unmodified AbortSignal');
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (Reflect.ownKeys(descriptors).some(key => !Object.hasOwn(descriptors[key as keyof typeof descriptors]!, 'value') ||
-      typeof key === 'string' && ['aborted', 'reason', 'addEventListener', 'removeEventListener'].includes(key)))
-    fail('INVALID_KNOWLEDGE_PUBLICATION', 'Publication signal cannot override native cancellation observations');
+  assertKnowledgeSignal(value, 'INVALID_KNOWLEDGE_PUBLICATION', 'Publication signal must be an actual unmodified AbortSignal', 'Publication signal cannot override native cancellation observations');
 }
 function abort(signal?: AbortSignal): void { if (signal?.aborted) fail('KNOWLEDGE_PUBLICATION_CANCELLED', 'Publication was cancelled before its commit'); }
 

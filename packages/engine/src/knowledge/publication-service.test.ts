@@ -117,7 +117,8 @@ test('actual signals with overridden accessors and proxy signals are rejected be
   const overridden = new AbortController().signal;
   Object.defineProperty(overridden, 'aborted', { get() { traps++; return false; } });
   const proxy = new Proxy(new AbortController().signal, { get() { traps++; throw new Error('trap'); }, getPrototypeOf() { traps++; throw new Error('trap'); } });
-  for (const signal of [overridden, proxy]) await assert.rejects(f.service.publish({ ...approved(preview), signal }), code('INVALID_KNOWLEDGE_PUBLICATION'));
+  const shadowed = Object.defineProperty(new AbortController().signal, 'throwIfAborted', { value: () => undefined });
+  for (const signal of [overridden, proxy, Object.create(AbortSignal.prototype) as AbortSignal, shadowed]) await assert.rejects(f.service.publish({ ...approved(preview), signal }), code('INVALID_KNOWLEDGE_PUBLICATION'));
   assert.equal(traps, 0); assert.deepEqual(f.counts(), [0, 0, 0, 0]); assert.equal(f.state.leaseCalls, 0);
 });
 

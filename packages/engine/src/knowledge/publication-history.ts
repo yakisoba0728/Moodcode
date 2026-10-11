@@ -1,4 +1,3 @@
-import { EngineError } from "@moodcode/contracts";
 import { validateKnowledgeGenerationArchiveRow } from "./generation-store.js";
 import type {
   KnowledgeGenerationAttempt,
@@ -11,7 +10,8 @@ import type {
 } from "./types.js";
 import {
   immutableKnowledgeJson,
-  knowledgeHash,
+  knowledgeError as fail,
+  sameKnowledge as same,
   validateCandidate,
   validateGenerationPlan,
   validateTrustRevision,
@@ -45,12 +45,6 @@ export interface KnowledgePublicationHistory {
   readonly generation: KnowledgeGenerationRecord;
   readonly attempt: KnowledgeGenerationAttempt;
   readonly trust: TrustRevision;
-}
-function fail(code: string, message: string): never {
-  throw new EngineError(code, message);
-}
-function same(left: unknown, right: unknown): boolean {
-  return knowledgeHash(left) === knowledgeHash(right);
 }
 
 /** Historical output is evidence, not a current source/target/trust permission. */

@@ -2,9 +2,10 @@ import { constants, closeSync, fstatSync, lstatSync, openSync, readSync, realpat
 import path from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
+import { guardedWrite, type GuardedWriteOptions } from '../storage/transaction.js';
 import { assertPhysicalKnowledgeRoot } from '../workspace/trust.js';
 import type { KnowledgeHostBinding, KnowledgeSourceManifest, KnowledgeSourcePin, KnowledgeTarget } from './types.js';
-import { canonicalKnowledge, exactKnowledgePath, identifier, immutableKnowledgeJson, integer, knowledgeError, knowledgeHash, sha256, validateBinding, validateSource, validateTarget } from './validation.js';
+import { canonicalKnowledge, exactKnowledgePath, identifier, immutableKnowledgeJson, integer, knowledgeError, knowledgeHash, sameKnowledge, sha256, validateBinding, validateSource, validateTarget } from './validation.js';
 
 export const KNOWLEDGE_HOST_LIMITS = Object.freeze({ fileBytes: 131_072, messageBytes: 262_144, sourceBytes: 262_144, messageRecordBytes: 1_048_576, sourcePins: 64, projections: 128 });
 export type KnowledgeSourceSelection =
@@ -32,7 +33,13 @@ type ProjectionEntry = { readonly kind: 'message'; readonly id: string; readonly
 type FileObservation = { readonly content: string; readonly sha256: string; readonly bytes: number; readonly device: string; readonly inode: string };
 type Capture = { readonly signal?: AbortSignal };
 function cancelled(signal?: AbortSignal): void { if (signal?.aborted) knowledgeError('KNOWLEDGE_CANCELLED', 'Host knowledge source observation was cancelled'); }
-function equal(actual: unknown, expected: unknown, code: string): void { if (knowledgeHash(actual) !== knowledgeHash(expected)) knowledgeError(code, 'Knowledge host observation no longer matches its exact capture'); }
+function equal(actual: unknown, expected: unknown, code: string): void { if (!sameKnowledge(actual, expected)) knowledgeError(code, 'Knowledge host observation no longer matches its exact capture'); }
+const SOURCE_READ: GuardedWriteOptions = {
+  join: true, innerAsyncCheck: false,
+  required: () => knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Source reads need one transaction on their actual database'),
+  detached: () => knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Host read transaction did not execute its source read'),
+  asyncResult: () => knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Host source transactions cannot cross an await'),
+};
 
 /** Read-only adapter over the actual legacy/native transcript owner and current physical files. */
 export class KnowledgeHostAdapter {
@@ -45,15 +52,7 @@ export class KnowledgeHostAdapter {
     this.#db = db; this.#ports = Object.freeze({ ...ports }); Object.freeze(this);
   }
   private read<T>(operation: () => T): T {
-    if (this.#db.isTransaction) return operation();
-    let entered = false;
-    const result = this.#ports.readTx(() => {
-      if (entered || !this.#db.isTransaction) knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Source reads need one transaction on their actual database');
-      entered = true; return operation();
-    });
-    if (!entered) knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Host read transaction did not execute its source read');
-    if (result && typeof result === 'object' && 'then' in result) knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Host source transactions cannot cross an await');
-    return result;
+    return guardedWrite(this.#db, { writeTx: run => this.#ports.readTx(run) }, operation, SOURCE_READ);
   }
   private binding(workspaceId: string): KnowledgeHostBinding {
     identifier(workspaceId);

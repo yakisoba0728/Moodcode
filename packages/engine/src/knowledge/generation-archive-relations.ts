@@ -2,7 +2,7 @@ import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import { KNOWLEDGE_GENERATION_TABLES, validateKnowledgeGenerationArchiveRow } from './generation-store.js';
 import type { KnowledgeGenerationAttempt, KnowledgeGenerationRecord, KnowledgeGenerationTable } from './generation-types.js';
 import type { KnowledgeCandidate, KnowledgeGenerationPlan, KnowledgeStorageTable, TrustRevision } from './types.js';
-import { identifier, knowledgeError, knowledgeHash, validateKnowledgeArchiveRow } from './validation.js';
+import { identifier, knowledgeError, knowledgeHash, sameKnowledge as equal, validateKnowledgeArchiveRow } from './validation.js';
 
 type Table = KnowledgeGenerationTable | 'knowledge_generation_plans' | 'knowledge_candidates' | 'workspace_trust_revisions';
 type Header = { id: string; workspace_id: string; bytes: number; [key: string]: SQLInputValue };
@@ -20,7 +20,6 @@ const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> = Objec
 function invalid(message: string): never {
   return knowledgeError('KNOWLEDGE_GENERATION_RELATION_INVALID', message);
 }
-function equal(left: unknown, right: unknown): boolean { return knowledgeHash(left) === knowledgeHash(right); }
 
 /**
  * Validate persisted historical producer relationships without issuing host capabilities.

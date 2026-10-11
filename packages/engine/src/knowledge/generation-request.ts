@@ -1,8 +1,7 @@
-import { types } from 'node:util';
 import { REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 import type { HostGenerationPayload } from '../provider/generation.js';
 import type { KnowledgeSourceProjection } from './host.js';
-import { canonicalKnowledge, exactKnowledgePath, identifier, integer, knowledgeError, knowledgeHash, sha256, validateBinding, validateSource } from './validation.js';
+import { canonicalKnowledge, exactKnowledgePath, identifier, integer, knowledgeError, knowledgeHash, knowledgeHostRecord, sha256, validateBinding, validateSource } from './validation.js';
 
 const KNOWLEDGE_GENERATION_REQUEST_LIMITS = Object.freeze({ requestBytes: 262_144, sourceBytes: 262_144, sourcePins: 64 });
 export const KNOWLEDGE_EXTRACTOR_VERSION = 'moodcode-knowledge-extractor-v1';
@@ -17,10 +16,7 @@ export interface BuildKnowledgeGenerationRequest {
   readonly providerId: string; readonly modelId: string; readonly source: KnowledgeSourceProjection; readonly reasoningEffort?: ReasoningEffort;
 }
 function plain(value: unknown, names: readonly string[], optional: readonly string[] = []): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) knowledgeError('INVALID_KNOWLEDGE_REQUEST', 'Generation request accepts plain data records');
-  const keys = Reflect.ownKeys(value);
-  if (keys.some(key => typeof key !== 'string' || ![...names, ...optional].includes(key)) || names.some(key => !Object.hasOwn(value, key))) knowledgeError('INVALID_KNOWLEDGE_REQUEST', 'Generation request fields differ from the bounded contract');
-  for (const key of keys) { const descriptor = Object.getOwnPropertyDescriptor(value, key)!; if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) knowledgeError('INVALID_KNOWLEDGE_REQUEST', 'Generation request rejects accessors and hidden fields'); }
+  knowledgeHostRecord(value, names, optional, 'INVALID_KNOWLEDGE_REQUEST', 'Generation request accepts plain data records', 'Generation request fields differ from the bounded contract', 'Generation request rejects accessors and hidden fields');
 }
 function sourceBody(value: KnowledgeSourceProjection): string {
   plain(value, ['workspaceId', 'binding', 'manifest', 'body', 'bodySha256', 'bodyBytes']); identifier(value.workspaceId);

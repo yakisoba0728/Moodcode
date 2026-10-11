@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { EngineError } from '@moodcode/contracts';
-import { canonicalJson, canonicalSha256, sha256Hex } from '../shared/canonical.js';
-import { exactKeys, plainJson, recordGuards, type PlainJsonFault, type PlainJsonOptions, type RecordFault } from '../shared/data.js';
+import { canonicalJson, canonicalSha256, reseal, sameCanonical, sha256Hex } from '../shared/canonical.js';
+import { assertNativeSignal, exactKeys, plainJson, plainRecord, recordGuards, type PlainJsonFault, type PlainJsonOptions, type RecordFault } from '../shared/data.js';
 import type {
   KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeGenerationEvidence, KnowledgeGenerationPlan,
   KnowledgeHostBinding, KnowledgeSourceManifest, KnowledgeStorageTable, KnowledgeTarget, KnowledgeUsage,
@@ -10,7 +10,8 @@ import type {
 
 export const KNOWLEDGE_LIMITS = Object.freeze({ rowBytes: 65_536, bodyBytes: 16_384, sourceBytes: 262_144, trustFileBytes: 32_768, trustSources: 32, sourcePins: 64, pageRows: 32, pageBytes: 1_048_576, handles: 128 });
 export function knowledgeError(code: string, message: string): never { throw new EngineError(code, message); }
-export { canonicalJson as canonicalKnowledge, canonicalSha256 as knowledgeHash, sha256Hex as sha256 };
+export { canonicalJson as canonicalKnowledge, canonicalSha256 as knowledgeHash, sameCanonical as sameKnowledge, sha256Hex as sha256 };
+export const UNKNOWN_KNOWLEDGE_USAGE: KnowledgeUsage = Object.freeze({ inputTokens: null, outputTokens: null, cachedInputTokens: null, reasoningTokens: null });
 type ObjectValue = Record<string, unknown>;
 function object(value: unknown): ObjectValue {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Expected a plain knowledge object');
@@ -24,9 +25,21 @@ const RECORD_FAULTS: Record<RecordFault, string> = {
   stamp: 'Knowledge timestamp must use canonical UTC ISO format', exact: 'Knowledge object fields do not match the contract', hash: 'Knowledge record does not match its immutable digest',
 };
 const guards = recordGuards({ json: immutableKnowledgeJson, fail: fault => knowledgeError(fault === 'hash' ? 'KNOWLEDGE_HASH_MISMATCH' : 'INVALID_KNOWLEDGE', RECORD_FAULTS[fault]) });
-export const { id: identifier, integer, stamp } = guards;
+export const { id: identifier, integer, stamp, seal: withKnowledgeHash } = guards;
 const { sha: digest, verify } = guards;
+export function resealKnowledge<T extends { readonly sha256: string }>(record: T, patch: Partial<Omit<T, 'sha256'>>): T { return reseal(record, patch, immutableKnowledgeJson); }
+/** Hostile host input, read through descriptors without running a getter or proxy trap; returns a null-prototype snapshot. */
+export function knowledgeHostRecord(value: unknown, required: readonly string[], optional: readonly string[], code: string, message: string, fieldsMessage = message, descriptorMessage = fieldsMessage): Record<string, unknown> {
+  const record = plainRecord(value, required, optional, fault => knowledgeError(code, fault === 'shape' ? message : fault === 'fields' ? fieldsMessage : descriptorMessage));
+  return Object.assign(Object.create(null) as Record<string, unknown>, record);
+}
+export function assertKnowledgeSignal(value: unknown, code: string, message: string, overrideMessage = message): asserts value is AbortSignal {
+  assertNativeSignal(value, fault => knowledgeError(code, fault === 'shape' ? message : overrideMessage));
+}
 function nullable<T>(value: unknown, check: (value: unknown) => T): T | null { return value === null ? null : check(value); }
+export function samePhysicalRoot(left: KnowledgeHostBinding, right: KnowledgeHostBinding): boolean {
+  return left.workspaceId === right.workspaceId && left.root === right.root && left.rootDevice === right.rootDevice && left.rootInode === right.rootInode;
+}
 function physical(value: unknown): string {
   if (typeof value !== 'string' || !/^\d{1,32}$/u.test(value)) return knowledgeError('INVALID_KNOWLEDGE', 'Physical source identity must be a decimal device or inode');
   return value;

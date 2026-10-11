@@ -4,6 +4,12 @@ import {
   resolvedImportedKnowledgeOwners,
 } from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { verifySealed } from "../shared/canonical.js";
+import {
+  casReplace,
+  guardedWrite,
+  type GuardedWriteOptions,
+} from "../storage/transaction.js";
 import type {
   KnowledgeGenerationPlan,
   KnowledgeHostBinding,
@@ -38,11 +44,15 @@ import {
   integer,
   knowledgeError,
   knowledgeHash,
+  resealKnowledge as updated,
+  sameKnowledge,
   sha256,
   stamp,
+  UNKNOWN_KNOWLEDGE_USAGE,
   validateBinding,
   validateGenerationPlan,
   validateUsage,
+  withKnowledgeHash as hashRecord,
 } from "./validation.js";
 
 export const KNOWLEDGE_GENERATION_TABLES = Object.freeze([
@@ -94,13 +104,26 @@ const STATES = new Set([
   "cancelled",
   "uncertain",
 ]);
-const UNKNOWN_USAGE: KnowledgeUsage = Object.freeze({
-  inputTokens: null,
-  outputTokens: null,
-  cachedInputTokens: null,
-  reasoningTokens: null,
-});
 const MAX_READ_BYTES = 1_048_576;
+const WRITE: GuardedWriteOptions = {
+  join: false,
+  innerAsyncCheck: true,
+  required: () =>
+    knowledgeError(
+      "KNOWLEDGE_TRANSACTION_REQUIRED",
+      "Native write must run once inside its exact database transaction",
+    ),
+  async: () =>
+    knowledgeError(
+      "KNOWLEDGE_ASYNC_PORT",
+      "Native writes cannot cross an await",
+    ),
+  detached: () =>
+    knowledgeError(
+      "KNOWLEDGE_TRANSACTION_REQUIRED",
+      "Host transaction must synchronously execute its operation",
+    ),
+};
 type Row = {
   id: string;
   workspace_id: string;
@@ -137,26 +160,14 @@ function exact(
       "Host generation fields do not match their bounded contract",
     );
 }
-function hashRecord<T extends object>(
-  body: T,
-): T & { readonly sha256: string } {
-  return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
-}
-function updated<T extends { readonly sha256: string }>(
-  record: T,
-  patch: object,
-): T {
-  const { sha256: _old, ...body } = record;
-  return hashRecord({ ...body, ...patch }) as unknown as T;
-}
 function checkHash(record: { readonly sha256: string }): void {
   assertKnowledgeGenerationDigest(record.sha256);
-  const { sha256: expected, ...body } = record;
-  if (knowledgeHash(body) !== expected)
+  verifySealed(record, () =>
     knowledgeError(
       "KNOWLEDGE_HASH_MISMATCH",
       "Native generation record hash does not match its exact body",
-    );
+    ),
+  );
   if (Buffer.byteLength(JSON.stringify(record)) > 61_440)
     knowledgeError(
       "KNOWLEDGE_GENERATION_LIMIT",
@@ -268,7 +279,7 @@ function validateRecord(value: unknown): KnowledgeGenerationRecord {
   const budget = normalizeKnowledgeGenerationBudget(r.budget);
   if (
     knowledgeHash(budget) !== r.budgetSha256 ||
-    knowledgeHash(r.budget) !== knowledgeHash(budget)
+    !sameKnowledge(r.budget, budget)
   )
     knowledgeError(
       "KNOWLEDGE_HASH_MISMATCH",
@@ -761,28 +772,7 @@ export class KnowledgeGenerationStorage {
     Object.freeze(this);
   }
   private write<T>(operation: () => T): T {
-    let entered = false;
-    const result = this.#ports.writeTx(() => {
-      if (entered || !this.#db.isTransaction)
-        knowledgeError(
-          "KNOWLEDGE_TRANSACTION_REQUIRED",
-          "Native write must run once inside its exact database transaction",
-        );
-      entered = true;
-      const result = operation();
-      if (result && typeof result === "object" && "then" in result)
-        knowledgeError(
-          "KNOWLEDGE_ASYNC_PORT",
-          "Native writes cannot cross an await",
-        );
-      return result;
-    });
-    if (!entered || (result && typeof result === "object" && "then" in result))
-      knowledgeError(
-        "KNOWLEDGE_TRANSACTION_REQUIRED",
-        "Host transaction must synchronously execute its operation",
-      );
-    return result;
+    return guardedWrite(this.#db, this.#ports, operation, WRITE);
   }
   private now(floor = 0): number {
     const value = this.#ports.now?.() ?? Date.now();
@@ -1068,7 +1058,7 @@ export class KnowledgeGenerationStorage {
       const plan = this.plan(request.workspaceId, request.planId),
         binding = this.binding(request.workspaceId);
       if (
-        knowledgeHash(binding) !== knowledgeHash(plan.binding) ||
+        !sameKnowledge(binding, plan.binding) ||
         plan.requestSha256 !== request.logicalRequestSha256 ||
         plan.requestBytes !== request.logicalRequestBytes ||
         request.budget.maxOutputBytes > plan.maxOutputBytes
@@ -1158,45 +1148,42 @@ export class KnowledgeGenerationStorage {
     next: KnowledgeGenerationRecord,
   ): void {
     validateRecord(next);
-    const result = this.#db
-      .prepare(
-        "UPDATE knowledge_generations SET state=?,revision=?,data=? WHERE id=? AND workspace_id=? AND revision=? AND data=?",
-      )
-      .run(
-        next.state,
-        next.revision,
-        JSON.stringify(next),
-        previous.id,
-        previous.workspaceId,
-        previous.revision,
-        JSON.stringify(previous),
-      );
-    if (result.changes !== 1)
+    this.replace("knowledge_generations", previous, next, () =>
       knowledgeError(
         "KNOWLEDGE_GENERATION_STALE",
         "Native generation CAS failed",
-      );
+      ),
+    );
   }
   private saveAttempt(
     previous: KnowledgeGenerationAttempt,
     next: KnowledgeGenerationAttempt,
   ): void {
     validateAttempt(next);
-    const result = this.#db
-      .prepare(
-        "UPDATE knowledge_generation_attempts SET state=?,revision=?,data=? WHERE id=? AND workspace_id=? AND revision=? AND data=?",
-      )
-      .run(
-        next.state,
-        next.revision,
-        JSON.stringify(next),
-        previous.id,
-        previous.workspaceId,
-        previous.revision,
-        JSON.stringify(previous),
-      );
-    if (result.changes !== 1)
-      knowledgeError("KNOWLEDGE_GENERATION_STALE", "Native attempt CAS failed");
+    this.replace("knowledge_generation_attempts", previous, next, () =>
+      knowledgeError("KNOWLEDGE_GENERATION_STALE", "Native attempt CAS failed"),
+    );
+  }
+  private replace<
+    T extends {
+      readonly id: string;
+      readonly workspaceId: string;
+      readonly state: string;
+      readonly revision: number;
+    },
+  >(table: string, previous: T, next: T, stale: () => never): void {
+    casReplace(
+      this.#db,
+      {
+        table,
+        key: { id: previous.id, workspace_id: previous.workspaceId },
+        set: { state: next.state, revision: next.revision },
+        fence: { revision: previous.revision },
+        previous,
+      },
+      next,
+      stale,
+    );
   }
   prepareAttempt(
     capture: KnowledgeGenerationCapture,
@@ -1247,7 +1234,7 @@ export class KnowledgeGenerationStorage {
           outputTruncated: false,
           observationBytes: 0,
           events: 0,
-          usage: UNKNOWN_USAGE,
+          usage: UNKNOWN_KNOWLEDGE_USAGE,
           providerRequestId: null,
           finishReason: null,
           streamDone: false,
@@ -1711,7 +1698,7 @@ export class KnowledgeGenerationStorage {
               candidateId: null,
               reason: value.reason,
             };
-      if (knowledgeHash(candidate) === knowledgeHash(g.candidate)) return g;
+      if (sameKnowledge(candidate, g.candidate)) return g;
       if (g.candidate.state === "recorded")
         knowledgeError(
           "KNOWLEDGE_RECORD_CONFLICT",
@@ -1985,25 +1972,24 @@ export class KnowledgeGenerationStorage {
         ).toISOString(),
       }),
     );
-    if (previous) {
-      const result = this.#db
-        .prepare(
-          "UPDATE knowledge_generation_workspace_barriers SET state=?,revision=?,data=? WHERE workspace_id=? AND revision=? AND data=?",
-        )
-        .run(
-          next.state,
-          next.revision,
-          JSON.stringify(next),
-          workspaceId,
-          previous.revision,
-          JSON.stringify(previous),
-        );
-      if (result.changes !== 1)
-        knowledgeError(
-          "KNOWLEDGE_GENERATION_STALE",
-          "Workspace recovery barrier CAS failed",
-        );
-    } else
+    if (previous)
+      casReplace(
+        this.#db,
+        {
+          table: "knowledge_generation_workspace_barriers",
+          key: { workspace_id: workspaceId },
+          set: { state: next.state, revision: next.revision },
+          fence: { revision: previous.revision },
+          previous,
+        },
+        next,
+        () =>
+          knowledgeError(
+            "KNOWLEDGE_GENERATION_STALE",
+            "Workspace recovery barrier CAS failed",
+          ),
+      );
+    else
       this.#db
         .prepare(
           "INSERT INTO knowledge_generation_workspace_barriers(id,workspace_id,state,revision,data) VALUES(?,?,?,?,?)",
@@ -2128,7 +2114,7 @@ export class KnowledgeGenerationStorage {
         "No unresolved native generation is available to acknowledge",
       );
     for (const g of frontier.generations)
-      if (knowledgeHash(g.binding) !== knowledgeHash(binding))
+      if (!sameKnowledge(g.binding, binding))
         knowledgeError(
           "KNOWLEDGE_BINDING_MISMATCH",
           "Recovery cannot acknowledge another physical source or storage binding",
@@ -2300,7 +2286,7 @@ export class KnowledgeGenerationStorage {
           fingerprint,
         );
       if (duplicate) {
-        if (knowledgeHash(duplicate.binding) !== knowledgeHash(binding))
+        if (!sameKnowledge(duplicate.binding, binding))
           knowledgeError(
             "KNOWLEDGE_BINDING_MISMATCH",
             "Resume receipt belongs to another physical binding",

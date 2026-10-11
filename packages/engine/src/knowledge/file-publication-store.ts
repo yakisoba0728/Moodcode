@@ -5,11 +5,18 @@ import {
 } from "./import-recovery-store.js";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
 import { types } from "node:util";
-import { EngineError } from "@moodcode/contracts";
+import { sealRecord, verifySealed } from "../shared/canonical.js";
+import {
+  guardedWrite,
+  type GuardedWriteOptions,
+} from "../storage/transaction.js";
 import {
   identifier,
   integer,
+  knowledgeError as filePublicationError,
   knowledgeHash,
+  knowledgeHostRecord,
+  sameKnowledge as equal,
   sha256,
   stamp,
   validateBinding,
@@ -17,7 +24,6 @@ import {
 } from "./validation.js";
 import {
   filePublicationJson,
-  filePublicationError,
   fileFields,
   fileDigest,
   filePath,
@@ -94,7 +100,6 @@ type Row = Record<string, unknown> & {
   data: string;
 };
 const id = (prefix: string) => prefix + "_" + randomUUID().replaceAll("-", "");
-const equal = (a: unknown, b: unknown) => knowledgeHash(a) === knowledgeHash(b);
 const maxBytes = (table: KnowledgeFilePublicationTable) =>
   [
     "knowledge_file_publications",
@@ -104,9 +109,11 @@ const maxBytes = (table: KnowledgeFilePublicationTable) =>
     ? KNOWLEDGE_FILE_PUBLICATION_LIMITS.checkpointBytes
     : KNOWLEDGE_FILE_PUBLICATION_LIMITS.rowBytes;
 const signed = <T extends object>(value: T): T & { readonly sha256: string } =>
-  filePublicationJson(
-    { ...value, sha256: knowledgeHash(value) },
-    KNOWLEDGE_FILE_PUBLICATION_LIMITS.checkpointBytes,
+  sealRecord(value, (sealed) =>
+    filePublicationJson(
+      sealed,
+      KNOWLEDGE_FILE_PUBLICATION_LIMITS.checkpointBytes,
+    ),
   );
 const targetOf = (r: KnowledgeFileObservationRevision): KnowledgeFileTarget =>
   filePublicationJson({
@@ -119,13 +126,27 @@ const targetOf = (r: KnowledgeFileObservationRevision): KnowledgeFileTarget =>
   });
 function recordHash(v: Record<string, unknown>): void {
   fileDigest(v.sha256);
-  const { sha256: expected, ...body } = v;
-  if (knowledgeHash(body) !== expected)
+  verifySealed(v, () =>
     filePublicationError(
       "KNOWLEDGE_FILE_HASH_MISMATCH",
       "Native file publication hash differs from its immutable record",
-    );
+    ),
+  );
 }
+const WRITE: GuardedWriteOptions = {
+  join: true,
+  innerAsyncCheck: false,
+  required: () =>
+    filePublicationError(
+      "KNOWLEDGE_FILE_TRANSACTION_REQUIRED",
+      "Native file publication requires exactly one primary transaction",
+    ),
+  detached: () =>
+    filePublicationError(
+      "KNOWLEDGE_FILE_TRANSACTION_REQUIRED",
+      "Native file publication cannot detach a transaction",
+    ),
+};
 const REQUEST_FIELDS = [
   "workspaceId",
   "requestId",
@@ -600,23 +621,7 @@ export class KnowledgeFilePublicationStorage {
     return n;
   }
   private write<T>(operation: () => T): T {
-    if (this.#db.isTransaction) return operation();
-    let entered = false;
-    const result = this.#ports.writeTx(() => {
-      if (entered || !this.#db.isTransaction)
-        filePublicationError(
-          "KNOWLEDGE_FILE_TRANSACTION_REQUIRED",
-          "Native file publication requires exactly one primary transaction",
-        );
-      entered = true;
-      return operation();
-    });
-    if (!entered || (result && typeof result === "object" && "then" in result))
-      filePublicationError(
-        "KNOWLEDGE_FILE_TRANSACTION_REQUIRED",
-        "Native file publication cannot detach a transaction",
-      );
-    return result;
+    return guardedWrite(this.#db, this.#ports, operation, WRITE);
   }
   private binding(workspaceId: string): KnowledgeHostBinding {
     identifier(workspaceId);
@@ -1715,33 +1720,15 @@ export class KnowledgeFilePublicationStorage {
     },
     operation: "acknowledge" | "resume",
   ): KnowledgeFileRecoveryAcknowledgment {
-    if (!input || typeof input !== "object" || types.isProxy(input))
-      filePublicationError(
-        "INVALID_KNOWLEDGE_FILE_RECOVERY",
-        "Recovery needs an original host preview",
-      );
-    const descriptors = Object.getOwnPropertyDescriptors(input);
-    if (
-      Reflect.ownKeys(descriptors).some(
-        (key) =>
-          typeof key !== "string" ||
-          ![
-            "workspaceId",
-            "requestId",
-            "approved",
-            "preview",
-            "reason",
-          ].includes(key) ||
-          !("value" in descriptors[key]!) ||
-          !descriptors[key]!.enumerable,
-      ) ||
-      Object.keys(descriptors).length !== 5
-    )
-      filePublicationError(
-        "INVALID_KNOWLEDGE_FILE_RECOVERY",
-        "Recovery input rejects executable or unknown properties",
-      );
-    const preview = descriptors.preview!.value as KnowledgeFileRecoveryPreview,
+    const fields = knowledgeHostRecord(
+      input,
+      ["workspaceId", "requestId", "approved", "preview", "reason"],
+      [],
+      "INVALID_KNOWLEDGE_FILE_RECOVERY",
+      "Recovery needs an original host preview",
+      "Recovery input rejects executable or unknown properties",
+    );
+    const preview = fields.preview as KnowledgeFileRecoveryPreview,
       owned = this.#previews.get(preview);
     if (
       !owned ||
@@ -1753,10 +1740,10 @@ export class KnowledgeFilePublicationStorage {
         "Recovery preview is copied, foreign or never issued",
       );
     const raw = filePublicationJson({
-      workspaceId: descriptors.workspaceId!.value,
-      requestId: descriptors.requestId!.value,
-      approved: descriptors.approved!.value,
-      reason: descriptors.reason!.value,
+      workspaceId: fields.workspaceId,
+      requestId: fields.requestId,
+      approved: fields.approved,
+      reason: fields.reason,
     });
     const request = {
       workspaceId: identifier(raw.workspaceId),

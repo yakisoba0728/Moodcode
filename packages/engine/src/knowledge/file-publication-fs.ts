@@ -18,7 +18,6 @@ import {
   unlink,
 } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
-import { types } from "node:util";
 import path from "node:path";
 import { EngineError } from "@moodcode/contracts";
 import type { KnowledgeHostBinding } from "./types.js";
@@ -28,10 +27,13 @@ import type {
   FilePublicationCheckpoint,
 } from "./file-publication-types.js";
 import {
+  assertKnowledgeSignal,
   exactKnowledgePath,
   identifier,
   immutableKnowledgeJson,
-  knowledgeHash,
+  knowledgeError as fail,
+  knowledgeHostRecord,
+  sameKnowledge as same,
   sha256,
   validateBinding,
 } from "./validation.js";
@@ -82,9 +84,6 @@ interface CaptureState {
 }
 const MAX_BODY = 16_384,
   MAX_CAPTURES = 128;
-function fail(code: string, message: string): never {
-  throw new EngineError(code, message);
-}
 function check(signal?: AbortSignal, deadline?: number): void {
   if (signal?.aborted)
     fail("KNOWLEDGE_FILE_CANCELLED", "File publication was cancelled");
@@ -93,9 +92,6 @@ function check(signal?: AbortSignal, deadline?: number): void {
       "KNOWLEDGE_FILE_DEADLINE",
       "Original file publication deadline expired",
     );
-}
-function same(a: unknown, b: unknown): boolean {
-  return knowledgeHash(a) === knowledgeHash(b);
 }
 function metadata(value: BigIntStats) {
   return {
@@ -125,74 +121,23 @@ function ordinary(
   required: readonly string[],
   optional: readonly string[] = [],
 ): void {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail("INVALID_KNOWLEDGE_FILE", "File publication input must be plain data");
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(descriptors, key)) ||
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        typeof key !== "string" ||
-        (!required.includes(key) && !optional.includes(key)) ||
-        !Object.hasOwn(descriptors[key]!, "value") ||
-        !descriptors[key]!.enumerable,
-    )
-  )
-    fail(
-      "INVALID_KNOWLEDGE_FILE",
-      "File publication input cannot contain unknown fields or accessors",
-    );
+  knowledgeHostRecord(
+    value,
+    required,
+    optional,
+    "INVALID_KNOWLEDGE_FILE",
+    "File publication input must be plain data",
+    "File publication input cannot contain unknown fields or accessors",
+  );
 }
 function actualSignal(signal?: AbortSignal): void {
-  if (signal === undefined) return;
-  if (
-    !signal ||
-    typeof signal !== "object" ||
-    types.isProxy(signal) ||
-    Object.getPrototypeOf(signal) !== AbortSignal.prototype ||
-    !(signal instanceof AbortSignal)
-  )
-    fail(
+  if (signal !== undefined)
+    assertKnowledgeSignal(
+      signal,
       "INVALID_KNOWLEDGE_FILE",
       "File publication needs an actual AbortSignal",
-    );
-  const descriptors = Object.getOwnPropertyDescriptors(signal);
-  if (
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        !Object.hasOwn(
-          descriptors[key as keyof typeof descriptors]!,
-          "value",
-        ) ||
-        (typeof key === "string" &&
-          [
-            "aborted",
-            "reason",
-            "addEventListener",
-            "removeEventListener",
-          ].includes(key)),
-    )
-  )
-    fail(
-      "INVALID_KNOWLEDGE_FILE",
       "File cancellation observations cannot be overridden",
     );
-  try {
-    Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(signal);
-  } catch {
-    fail(
-      "INVALID_KNOWLEDGE_FILE",
-      "File publication needs an actual AbortSignal",
-    );
-  }
 }
 
 /** Actual physical file executor; root paths and parent components are checked without following links. */

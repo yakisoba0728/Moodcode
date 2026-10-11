@@ -3,7 +3,8 @@ import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { boundedJson, JsonBudgetError, textPrefix } from '../artifacts/validation.js';
 import { jobJson, jobObject } from '../jobs/validation.js';
-import { immutableKnowledgeJson } from '../knowledge/validation.js';
+import { filePublicationJson } from '../knowledge/file-publication-validation.js';
+import { assertKnowledgeSignal, immutableKnowledgeJson, knowledgeHash, knowledgeHostRecord, resealKnowledge, withKnowledgeHash } from '../knowledge/validation.js';
 import { canonicalSha256 } from './canonical.js';
 import { assertNativeSignal, deepFreeze, exactKeys, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
 
@@ -50,6 +51,45 @@ test('knowledge and job copies are frozen with their own prototypes and job DATA
   assert.throws(() => jobJson(value, 0), hasCode('JOB_LIMIT', 'Job DATA byte limit is invalid'));
   assert.deepEqual(Object.keys(jobObject({ a: 1, b: 2 }, ['a'], ['b'])), ['a', 'b']);
   assert.throws(() => jobObject({ b: 2 }, ['a'], ['b']), hasCode('INVALID_JOB', 'Job object fields do not match the contract'));
+});
+
+test('file publication JSON keeps its own limits, codes and messages without running traps', () => {
+  const inputs = hostile(), invalid = (message: string) => hasCode('INVALID_KNOWLEDGE_FILE_PUBLICATION', message), limit = (message: string) => hasCode('KNOWLEDGE_FILE_LIMIT', message);
+  for (const value of [inputs.getter, inputs.indexed]) assert.throws(() => filePublicationJson(value), invalid('File publication rejects accessors and symbols'));
+  for (const value of [inputs.proxy, { n: Number.NaN }, { u: undefined }]) assert.throws(() => filePublicationJson(value), invalid('File publication requires detached plain JSON'));
+  assert.throws(() => filePublicationJson(new Date()), invalid('File publication rejects custom prototypes'));
+  assert.throws(() => filePublicationJson(JSON.parse('{"__proto__":1}')), invalid('File publication rejects hidden or prototype properties'));
+  assert.throws(() => filePublicationJson(Object.defineProperty([1], '0', { value: 1, enumerable: false })), invalid('Sparse file publication array'));
+  for (const value of [inputs.sparse, Array.from({ length: 257 }, () => 1)]) assert.throws(() => filePublicationJson(value), limit('File publication arrays must be dense and bounded'));
+  assert.equal(inputs.traps(), 0);
+  let deep: unknown = 1;
+  for (let depth = 0; depth < 24; depth++) deep = [deep];
+  assert.throws(() => immutableKnowledgeJson(deep), hasCode('KNOWLEDGE_LIMIT'));
+  assert.ok(Object.isFrozen(filePublicationJson(deep)));
+  assert.throws(() => filePublicationJson([deep]), limit('File publication JSON structure is too large'));
+  assert.throws(() => filePublicationJson({ text: '\ud800' }), limit('File publication text must be bounded UTF-8'));
+  assert.throws(() => filePublicationJson({ text: 'x'.repeat(10) }, 13), limit('File publication text must be bounded UTF-8'));
+  assert.throws(() => filePublicationJson({ text: 'x'.repeat(10) }, 14), limit('Serialized file publication exceeds its byte bound'));
+});
+
+test('knowledge host records, signals and reseals keep each caller code, message and bytes', () => {
+  const snapshot = knowledgeHostRecord({ id: 1 }, ['id'], ['note'], 'CODE', 'shape', 'fields', 'descriptor');
+  assert.equal(Object.getPrototypeOf(snapshot), null); assert.deepEqual({ ...snapshot }, { id: 1 });
+  const hidden = Object.defineProperty({}, 'id', { value: 1 });
+  assert.throws(() => knowledgeHostRecord([], ['id'], [], 'CODE', 'shape', 'fields'), hasCode('CODE', 'shape'));
+  assert.throws(() => knowledgeHostRecord({ id: 1, extra: 2 }, ['id'], [], 'CODE', 'shape', 'fields'), hasCode('CODE', 'fields'));
+  assert.throws(() => knowledgeHostRecord(hidden, ['id'], [], 'CODE', 'shape', 'fields'), hasCode('CODE', 'fields'));
+  assert.throws(() => knowledgeHostRecord(hidden, ['id'], [], 'CODE', 'shape', 'fields', 'descriptor'), hasCode('CODE', 'descriptor'));
+  assert.throws(() => knowledgeHostRecord({}, ['id'], [], 'CODE', 'only'), hasCode('CODE', 'only'));
+  assertKnowledgeSignal(new AbortController().signal, 'CODE', 'shape', 'override');
+  const shadowed = Object.defineProperty(new AbortController().signal, 'throwIfAborted', { value: () => undefined });
+  assert.throws(() => assertKnowledgeSignal(Object.create(AbortSignal.prototype), 'CODE', 'shape', 'override'), hasCode('CODE', 'shape'));
+  assert.throws(() => assertKnowledgeSignal(shadowed, 'CODE', 'shape', 'override'), hasCode('CODE', 'override'));
+  assert.throws(() => assertKnowledgeSignal(shadowed, 'CODE', 'only'), hasCode('CODE', 'only'));
+  const record = withKnowledgeHash({ id: 'x', revision: 1, state: 'prepared' }), next = resealKnowledge(record, { state: 'completed', revision: 2 });
+  const body = { id: 'x', revision: 2, state: 'completed' };
+  assert.equal(JSON.stringify(next), JSON.stringify(immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) })));
+  assert.ok(Object.isFrozen(next)); assert.equal(record.revision, 1);
 });
 
 test('artifact JSON stays lenient for proxies and hidden fields, rejects getters and holes, and signals its budget', () => {

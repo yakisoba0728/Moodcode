@@ -9,10 +9,12 @@ export interface GuardedWriteOptions {
   isThenable?: (value: unknown) => boolean;
   /** The callback was entered twice or outside a transaction. */
   required: () => never;
-  /** The host did not run the callback exactly once or returned a thenable; defaults to required. */
+  /** The host did not run the callback exactly once inside a transaction; defaults to required. */
   detached?: () => never;
   /** The operation returned a thenable inside the callback; defaults to required. */
   async?: () => never;
+  /** The host returned a thenable; defaults to detached. */
+  asyncResult?: () => never;
 }
 export interface CasReplace {
   table: string;
@@ -38,14 +40,16 @@ function hasThen(value: unknown): boolean { return !!value && typeof value === '
 export function guardedWrite<T>(db: DatabaseSync, port: WriteTransactionPort, operation: () => T, options: GuardedWriteOptions): T {
   if (options.join && db.isTransaction) return operation();
   const thenable = options.isThenable ?? hasThen;
-  let entries = 0;
+  let entries = 0, admitted = false;
   const result = port.writeTx(() => {
     if (++entries !== 1 || !db.isTransaction) options.required();
+    admitted = true;
     const value = operation();
     if (options.innerAsyncCheck && thenable(value)) (options.async ?? options.required)();
     return value;
   });
-  if (entries !== 1 || thenable(result)) (options.detached ?? options.required)();
+  if (entries !== 1 || !admitted) (options.detached ?? options.required)();
+  if (thenable(result)) (options.asyncResult ?? options.detached ?? options.required)();
   return result;
 }
 

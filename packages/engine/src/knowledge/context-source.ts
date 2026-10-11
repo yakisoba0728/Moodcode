@@ -2,6 +2,10 @@ import { isAbsolute } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
+import {
+  guardedWrite,
+  type GuardedWriteOptions,
+} from "../storage/transaction.js";
 import type {
   KnowledgeContextBudget,
   KnowledgeContextDocumentManifest,
@@ -29,11 +33,14 @@ import type {
   WorkspaceDocumentRevision,
 } from "./publication-types.js";
 import {
+  assertKnowledgeSignal,
   identifier,
   immutableKnowledgeJson,
   integer,
-  knowledgeError,
+  knowledgeError as fail,
   knowledgeHash,
+  knowledgeHostRecord,
+  sameKnowledge as same,
   validateBinding,
   validateCandidate,
   validateGenerationPlan,
@@ -74,43 +81,19 @@ const SOURCE_STALE_CODES = new Set([
   "KNOWLEDGE_SOURCE_MEDIA_UNSUPPORTED",
   "KNOWLEDGE_LIMIT",
 ]);
-function fail(code: string, message: string): never {
-  return knowledgeError(code, message);
-}
-function same(left: unknown, right: unknown): boolean {
-  return knowledgeHash(left) === knowledgeHash(right);
-}
 function fields(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail(
-      "INVALID_KNOWLEDGE_CONTEXT",
-      "Knowledge context requires plain host data",
-    );
-  const d = Object.getOwnPropertyDescriptors(value),
-    keys = Reflect.ownKeys(d);
-  if (
-    required.some((k) => !Object.hasOwn(d, k)) ||
-    keys.some(
-      (k) =>
-        typeof k !== "string" ||
-        (!required.includes(k) && !optional.includes(k)) ||
-        !d[k as string]!.enumerable ||
-        !Object.hasOwn(d[k as string]!, "value"),
-    )
-  )
-    fail(
-      "INVALID_KNOWLEDGE_CONTEXT",
-      "Knowledge context fields contain unsupported executable or opaque input",
-    );
+  knowledgeHostRecord(
+    value,
+    required,
+    optional,
+    "INVALID_KNOWLEDGE_CONTEXT",
+    "Knowledge context requires plain host data",
+    "Knowledge context fields contain unsupported executable or opaque input",
+  );
 }
 function sync(value: unknown): void {
   if (value !== undefined)
@@ -120,50 +103,32 @@ function sync(value: unknown): void {
     );
 }
 function signal(value: unknown): asserts value is AbortSignal {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    !(value instanceof AbortSignal) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype
-  )
-    fail(
-      "INVALID_KNOWLEDGE_CONTEXT",
-      "Knowledge context requires an actual native AbortSignal",
-    );
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  if (
-    Reflect.ownKeys(descriptors).some(
-      (key) =>
-        !Object.hasOwn(
-          descriptors[key as keyof typeof descriptors]!,
-          "value",
-        ) ||
-        (typeof key === "string" &&
-          [
-            "aborted",
-            "reason",
-            "addEventListener",
-            "removeEventListener",
-          ].includes(key)),
-    )
-  )
-    fail(
-      "INVALID_KNOWLEDGE_CONTEXT",
-      "Cancellation signal cannot replace native observations",
-    );
-  try {
-    Object.getOwnPropertyDescriptor(
-      AbortSignal.prototype,
-      "aborted",
-    )!.get!.call(value);
-  } catch {
-    fail(
-      "INVALID_KNOWLEDGE_CONTEXT",
-      "Knowledge context requires an actual native AbortSignal",
-    );
-  }
+  assertKnowledgeSignal(
+    value,
+    "INVALID_KNOWLEDGE_CONTEXT",
+    "Knowledge context requires an actual native AbortSignal",
+    "Cancellation signal cannot replace native observations",
+  );
 }
+const READ: GuardedWriteOptions = {
+  join: false,
+  innerAsyncCheck: true,
+  required: () =>
+    fail(
+      "KNOWLEDGE_CONTEXT_TRANSACTION_REQUIRED",
+      "Knowledge context must observe one stable primary database read transaction",
+    ),
+  async: () =>
+    fail(
+      "KNOWLEDGE_CONTEXT_PORT_INVALID",
+      "Knowledge context cannot cross an await inside its read transaction",
+    ),
+  detached: () =>
+    fail(
+      "KNOWLEDGE_CONTEXT_TRANSACTION_REQUIRED",
+      "Knowledge context read transaction did not complete synchronously",
+    ),
+};
 function check(value: AbortSignal): void {
   if (value.aborted)
     fail(
@@ -374,28 +339,12 @@ export class KnowledgeContextSource implements KnowledgeContextSourcePort {
     Object.freeze(this);
   }
   private read<T>(operation: () => T): T {
-    let entered = false;
-    const result = this.#ports.readTx(() => {
-      if (entered || !this.#db.isTransaction)
-        fail(
-          "KNOWLEDGE_CONTEXT_TRANSACTION_REQUIRED",
-          "Knowledge context must observe one stable primary database read transaction",
-        );
-      entered = true;
-      const value = operation();
-      if (value && typeof value === "object" && "then" in value)
-        fail(
-          "KNOWLEDGE_CONTEXT_PORT_INVALID",
-          "Knowledge context cannot cross an await inside its read transaction",
-        );
-      return value;
-    });
-    if (!entered || (result && typeof result === "object" && "then" in result))
-      fail(
-        "KNOWLEDGE_CONTEXT_TRANSACTION_REQUIRED",
-        "Knowledge context read transaction did not complete synchronously",
-      );
-    return result;
+    return guardedWrite(
+      this.#db,
+      { writeTx: (run) => this.#ports.readTx(run) },
+      operation,
+      READ,
+    );
   }
   private now(): number {
     const value = this.#ports.now?.() ?? Date.now();

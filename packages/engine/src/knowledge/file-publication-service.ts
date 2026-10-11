@@ -33,9 +33,13 @@ import type {
   TrustSourcePin,
 } from "./types.js";
 import {
+  assertKnowledgeSignal,
   identifier,
   immutableKnowledgeJson,
+  knowledgeError as fail,
   knowledgeHash,
+  knowledgeHostRecord,
+  sameKnowledge as same,
   sha256,
   stamp,
   validateBinding,
@@ -172,42 +176,19 @@ const MAX_PREVIEWS = 128,
   MAX_OPERATIONS = 32,
   MAX_PREVIEW_BYTES = 262144,
   MAX_PREVIEW_MS = 300000;
-function fail(code: string, message: string): never {
-  throw new EngineError(code, message);
-}
-function same(a: unknown, b: unknown): boolean {
-  return knowledgeHash(a) === knowledgeHash(b);
-}
 function hostInput(
   value: unknown,
   required: readonly string[],
   optional: readonly string[] = [],
 ): void {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    ![Object.prototype, null].includes(Object.getPrototypeOf(value))
-  )
-    fail(
-      "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-      "File publication input must be plain data",
-    );
-  const fields = Object.getOwnPropertyDescriptors(value);
-  if (
-    required.some((key) => !Object.hasOwn(fields, key)) ||
-    Reflect.ownKeys(fields).some(
-      (key) =>
-        typeof key !== "string" ||
-        (!required.includes(key) && !optional.includes(key)) ||
-        !fields[key]!.enumerable ||
-        !Object.hasOwn(fields[key]!, "value"),
-    )
-  )
-    fail(
-      "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-      "File publication rejects unknown fields, accessors and symbols",
-    );
+  knowledgeHostRecord(
+    value,
+    required,
+    optional,
+    "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+    "File publication input must be plain data",
+    "File publication rejects unknown fields, accessors and symbols",
+  );
 }
 function sync(result: unknown): void {
   if (result !== undefined)
@@ -217,34 +198,12 @@ function sync(result: unknown): void {
     );
 }
 function signal(value: unknown): asserts value is AbortSignal {
-  if (
-    !value ||
-    typeof value !== "object" ||
-    types.isProxy(value) ||
-    !(value instanceof AbortSignal) ||
-    Object.getPrototypeOf(value) !== AbortSignal.prototype
-  )
-    fail(
-      "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-      "Cancellation requires an actual unmodified AbortSignal",
-    );
-  for (const key of Reflect.ownKeys(value)) {
-    const descriptor = Object.getOwnPropertyDescriptor(value, key)!;
-    if (
-      !Object.hasOwn(descriptor, "value") ||
-      (typeof key === "string" &&
-        [
-          "aborted",
-          "reason",
-          "addEventListener",
-          "removeEventListener",
-        ].includes(key))
-    )
-      fail(
-        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-        "Cancellation cannot override native signal observations",
-      );
-  }
+  assertKnowledgeSignal(
+    value,
+    "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+    "Cancellation requires an actual unmodified AbortSignal",
+    "Cancellation cannot override native signal observations",
+  );
 }
 function abort(value: AbortSignal): void {
   if (value.aborted)

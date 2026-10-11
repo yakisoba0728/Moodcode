@@ -1,5 +1,10 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import { verifySealed } from "../shared/canonical.js";
+import {
+  guardedWrite,
+  type GuardedWriteOptions,
+} from "../storage/transaction.js";
 import type { KnowledgeTarget } from "./types.js";
 import type {
   KnowledgePublicationArchiveData,
@@ -24,10 +29,13 @@ import {
   integer,
   knowledgeError,
   knowledgeHash,
+  resealKnowledge as modified,
+  sameKnowledge,
   sha256,
   stamp,
   validateBinding,
   validateCandidate,
+  withKnowledgeHash as hashed,
 } from "./validation.js";
 
 export const KNOWLEDGE_PUBLICATION_TABLES = Object.freeze([
@@ -220,21 +228,14 @@ function boundedText(value: unknown, maximum = 16384): string {
     );
   return value as string;
 }
-function hashed<T extends object>(body: T): T & { readonly sha256: string } {
-  return immutableKnowledgeJson({ ...body, sha256: knowledgeHash(body) });
-}
-function modified<T extends { sha256: string }>(record: T, patch: object): T {
-  const { sha256: _old, ...body } = record;
-  return hashed({ ...body, ...patch }) as unknown as T;
-}
 function hashValid(record: { sha256: string }): void {
   digest(record.sha256);
-  const { sha256: expected, ...body } = record;
-  if (knowledgeHash(body) !== expected)
+  verifySealed(record, () =>
     knowledgeError(
       "KNOWLEDGE_HASH_MISMATCH",
       "Publication row differs from its immutable hash",
-    );
+    ),
+  );
   if (Buffer.byteLength(JSON.stringify(record)) > 61440)
     knowledgeError(
       "KNOWLEDGE_PUBLICATION_LIMIT",
@@ -606,6 +607,26 @@ function decode(
   return record;
 }
 
+const WRITE: GuardedWriteOptions = {
+  join: false,
+  innerAsyncCheck: true,
+  required: () =>
+    knowledgeError(
+      "KNOWLEDGE_TRANSACTION_REQUIRED",
+      "Publication writes require one primary SQL transaction",
+    ),
+  async: () =>
+    knowledgeError(
+      "KNOWLEDGE_ASYNC_PORT",
+      "Publication transaction cannot cross an await",
+    ),
+  detached: () =>
+    knowledgeError(
+      "KNOWLEDGE_TRANSACTION_REQUIRED",
+      "Host publication transaction did not execute synchronously",
+    ),
+};
+
 /** SQL-only workspace documents. The native owner never manufactures a Session or invokes tools. */
 export class KnowledgePublicationStorage {
   readonly #db: DatabaseSync;
@@ -636,28 +657,7 @@ export class KnowledgePublicationStorage {
     Object.freeze(this);
   }
   private write<T>(operation: () => T): T {
-    let entered = false;
-    const result = this.#ports.writeTx(() => {
-      if (entered || !this.#db.isTransaction)
-        knowledgeError(
-          "KNOWLEDGE_TRANSACTION_REQUIRED",
-          "Publication writes require one primary SQL transaction",
-        );
-      entered = true;
-      const value = operation();
-      if (value && typeof value === "object" && "then" in value)
-        knowledgeError(
-          "KNOWLEDGE_ASYNC_PORT",
-          "Publication transaction cannot cross an await",
-        );
-      return value;
-    });
-    if (!entered || (result && typeof result === "object" && "then" in result))
-      knowledgeError(
-        "KNOWLEDGE_TRANSACTION_REQUIRED",
-        "Host publication transaction did not execute synchronously",
-      );
-    return result;
+    return guardedWrite(this.#db, this.#ports, operation, WRITE);
   }
   private now(floor = 0): number {
     const value = this.#ports.now?.() ?? Date.now();
@@ -682,10 +682,7 @@ export class KnowledgePublicationStorage {
     return bound;
   }
   private assertBinding(binding: PrepareKnowledgePublication["binding"]): void {
-    if (
-      knowledgeHash(this.binding(binding.workspaceId)) !==
-      knowledgeHash(binding)
-    )
+    if (!sameKnowledge(this.binding(binding.workspaceId), binding))
       knowledgeError(
         "KNOWLEDGE_BINDING_MISMATCH",
         "Publication was captured under another workspace/storage binding",
@@ -754,7 +751,7 @@ export class KnowledgePublicationStorage {
         "KNOWLEDGE_RECORD_CONFLICT",
         "Current document head has no actual revision",
       );
-    if (knowledgeHash(head) !== knowledgeHash(headFor(document)))
+    if (!sameKnowledge(head, headFor(document)))
       knowledgeError(
         "KNOWLEDGE_RECORD_CONFLICT",
         "Current document head differs from its exact revision",
@@ -824,9 +821,8 @@ export class KnowledgePublicationStorage {
       document.body !== publication.body ||
       document.bodySha256 !== publication.bodySha256 ||
       document.revision !== publication.expectedHeadRevision + 1 ||
-      knowledgeHash(document.binding) !== knowledgeHash(publication.binding) ||
-      knowledgeHash(document.provenance) !==
-        knowledgeHash(publication.provenance) ||
+      !sameKnowledge(document.binding, publication.binding) ||
+      !sameKnowledge(document.provenance, publication.provenance) ||
       document.status !==
         (publication.operation === "publish" ? "active" : "revoked") ||
       receipt.publicationId !== publication.id ||
@@ -894,7 +890,7 @@ export class KnowledgePublicationStorage {
       candidate.generationOwnerId !== request.provenance.generationId ||
       candidate.planId !== request.provenance.planId ||
       candidate.trustRevisionId !== request.provenance.trustRevisionId ||
-      knowledgeHash(candidate.binding) !== knowledgeHash(request.binding)
+      !sameKnowledge(candidate.binding, request.binding)
     )
       knowledgeError(
         "KNOWLEDGE_PUBLICATION_PROVENANCE_CHANGED",
@@ -949,8 +945,7 @@ export class KnowledgePublicationStorage {
           previous.sha256 !== request.existingPublicationSha256 ||
           previous.documentKey !== request.documentKey ||
           previous.documentRevisionId !== request.expectedHeadRevisionId ||
-          knowledgeHash(previous.provenance) !==
-            knowledgeHash(request.provenance)
+          !sameKnowledge(previous.provenance, request.provenance)
         )
           knowledgeError(
             "KNOWLEDGE_PUBLICATION_PROVENANCE_CHANGED",

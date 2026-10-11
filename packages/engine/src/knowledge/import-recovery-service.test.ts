@@ -461,6 +461,13 @@ test("copied, foreign, released, mismatched and hostile input/signal capabilitie
     }),
     code("KNOWLEDGE_IMPORT_CANCELLED"),
   );
+  await assert.rejects(
+    f.service.acknowledge({
+      ...approved(preview),
+      signal: Object.create(AbortSignal.prototype) as AbortSignal,
+    }),
+    code("INVALID_KNOWLEDGE_IMPORT_RECOVERY"),
+  );
   for (const value of [
     approved({ ...preview }),
     { ...approved(preview), preview: proxy },

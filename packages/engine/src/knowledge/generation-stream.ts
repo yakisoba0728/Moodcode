@@ -4,6 +4,7 @@ import { validateHostGenerationRequest, type HostGenerationProviderPort, type Ho
 import { normalizeKnowledgeGenerationBudget } from './generation-budget.js';
 import type { KnowledgeGenerationBudget, KnowledgeGenerationCleanup, KnowledgeGenerationObservation, KnowledgeGenerationSettlement } from './generation-types.js';
 import type { KnowledgeUsage } from './types.js';
+import { knowledgeHostRecord, UNKNOWN_KNOWLEDGE_USAGE } from './validation.js';
 
 export interface KnowledgeGenerationStreamOptions {
   readonly provider: HostGenerationProviderPort;
@@ -31,15 +32,10 @@ export interface KnowledgeGenerationStreamOutcome extends KnowledgeGenerationSet
   readonly streamDone: boolean;
 }
 
-const emptyUsage = (): KnowledgeUsage => Object.freeze({ inputTokens: null, outputTokens: null, cachedInputTokens: null, reasoningTokens: null });
-function fail(code: string): never { throw new EngineError(code, 'Host knowledge generation did not satisfy its bounded text-only protocol.'); }
+const PROTOCOL_MESSAGE = 'Host knowledge generation did not satisfy its bounded text-only protocol.';
+function fail(code: string): never { throw new EngineError(code, PROTOCOL_MESSAGE); }
 function record(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
-  if (!value || typeof value !== 'object' || types.isProxy(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) fail('KNOWLEDGE_GENERATION_PROTOCOL');
-  const descriptors = Object.getOwnPropertyDescriptors(value), keys = Reflect.ownKeys(descriptors);
-  if (keys.some(key => typeof key !== 'string' || ![...required, ...optional].includes(key)) || required.some(key => !Object.hasOwn(descriptors, key))) fail('KNOWLEDGE_GENERATION_PROTOCOL');
-  const result: Record<string, unknown> = Object.create(null);
-  for (const key of keys) { const descriptor = descriptors[key as string]!; if (!descriptor.enumerable || !Object.hasOwn(descriptor, 'value')) fail('KNOWLEDGE_GENERATION_PROTOCOL'); result[key as string] = descriptor.value; }
-  return result;
+  return knowledgeHostRecord(value, required, optional, 'KNOWLEDGE_GENERATION_PROTOCOL', PROTOCOL_MESSAGE);
 }
 /** Opaque finish replay is charged and discarded, never copied into durable evidence. */
 function dataBytes(value: unknown, maximum: number): number {
@@ -129,7 +125,7 @@ export async function streamKnowledgeGeneration(options: KnowledgeGenerationStre
   const generate = method(options.provider, 'streamGeneration');
   if (!Number.isSafeInteger(options.deadline) || options.deadline < 0 || options.deadline > 8_640_000_000_000_000 || !generate || !options.signal || typeof options.signal.addEventListener !== 'function' || typeof options.onDispatch !== 'function' || typeof options.onObservation !== 'function' || typeof options.onSettlement !== 'function') fail('INVALID_KNOWLEDGE_GENERATION_STREAM');
   const start = Date.now(), deadline = Math.min(options.deadline, start + budget.maxDurationMs), requestDeadline = Math.min(deadline - budget.cleanupTimeoutMs, start + budget.providerRequestTimeoutMs), controller = new AbortController();
-  let text = '', observedTextBytes = 0, retainedBytes = 0, observationBytes = 0, events = 0, usage = emptyUsage(), providerRequestId: string | null = null, finishReason: 'stop' | null = null, streamDone = false, outputTruncated = false;
+  let text = '', observedTextBytes = 0, retainedBytes = 0, observationBytes = 0, events = 0, usage = UNKNOWN_KNOWLEDGE_USAGE, providerRequestId: string | null = null, finishReason: 'stop' | null = null, streamDone = false, outputTruncated = false;
   let iterator: AsyncIterator<unknown> | undefined, providerEntered = false, callbackFailed = false, errorCode: string | undefined, timeout: 'request' | 'inactivity' | undefined;
   let requestTimer: ReturnType<typeof setTimeout> | undefined, inactivityTimer: ReturnType<typeof setTimeout> | undefined;
   const abort = () => { controller.abort(new EngineError('KNOWLEDGE_GENERATION_CANCELLED', 'Host generation was cancelled.')); };

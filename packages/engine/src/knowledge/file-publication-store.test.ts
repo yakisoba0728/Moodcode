@@ -651,6 +651,27 @@ test("explicit original ACK and separate resume retain immutable uncertainty and
   });
   const raw = f.store.getOwner("workspace", p.record.id)!,
     preview = f.store.previewRecovery("workspace");
+  const input = {
+    workspaceId: "workspace",
+    requestId: "ack",
+    approved: true as const,
+    preview,
+    reason: "observed cleanup",
+  };
+  assert.throws(
+    () => f.store.acknowledge(Object.assign(Object.create({}), input)),
+    code("INVALID_KNOWLEDGE_FILE_RECOVERY"),
+  );
+  assert.throws(
+    () =>
+      f.store.acknowledge(
+        Object.defineProperty({ ...input }, "reason", {
+          enumerable: true,
+          get: () => "observed cleanup",
+        }),
+      ),
+    code("INVALID_KNOWLEDGE_FILE_RECOVERY"),
+  );
   assert.throws(
     () =>
       f.store.acknowledge({

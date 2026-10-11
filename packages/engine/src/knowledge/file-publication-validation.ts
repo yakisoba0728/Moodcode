@@ -1,14 +1,15 @@
-import { types } from "node:util";
-import { EngineError } from "@moodcode/contracts";
 import {
   exactKnowledgePath,
   identifier,
   integer,
+  knowledgeError,
   knowledgeHash,
+  sameKnowledge,
   sha256,
   stamp,
   validateBinding,
 } from "./validation.js";
+import { plainJson, type PlainJsonFault } from "../shared/data.js";
 import { workspaceWritePath } from "../workspace/index.js";
 import type {
   FilePhysicalObservation,
@@ -27,109 +28,71 @@ export const KNOWLEDGE_FILE_PUBLICATION_LIMITS = Object.freeze({
   parents: 32,
   owners: 128,
 });
-export function filePublicationError(code: string, message: string): never {
-  throw new EngineError(code, message);
+function jsonFault(fault: PlainJsonFault): never {
+  switch (fault) {
+    case "structure":
+      return knowledgeError(
+        "KNOWLEDGE_FILE_LIMIT",
+        "File publication JSON structure is too large",
+      );
+    case "bytes":
+    case "text":
+      return knowledgeError(
+        "KNOWLEDGE_FILE_LIMIT",
+        "File publication text must be bounded UTF-8",
+      );
+    case "items":
+    case "holes":
+      return knowledgeError(
+        "KNOWLEDGE_FILE_LIMIT",
+        "File publication arrays must be dense and bounded",
+      );
+    case "element":
+      return knowledgeError(
+        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+        "Sparse file publication array",
+      );
+    case "prototype":
+      return knowledgeError(
+        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+        "File publication rejects custom prototypes",
+      );
+    case "symbol":
+    case "accessor":
+      return knowledgeError(
+        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+        "File publication rejects accessors and symbols",
+      );
+    case "property":
+      return knowledgeError(
+        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+        "File publication rejects hidden or prototype properties",
+      );
+    default:
+      return knowledgeError(
+        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+        "File publication requires detached plain JSON",
+      );
+  }
 }
 /** Copy descriptors before invoking any SQL/host port. No executable properties or aliases survive. */
 export function filePublicationJson<T>(
   input: T,
   maxBytes: number = KNOWLEDGE_FILE_PUBLICATION_LIMITS.rowBytes,
 ): T {
-  let nodes = 0,
-    bytes = 0;
-  const seen = new Set<object>();
-  const copy = (value: unknown, depth: number): unknown => {
-    if (++nodes > 8192 || depth > 24)
-      filePublicationError(
-        "KNOWLEDGE_FILE_LIMIT",
-        "File publication JSON structure is too large",
-      );
-    if (value === null || typeof value === "boolean") return value;
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-    if (typeof value === "string") {
-      bytes += Buffer.byteLength(value);
-      if (bytes > maxBytes || Buffer.from(value).toString("utf8") !== value)
-        filePublicationError(
-          "KNOWLEDGE_FILE_LIMIT",
-          "File publication text must be bounded UTF-8",
-        );
-      return value;
-    }
-    if (
-      !value ||
-      typeof value !== "object" ||
-      types.isProxy(value) ||
-      seen.has(value)
-    )
-      filePublicationError(
-        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-        "File publication requires detached plain JSON",
-      );
-    const array = Array.isArray(value),
-      prototype = Object.getPrototypeOf(value);
-    if (
-      prototype !== (array ? Array.prototype : Object.prototype) &&
-      prototype !== null
-    )
-      filePublicationError(
-        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-        "File publication rejects custom prototypes",
-      );
-    const descriptors = Object.getOwnPropertyDescriptors(value);
-    if (
-      Reflect.ownKeys(descriptors).some(
-        (key) => typeof key !== "string" || !("value" in descriptors[key]!),
-      )
-    )
-      filePublicationError(
-        "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-        "File publication rejects accessors and symbols",
-      );
-    seen.add(value);
-    let result: unknown;
-    if (array) {
-      const count = descriptors.length?.value;
-      if (
-        !Number.isSafeInteger(count) ||
-        count < 0 ||
-        count > 256 ||
-        Object.keys(descriptors).length !== count + 1
-      )
-        filePublicationError(
-          "KNOWLEDGE_FILE_LIMIT",
-          "File publication arrays must be dense and bounded",
-        );
-      result = Array.from({ length: count }, (_, index) => {
-        const d = descriptors[String(index)];
-        if (!d?.enumerable)
-          filePublicationError(
-            "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-            "Sparse file publication array",
-          );
-        return copy(d.value, depth + 1);
-      });
-    } else {
-      const object: Record<string, unknown> = {};
-      for (const [key, d] of Object.entries(descriptors)) {
-        if (!d.enumerable || key === "__proto__")
-          filePublicationError(
-            "INVALID_KNOWLEDGE_FILE_PUBLICATION",
-            "File publication rejects hidden or prototype properties",
-          );
-        bytes += Buffer.byteLength(key);
-        Object.defineProperty(object, key, {
-          value: copy(d.value, depth + 1),
-          enumerable: true,
-        });
-      }
-      result = object;
-    }
-    seen.delete(value);
-    return Object.freeze(result);
-  };
-  const result = copy(input, 0) as T;
+  const result = plainJson(input, {
+    maxBytes,
+    maxNodes: 8192,
+    maxDepth: 24,
+    maxItems: 256,
+    accounting: "text",
+    wellFormed: true,
+    rejectKeys: ["__proto__"],
+    freeze: true,
+    fail: jsonFault,
+  });
   if (Buffer.byteLength(JSON.stringify(result)) > maxBytes)
-    filePublicationError(
+    knowledgeError(
       "KNOWLEDGE_FILE_LIMIT",
       "Serialized file publication exceeds its byte bound",
     );
@@ -141,7 +104,7 @@ export function fileFields(
   optional: readonly string[] = [],
 ): asserts value is Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value))
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "File publication requires a plain object",
     );
@@ -150,14 +113,14 @@ export function fileFields(
     required.some((key) => !Object.hasOwn(value, key)) ||
     keys.some((key) => !required.includes(key) && !optional.includes(key))
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "File publication fields differ from the contract",
     );
 }
 export function fileDigest(value: unknown): string {
   if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value))
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Expected exact SHA-256",
     );
@@ -168,7 +131,7 @@ function decimal(value: unknown, signed = false): void {
     typeof value !== "string" ||
     !(signed ? /^-?\d{1,32}$/u : /^\d{1,32}$/u).test(value)
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Physical file metadata must be bounded decimal text",
     );
@@ -182,7 +145,7 @@ export function filePath(value: unknown): string {
       "File publication path is unsafe or exceeds its cap",
     ).length > 32
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PATH",
       "File publication path is unsafe or exceeds its cap",
     );
@@ -195,7 +158,7 @@ export function fileText(value: unknown, cap: number): string {
     value.includes("\0") ||
     Buffer.from(value).toString("utf8") !== value
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "File content must be bounded plain UTF-8 text",
     );
@@ -230,7 +193,7 @@ export function validateFilePhysicalObservation(
     !Array.isArray(v.missingParents) ||
     v.missingParents.length > 31
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Invalid physical file observation",
     );
@@ -242,7 +205,7 @@ export function validateFilePhysicalObservation(
     decimal(v.mtimeNs, true);
     decimal(v.ctimeNs, true);
     if (v.missingParents.length)
-      filePublicationError(
+      knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "A present file cannot have missing parents",
       );
@@ -252,7 +215,7 @@ export function validateFilePhysicalObservation(
       (item) => item !== null,
     )
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Absent file observations cannot invent physical metadata",
     );
@@ -266,7 +229,7 @@ export function validateFilePhysicalObservation(
   for (const [index, pin] of v.parentPins.entries()) {
     fileFields(pin, ["path", "device", "inode", "mode", "mtimeNs", "ctimeNs"]);
     if (pin.path !== parents[index])
-      filePublicationError(
+      knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "Parent observations must follow the exact canonical path",
       );
@@ -283,13 +246,13 @@ export function validateFilePhysicalObservation(
       (item, index) => item !== parents[parentCount + index],
     )
   )
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Missing parents must be an exact suffix of the target path",
     );
   const first = v.parentPins[0] as Record<string, unknown>;
   if (first.device !== binding.rootDevice || first.inode !== binding.rootInode)
-    filePublicationError(
+    knowledgeError(
       "KNOWLEDGE_BINDING_MISMATCH",
       "Physical parent root differs from its workspace binding",
     );
@@ -309,7 +272,7 @@ export function sameFileHead(
       mode,
     })),
   });
-  return knowledgeHash(stable(a)) === knowledgeHash(stable(b));
+  return sameKnowledge(stable(a), stable(b));
 }
 export function validateKnowledgeFileTarget(
   input: unknown,
@@ -335,7 +298,7 @@ export function validateKnowledgeFileTarget(
     (v.revision === 0) !== (v.observationId === null) ||
     (v.revision === 0 && o.present)
   )
-    filePublicationError(
+    knowledgeError(
       "KNOWLEDGE_FILE_TARGET_INVALID",
       "Target does not match its actual physical observation and native revision",
     );
@@ -365,14 +328,14 @@ export function validateFilePublicationCheckpoint(
       values.length > 64 ||
       new Set(values).size !== values.length
     )
-      filePublicationError(
+      knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "Effect checkpoint paths must be unique bounded arrays",
       );
     values.forEach(filePath);
   }
   if (typeof v.partial !== "boolean")
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Checkpoint partial flag must be explicit",
     );
@@ -426,9 +389,9 @@ export function validatePrepareKnowledgeFilePublication(
     binding.workspaceId !== v.workspaceId ||
     target.workspaceId !== v.workspaceId ||
     target.path !== v.path ||
-    knowledgeHash(binding) !== knowledgeHash(target.observation.binding)
+    !sameKnowledge(binding, target.observation.binding)
   )
-    filePublicationError(
+    knowledgeError(
       "KNOWLEDGE_FILE_SCOPE_MISMATCH",
       "File publication scope/binding disagrees",
     );
@@ -438,12 +401,12 @@ export function validatePrepareKnowledgeFilePublication(
       sha256(v.beforeContent as string) !== target.observation.sha256 ||
       Buffer.byteLength(v.beforeContent as string) !== target.observation.bytes
     )
-      filePublicationError(
+      knowledgeError(
         "KNOWLEDGE_FILE_TARGET_INVALID",
         "Captured before content does not match its actual preimage",
       );
   } else if (v.beforeContent !== null)
-    filePublicationError(
+    knowledgeError(
       "KNOWLEDGE_FILE_TARGET_INVALID",
       "Absent target cannot carry a before body",
     );
@@ -455,7 +418,7 @@ export function validatePrepareKnowledgeFilePublication(
       v.existingPublicationId !== null ||
       v.existingPublicationSha256 !== null
     )
-      filePublicationError(
+      knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "Publish requires its exact candidate body",
       );
@@ -463,12 +426,12 @@ export function validatePrepareKnowledgeFilePublication(
     identifier(v.existingPublicationId);
     fileDigest(v.existingPublicationSha256);
     if (v.body !== null || v.bodySha256 !== null || !target.observation.present)
-      filePublicationError(
+      knowledgeError(
         "INVALID_KNOWLEDGE_FILE_PUBLICATION",
         "Revocation requires an actual present published target and null postimage",
       );
   } else
-    filePublicationError(
+    knowledgeError(
       "INVALID_KNOWLEDGE_FILE_PUBLICATION",
       "Unknown file publication operation",
     );

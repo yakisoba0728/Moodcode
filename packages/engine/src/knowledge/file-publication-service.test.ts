@@ -233,6 +233,30 @@ test("actual service consumes its Engine native store and physical executor, pre
   f.assertNoCoding();
 });
 
+test("file approval rejects AbortSignal look-alikes and shadowed observations before any native owner", async (t) => {
+  const f = await filePublicationFixture(t),
+    preview = await f.preview(await f.candidate());
+  const shadowed = Object.defineProperty(
+    new AbortController().signal,
+    "throwIfAborted",
+    { value: () => undefined },
+  );
+  for (const signal of [
+    Object.create(AbortSignal.prototype) as AbortSignal,
+    shadowed,
+  ])
+    await assert.rejects(
+      f.publish(preview, "service-hostile-signal", f.engine, signal),
+      (error) =>
+        error instanceof EngineError &&
+        error.code === "INVALID_KNOWLEDGE_FILE_PUBLICATION",
+    );
+  const result = await f.publish(preview, "service-hostile-signal");
+  assert.equal(result.publication.state, "completed");
+  assert.equal(result.duplicate, false);
+  f.assertNoCoding();
+});
+
 test("actual native prepared intent cancelled before dispatch creates no file or directory and cannot be retried", async (t) => {
   const f = await filePublicationFixture(t),
     candidate = await f.candidate(),
