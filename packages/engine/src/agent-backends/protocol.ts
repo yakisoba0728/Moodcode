@@ -14,6 +14,7 @@ import type {
   AcpV1ReadTextFileParams,
   AcpV1ReadTextFileResult,
   AcpV1SessionUpdate,
+  AcpV1StopReason,
 } from "./types.js";
 import {
   AGENT_BACKEND_LIMITS,
@@ -28,6 +29,13 @@ import {
 } from "./validation.js";
 
 export const ACP_PROTOCOL_VERSION = 1 as const;
+export const ACP_V1_STOP_REASONS = [
+  "end_turn",
+  "max_tokens",
+  "max_turn_requests",
+  "refusal",
+  "cancelled",
+] as const;
 function validateAcpV1Id(value: unknown): AcpV1Id {
   if (typeof value === "number")
     return agentBackendInteger(value, Number.MAX_SAFE_INTEGER, 0);
@@ -544,15 +552,7 @@ export function validateAcpV1Result(method: string, input: unknown): object {
     }
     case "session/prompt": {
       const value = agentBackendObject(input, ["stopReason"], ["_meta"]);
-      if (
-        ![
-          "end_turn",
-          "max_tokens",
-          "max_turn_requests",
-          "refusal",
-          "cancelled",
-        ].includes(value.stopReason as string)
-      )
+      if (!ACP_V1_STOP_REASONS.includes(value.stopReason as AcpV1StopReason))
         agentBackendError("ACP_COMPLETION_INVALID");
       metadata(value._meta);
       return value;

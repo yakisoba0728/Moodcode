@@ -4,6 +4,7 @@ import type {
   JsonValue,
   RunConfig,
 } from "@moodcode/contracts";
+import type { ACP_V1_STOP_REASONS } from "./protocol.js";
 
 /** Serializable pins are observations; only ORIGINAL root-produced handles convey runtime authority. */
 export interface AgentBackendTargetPin {
@@ -164,8 +165,7 @@ export interface AcpV1PromptParams {
   readonly prompt: readonly AcpV1TextContent[];
   readonly _meta?: JsonObject;
 }
-export type AcpV1StopReason =
-  "end_turn" | "max_tokens" | "max_turn_requests" | "refusal" | "cancelled";
+export type AcpV1StopReason = (typeof ACP_V1_STOP_REASONS)[number];
 export interface AcpV1PromptResult {
   readonly stopReason: AcpV1StopReason;
   readonly _meta?: JsonObject;

@@ -45,6 +45,11 @@ import {
 } from "./client-effects.js";
 import {
   assertBackendTransition,
+  BACKEND_CONNECTION_STATES,
+  BACKEND_EFFECT_STATES,
+  BACKEND_REQUEST_STATES,
+  SETTLED_EFFECT_STATES,
+  SETTLED_REQUEST_STATES,
   type BackendJournalKind,
   type BackendConnectionState,
   type BackendRequestState,
@@ -56,6 +61,7 @@ import {
   validateAgentBackendSpec,
 } from "./validation.js";
 import {
+  ACP_V1_STOP_REASONS,
   validateAcpV1Message,
   encodeAcpV1Message,
   validateAcpV1Result,
@@ -214,6 +220,10 @@ export type AgentBackendRecord =
   | BackendConnectionRevision
   | BackendRemoteRequest
   | BackendClientEffectRevision;
+type RecordOf<K extends BackendJournalKind> = Extract<
+  AgentBackendRecord,
+  { kind: K }
+>;
 export interface BackendTransitionReceipt {
   readonly id: string;
   readonly workspaceId: string;
@@ -287,6 +297,11 @@ export const AGENT_BACKEND_STORAGE_LIMITS = Object.freeze({
   requests: 512,
   effects: 512,
   outputBytes: 24576,
+  replayFrames: 128,
+  replayBytes: 32768,
+  terminalControls: 32,
+  eventScan: 512,
+  eventBytes: 65536,
 });
 interface SignedBackendRevisionInput<T extends AgentBackendRecord> {
   readonly kind: BackendJournalKind;
@@ -361,6 +376,18 @@ function prepareSignedBackendRevision<T extends AgentBackendRecord>(
   });
   return { record, receipt };
 }
+function isObject(value: unknown): value is JsonObject {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function resultObject(message: AcpV1Message): JsonObject | undefined {
+  return "result" in message && isObject(message.result)
+    ? message.result
+    : undefined;
+}
+/** Stop reasons compare as strings in the journal, unlike validateAcpV1Result. */
+function isStopReason(value: unknown): boolean {
+  return (ACP_V1_STOP_REASONS as readonly string[]).includes(String(value));
+}
 function digest<T extends { sha256: string }>(value: T): T {
   const copy = json(value),
     { sha256, ...body } = copy;
@@ -398,9 +425,7 @@ function integer(value: unknown, max = Number.MAX_SAFE_INTEGER): number {
 }
 function fields(input: unknown, keys: readonly string[]): void {
   if (
-    !input ||
-    typeof input !== "object" ||
-    Array.isArray(input) ||
+    !isObject(input) ||
     Object.keys(input).length !== keys.length ||
     keys.some((k) => !Object.hasOwn(input, k))
   )
@@ -536,12 +561,15 @@ type BackendJournal = RevisionJournal<
   AgentBackendRecord,
   BackendTransitionReceipt
 >;
-function backendJournal(db: DatabaseSync): BackendJournal {
+function backendJournal(
+  db: DatabaseSync,
+  profile = BACKEND_JOURNAL,
+): BackendJournal {
   return createRevisionJournal<
     BackendJournalKind,
     AgentBackendRecord,
     BackendTransitionReceipt
-  >(db, BACKEND_JOURNAL);
+  >(db, profile);
 }
 /** Native SQLite owns history; all live execution authorization remains in ORIGINAL Root producers. */
 export class AgentBackendStorage {
@@ -710,98 +738,108 @@ export class AgentBackendStorage {
     if (!value) fail("BACKEND_NOT_FOUND");
     return value;
   }
+  /** Checks input before the transaction; inside it an identical earlier request replays before `run` reads anything. */
+  private mutate<K extends BackendJournalKind, I extends BackendMutationInput>(
+    kind: K,
+    op: string,
+    raw: I,
+    extra: readonly string[],
+    entityOf: (x: I) => string,
+    run: (
+      x: I,
+      commit: (
+        before: RecordOf<K> | undefined,
+        body: Omit<RecordOf<K>, keyof BackendRevisionBase>,
+      ) => BackendRequestResult<RecordOf<K>>,
+    ) => BackendRequestResult<RecordOf<K>>,
+  ): BackendRequestResult<RecordOf<K>> {
+    const x = this.input(raw, extra),
+      eid = entityOf(x);
+    return this.ports.writeTx(
+      () =>
+        this.duplicate<RecordOf<K>>(x.workspaceId, kind, eid, op, x) ??
+        run(x, (before, body) => this.append(kind, eid, op, x, before, body)),
+    );
+  }
   registerBackend(
     originalTarget: object,
     input: RegisterAgentBackendInput,
   ): BackendRequestResult<AgentBackendRevision> {
-    const x = this.input(input, ["spec"]),
-      spec = validateAgentBackendSpec(x.spec),
-      ws = x.workspaceId,
-      eid = spec.id;
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<AgentBackendRevision>(
-        ws,
-        "backend",
-        eid,
-        "register",
-        x,
-      );
-      if (d) return d;
-      this.ports.getWorkspace(ws);
-      const proof = digest(this.ports.readTarget(originalTarget));
-      if (
-        proof.workspaceId !== ws ||
-        proof.backendId !== eid ||
-        knowledgeHash(proof.target) !== knowledgeHash(spec.target)
-      )
-        fail("BACKEND_TARGET_STALE");
-      sync(this.ports.assertTargetCurrent(originalTarget, proof, spec));
-      return this.append(
-        "backend",
-        eid,
-        "register",
-        x,
-        this.getBackend(ws, eid),
-        { backendId: eid, enabled: true, spec, target: proof },
-      );
-    });
+    let spec!: AgentBackendSpec;
+    return this.mutate(
+      "backend",
+      "register",
+      input,
+      ["spec"],
+      (x) => (spec = validateAgentBackendSpec(x.spec)).id,
+      (x, commit) => {
+        const ws = x.workspaceId,
+          eid = spec.id;
+        this.ports.getWorkspace(ws);
+        const proof = digest(this.ports.readTarget(originalTarget));
+        if (
+          proof.workspaceId !== ws ||
+          proof.backendId !== eid ||
+          knowledgeHash(proof.target) !== knowledgeHash(spec.target)
+        )
+          fail("BACKEND_TARGET_STALE");
+        sync(this.ports.assertTargetCurrent(originalTarget, proof, spec));
+        return commit(this.getBackend(ws, eid), {
+          backendId: eid,
+          enabled: true,
+          spec,
+          target: proof,
+        });
+      },
+    );
   }
   disableBackend(
     input: DisableAgentBackendInput,
   ): BackendRequestResult<AgentBackendRevision> {
-    const x = this.input(input, ["backendId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<AgentBackendRevision>(
-        x.workspaceId,
-        "backend",
-        x.backendId,
-        "disable",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(this.getBackend(x.workspaceId, x.backendId));
-      return this.append("backend", x.backendId, "disable", x, before, {
-        backendId: before.backendId,
-        enabled: false,
-        spec: before.spec,
-        target: before.target,
-      });
-    });
+    return this.mutate(
+      "backend",
+      "disable",
+      input,
+      ["backendId"],
+      (x) => x.backendId,
+      (x, commit) => {
+        const before = this.required(
+          this.getBackend(x.workspaceId, x.backendId),
+        );
+        return commit(before, {
+          backendId: before.backendId,
+          enabled: false,
+          spec: before.spec,
+          target: before.target,
+        });
+      },
+    );
   }
   openConnection(
     originalProcess: object,
     input: OpenBackendConnectionInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["backendId", "connectionId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "open",
-        x,
-      );
-      if (d) return d;
-      const b = this.required(this.getBackend(x.workspaceId, x.backendId));
-      if (!b.enabled) fail("BACKEND_DISABLED");
-      const p = digest(this.ports.readConnection(originalProcess));
-      sync(this.ports.assertConnectionCurrent(originalProcess));
-      if (
-        p.workspaceId !== x.workspaceId ||
-        p.backendId !== b.backendId ||
-        p.backendRevisionId !== b.id ||
-        p.backendSha256 !== b.spec.sha256 ||
-        p.connectionId !== x.connectionId ||
-        p.launchSha256 !== b.target.launchSha256
-      )
-        fail("BACKEND_CONNECTION_STALE");
-      return this.append(
-        "connection",
-        x.connectionId,
-        "open",
-        x,
-        this.getConnection(x.workspaceId, x.connectionId),
-        {
+    return this.mutate(
+      "connection",
+      "open",
+      input,
+      ["backendId", "connectionId"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const b = this.required(this.getBackend(x.workspaceId, x.backendId));
+        if (!b.enabled) fail("BACKEND_DISABLED");
+        const p = digest(this.ports.readConnection(originalProcess));
+        sync(this.ports.assertConnectionCurrent(originalProcess));
+        if (
+          p.workspaceId !== x.workspaceId ||
+          p.backendId !== b.backendId ||
+          p.backendRevisionId !== b.id ||
+          p.backendSha256 !== b.spec.sha256 ||
+          p.connectionId !== x.connectionId ||
+          p.launchSha256 !== b.target.launchSha256
+        )
+          fail("BACKEND_CONNECTION_STALE");
+        return commit(this.getConnection(x.workspaceId, x.connectionId), {
           backendId: b.backendId,
           backendRevisionId: b.id,
           backendSha256: b.spec.sha256,
@@ -814,142 +852,128 @@ export class AgentBackendStorage {
           observation: null,
           disposal: null,
           errorCode: null,
-        },
-      );
-    });
+        });
+      },
+    );
   }
   recordPeerObservation(
     originalFrame: object,
     input: ObserveBackendConnectionInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["connectionId", "state", "remoteSessionId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "observe",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        ),
-        p = this.frame(originalFrame, before);
-      if (p.receiveOrdinal !== before.receiveOrdinal + 1)
-        fail("BACKEND_RECEIVE_GAP");
-      const next = x.state === "observe" ? before.state : x.state;
-      if (before.sessionLoad?.state === "dispatching") {
-        const message = p.message;
+    return this.mutate(
+      "connection",
+      "observe",
+      input,
+      ["connectionId", "state", "remoteSessionId"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const before = this.required(
+            this.getConnection(x.workspaceId, x.connectionId),
+          ),
+          p = this.frame(originalFrame, before);
+        if (p.receiveOrdinal !== before.receiveOrdinal + 1)
+          fail("BACKEND_RECEIVE_GAP");
+        const next = x.state === "observe" ? before.state : x.state;
+        if (before.sessionLoad?.state === "dispatching") {
+          const message = p.message;
+          if (
+            x.state !== "initialized" ||
+            x.remoteSessionId !== null ||
+            !("method" in message) ||
+            "id" in message ||
+            message.method !== "session/update" ||
+            message.params?.sessionId !==
+              (before.sessionLoad.message as { params: JsonObject }).params
+                .sessionId
+          )
+            fail("ACP_LOAD_EFFECT_UNSUPPORTED");
+          const hashes = [...before.sessionLoad.replayHashes, p.frameSha256];
+          const bytes =
+            before.sessionLoad.replayBytes +
+            Buffer.byteLength(JSON.stringify(message));
+          if (
+            hashes.length > AGENT_BACKEND_STORAGE_LIMITS.replayFrames ||
+            bytes > AGENT_BACKEND_STORAGE_LIMITS.replayBytes
+          )
+            fail("BACKEND_LOAD_REPLAY_LIMIT");
+          return commit(before, {
+            ...bodyOf(before),
+            receiveOrdinal: p.receiveOrdinal,
+            observation: p,
+            sessionLoad: {
+              ...before.sessionLoad,
+              replayHashes: hashes,
+              replayBytes: bytes,
+            },
+          });
+        }
         if (
-          x.state !== "initialized" ||
-          x.remoteSessionId !== null ||
-          !("method" in message) ||
-          "id" in message ||
-          message.method !== "session/update" ||
-          message.params?.sessionId !==
-            (before.sessionLoad.message as { params: JsonObject }).params
-              .sessionId
+          x.state === "initialized" &&
+          resultObject(p.message)?.protocolVersion !== 1
         )
-          fail("ACP_LOAD_EFFECT_UNSUPPORTED");
-        const hashes = [...before.sessionLoad.replayHashes, p.frameSha256];
-        const bytes =
-          before.sessionLoad.replayBytes +
-          Buffer.byteLength(JSON.stringify(message));
-        if (hashes.length > 128 || bytes > 32768)
-          fail("BACKEND_LOAD_REPLAY_LIMIT");
-        return this.append("connection", x.connectionId, "observe", x, before, {
+          fail("ACP_VERSION_UNSUPPORTED");
+        if (
+          x.state === "session-ready" &&
+          resultObject(p.message)?.sessionId !== x.remoteSessionId
+        )
+          fail("BACKEND_REMOTE_SESSION_INVALID");
+        if (
+          (next !== "session-ready" && x.remoteSessionId !== null) ||
+          (before.remoteSessionId !== null &&
+            x.remoteSessionId !== before.remoteSessionId)
+        )
+          fail("BACKEND_REMOTE_SESSION_INVALID");
+        return commit(before, {
           ...bodyOf(before),
+          state: next,
           receiveOrdinal: p.receiveOrdinal,
+          remoteSessionId: x.remoteSessionId,
           observation: p,
-          sessionLoad: {
-            ...before.sessionLoad,
-            replayHashes: hashes,
-            replayBytes: bytes,
-          },
         });
-      }
-      if (
-        x.state === "initialized" &&
-        (!("result" in p.message) ||
-          !p.message.result ||
-          typeof p.message.result !== "object" ||
-          Array.isArray(p.message.result) ||
-          (p.message.result as JsonObject).protocolVersion !== 1)
-      )
-        fail("ACP_VERSION_UNSUPPORTED");
-      if (
-        x.state === "session-ready" &&
-        (!("result" in p.message) ||
-          !p.message.result ||
-          typeof p.message.result !== "object" ||
-          Array.isArray(p.message.result) ||
-          (p.message.result as JsonObject).sessionId !== x.remoteSessionId)
-      )
-        fail("BACKEND_REMOTE_SESSION_INVALID");
-      if (
-        (next !== "session-ready" && x.remoteSessionId !== null) ||
-        (before.remoteSessionId !== null &&
-          x.remoteSessionId !== before.remoteSessionId)
-      )
-        fail("BACKEND_REMOTE_SESSION_INVALID");
-      return this.append("connection", x.connectionId, "observe", x, before, {
-        ...bodyOf(before),
-        state: next,
-        receiveOrdinal: p.receiveOrdinal,
-        remoteSessionId: x.remoteSessionId,
-        observation: p,
-      });
-    });
+      },
+    );
   }
   prepareSessionLoad(
     originalTurn: object,
     input: PrepareBackendSessionLoadInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["connectionId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "load-intent",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getConnection(x.workspaceId, x.connectionId),
-      );
-      const b = this.required(this.getBackend(x.workspaceId, before.backendId));
-      const owner = this.owner(originalTurn);
-      const message = validateAcpV1Message(x.message);
-      if (
-        !b.enabled ||
-        !b.spec.sessionLoad ||
-        b.spec.contextOwner !== "agent" ||
-        before.state !== "initialized" ||
-        before.sessionLoad ||
-        before.capabilities?.loadSession !== true ||
-        before.capabilities.contextOwner !== "agent" ||
-        owner.sha256 !== before.proof.ownerSha256 ||
-        !("method" in message) ||
-        !("id" in message) ||
-        message.method !== "session/load"
-      )
-        fail("ACP_LOAD_UNSUPPORTED");
-      const params = validateAcpV1Request("session/load", message.params);
-      if (
-        params.sessionId !== b.spec.sessionLoad.remoteSessionId ||
-        params.cwd !== b.spec.launch.cwd
-      )
-        fail("BACKEND_LOAD_SOURCE_INVALID");
-      this.assertSessionLoadSource(b.spec, b.target);
-      return this.append(
-        "connection",
-        x.connectionId,
-        "load-intent",
-        x,
-        before,
-        {
+    return this.mutate(
+      "connection",
+      "load-intent",
+      input,
+      ["connectionId", "message"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const before = this.required(
+          this.getConnection(x.workspaceId, x.connectionId),
+        );
+        const b = this.required(
+          this.getBackend(x.workspaceId, before.backendId),
+        );
+        const owner = this.owner(originalTurn);
+        const message = validateAcpV1Message(x.message);
+        if (
+          !b.enabled ||
+          !b.spec.sessionLoad ||
+          b.spec.contextOwner !== "agent" ||
+          before.state !== "initialized" ||
+          before.sessionLoad ||
+          before.capabilities?.loadSession !== true ||
+          before.capabilities.contextOwner !== "agent" ||
+          owner.sha256 !== before.proof.ownerSha256 ||
+          !("method" in message) ||
+          !("id" in message) ||
+          message.method !== "session/load"
+        )
+          fail("ACP_LOAD_UNSUPPORTED");
+        const params = validateAcpV1Request("session/load", message.params);
+        if (
+          params.sessionId !== b.spec.sessionLoad.remoteSessionId ||
+          params.cwd !== b.spec.launch.cwd
+        )
+          fail("BACKEND_LOAD_SOURCE_INVALID");
+        this.assertSessionLoadSource(b.spec, b.target);
+        return commit(before, {
           ...bodyOf(before),
           sessionLoad: {
             state: "dispatching",
@@ -959,57 +983,48 @@ export class AgentBackendStorage {
             replayHashes: [],
             replayBytes: 0,
           },
-        },
-      );
-    });
+        });
+      },
+    );
   }
   recordLoadedSession(
     originalFrame: object,
     originalWrite: object,
     input: DisposeBackendConnectionInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["connectionId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "load-ready",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getConnection(x.workspaceId, x.connectionId),
-      );
-      const load = before.sessionLoad;
-      const frame = this.frame(originalFrame, before),
-        write = digest(this.ports.readWrite(originalWrite));
-      if (
-        before.state !== "initialized" ||
-        load?.state !== "dispatching" ||
-        !("id" in load.message) ||
-        !("result" in frame.message) ||
-        frame.wireId !== load.message.id ||
-        frame.receiveOrdinal !== before.receiveOrdinal + 1 ||
-        write.workspaceId !== x.workspaceId ||
-        write.connectionId !== before.connectionId ||
-        write.epoch !== before.proof.epoch ||
-        write.backendId !== before.backendId ||
-        !Number.isSafeInteger(write.writeOrdinal) ||
-        write.writeOrdinal < 1 ||
-        write.writtenBytes !==
-          Buffer.byteLength(encodeAcpV1Message(load.message)) ||
-        write.frameSha256 !== knowledgeHash(load.message)
-      )
-        fail("BACKEND_REMOTE_SESSION_INVALID");
-      validateAcpV1Result("session/load", frame.message.result);
-      return this.append(
-        "connection",
-        x.connectionId,
-        "load-ready",
-        x,
-        before,
-        {
+    return this.mutate(
+      "connection",
+      "load-ready",
+      input,
+      ["connectionId"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const before = this.required(
+          this.getConnection(x.workspaceId, x.connectionId),
+        );
+        const load = before.sessionLoad;
+        const frame = this.frame(originalFrame, before),
+          write = digest(this.ports.readWrite(originalWrite));
+        if (
+          before.state !== "initialized" ||
+          load?.state !== "dispatching" ||
+          !("id" in load.message) ||
+          !("result" in frame.message) ||
+          frame.wireId !== load.message.id ||
+          frame.receiveOrdinal !== before.receiveOrdinal + 1 ||
+          write.workspaceId !== x.workspaceId ||
+          write.connectionId !== before.connectionId ||
+          write.epoch !== before.proof.epoch ||
+          write.backendId !== before.backendId ||
+          !Number.isSafeInteger(write.writeOrdinal) ||
+          write.writeOrdinal < 1 ||
+          write.writtenBytes !==
+            Buffer.byteLength(encodeAcpV1Message(load.message)) ||
+          write.frameSha256 !== knowledgeHash(load.message)
+        )
+          fail("BACKEND_REMOTE_SESSION_INVALID");
+        validateAcpV1Result("session/load", frame.message.result);
+        return commit(before, {
           ...bodyOf(before),
           state: "session-ready",
           remoteSessionId: (load.message as { params: JsonObject }).params
@@ -1018,79 +1033,70 @@ export class AgentBackendStorage {
           writeOrdinal: write.writeOrdinal,
           observation: frame,
           sessionLoad: { ...load, state: "loaded", write, response: frame },
-        },
-      );
-    });
+        });
+      },
+    );
   }
   prepareRequest(
     originalTurn: object,
     originalConnection: object,
     input: PrepareBackendRequestInput,
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, [
-      "remoteRequestId",
-      "connectionId",
-      "rpcId",
-      "remoteSessionId",
-      "message",
-    ]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "prepare",
-        x,
-      );
-      if (d) return d;
-      const c = this.required(
-        this.getConnection(x.workspaceId, x.connectionId),
-      );
-      const b = this.required(this.getBackend(x.workspaceId, c.backendId));
-      if (
-        !b.enabled ||
-        c.state !== "session-ready" ||
-        c.remoteSessionId !== x.remoteSessionId
-      )
-        fail("BACKEND_CONNECTION_STALE");
-      const cp = digest(this.ports.readConnection(originalConnection));
-      sync(this.ports.assertConnectionCurrent(originalConnection));
-      if (cp.sha256 !== c.proof.sha256) fail("BACKEND_CONNECTION_STALE");
-      const owner = this.owner(originalTurn);
-      if (
-        owner.workspaceId !== x.workspaceId ||
-        owner.sessionId !== b.spec.target.sessionId ||
-        owner.configSha256 !== b.spec.target.runConfigSha256 ||
-        owner.catalogueSha256 !== b.spec.target.catalogueSha256 ||
-        owner.providerId !== `acp:${b.backendId}` ||
-        owner.sha256 !== c.proof.ownerSha256
-      )
-        fail("BACKEND_OWNER_INVALID");
-      const m = x.message;
-      if (
-        !("method" in m) ||
-        m.method !== "session/prompt" ||
-        !("id" in m) ||
-        m.id !== x.rpcId ||
-        !m.params ||
-        m.params.sessionId !== x.remoteSessionId
-      )
-        fail("BACKEND_REQUEST_INVALID");
-      if (
-        this.db
-          .prepare(
-            "SELECT id FROM backend_revisions WHERE workspace_id=? AND kind='request' AND connection_id=? AND attempt_id=? LIMIT 1",
-          )
-          .get(x.workspaceId, c.connectionId, owner.attemptId)
-      )
-        fail("BACKEND_ATTEMPT_ALREADY_BOUND");
-      return this.append(
-        "request",
-        x.remoteRequestId,
-        "prepare",
-        x,
-        this.getRequest(x.workspaceId, x.remoteRequestId),
-        {
+    return this.mutate(
+      "request",
+      "prepare",
+      input,
+      [
+        "remoteRequestId",
+        "connectionId",
+        "rpcId",
+        "remoteSessionId",
+        "message",
+      ],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const c = this.required(
+          this.getConnection(x.workspaceId, x.connectionId),
+        );
+        const b = this.required(this.getBackend(x.workspaceId, c.backendId));
+        if (
+          !b.enabled ||
+          c.state !== "session-ready" ||
+          c.remoteSessionId !== x.remoteSessionId
+        )
+          fail("BACKEND_CONNECTION_STALE");
+        const cp = digest(this.ports.readConnection(originalConnection));
+        sync(this.ports.assertConnectionCurrent(originalConnection));
+        if (cp.sha256 !== c.proof.sha256) fail("BACKEND_CONNECTION_STALE");
+        const owner = this.owner(originalTurn);
+        if (
+          owner.workspaceId !== x.workspaceId ||
+          owner.sessionId !== b.spec.target.sessionId ||
+          owner.configSha256 !== b.spec.target.runConfigSha256 ||
+          owner.catalogueSha256 !== b.spec.target.catalogueSha256 ||
+          owner.providerId !== `acp:${b.backendId}` ||
+          owner.sha256 !== c.proof.ownerSha256
+        )
+          fail("BACKEND_OWNER_INVALID");
+        const m = x.message;
+        if (
+          !("method" in m) ||
+          m.method !== "session/prompt" ||
+          !("id" in m) ||
+          m.id !== x.rpcId ||
+          !m.params ||
+          m.params.sessionId !== x.remoteSessionId
+        )
+          fail("BACKEND_REQUEST_INVALID");
+        if (
+          this.db
+            .prepare(
+              "SELECT id FROM backend_revisions WHERE workspace_id=? AND kind='request' AND connection_id=? AND attempt_id=? LIMIT 1",
+            )
+            .get(x.workspaceId, c.connectionId, owner.attemptId)
+        )
+          fail("BACKEND_ATTEMPT_ALREADY_BOUND");
+        return commit(this.getRequest(x.workspaceId, x.remoteRequestId), {
           remoteRequestId: x.remoteRequestId,
           connectionId: c.connectionId,
           epoch: c.proof.epoch,
@@ -1104,228 +1110,197 @@ export class AgentBackendStorage {
           dispatch: null,
           terminal: null,
           errorCode: null,
-        },
-      );
-    });
+        });
+      },
+    );
   }
   dispatchRequest(
     originalTurn: object,
     input: MutateBackendRequestInput,
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, ["remoteRequestId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "dispatch-intent",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        ),
-        p = this.owner(originalTurn);
-      if (p.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
-      this.liveConnection(before);
-      return this.append(
-        "request",
-        x.remoteRequestId,
-        "dispatch-intent",
-        x,
-        before,
-        { ...bodyOf(before), state: "dispatching" },
-      );
-    });
+    return this.mutate(
+      "request",
+      "dispatch-intent",
+      input,
+      ["remoteRequestId"],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const before = this.required(
+            this.getRequest(x.workspaceId, x.remoteRequestId),
+          ),
+          p = this.owner(originalTurn);
+        if (p.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
+        this.liveConnection(before);
+        return commit(before, { ...bodyOf(before), state: "dispatching" });
+      },
+    );
   }
   markRequestDispatched(
     originalWrite: object,
     input: MutateBackendRequestInput,
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, ["remoteRequestId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "dispatch",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        ),
-        p = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        p,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        before.wireSha256,
-      );
-      return this.append("request", x.remoteRequestId, "dispatch", x, before, {
-        ...bodyOf(before),
-        state: "dispatched",
-        dispatch: p,
-      });
-    });
+    return this.mutate(
+      "request",
+      "dispatch",
+      input,
+      ["remoteRequestId"],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const before = this.required(
+            this.getRequest(x.workspaceId, x.remoteRequestId),
+          ),
+          p = digest(this.ports.readWrite(originalWrite));
+        this.writeMatches(
+          p,
+          before.connectionId,
+          before.epoch,
+          x.workspaceId,
+          before.wireSha256,
+        );
+        return commit(before, {
+          ...bodyOf(before),
+          state: "dispatched",
+          dispatch: p,
+        });
+      },
+    );
   }
   negotiateCapabilities(
     originalTurn: object,
     originalFrame: object,
     input: DisposeBackendConnectionInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["connectionId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "negotiate",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getConnection(x.workspaceId, x.connectionId),
-      );
-      if (before.state !== "initialized" || before.capabilities)
-        fail("BACKEND_CONNECTION_STALE");
-      const owner = this.owner(originalTurn);
-      if (owner.sha256 !== before.proof.ownerSha256)
-        fail("BACKEND_OWNER_INVALID");
-      const frame = this.frame(originalFrame, before);
-      if (
-        frame.sha256 !== before.observation?.sha256 ||
-        !("result" in frame.message)
-      )
-        fail("BACKEND_FRAME_NOT_RECORDED");
-      const request = originalTurn as TurnRequest;
-      const effects = before.proof.executionMode === "engine-client-effects";
-      const b = this.required(this.getBackend(x.workspaceId, before.backendId));
-      const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
-        readTextFile: request.tools.some((t) => t.name === "read_file"),
-        writeTextFile:
-          effects && request.tools.some((t) => t.name === "apply_patch"),
-        terminal:
-          effects &&
-          before.proof.clientCapabilities?.terminal === true &&
-          request.tools.some((t) => t.name === "run_command"),
-        contextOwner: b.spec.contextOwner,
-        loadSession: b.spec.sessionLoad !== undefined,
-      });
-      if (b.spec.sessionLoad && !capabilities.loadSession)
-        fail("ACP_LOAD_UNSUPPORTED");
-      return this.append("connection", x.connectionId, "negotiate", x, before, {
-        ...bodyOf(before),
-        capabilities,
-      });
-    });
+    return this.mutate(
+      "connection",
+      "negotiate",
+      input,
+      ["connectionId"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const before = this.required(
+          this.getConnection(x.workspaceId, x.connectionId),
+        );
+        if (before.state !== "initialized" || before.capabilities)
+          fail("BACKEND_CONNECTION_STALE");
+        const owner = this.owner(originalTurn);
+        if (owner.sha256 !== before.proof.ownerSha256)
+          fail("BACKEND_OWNER_INVALID");
+        const frame = this.frame(originalFrame, before);
+        if (
+          frame.sha256 !== before.observation?.sha256 ||
+          !("result" in frame.message)
+        )
+          fail("BACKEND_FRAME_NOT_RECORDED");
+        const request = originalTurn as TurnRequest;
+        const effects = before.proof.executionMode === "engine-client-effects";
+        const b = this.required(
+          this.getBackend(x.workspaceId, before.backendId),
+        );
+        const capabilities = negotiateAcpV1Capabilities(frame.message.result, {
+          readTextFile: request.tools.some((t) => t.name === "read_file"),
+          writeTextFile:
+            effects && request.tools.some((t) => t.name === "apply_patch"),
+          terminal:
+            effects &&
+            before.proof.clientCapabilities?.terminal === true &&
+            request.tools.some((t) => t.name === "run_command"),
+          contextOwner: b.spec.contextOwner,
+          loadSession: b.spec.sessionLoad !== undefined,
+        });
+        if (b.spec.sessionLoad && !capabilities.loadSession)
+          fail("ACP_LOAD_UNSUPPORTED");
+        return commit(before, { ...bodyOf(before), capabilities });
+      },
+    );
   }
   recordRequestCancel(
     originalWrite: object,
     input: MutateBackendRequestInput & { message: AcpV1Message },
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, ["remoteRequestId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "cancel-wire",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getRequest(x.workspaceId, x.remoteRequestId),
-      );
-      if (
-        before.cancellation ||
-        ["completed", "failed", "cancelled", "paused-import"].includes(
-          before.state,
+    return this.mutate(
+      "request",
+      "cancel-wire",
+      input,
+      ["remoteRequestId", "message"],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const before = this.required(
+          this.getRequest(x.workspaceId, x.remoteRequestId),
+        );
+        if (
+          before.cancellation ||
+          before.state === "paused-import" ||
+          SETTLED_REQUEST_STATES.includes(before.state)
         )
-      )
-        fail("BACKEND_REQUEST_STALE");
-      const message = validateAcpV1Message(x.message);
-      if (
-        !("method" in message) ||
-        message.method !== "session/cancel" ||
-        (
-          validateAcpV1Request(message.method, message.params) as {
-            sessionId: string;
-          }
-        ).sessionId !== before.remoteSessionId
-      )
-        fail("BACKEND_REMOTE_SESSION_INVALID");
-      const write = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        write,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        knowledgeHash(message),
-      );
-      return this.append(
-        "request",
-        x.remoteRequestId,
-        "cancel-wire",
-        x,
-        before,
-        { ...bodyOf(before), cancellation: { message, write } },
-      );
-    });
+          fail("BACKEND_REQUEST_STALE");
+        const message = validateAcpV1Message(x.message);
+        if (
+          !("method" in message) ||
+          message.method !== "session/cancel" ||
+          (
+            validateAcpV1Request(message.method, message.params) as {
+              sessionId: string;
+            }
+          ).sessionId !== before.remoteSessionId
+        )
+          fail("BACKEND_REMOTE_SESSION_INVALID");
+        const write = digest(this.ports.readWrite(originalWrite));
+        this.writeMatches(
+          write,
+          before.connectionId,
+          before.epoch,
+          x.workspaceId,
+          knowledgeHash(message),
+        );
+        return commit(before, {
+          ...bodyOf(before),
+          cancellation: { message, write },
+        });
+      },
+    );
   }
   prepareClientRead(
     originalTurn: object,
     originalFrame: object,
     input: PrepareBackendClientReadInput,
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "remoteRequestId", "input"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "prepare-read",
-        x,
-      );
-      if (d) return d;
-      const r = this.required(
-        this.getRequest(x.workspaceId, x.remoteRequestId),
-      );
-      if (r.state !== "dispatched") fail("BACKEND_REQUEST_STALE");
-      const owner = this.owner(originalTurn);
-      if (owner.sha256 !== r.owner.sha256) fail("BACKEND_OWNER_INVALID");
-      const c = this.liveConnection(r),
-        frame = this.frame(originalFrame, c);
-      if (c.observation?.sha256 !== frame.sha256)
-        fail("BACKEND_FRAME_NOT_RECORDED");
-      validateEffectInput(frame.message, x.input, r.remoteSessionId);
-      if (
-        "method" in x.input &&
-        (c.proof.executionMode !== "engine-client-effects" ||
-          (x.input.method === "fs/write_text_file"
-            ? c.capabilities?.writeTextFile !== true
-            : c.capabilities?.terminal !== true))
-      )
-        fail("ACP_EFFECT_UNSUPPORTED");
-      if (!("method" in frame.message) || !("id" in frame.message))
-        fail("ACP_EFFECT_UNSUPPORTED");
-      id(x.input.callId);
-      for (const old of this.inspectClientEffects(x.workspaceId))
+    return this.mutate(
+      "client-effect",
+      "prepare-read",
+      input,
+      ["effectId", "remoteRequestId", "input"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const r = this.required(
+          this.getRequest(x.workspaceId, x.remoteRequestId),
+        );
+        if (r.state !== "dispatched") fail("BACKEND_REQUEST_STALE");
+        const owner = this.owner(originalTurn);
+        if (owner.sha256 !== r.owner.sha256) fail("BACKEND_OWNER_INVALID");
+        const c = this.liveConnection(r),
+          frame = this.frame(originalFrame, c);
+        if (c.observation?.sha256 !== frame.sha256)
+          fail("BACKEND_FRAME_NOT_RECORDED");
+        validateEffectInput(frame.message, x.input, r.remoteSessionId);
         if (
-          old.connectionId === r.connectionId &&
-          old.epoch === r.epoch &&
-          (old.rpcId === frame.message.id ||
-            old.executionFrame?.wireId === frame.message.id)
+          "method" in x.input &&
+          (c.proof.executionMode !== "engine-client-effects" ||
+            (x.input.method === "fs/write_text_file"
+              ? c.capabilities?.writeTextFile !== true
+              : c.capabilities?.terminal !== true))
         )
-          fail("BACKEND_EFFECT_ALREADY_BOUND");
-      return this.append(
-        "client-effect",
-        x.effectId,
-        "prepare-read",
-        x,
-        this.getClientEffect(x.workspaceId, x.effectId),
-        {
+          fail("ACP_EFFECT_UNSUPPORTED");
+        if (!("method" in frame.message) || !("id" in frame.message))
+          fail("ACP_EFFECT_UNSUPPORTED");
+        id(x.input.callId);
+        for (const old of this.effectsOnConnection(r))
+          if (
+            old.epoch === r.epoch &&
+            (old.rpcId === frame.message.id ||
+              old.executionFrame?.wireId === frame.message.id)
+          )
+            fail("BACKEND_EFFECT_ALREADY_BOUND");
+        return commit(this.getClientEffect(x.workspaceId, x.effectId), {
           effectId: x.effectId,
           remoteRequestId: r.remoteRequestId,
           connectionId: r.connectionId,
@@ -1341,36 +1316,27 @@ export class AgentBackendStorage {
           ...("method" in x.input
             ? { permission: null, permissionDelivery: null }
             : {}),
-        },
-      );
-    });
+        });
+      },
+    );
   }
   settleClientRead(
     originalCompletion: object,
     input: MutateBackendClientEffectInput,
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "settle-read",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getClientEffect(x.workspaceId, x.effectId),
-        ),
-        p = digest(this.ports.readClientEffect(originalCompletion));
-      validateClientEffectSql(this.db, before, p);
-      return this.append(
-        "client-effect",
-        x.effectId,
-        "settle-read",
-        x,
-        before,
-        {
+    return this.mutate(
+      "client-effect",
+      "settle-read",
+      input,
+      ["effectId"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+            this.getClientEffect(x.workspaceId, x.effectId),
+          ),
+          p = digest(this.ports.readClientEffect(originalCompletion));
+        validateClientEffectSql(this.db, before, p);
+        return commit(before, {
           ...bodyOf(before),
           state: p.state,
           completion: p,
@@ -1378,69 +1344,59 @@ export class AgentBackendStorage {
           ...(before.permission?.allowed === false
             ? { delivery: before.permissionDelivery }
             : {}),
-        },
-      );
-    });
+        });
+      },
+    );
   }
   bindApprovedClientEffect(
     originalTurn: object,
     originalFrame: object,
     input: MutateBackendClientEffectInput & { input: BackendClientEffectInput },
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "input"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "bind-effect",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
-      );
-      if (
-        before.state !== "prepared" ||
-        !before.permission?.allowed ||
-        !before.permissionDelivery ||
-        before.executionFrame
-      )
-        fail("BACKEND_EFFECT_STALE");
-      const owner = this.owner(originalTurn);
-      if (owner.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
-      const request = this.required(
-          this.getRequest(x.workspaceId, before.remoteRequestId),
-        ),
-        connection = this.liveConnection(request),
-        frame = this.frame(originalFrame, connection);
-      if (
-        connection.observation?.sha256 !== frame.sha256 ||
-        !("method" in frame.message) ||
-        frame.message.method === "session/request_permission"
-      )
-        fail("BACKEND_EFFECT_STALE");
-      validateEffectInput(frame.message, x.input, request.remoteSessionId);
-      if (knowledgeHash(x.input) !== knowledgeHash(before.input))
-        fail("BACKEND_EFFECT_INPUT_INVALID");
-      for (const other of this.inspectClientEffects(x.workspaceId))
+    return this.mutate(
+      "client-effect",
+      "bind-effect",
+      input,
+      ["effectId", "input"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+          this.getClientEffect(x.workspaceId, x.effectId),
+        );
         if (
-          other.effectId !== before.effectId &&
-          other.connectionId === before.connectionId &&
-          other.epoch === before.epoch &&
-          (other.rpcId === frame.wireId ||
-            other.executionFrame?.wireId === frame.wireId)
+          before.state !== "prepared" ||
+          !before.permission?.allowed ||
+          !before.permissionDelivery ||
+          before.executionFrame
         )
-          fail("BACKEND_EFFECT_ALREADY_BOUND");
-      return this.append(
-        "client-effect",
-        x.effectId,
-        "bind-effect",
-        x,
-        before,
-        { ...bodyOf(before), executionFrame: frame },
-      );
-    });
+          fail("BACKEND_EFFECT_STALE");
+        const owner = this.owner(originalTurn);
+        if (owner.sha256 !== before.owner.sha256) fail("BACKEND_OWNER_INVALID");
+        const request = this.required(
+            this.getRequest(x.workspaceId, before.remoteRequestId),
+          ),
+          connection = this.liveConnection(request),
+          frame = this.frame(originalFrame, connection);
+        if (
+          connection.observation?.sha256 !== frame.sha256 ||
+          !("method" in frame.message) ||
+          frame.message.method === "session/request_permission"
+        )
+          fail("BACKEND_EFFECT_STALE");
+        validateEffectInput(frame.message, x.input, request.remoteSessionId);
+        if (knowledgeHash(x.input) !== knowledgeHash(before.input))
+          fail("BACKEND_EFFECT_INPUT_INVALID");
+        for (const other of this.effectsOnConnection(before))
+          if (
+            other.effectId !== before.effectId &&
+            other.epoch === before.epoch &&
+            (other.rpcId === frame.wireId ||
+              other.executionFrame?.wireId === frame.wireId)
+          )
+            fail("BACKEND_EFFECT_ALREADY_BOUND");
+        return commit(before, { ...bodyOf(before), executionFrame: frame });
+      },
+    );
   }
   recordTerminalControl(
     originalTurn: object,
@@ -1448,33 +1404,22 @@ export class AgentBackendStorage {
     originalWrite: object,
     input: DeliverBackendClientEffectInput,
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "terminal-control",
-        x,
-      );
-      if (d) return d;
-      const { before, body } = this.terminalControl(
-        originalTurn,
-        originalFrame,
-        originalWrite,
-        x,
-      );
-      return terminalCapacity(() =>
-        this.append(
-          "client-effect",
-          x.effectId,
-          "terminal-control",
+    return this.mutate(
+      "client-effect",
+      "terminal-control",
+      input,
+      ["effectId", "message"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const { before, body } = this.terminalControl(
+          originalTurn,
+          originalFrame,
+          originalWrite,
           x,
-          before,
-          body,
-        ),
-      );
-    });
+        );
+        return terminalCapacity(() => commit(before, body));
+      },
+    );
   }
   /** Dry run of recordTerminalControl, so a reply the journal cannot hold is never written. */
   assertTerminalControl(
@@ -1519,7 +1464,11 @@ export class AgentBackendStorage {
       (before.completion && !before.completion.cleanupConfirmed)
     )
       fail("BACKEND_TERMINAL_STALE");
-    if ((before.controls?.length ?? 0) >= 32) fail("BACKEND_LIMIT");
+    if (
+      (before.controls?.length ?? 0) >=
+      AGENT_BACKEND_STORAGE_LIMITS.terminalControls
+    )
+      fail("BACKEND_LIMIT");
     if (this.owner(originalTurn).sha256 !== before.owner.sha256)
       fail("BACKEND_OWNER_INVALID");
     const parent = this.required(
@@ -1573,296 +1522,274 @@ export class AgentBackendStorage {
   markClientEffectUncertain(
     input: MutateBackendClientEffectInput & { errorCode: string },
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "errorCode"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "uncertain",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
-      );
-      return this.append("client-effect", x.effectId, "uncertain", x, before, {
-        ...bodyOf(before),
-        state: "uncertain",
-        errorCode: id(x.errorCode),
-      });
-    });
+    return this.mutate(
+      "client-effect",
+      "uncertain",
+      input,
+      ["effectId", "errorCode"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+          this.getClientEffect(x.workspaceId, x.effectId),
+        );
+        return commit(before, {
+          ...bodyOf(before),
+          state: "uncertain",
+          errorCode: id(x.errorCode),
+        });
+      },
+    );
   }
   recordClientPermission(
     originalPermission: object,
     originalWrite: object,
     input: MutateBackendClientEffectInput & { message: AcpV1Message },
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "permission",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
-      );
-      if (
-        before.state !== "prepared" ||
-        before.permission ||
-        !("method" in before.frame.message) ||
-        before.frame.message.method !== "session/request_permission" ||
-        !this.ports.readClientPermission
-      )
-        fail("BACKEND_EFFECT_STALE");
-      const permission = digest(
-        this.ports.readClientPermission(originalPermission),
-      );
-      validatePermissionSql(this.db, before, permission);
-      const write = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        write,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        knowledgeHash(x.message),
-      );
-      validatePermissionResponse(before, permission, x.message);
-      return this.append("client-effect", x.effectId, "permission", x, before, {
-        ...bodyOf(before),
-        permission,
-        permissionDelivery: write,
-      });
-    });
+    return this.mutate(
+      "client-effect",
+      "permission",
+      input,
+      ["effectId", "message"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+          this.getClientEffect(x.workspaceId, x.effectId),
+        );
+        if (
+          before.state !== "prepared" ||
+          before.permission ||
+          !("method" in before.frame.message) ||
+          before.frame.message.method !== "session/request_permission" ||
+          !this.ports.readClientPermission
+        )
+          fail("BACKEND_EFFECT_STALE");
+        const permission = digest(
+          this.ports.readClientPermission(originalPermission),
+        );
+        validatePermissionSql(this.db, before, permission);
+        const write = digest(this.ports.readWrite(originalWrite));
+        this.writeMatches(
+          write,
+          before.connectionId,
+          before.epoch,
+          x.workspaceId,
+          knowledgeHash(x.message),
+        );
+        validatePermissionResponse(before, permission, x.message);
+        return commit(before, {
+          ...bodyOf(before),
+          permission,
+          permissionDelivery: write,
+        });
+      },
+    );
   }
   recordClientAcknowledgement(
     originalWrite: object,
     input: DeliverBackendClientEffectInput,
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "effect-ack",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
-      );
-      if (
-        before.state !== "prepared" ||
-        before.delivery ||
-        !("method" in before.input) ||
-        before.input.method !== "terminal/create"
-      )
-        fail("BACKEND_EFFECT_STALE");
-      const rows = nativePayloads(
-        this.db,
-        before.owner,
-        "backend.client_effect_dispatched",
-      );
-      if (!rows.some((p) => p.providerToolCallId === before.input.callId))
-        fail("BACKEND_EFFECT_STALE");
-      const message = x.message;
-      if (
-        !("id" in message) ||
-        message.id !== effectRpc(before) ||
-        !("result" in message) ||
-        !message.result ||
-        typeof message.result !== "object" ||
-        Array.isArray(message.result) ||
-        message.result.terminalId !== `terminal:${before.effectId}`
-      )
-        fail("BACKEND_DELIVERY_INVALID");
-      const write = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        write,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        knowledgeHash(message),
-      );
-      return this.append("client-effect", x.effectId, "effect-ack", x, before, {
-        ...bodyOf(before),
-        delivery: write,
-      });
-    });
+    return this.mutate(
+      "client-effect",
+      "effect-ack",
+      input,
+      ["effectId", "message"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+          this.getClientEffect(x.workspaceId, x.effectId),
+        );
+        if (
+          before.state !== "prepared" ||
+          before.delivery ||
+          !("method" in before.input) ||
+          before.input.method !== "terminal/create"
+        )
+          fail("BACKEND_EFFECT_STALE");
+        const rows = nativePayloads(
+          this.db,
+          before.owner,
+          "backend.client_effect_dispatched",
+        );
+        if (!rows.some((p) => p.providerToolCallId === before.input.callId))
+          fail("BACKEND_EFFECT_STALE");
+        const message = x.message;
+        if (
+          !("id" in message) ||
+          message.id !== effectRpc(before) ||
+          resultObject(message)?.terminalId !== `terminal:${before.effectId}`
+        )
+          fail("BACKEND_DELIVERY_INVALID");
+        const write = digest(this.ports.readWrite(originalWrite));
+        this.writeMatches(
+          write,
+          before.connectionId,
+          before.epoch,
+          x.workspaceId,
+          knowledgeHash(message),
+        );
+        return commit(before, { ...bodyOf(before), delivery: write });
+      },
+    );
   }
   recordClientDelivery(
     originalWrite: object,
     input: DeliverBackendClientEffectInput,
   ): BackendRequestResult<BackendClientEffectRevision> {
-    const x = this.input(input, ["effectId", "message"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendClientEffectRevision>(
-        x.workspaceId,
-        "client-effect",
-        x.effectId,
-        "delivery",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getClientEffect(x.workspaceId, x.effectId),
-      );
-      if (before.state === "prepared" || before.delivery)
-        fail("BACKEND_EFFECT_STALE");
-      const p = digest(this.ports.readWrite(originalWrite));
-      this.writeMatches(
-        p,
-        before.connectionId,
-        before.epoch,
-        x.workspaceId,
-        knowledgeHash(x.message),
-      );
-      if (!("id" in x.message) || x.message.id !== effectRpc(before))
-        fail("BACKEND_DELIVERY_INVALID");
-      validateEffectResponse(before, x.message);
-      return this.append("client-effect", x.effectId, "delivery", x, before, {
-        ...bodyOf(before),
-        delivery: p,
-      });
-    });
+    return this.mutate(
+      "client-effect",
+      "delivery",
+      input,
+      ["effectId", "message"],
+      (x) => x.effectId,
+      (x, commit) => {
+        const before = this.required(
+          this.getClientEffect(x.workspaceId, x.effectId),
+        );
+        if (before.state === "prepared" || before.delivery)
+          fail("BACKEND_EFFECT_STALE");
+        const p = digest(this.ports.readWrite(originalWrite));
+        this.writeMatches(
+          p,
+          before.connectionId,
+          before.epoch,
+          x.workspaceId,
+          knowledgeHash(x.message),
+        );
+        if (!("id" in x.message) || x.message.id !== effectRpc(before))
+          fail("BACKEND_DELIVERY_INVALID");
+        validateEffectResponse(before, x.message);
+        return commit(before, { ...bodyOf(before), delivery: p });
+      },
+    );
   }
   settleRequest(
     originalFrame: object,
     input: MutateBackendRequestInput,
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, ["remoteRequestId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "settle",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getRequest(x.workspaceId, x.remoteRequestId),
-        ),
-        c = this.required(
-          this.getConnection(x.workspaceId, before.connectionId),
-        ),
-        p = this.frame(originalFrame, c);
-      if (c.observation?.sha256 !== p.sha256 || p.wireId !== before.rpcId)
-        fail("BACKEND_REQUEST_STALE");
-      let next: BackendRequestState = "failed";
-      if ("result" in p.message) {
-        const result = p.message.result;
+    return this.mutate(
+      "request",
+      "settle",
+      input,
+      ["remoteRequestId"],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const before = this.required(
+            this.getRequest(x.workspaceId, x.remoteRequestId),
+          ),
+          c = this.required(
+            this.getConnection(x.workspaceId, before.connectionId),
+          ),
+          p = this.frame(originalFrame, c);
+        if (c.observation?.sha256 !== p.sha256 || p.wireId !== before.rpcId)
+          fail("BACKEND_REQUEST_STALE");
+        let next: BackendRequestState = "failed";
+        if ("result" in p.message) {
+          const result = p.message.result;
+          if (!isObject(result) || !isStopReason(result.stopReason))
+            fail("BACKEND_TERMINAL_INVALID");
+          next = result.stopReason === "cancelled" ? "cancelled" : "completed";
+        } else if (!("error" in p.message)) fail("BACKEND_TERMINAL_INVALID");
+        if (c.disposal?.cleanupConfirmed !== true) fail("CLEANUP_UNCERTAIN");
         if (
-          !result ||
-          typeof result !== "object" ||
-          Array.isArray(result) ||
-          ![
-            "end_turn",
-            "max_tokens",
-            "max_turn_requests",
-            "refusal",
-            "cancelled",
-          ].includes(String((result as JsonObject).stopReason))
+          this.effectsOnConnection(before).some(
+            (e) =>
+              e.remoteRequestId === before.remoteRequestId &&
+              (e.state === "prepared" || e.delivery === null),
+          )
         )
-          fail("BACKEND_TERMINAL_INVALID");
-        next =
-          (result as JsonObject).stopReason === "cancelled"
-            ? "cancelled"
-            : "completed";
-      } else if (!("error" in p.message)) fail("BACKEND_TERMINAL_INVALID");
-      if (c.disposal?.cleanupConfirmed !== true) fail("CLEANUP_UNCERTAIN");
-      if (
-        this.inspectClientEffects(x.workspaceId).some(
-          (e) =>
-            e.remoteRequestId === before.remoteRequestId &&
-            (e.state === "prepared" || e.delivery === null),
-        )
-      )
-        fail("BACKEND_EFFECT_UNSETTLED");
-      return this.append("request", x.remoteRequestId, "settle", x, before, {
-        ...bodyOf(before),
-        state: next,
-        terminal: p,
-        errorCode: next === "failed" ? "ACP_REMOTE_ERROR" : null,
-      });
-    });
+          fail("BACKEND_EFFECT_UNSETTLED");
+        return commit(before, {
+          ...bodyOf(before),
+          state: next,
+          terminal: p,
+          errorCode: next === "failed" ? "ACP_REMOTE_ERROR" : null,
+        });
+      },
+    );
   }
   disposeConnection(
     originalDisposal: object,
     input: DisposeBackendConnectionInput,
   ): BackendRequestResult<BackendConnectionRevision> {
-    const x = this.input(input, ["connectionId"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendConnectionRevision>(
-        x.workspaceId,
-        "connection",
-        x.connectionId,
-        "dispose",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-          this.getConnection(x.workspaceId, x.connectionId),
-        ),
-        p = digest(this.ports.readDisposal(originalDisposal));
-      if (
-        p.workspaceId !== x.workspaceId ||
-        p.connectionId !== before.connectionId ||
-        p.epoch !== before.proof.epoch ||
-        p.processId !== before.proof.processId
-      )
-        fail("BACKEND_DISPOSAL_INVALID");
-      return this.append("connection", x.connectionId, "dispose", x, before, {
-        ...bodyOf(before),
-        state:
-          p.cleanupConfirmed && before.sessionLoad?.state !== "dispatching"
-            ? "closed"
-            : "uncertain",
-        disposal: p,
-        ...(before.sessionLoad?.state === "dispatching"
-          ? {
-              sessionLoad: {
-                ...before.sessionLoad,
-                state: "uncertain" as const,
-              },
-            }
-          : {}),
-        errorCode:
-          before.sessionLoad?.state === "dispatching"
-            ? "BACKEND_LOAD_UNCERTAIN"
-            : p.cleanupConfirmed
-              ? null
-              : "CLEANUP_UNCERTAIN",
-      });
-    });
+    return this.mutate(
+      "connection",
+      "dispose",
+      input,
+      ["connectionId"],
+      (x) => x.connectionId,
+      (x, commit) => {
+        const before = this.required(
+            this.getConnection(x.workspaceId, x.connectionId),
+          ),
+          p = digest(this.ports.readDisposal(originalDisposal));
+        if (
+          p.workspaceId !== x.workspaceId ||
+          p.connectionId !== before.connectionId ||
+          p.epoch !== before.proof.epoch ||
+          p.processId !== before.proof.processId
+        )
+          fail("BACKEND_DISPOSAL_INVALID");
+        return commit(before, {
+          ...bodyOf(before),
+          state:
+            p.cleanupConfirmed && before.sessionLoad?.state !== "dispatching"
+              ? "closed"
+              : "uncertain",
+          disposal: p,
+          ...(before.sessionLoad?.state === "dispatching"
+            ? {
+                sessionLoad: {
+                  ...before.sessionLoad,
+                  state: "uncertain" as const,
+                },
+              }
+            : {}),
+          errorCode:
+            before.sessionLoad?.state === "dispatching"
+              ? "BACKEND_LOAD_UNCERTAIN"
+              : p.cleanupConfirmed
+                ? null
+                : "CLEANUP_UNCERTAIN",
+        });
+      },
+    );
   }
   markRequestUncertain(
     input: MutateBackendRequestInput & { readonly errorCode: string },
   ): BackendRequestResult<BackendRemoteRequest> {
-    const x = this.input(input, ["remoteRequestId", "errorCode"]);
-    return this.ports.writeTx(() => {
-      const d = this.duplicate<BackendRemoteRequest>(
-        x.workspaceId,
-        "request",
-        x.remoteRequestId,
-        "uncertain",
-        x,
-      );
-      if (d) return d;
-      const before = this.required(
-        this.getRequest(x.workspaceId, x.remoteRequestId),
-      );
-      return this.append("request", x.remoteRequestId, "uncertain", x, before, {
-        ...bodyOf(before),
-        state: "uncertain",
-        errorCode: id(x.errorCode),
-      });
-    });
+    return this.mutate(
+      "request",
+      "uncertain",
+      input,
+      ["remoteRequestId", "errorCode"],
+      (x) => x.remoteRequestId,
+      (x, commit) => {
+        const before = this.required(
+          this.getRequest(x.workspaceId, x.remoteRequestId),
+        );
+        return commit(before, {
+          ...bodyOf(before),
+          state: "uncertain",
+          errorCode: id(x.errorCode),
+        });
+      },
+    );
+  }
+  /** Client-effect heads on the connection of `on`, read under the effect head cap. */
+  private effectsOnConnection(on: {
+    readonly workspaceId: string;
+    readonly connectionId: string;
+  }): BackendClientEffectRevision[] {
+    const max = AGENT_BACKEND_STORAGE_LIMITS.effects,
+      ids = this.db
+        .prepare(
+          "SELECT h.entity_id FROM backend_heads h JOIN backend_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='client-effect' AND r.connection_id=? ORDER BY h.entity_id LIMIT ?",
+        )
+        .all(on.workspaceId, on.connectionId, max + 1);
+    if (ids.length > max) fail("BACKEND_LIMIT");
+    return ids.map((h) =>
+      this.getClientEffect(on.workspaceId, String(h.entity_id))!,
+    );
   }
   private owner(original: object): BackendTurnProof {
     const p = digest(this.ports.readOwner(original));
@@ -1964,13 +1891,7 @@ function readPrimary(
     .get(key, Number(header.bytes));
   if (!body) fail();
   const result = JSON.parse(String(body.data));
-  if (
-    !result ||
-    typeof result !== "object" ||
-    Array.isArray(result) ||
-    result.id !== key
-  )
-    fail();
+  if (!isObject(result) || result.id !== key) fail();
   return result;
 }
 function validateSessionLoadSourceSql(
@@ -2116,10 +2037,10 @@ function validateSessionLoadBody(r: BackendConnectionRevision): void {
   if (
     !["dispatching", "loaded", "uncertain"].includes(load.state) ||
     !Array.isArray(load.replayHashes) ||
-    load.replayHashes.length > 128 ||
+    load.replayHashes.length > AGENT_BACKEND_STORAGE_LIMITS.replayFrames ||
     !Number.isSafeInteger(load.replayBytes) ||
     load.replayBytes < 0 ||
-    load.replayBytes > 32768
+    load.replayBytes > AGENT_BACKEND_STORAGE_LIMITS.replayBytes
   )
     fail("BACKEND_LOAD_REPLAY_LIMIT");
   for (const hash of load.replayHashes) sha(hash);
@@ -2236,15 +2157,8 @@ function validateTerminalOutputSql(
 ): void {
   const wire = control.frame.message;
   if (!("method" in wire) || wire.method !== "terminal/output") return;
-  const message = control.message;
-  if (
-    !("result" in message) ||
-    !message.result ||
-    typeof message.result !== "object" ||
-    Array.isArray(message.result)
-  )
-    fail("BACKEND_DELIVERY_INVALID");
-  const result = message.result;
+  const result = resultObject(control.message);
+  if (!result) fail("BACKEND_DELIVERY_INVALID");
   const body = { output: result.output, truncated: result.truncated };
   const completion = e.completion,
     data = completion?.result;
@@ -2254,9 +2168,7 @@ function validateTerminalOutputSql(
     completion.cleanupConfirmed === true &&
     completion.content === null &&
     completion.checkpoint === null &&
-    data &&
-    typeof data === "object" &&
-    !Array.isArray(data) &&
+    isObject(data) &&
     data.status === "cancelled" &&
     data.started === false &&
     data.cancelled === true &&
@@ -2428,12 +2340,14 @@ function* sessionEvents(
 ): Generator<SessionEvent> {
   const headers = db
     .prepare(
-      `SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type=? AND ${where} LIMIT 513`,
+      `SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type=? AND ${where} LIMIT ?`,
     )
-    .all(type, ...params);
-  if (headers.length > 512) fail("BACKEND_LIMIT");
+    .all(type, ...params, AGENT_BACKEND_STORAGE_LIMITS.eventScan + 1);
+  if (headers.length > AGENT_BACKEND_STORAGE_LIMITS.eventScan)
+    fail("BACKEND_LIMIT");
   for (const header of headers) {
-    if (Number(header.bytes) > 65536) fail("BACKEND_LIMIT");
+    if (Number(header.bytes) > AGENT_BACKEND_STORAGE_LIMITS.eventBytes)
+      fail("BACKEND_LIMIT");
     const raw =
       readBoundedBody(
         db,
@@ -2532,21 +2446,16 @@ function validatePermissionResponse(
   p: BackendClientPermissionProof,
   message: AcpV1Message,
 ): void {
-  if (
-    !("id" in message) ||
-    message.id !== e.rpcId ||
-    !("result" in message) ||
-    !message.result ||
-    typeof message.result !== "object" ||
-    Array.isArray(message.result)
-  )
-    fail("BACKEND_DELIVERY_INVALID");
+  const result =
+    "id" in message && message.id === e.rpcId
+      ? resultObject(message)
+      : undefined;
+  if (!result) fail("BACKEND_DELIVERY_INVALID");
   const request = validateAcpV1PermissionParams(
       (e.frame.message as { params: unknown }).params,
     ),
-    outcome = message.result.outcome;
-  if (!outcome || typeof outcome !== "object" || Array.isArray(outcome))
-    fail("BACKEND_DELIVERY_INVALID");
+    outcome = result.outcome;
+  if (!isObject(outcome)) fail("BACKEND_DELIVERY_INVALID");
   if (p.allowed) {
     if (
       outcome.outcome !== "selected" ||
@@ -2582,21 +2491,13 @@ function validateEffectResponse(
         fail("BACKEND_DELIVERY_INVALID");
       if (
         p.effectMethod === "terminal/create" &&
-        (!message.result ||
-          typeof message.result !== "object" ||
-          Array.isArray(message.result) ||
-          message.result.terminalId !== `terminal:${e.effectId}`)
+        resultObject(message)?.terminalId !== `terminal:${e.effectId}`
       )
         fail("BACKEND_DELIVERY_INVALID");
     } else if (!("error" in message)) fail("BACKEND_DELIVERY_INVALID");
   } else if (p.content !== null && p.errorCode === null) {
-    if (
-      !("result" in message) ||
-      !message.result ||
-      typeof message.result !== "object" ||
-      Array.isArray(message.result) ||
-      message.result.content !== p.content
-    )
+    const result = resultObject(message);
+    if (!result || result.content !== p.content)
       fail("BACKEND_DELIVERY_INVALID");
   } else if (!("error" in message)) fail("BACKEND_DELIVERY_INVALID");
 }
@@ -2619,7 +2520,7 @@ function validateClientEffectSql(
   const outputBudget = integer(runConfig.limits.maxOutputBytes);
   if (
     p.providerToolCallId !== e.input.callId ||
-    !["completed", "failed", "denied", "interrupted"].includes(p.state) ||
+    !SETTLED_EFFECT_STATES.includes(p.state) ||
     typeof p.cleanupConfirmed !== "boolean" ||
     !Number.isSafeInteger(p.outputBytes) ||
     p.outputBytes < 0 ||
@@ -2662,9 +2563,7 @@ function validateClientEffectSql(
         local === undefined ||
         !Array.isArray(changes) ||
         changes.length !== 1 ||
-        !changes[0] ||
-        typeof changes[0] !== "object" ||
-        Array.isArray(changes[0]) ||
+        !isObject(changes[0]) ||
         changes[0].path !== local ||
         changes[0].content !== e.input.content
       )
@@ -2679,9 +2578,7 @@ function validateClientEffectSql(
     }
     if (
       clientEffectToolName(e.input) === "run_command" &&
-      p.result &&
-      typeof p.result === "object" &&
-      !Array.isArray(p.result) &&
+      isObject(p.result) &&
       p.result.started === true
     ) {
       const job = readOwnedCommandJob(
@@ -2724,10 +2621,7 @@ function validateClientEffectSql(
     const effectMethod = e.input.method;
     if (
       p.state === "completed" ||
-      (p.result &&
-        typeof p.result === "object" &&
-        !Array.isArray(p.result) &&
-        p.result.checkpointId)
+      (isObject(p.result) && p.result.checkpointId)
     ) {
       const checkpoints = db
         .prepare(
@@ -2736,23 +2630,15 @@ function validateClientEffectSql(
         .all(p.runId);
       if (checkpoints.length > 128) fail("BACKEND_LIMIT");
       const cpId =
-        p.checkpoint?.id ??
-        (p.result && typeof p.result === "object" && !Array.isArray(p.result)
-          ? p.result.checkpointId
-          : null);
+        p.checkpoint?.id ?? (isObject(p.result) ? p.result.checkpointId : null);
+      if (!cpId || !checkpoints.some((h) => h.id === cpId))
+        fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
+      const cp = readPrimary(db, "checkpoints", String(cpId), 8388608);
       if (
-        !cpId ||
-        !checkpoints.some((h) => {
-          const cp = readPrimary(db, "checkpoints", String(h.id), 8388608);
-          return (
-            cp.id === cpId &&
-            cp.runId === p.runId &&
-            cp.toolCallId === p.toolCallId &&
-            (!p.checkpoint || knowledgeHash(cp) === p.checkpoint.sha256) &&
-            cp.kind ===
-              (effectMethod === "terminal/create" ? "command" : "patch")
-          );
-        })
+        cp.runId !== p.runId ||
+        cp.toolCallId !== p.toolCallId ||
+        (p.checkpoint && knowledgeHash(cp) !== p.checkpoint.sha256) ||
+        cp.kind !== (effectMethod === "terminal/create" ? "command" : "patch")
       )
         fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
     }
@@ -2922,15 +2808,7 @@ function validateBody(r: AgentBackendRecord): void {
       r.proof.backendId !== r.backendId ||
       r.proof.backendRevisionId !== r.backendRevisionId ||
       r.proof.backendSha256 !== r.backendSha256 ||
-      ![
-        "launched",
-        "initialized",
-        "session-ready",
-        "closing",
-        "closed",
-        "uncertain",
-        "paused-import",
-      ].includes(r.state) ||
+      !BACKEND_CONNECTION_STATES.includes(r.state) ||
       !Number.isSafeInteger(r.proof.processId) ||
       r.proof.processId < 1
     )
@@ -2996,16 +2874,7 @@ function validateBody(r: AgentBackendRecord): void {
       r.remoteRequestId !== r.entityId ||
       r.owner.workspaceId !== r.workspaceId ||
       r.wireSha256 !== knowledgeHash(r.wireMessage) ||
-      ![
-        "prepared",
-        "dispatching",
-        "dispatched",
-        "completed",
-        "failed",
-        "cancelled",
-        "uncertain",
-        "paused-import",
-      ].includes(r.state)
+      !BACKEND_REQUEST_STATES.includes(r.state)
     )
       fail();
     if (r.cancellation) {
@@ -3048,32 +2917,21 @@ function validateBody(r: AgentBackendRecord): void {
       )
         fail();
     }
-    if (
-      ["dispatched", "completed", "failed", "cancelled"].includes(r.state) &&
-      !r.dispatch
-    )
-      fail();
-    if (["completed", "failed", "cancelled"].includes(r.state)) {
+    const settled = SETTLED_REQUEST_STATES.includes(r.state);
+    if ((settled || r.state === "dispatched") && !r.dispatch) fail();
+    if (settled) {
       if (!r.terminal) fail();
       const m = r.terminal.message;
       if (r.state === "failed") {
         if (!("error" in m)) fail();
-      } else if (
-        !("result" in m) ||
-        !m.result ||
-        typeof m.result !== "object" ||
-        Array.isArray(m.result) ||
-        ![
-          "end_turn",
-          "max_tokens",
-          "max_turn_requests",
-          "refusal",
-          "cancelled",
-        ].includes(String((m.result as JsonObject).stopReason)) ||
-        ((m.result as JsonObject).stopReason === "cancelled") !==
-          (r.state === "cancelled")
-      )
-        fail();
+      } else {
+        const stopReason = resultObject(m)?.stopReason;
+        if (
+          !isStopReason(stopReason) ||
+          (stopReason === "cancelled") !== (r.state === "cancelled")
+        )
+          fail();
+      }
     }
   } else if (r.kind === "client-effect") {
     fields(r, [
@@ -3110,7 +2968,8 @@ function validateBody(r: AgentBackendRecord): void {
       validateEffectInput(r.executionFrame.message, r.input, sessionId);
     }
     if (r.controls) {
-      if (r.controls.length > 32) fail();
+      if (r.controls.length > AGENT_BACKEND_STORAGE_LIMITS.terminalControls)
+        fail();
       const identities = new Set<string>();
       let released = false;
       for (const control of r.controls) {
@@ -3144,15 +3003,7 @@ function validateBody(r: AgentBackendRecord): void {
       r.frame.connectionId !== r.connectionId ||
       r.frame.epoch !== r.epoch ||
       r.frame.wireId !== r.rpcId ||
-      ![
-        "prepared",
-        "completed",
-        "failed",
-        "denied",
-        "interrupted",
-        "uncertain",
-        "paused-import",
-      ].includes(r.state)
+      !BACKEND_EFFECT_STATES.includes(r.state)
     )
       fail();
     if (r.completion) {
@@ -3163,11 +3014,7 @@ function validateBody(r: AgentBackendRecord): void {
       )
         fail();
     }
-    if (
-      ["completed", "failed", "denied", "interrupted"].includes(r.state) &&
-      !r.completion
-    )
-      fail();
+    if (SETTLED_EFFECT_STATES.includes(r.state) && !r.completion) fail();
     if (r.delivery) {
       digest(r.delivery);
       if (
@@ -3181,7 +3028,12 @@ function validateBody(r: AgentBackendRecord): void {
     }
   } else fail();
 }
-function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
+/** `anchored` holds connection identities whose owner events one validation pass already found. */
+function validateOwnerSql(
+  db: DatabaseSync,
+  r: AgentBackendRecord,
+  anchored?: Set<string>,
+): void {
   if (r.kind === "backend") {
     const s = readPrimary(db, "sessions", r.spec.target.sessionId);
     if (s.workspaceId !== r.workspaceId) fail();
@@ -3189,6 +3041,14 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
     return;
   }
   if (r.kind === "connection") {
+    const identity = JSON.stringify([
+      r.backendId,
+      r.backendRevisionId,
+      r.backendSha256,
+      r.connectionId,
+      r.proof,
+    ]);
+    if (anchored?.has(identity)) return;
     const anchor = some(
       sessionEvents(
         db,
@@ -3228,6 +3088,7 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
         (p.executionMode ?? null) === (r.proof.executionMode ?? null),
     );
     if (!hasAdmission) fail("BACKEND_CONNECTION_OWNER_INVALID");
+    anchored?.add(identity);
   }
   if (r.kind === "request" || r.kind === "client-effect") {
     validateTurnSql(db, r.owner);
@@ -3506,9 +3367,28 @@ export function validateAgentBackendDatabase(
   db: DatabaseSync,
   options: { check?: () => void } = {},
 ): void {
-  const journal = backendJournal(db),
+  const anchored = new Set<string>(),
+    journal = backendJournal(db, {
+      ...BACKEND_JOURNAL,
+      verify(record, db) {
+        validateBody(record);
+        validateOwnerSql(db, record, anchored);
+      },
+    }),
     graph = journal.scan(options.check),
-    records = graph.records;
+    records = graph.records,
+    all = [...records.values()],
+    connections = Map.groupBy(
+      all.filter((v) => v.kind === "connection"),
+      (v) => v.connectionId,
+    ),
+    requests = Map.groupBy(
+      all.filter((v) => v.kind === "request"),
+      (v) => v.remoteRequestId,
+    ),
+    effects = all.filter((v) => v.kind === "client-effect"),
+    effectsByRequest = Map.groupBy(effects, (v) => v.remoteRequestId),
+    effectRevisions = Map.groupBy(effects, (v) => v.entityId);
   for (const r of records.values()) {
     const t = journal.receiptOf(r, graph);
     if (r.kind === "client-effect" && r.controls)
@@ -3531,11 +3411,7 @@ export function validateAgentBackendDatabase(
         !nativePayloads(db, r.owner, "backend.client_effect_dispatched").some(
           (value) => value.providerToolCallId === r.input.callId,
         ) ||
-        !("result" in message) ||
-        !message.result ||
-        typeof message.result !== "object" ||
-        Array.isArray(message.result) ||
-        message.result.terminalId !== `terminal:${r.effectId}` ||
+        resultObject(message)?.terminalId !== `terminal:${r.effectId}` ||
         r.delivery.frameSha256 !== knowledgeHash(message)
       )
         fail();
@@ -3605,65 +3481,52 @@ export function validateAgentBackendDatabase(
         fail("BACKEND_LOAD_SOURCE_INVALID");
     }
     if (r.kind === "request" || r.kind === "client-effect") {
-      const c = [...records.values()].find(
-        (v) =>
-          v.kind === "connection" &&
-          v.connectionId === r.connectionId &&
-          v.workspaceId === r.workspaceId &&
-          v.proof.epoch === r.epoch,
-      );
-      if (
-        !c ||
-        c.kind !== "connection" ||
-        c.proof.ownerSha256 !== r.owner.sha256
-      )
+      const revisions = connections.get(r.connectionId) ?? [],
+        onEpoch = (v: BackendConnectionRevision) =>
+          v.workspaceId === r.workspaceId && v.proof.epoch === r.epoch,
+        c = revisions.find(onEpoch);
+      if (!c || c.proof.ownerSha256 !== r.owner.sha256)
         fail("BACKEND_OWNER_INVALID");
-      if (
-        r.kind === "request" &&
-        ["completed", "failed", "cancelled"].includes(r.state)
-      ) {
-        const closed = [...records.values()].find(
-          (v) =>
-            v.kind === "connection" &&
-            v.workspaceId === r.workspaceId &&
-            v.connectionId === r.connectionId &&
-            v.proof.epoch === r.epoch &&
-            v.state === "closed" &&
-            v.disposal?.cleanupConfirmed === true &&
-            v.createdAt <= r.createdAt,
-        );
-        if (!closed) fail("BACKEND_TERMINAL_INVALID");
-        for (const effect of records.values())
+      if (r.kind === "request" && SETTLED_REQUEST_STATES.includes(r.state)) {
+        if (
+          !revisions.some(
+            (v) =>
+              onEpoch(v) &&
+              v.state === "closed" &&
+              v.disposal?.cleanupConfirmed === true &&
+              v.createdAt <= r.createdAt,
+          )
+        )
+          fail("BACKEND_TERMINAL_INVALID");
+        for (const effect of effectsByRequest.get(r.remoteRequestId) ?? [])
           if (
-            effect.kind === "client-effect" &&
             effect.workspaceId === r.workspaceId &&
-            effect.remoteRequestId === r.remoteRequestId &&
-            effect.createdAt <= r.createdAt
-          ) {
-            const settled = [...records.values()].find(
-              (v) =>
-                v.kind === "client-effect" &&
-                v.entityId === effect.entityId &&
-                v.workspaceId === effect.workspaceId &&
-                v.delivery !== null &&
-                v.completion !== null &&
-                v.createdAt <= r.createdAt,
-            );
-            if (!settled) fail("BACKEND_EFFECT_UNSETTLED");
-          }
+            effect.createdAt <= r.createdAt &&
+            !effectRevisions
+              .get(effect.entityId)!
+              .some(
+                (v) =>
+                  v.workspaceId === effect.workspaceId &&
+                  v.delivery !== null &&
+                  v.completion !== null &&
+                  v.createdAt <= r.createdAt,
+              )
+          )
+            fail("BACKEND_EFFECT_UNSETTLED");
       }
-      if (r.kind === "client-effect") {
-        const parent = [...records.values()].find(
-          (v) =>
-            v.kind === "request" &&
-            v.remoteRequestId === r.remoteRequestId &&
-            v.workspaceId === r.workspaceId &&
-            v.owner.sha256 === r.owner.sha256 &&
-            v.connectionId === r.connectionId &&
-            v.epoch === r.epoch,
-        );
-        if (!parent) fail();
-      }
+      if (
+        r.kind === "client-effect" &&
+        !requests
+          .get(r.remoteRequestId)
+          ?.some(
+            (v) =>
+              v.workspaceId === r.workspaceId &&
+              v.owner.sha256 === r.owner.sha256 &&
+              v.connectionId === r.connectionId &&
+              v.epoch === r.epoch,
+          )
+      )
+        fail();
     }
   }
   journal.assertHeads(graph);

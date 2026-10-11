@@ -1,29 +1,46 @@
 import { EngineError } from "@moodcode/contracts";
-export type BackendConnectionState =
-  | "launched"
-  | "initialized"
-  | "session-ready"
-  | "closing"
-  | "closed"
-  | "uncertain"
-  | "paused-import";
-export type BackendRequestState =
-  | "prepared"
-  | "dispatching"
-  | "dispatched"
-  | "completed"
-  | "failed"
-  | "cancelled"
-  | "uncertain"
-  | "paused-import";
-export type BackendEffectState =
-  | "prepared"
-  | "completed"
-  | "failed"
-  | "denied"
-  | "interrupted"
-  | "uncertain"
-  | "paused-import";
+export const BACKEND_CONNECTION_STATES = [
+  "launched",
+  "initialized",
+  "session-ready",
+  "closing",
+  "closed",
+  "uncertain",
+  "paused-import",
+] as const;
+export type BackendConnectionState = (typeof BACKEND_CONNECTION_STATES)[number];
+export const BACKEND_REQUEST_STATES = [
+  "prepared",
+  "dispatching",
+  "dispatched",
+  "completed",
+  "failed",
+  "cancelled",
+  "uncertain",
+  "paused-import",
+] as const;
+export type BackendRequestState = (typeof BACKEND_REQUEST_STATES)[number];
+export const BACKEND_EFFECT_STATES = [
+  "prepared",
+  "completed",
+  "failed",
+  "denied",
+  "interrupted",
+  "uncertain",
+  "paused-import",
+] as const;
+export type BackendEffectState = (typeof BACKEND_EFFECT_STATES)[number];
+export const SETTLED_REQUEST_STATES: readonly BackendRequestState[] = [
+  "completed",
+  "failed",
+  "cancelled",
+];
+export const SETTLED_EFFECT_STATES: readonly BackendEffectState[] = [
+  "completed",
+  "failed",
+  "denied",
+  "interrupted",
+];
 export type BackendJournalKind =
   "backend" | "connection" | "request" | "client-effect";
 const connections: Record<string, readonly string[]> = {
@@ -73,6 +90,38 @@ const effects: Record<string, readonly string[]> = {
     "uncertain",
   ],
 };
+type KindStates = Partial<Record<BackendJournalKind, readonly string[]>>;
+const PREPARED_OR_SETTLED = ["prepared", ...SETTLED_EFFECT_STATES];
+/** States an operation may keep unchanged, checked before the lifecycle table. */
+const SAME_STATE: ReadonlyMap<string, KindStates> = new Map([
+  ["negotiate", { connection: ["initialized"] }],
+  ["load-intent", { connection: ["initialized"] }],
+  [
+    "cancel-wire",
+    { request: ["prepared", "dispatching", "dispatched", "uncertain"] },
+  ],
+  ["bind-effect", { "client-effect": PREPARED_OR_SETTLED }],
+  ["terminal-control", { "client-effect": PREPARED_OR_SETTLED }],
+  ["effect-ack", { "client-effect": ["prepared"] }],
+  ["permission", { "client-effect": ["prepared"] }],
+  ["delivery", { "client-effect": SETTLED_EFFECT_STATES }],
+  ["observe", { connection: ["launched", "initialized", "session-ready"] }],
+]);
+/** States an operation may reach once the lifecycle table admits the move. */
+const TARGETS: ReadonlyMap<string, KindStates> = new Map([
+  ["dispatch-intent", { request: ["dispatching"] }],
+  ["dispatch", { request: ["dispatched"] }],
+  ["settle", { request: SETTLED_REQUEST_STATES }],
+  ["settle-read", { "client-effect": SETTLED_EFFECT_STATES }],
+  ["observe", { connection: ["initialized", "session-ready"] }],
+  ["dispose", { connection: ["closed", "uncertain"] }],
+]);
+/** Targets of administrative and uncertainty operations on any kind. */
+const ANY_KIND_TARGETS: ReadonlyMap<string, string> = new Map([
+  ["pause-import", "paused-import"],
+  ["recover", "uncertain"],
+  ["uncertain", "uncertain"],
+]);
 /** This only validates persistent lifecycle semantics, never authenticates an external runtime. */
 export function assertBackendTransition(
   kind: BackendJournalKind,
@@ -95,60 +144,13 @@ export function assertBackendTransition(
       return;
     invalid();
   }
-  if (
-    ["negotiate", "load-intent"].includes(operation) &&
-    kind === "connection" &&
-    before === "initialized" &&
-    after === before
-  )
+  if (before === after && SAME_STATE.get(operation)?.[kind]?.includes(after))
     return;
   if (
     operation === "load-ready" &&
     kind === "connection" &&
     before === "initialized" &&
     after === "session-ready"
-  )
-    return;
-  if (
-    operation === "cancel-wire" &&
-    kind === "request" &&
-    before === after &&
-    ["prepared", "dispatching", "dispatched", "uncertain"].includes(after)
-  )
-    return;
-  if (
-    ["bind-effect", "terminal-control"].includes(operation) &&
-    kind === "client-effect" &&
-    before === after &&
-    ["prepared", "completed", "failed", "denied", "interrupted"].includes(after)
-  )
-    return;
-  if (
-    operation === "effect-ack" &&
-    kind === "client-effect" &&
-    before === "prepared" &&
-    after === "prepared"
-  )
-    return;
-  if (
-    operation === "permission" &&
-    kind === "client-effect" &&
-    before === "prepared" &&
-    after === "prepared"
-  )
-    return;
-  if (
-    operation === "delivery" &&
-    kind === "client-effect" &&
-    before === after &&
-    ["completed", "failed", "denied", "interrupted"].includes(after)
-  )
-    return;
-  if (
-    operation === "observe" &&
-    kind === "connection" &&
-    before === after &&
-    ["launched", "initialized", "session-ready"].includes(after)
   )
     return;
   const table =
@@ -158,35 +160,11 @@ export function assertBackendTransition(
         ? requests
         : effects;
   if (!table[after]?.includes(before!)) invalid();
-  if (operation === "pause-import" && after === "paused-import") return;
-  if (operation === "recover" && after === "uncertain") return;
   if (
-    kind === "request" &&
-    ((operation === "dispatch-intent" && after === "dispatching") ||
-      (operation === "dispatch" && after === "dispatched") ||
-      (operation === "settle" &&
-        ["completed", "failed", "cancelled"].includes(after)))
+    ANY_KIND_TARGETS.get(operation) === after ||
+    TARGETS.get(operation)?.[kind]?.includes(after)
   )
     return;
-  if (
-    kind === "client-effect" &&
-    operation === "settle-read" &&
-    ["completed", "failed", "denied", "interrupted"].includes(after)
-  )
-    return;
-  if (
-    kind === "connection" &&
-    operation === "observe" &&
-    ["initialized", "session-ready"].includes(after)
-  )
-    return;
-  if (
-    kind === "connection" &&
-    operation === "dispose" &&
-    ["closed", "uncertain"].includes(after)
-  )
-    return;
-  if (operation === "uncertain" && after === "uncertain") return;
   invalid();
 }
 function invalid(): never {
