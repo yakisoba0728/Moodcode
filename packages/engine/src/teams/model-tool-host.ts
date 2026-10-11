@@ -204,7 +204,7 @@ function contextShape(context: ToolContext): void {
 function actorSnapshot(
   workspaceId: string,
   member: TeamMemberRevision,
-  recipientAliases: readonly string[] = [],
+  recipientAliases: readonly string[] | null | undefined,
 ): JsonObject {
   return immutableKnowledgeJson({
     workspaceId,
@@ -225,7 +225,7 @@ function actorSnapshot(
       ownerEpoch: member.owner.ownerEpoch,
       sha256: member.owner.sha256,
     },
-    recipientAliases: [...recipientAliases],
+    recipientAliases: [...(recipientAliases ?? [])],
   });
 }
 

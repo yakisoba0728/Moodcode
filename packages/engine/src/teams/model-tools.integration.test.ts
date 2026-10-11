@@ -23,7 +23,7 @@ interface BindingInput {
   memberId: string;
   generation: number;
   childTaskId?: string;
-  recipientAliases?: string[];
+  recipientAliases?: string[] | null;
 }
 function bind(engine: ModelToolsEngine, input: BindingInput): object {
   const method = Reflect.get(engine, "bindTeamModelTools");
@@ -241,6 +241,24 @@ test("read mailbox freezes the approved native prefix while later messages remai
   assert.equal(f.engine.store.getSnapshot(f.session.id).tools.length, 1);
   assert.equal(f.engine.coordinator.getRunUsage(parent.runId).toolCalls, 1);
   assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 1);
+});
+
+test("a null recipient alias list binds and captures a model read with no aliases", async (t) => {
+  const f = await modelToolsFixture(t),
+    parent = await f.startParent(),
+    team = f.createTeam(),
+    coordinator = f.join(team.id, "coordinator");
+  const binding = bind(f.engine, {
+    rootSessionId: f.session.id,
+    teamId: team.id,
+    memberId: coordinator.memberId,
+    generation: coordinator.generation,
+    recipientAliases: null,
+  }) as { actor: JsonObject };
+  assert.deepEqual(binding.actor.recipientAliases, []);
+  f.rootTurns.release(0, [call("read_agent_mailbox", {})]);
+  await finish(f, parent.runId);
+  output(f, "read_agent_mailbox");
 });
 
 test("actual worker alias claims and completes one native task without borrowing same-owner coordinator permissions", async (t) => {
