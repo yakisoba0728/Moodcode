@@ -45,6 +45,33 @@ export const KNOWLEDGE_IMPORT_RECOVERY_TABLES: readonly KnowledgeImportRecoveryT
     "knowledge_import_document_activations",
     "knowledge_import_document_activation_heads",
   ]);
+/** SQL columns that mirror recovery body fields. */
+const INDEXED: Readonly<
+  Record<KnowledgeImportRecoveryTable, Readonly<Record<string, string>>>
+> = Object.freeze({
+  knowledge_import_frontiers: { import_id: "importId" },
+  knowledge_import_frontier_heads: {
+    frontier_id: "frontierId",
+    revision: "revision",
+  },
+  knowledge_import_recovery_decisions: {
+    frontier_id: "frontierId",
+    request_id: "requestId",
+    operation: "operation",
+  },
+  knowledge_import_document_activations: {
+    frontier_id: "frontierId",
+    document_key: "documentKey",
+    revision: "revision",
+    decision_id: "decisionId",
+    state: "state",
+  },
+  knowledge_import_document_activation_heads: {
+    document_key: "documentKey",
+    activation_id: "activationId",
+    revision: "revision",
+  },
+});
 export const KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL = `
 CREATE TABLE knowledge_import_frontiers (
  id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL REFERENCES workspaces(id), import_id TEXT NOT NULL UNIQUE,
@@ -351,7 +378,7 @@ export function validateKnowledgeImportRecoveryArchiveRow(
       } else if (value.documentProof !== null || value.activationId !== null)
         fail();
       break;
-    case "knowledge_import_document_activations":
+    case "knowledge_import_document_activations": {
       value = object(d, [
         "id",
         "workspaceId",
@@ -381,26 +408,19 @@ export function validateKnowledgeImportRecoveryArchiveRow(
       )
         fail();
       if (value.previousId !== null) id(value.previousId);
+      if (!["active", "inactive"].includes(value.state as string)) fail();
+      const pinned = proof(value.proof, String(value.workspaceId));
       if (
-        !["active", "inactive"].includes(value.state as string) ||
-        proof(value.proof, String(value.workspaceId)).documentKey !==
-          value.documentKey
-      )
-        fail();
-      if (
-        value.state === "active" &&
-        (proof(value.proof, String(value.workspaceId)).currentTrustId ===
-          null ||
-          proof(value.proof, String(value.workspaceId)).expiresAt === null)
-      )
-        fail();
-      if (
-        value.state === "active" &&
-        Date.parse(proof(value.proof, String(value.workspaceId)).expiresAt!) <=
-          Date.parse(String(value.createdAt))
+        pinned.documentKey !== value.documentKey ||
+        (value.state === "active" &&
+          (pinned.currentTrustId === null ||
+            pinned.expiresAt === null ||
+            Date.parse(pinned.expiresAt) <=
+              Date.parse(String(value.createdAt))))
       )
         fail();
       break;
+    }
     case "knowledge_import_document_activation_heads":
       value = object(d, [
         "id",
@@ -449,18 +469,12 @@ function raw(
   maximum: number = KNOWLEDGE_IMPORT_RECOVERY_LIMITS.rowBytes,
 ): { header: Record<string, unknown>; data: string } | undefined {
   if (!exists(db, table)) return undefined;
-  const extra: Record<string, string> = {
-    knowledge_import_frontiers: "import_id",
-    knowledge_import_frontier_heads: "frontier_id,revision",
-    knowledge_import_recovery_decisions: "frontier_id,request_id,operation",
-    knowledge_import_document_activations:
-      "frontier_id,document_key,revision,decision_id,state",
-    knowledge_import_document_activation_heads:
-      "document_key,activation_id,revision",
-  };
+  const indexed = Object.hasOwn(INDEXED, table)
+    ? Object.keys(INDEXED[table as KnowledgeImportRecoveryTable])
+    : [];
   const header = db
     .prepare(
-      `SELECT id,workspace_id,${extra[table] ? `${extra[table]},` : ""}length(CAST(data AS BLOB)) AS body_bytes FROM ${table} WHERE id=? AND workspace_id=?`,
+      `SELECT ${["id", "workspace_id", ...indexed].join(",")},length(CAST(data AS BLOB)) AS body_bytes FROM ${table} WHERE id=? AND workspace_id=?`,
     )
     .get(key, workspaceId) as Record<string, unknown> | undefined;
   if (!header) return undefined;
@@ -529,38 +543,9 @@ function read<T extends KnowledgeImportRecoveryData>(
     workspaceId: ws,
     data: parsed(row.data) as KnowledgeImportRecoveryData,
   }).data;
-  const h = row.header;
-  if (
-    (table === "knowledge_import_frontiers" &&
-      h.import_id !== (value as KnowledgeImportFrontier).importId) ||
-    (table === "knowledge_import_frontier_heads" &&
-      (h.frontier_id !== (value as KnowledgeImportFrontierHead).frontierId ||
-        h.revision !== (value as KnowledgeImportFrontierHead).revision)) ||
-    (table === "knowledge_import_recovery_decisions" &&
-      (h.frontier_id !==
-        (value as KnowledgeImportRecoveryDecision).frontierId ||
-        h.request_id !== (value as KnowledgeImportRecoveryDecision).requestId ||
-        h.operation !==
-          (value as KnowledgeImportRecoveryDecision).operation)) ||
-    (table === "knowledge_import_document_activations" &&
-      (h.frontier_id !==
-        (value as ImportedKnowledgeDocumentActivation).frontierId ||
-        h.document_key !==
-          (value as ImportedKnowledgeDocumentActivation).documentKey ||
-        h.revision !==
-          (value as ImportedKnowledgeDocumentActivation).revision ||
-        h.decision_id !==
-          (value as ImportedKnowledgeDocumentActivation).decisionId ||
-        h.state !== (value as ImportedKnowledgeDocumentActivation).state)) ||
-    (table === "knowledge_import_document_activation_heads" &&
-      (h.document_key !==
-        (value as ImportedKnowledgeDocumentActivationHead).documentKey ||
-        h.activation_id !==
-          (value as ImportedKnowledgeDocumentActivationHead).activationId ||
-        h.revision !==
-          (value as ImportedKnowledgeDocumentActivationHead).revision))
-  )
-    fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
+  for (const [column, field] of Object.entries(INDEXED[table]))
+    if (row.header[column] !== (value as unknown as ObjectData)[field])
+      fail("KNOWLEDGE_IMPORT_RECOVERY_CORRUPT");
   return value as T;
 }
 function pause(
@@ -1069,10 +1054,7 @@ export class KnowledgeImportRecoveryStorage {
     ])
       if (typeof descriptors[key]?.value !== "function")
         fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY_PORTS");
-    if (
-      (descriptors.now && !Object.hasOwn(descriptors.now, "value")) ||
-      (descriptors.now && typeof descriptors.now.value !== "function")
-    )
+    if (descriptors.now && typeof descriptors.now.value !== "function")
       fail("INVALID_KNOWLEDGE_IMPORT_RECOVERY_PORTS");
     this.#db = db;
     this.#ports = Object.freeze({
@@ -1250,7 +1232,7 @@ export class KnowledgeImportRecoveryStorage {
       "workspaceId",
       "operation",
       "expiresAt",
-      ...(Object.getOwnPropertyDescriptor(input ?? {}, "documentProof")
+      ...(Object.getOwnPropertyDescriptor(input, "documentProof")
         ? ["documentProof"]
         : []),
     ];
@@ -1357,25 +1339,23 @@ export class KnowledgeImportRecoveryStorage {
       approved: true,
       reason: request.reason,
     });
-    const duplicate = this.findRequest(
-      p.workspaceId,
-      String(request.requestId),
+    const replay = (decision: KnowledgeImportRecoveryDecision | undefined) =>
+      decision &&
+      (decision.requestSha256 === fingerprint
+        ? result(this.#db, decision)
+        : fail("KNOWLEDGE_IMPORT_RECOVERY_REQUEST_CONFLICT"));
+    const duplicate = replay(
+      this.findRequest(p.workspaceId, String(request.requestId)),
     );
-    if (duplicate) {
-      if (duplicate.requestSha256 !== fingerprint)
-        fail("KNOWLEDGE_IMPORT_RECOVERY_REQUEST_CONFLICT");
-      return result(this.#db, duplicate);
-    }
+    if (duplicate) return duplicate;
     const owner = this.#captures.get(preview);
     if (!owner || owner.used || !this.#live.has(preview))
       fail("KNOWLEDGE_IMPORT_RECOVERY_CAPTURE_INVALID");
     const committed = this.tx(() => {
-      const raced = this.findRequest(p.workspaceId, String(request.requestId));
-      if (raced) {
-        if (raced.requestSha256 !== fingerprint)
-          fail("KNOWLEDGE_IMPORT_RECOVERY_REQUEST_CONFLICT");
-        return result(this.#db, raced);
-      }
+      const raced = replay(
+        this.findRequest(p.workspaceId, String(request.requestId)),
+      );
+      if (raced) return raced;
       this.assertFresh(preview);
       const proofResult = this.#ports.assertCommitCurrent(preview);
       if (proofResult !== undefined)

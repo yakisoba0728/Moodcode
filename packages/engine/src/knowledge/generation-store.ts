@@ -39,6 +39,7 @@ import {
   candidateMatchesOutput,
   cleanup,
   exact,
+  KNOWLEDGE_GENERATION_COLUMNS,
   text,
   validateAck,
   validateAttempt,
@@ -116,12 +117,7 @@ type Row = {
   id: string;
   workspace_id: string;
   data: string;
-  state?: string;
-  revision?: number;
-  plan_id?: string;
-  generation_id?: string;
-  request_id?: string;
-  operation?: string;
+  [column: string]: unknown;
 };
 type GenHandle = { record: KnowledgeGenerationRecord };
 type AttemptHandle = {
@@ -143,30 +139,15 @@ function decode(
     workspaceId: row.workspace_id,
     data: JSON.parse(row.data),
   }).data;
-  if (
-    ("state" in value &&
-      row.state !== undefined &&
-      row.state !== value.state) ||
-    ("revision" in value &&
-      row.revision !== undefined &&
-      row.revision !== value.revision) ||
-    ("planId" in value &&
-      row.plan_id !== undefined &&
-      row.plan_id !== value.planId) ||
-    ("generationId" in value &&
-      row.generation_id !== undefined &&
-      row.generation_id !== value.generationId) ||
-    ("requestId" in value &&
-      row.request_id !== undefined &&
-      row.request_id !== value.requestId) ||
-    ("operation" in value &&
-      row.operation !== undefined &&
-      row.operation !== value.operation)
-  )
-    knowledgeError(
-      "KNOWLEDGE_RECORD_CONFLICT",
-      "Native indexed columns disagree with their authoritative body",
-    );
+  const body = value as unknown as Record<string, unknown>;
+  for (const [column, field] of Object.entries(
+    KNOWLEDGE_GENERATION_COLUMNS[table],
+  ))
+    if (row[column] !== undefined && row[column] !== body[field])
+      knowledgeError(
+        "KNOWLEDGE_RECORD_CONFLICT",
+        "Native indexed columns disagree with their authoritative body",
+      );
   return value;
 }
 function boundedRows(
