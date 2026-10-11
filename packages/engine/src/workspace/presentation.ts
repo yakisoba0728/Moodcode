@@ -3,7 +3,7 @@ import { constants, type Dirent } from 'node:fs';
 import { lstat, open, opendir } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
-import { getGitStatus, resolveWorkspacePath, type GitStatusEntry } from './index.js';
+import { compareText, getGitStatus, resolveWorkspacePath, workspaceRootIdentity, type GitStatusEntry } from './index.js';
 import { continuationOffset, continuationToken, excludedDirectory, ignoredWorkspacePaths, snapshotFingerprint, validateContinuation } from './ignore.js';
 
 export const WORKSPACE_PRESENTATION_LIMITS = Object.freeze({
@@ -71,14 +71,10 @@ function normalizedPath(value: string, allowRoot: boolean): string {
 
 async function rootAnchor(workspace: Workspace, signal?: AbortSignal): Promise<RootAnchor> {
   abort(signal);
-  const absolute = await resolveWorkspacePath(workspace, '');
   try {
-    const metadata = await lstat(absolute, { bigint: true });
+    const { root: absolute, dev, ino } = await workspaceRootIdentity(workspace);
     abort(signal);
-    if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
-      throw new EngineError('WORKSPACE_ROOT_CHANGED', 'Workspace root no longer names its canonical directory.');
-    }
-    return { absolute, dev: metadata.dev, ino: metadata.ino };
+    return { absolute, dev, ino };
   } catch (error) {
     if (error instanceof EngineError) throw error;
     throw new EngineError('WORKSPACE_UNAVAILABLE', 'Workspace root is unavailable.');
@@ -227,7 +223,7 @@ async function listFiles(workspace: Workspace, relativePath = '', options: Works
     safe = false;
     warning(result.warnings, 'Directory changed during listing; request a fresh listing.');
   }
-  result.entries.sort((left, right) => left.kind !== right.kind ? (left.kind === 'directory' ? -1 : 1) : left.name < right.name ? -1 : left.name > right.name ? 1 : 0);
+  result.entries.sort((left, right) => left.kind !== right.kind ? (left.kind === 'directory' ? -1 : 1) : compareText(left.name, right.name));
   observations.sort((left, right) => left[0]!.localeCompare(right[0]!));
   const scope = snapshotFingerprint({ kind: 'workspace.presentation', workspaceId: workspace.id, root: workspace.root, relative, limit });
   const snapshot = snapshotFingerprint({ observations, dev: String(after.dev), ino: String(after.ino), mtime: String(after.mtimeNs), ctime: String(after.ctimeNs) });

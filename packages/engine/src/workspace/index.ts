@@ -31,6 +31,20 @@ async function validateRoot(workspace: Workspace): Promise<string> {
   }
 }
 
+/** Canonical root and the dev/ino pin callers compare; fs errors after validateRoot reach each caller unmapped. */
+export async function workspaceRootIdentity(workspace: Workspace): Promise<{ root: string; dev: bigint; ino: bigint }> {
+  const root = await validateRoot(workspace);
+  const metadata = await lstat(root, { bigint: true });
+  if (metadata.isSymbolicLink() || !metadata.isDirectory()) {
+    throw new EngineError('WORKSPACE_ROOT_CHANGED', 'Workspace root no longer matches its canonical directory.');
+  }
+  return { root, dev: metadata.dev, ino: metadata.ino };
+}
+
+export function compareText(left: string, right: string): number {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
 export function workspaceIdForRoot(root: string): string {
   return `workspace_${sha256Hex(root)}`;
 }
@@ -187,24 +201,25 @@ export interface WorkspaceCapture {
 export const DEFAULT_CAPTURE_LIMITS = Object.freeze({
   maxFiles: 2_000, maxFileBytes: 1_048_576, maxTotalBytes: 16_777_216, maxEntries: 20_000, maxDepth: 64,
 });
+/** Largest accepted value of each capture limit, in validation order. */
+export const CAPTURE_LIMIT_CEILINGS = Object.freeze({
+  maxFiles: 100_000, maxFileBytes: 67_108_864, maxTotalBytes: 268_435_456, maxEntries: 500_000, maxDepth: 256,
+});
 
-function limit(value: number | undefined, fallback: number, name: string, ceiling: number): number {
+export function boundedInteger(value: number | undefined, fallback: number, name: string, minimum: number, maximum: number): number {
   const selected = value ?? fallback;
-  if (!Number.isSafeInteger(selected) || selected < 0 || selected > ceiling) {
-    throw new EngineError('INVALID_LIMIT', `${name} must be an integer from 0 to ${ceiling}.`);
+  if (!Number.isSafeInteger(selected) || selected < minimum || selected > maximum) {
+    throw new EngineError('INVALID_LIMIT', `${name} must be an integer from ${minimum} to ${maximum}.`);
   }
   return selected;
 }
 
 /** Bounded observation of tracked, untracked and ignored UTF-8 files. */
 export async function captureWorkspace(workspace: Workspace, options: CaptureWorkspaceOptions = {}): Promise<WorkspaceCapture> {
-  const limits = {
-    maxFiles: limit(options.maxFiles, DEFAULT_CAPTURE_LIMITS.maxFiles, 'maxFiles', 100_000),
-    maxFileBytes: limit(options.maxFileBytes, DEFAULT_CAPTURE_LIMITS.maxFileBytes, 'maxFileBytes', 67_108_864),
-    maxTotalBytes: limit(options.maxTotalBytes, DEFAULT_CAPTURE_LIMITS.maxTotalBytes, 'maxTotalBytes', 268_435_456),
-    maxEntries: limit(options.maxEntries, DEFAULT_CAPTURE_LIMITS.maxEntries, 'maxEntries', 500_000),
-    maxDepth: limit(options.maxDepth, DEFAULT_CAPTURE_LIMITS.maxDepth, 'maxDepth', 256),
-  };
+  const limits: Required<Omit<CaptureWorkspaceOptions, 'signal'>> = { ...DEFAULT_CAPTURE_LIMITS };
+  for (const key of Object.keys(CAPTURE_LIMIT_CEILINGS) as (keyof typeof CAPTURE_LIMIT_CEILINGS)[]) {
+    limits[key] = boundedInteger(options[key], DEFAULT_CAPTURE_LIMITS[key], key, 0, CAPTURE_LIMIT_CEILINGS[key]);
+  }
   const files: WorkspaceCapture['files'] = new Map();
   const warnings: string[] = [];
   let visited = 0;
@@ -298,7 +313,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
       warn(`Could not inspect directory ${relative || '.'}: ${error instanceof EngineError ? error.code : codeOf(error) ?? 'IO_ERROR'}`);
       return;
     }
-    names.sort((left, right) => left < right ? -1 : left > right ? 1 : 0);
+    names.sort(compareText);
     for (const name of names) {
       checkAbort();
       if (fileLimitReached) return;

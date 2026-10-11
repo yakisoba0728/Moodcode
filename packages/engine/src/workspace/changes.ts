@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { lstat, realpath } from 'node:fs/promises';
 import { EngineError, type Checkpoint, type Workspace } from '@moodcode/contracts';
 import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
 import { exactPath, readExactText } from '../tools/file-actions/text.js';
+import { workspaceRootIdentity } from './index.js';
 import { WorkspaceObserver, type WorkspaceObservation, type WorkspaceObserverOptions } from './observer.js';
 
 export interface WorkspaceToolChangeOwner { sessionId: string; runId: string; toolCallId: string; turnId?: string; attemptId?: string; checkpointId: string }
@@ -112,7 +112,7 @@ export class WorkspaceChangeHub {
   }
   /** A failed observer is replaced on the next watch(); the entry keeps its sequence and document versions. */
   private observe(entry: Entry): void {
-    const observer = new WorkspaceObserver(entry.workspace, { intervalMs: 1000, ...this.options.observer, signal: entry.controller.signal,
+    const observer = new WorkspaceObserver(entry.workspace, { ...this.options.observer, signal: entry.controller.signal,
       capture: { ...this.options.observer?.capture, maxFiles: Math.min(this.options.observer?.capture?.maxFiles ?? this.limits.maxDocuments, this.limits.maxDocuments),
         maxFileBytes: Math.min(this.options.observer?.capture?.maxFileBytes ?? 1_048_576, 1_048_576), maxTotalBytes: Math.min(this.options.observer?.capture?.maxTotalBytes ?? 8_388_608, 8_388_608) } });
     let resolveReady!: () => void, rejectReady!: (error: unknown) => void;
@@ -161,8 +161,8 @@ export class WorkspaceChangeHub {
   }
   private async current(entry: Entry, path: string): Promise<{ hash: string | null; bytes: number } | undefined> {
     try {
-      const root = await lstat(entry.workspace.root, { bigint: true });
-      if (!root.isDirectory() || root.isSymbolicLink() || await realpath(entry.workspace.root) !== entry.workspace.root || entry.root && (root.dev !== entry.root.dev || root.ino !== entry.root.ino)) throw fail('WORKSPACE_ROOT_CHANGED', 'Workspace root identity changed');
+      const root = await workspaceRootIdentity(entry.workspace);
+      if (entry.root && (root.dev !== entry.root.dev || root.ino !== entry.root.ino)) throw fail('WORKSPACE_ROOT_CHANGED', 'Workspace root identity changed');
       entry.root ??= { dev: root.dev, ino: root.ino };
     } catch { this.incomplete(entry, 'WORKSPACE_ROOT_CHANGED'); return undefined; }
     try { const observed = await readExactText(entry.workspace, path, entry.controller.signal); return { hash: observed.hash, bytes: Buffer.byteLength(observed.content) }; }

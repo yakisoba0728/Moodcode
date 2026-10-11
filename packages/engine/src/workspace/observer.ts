@@ -1,7 +1,6 @@
 import { createHash } from 'node:crypto';
-import { stat } from 'node:fs/promises';
 import { EngineError, type Workspace } from '@moodcode/contracts';
-import { captureWorkspace, DEFAULT_CAPTURE_LIMITS, getGitStatus, resolveWorkspacePath, type CaptureWorkspaceOptions, type GitStatus, type GitStatusEntry } from './index.js';
+import { boundedInteger, CAPTURE_LIMIT_CEILINGS, captureWorkspace, compareText, DEFAULT_CAPTURE_LIMITS, getGitStatus, workspaceRootIdentity, type CaptureWorkspaceOptions, type GitStatus, type GitStatusEntry } from './index.js';
 
 export interface WorkspaceObserverOptions {
   signal?: AbortSignal;
@@ -52,18 +51,11 @@ interface Sample {
   coalesced: number;
 }
 
-function integer(value: number | undefined, fallback: number, name: string, minimum: number, maximum: number): number {
-  const selected = value ?? fallback;
-  if (!Number.isSafeInteger(selected) || selected < minimum || selected > maximum) {
-    throw new EngineError('INVALID_LIMIT', `${name} must be an integer from ${minimum} to ${maximum}.`);
-  }
-  return selected;
-}
-
 function compareEntries(left: GitStatusEntry, right: GitStatusEntry): number {
-  const a = JSON.stringify([left.path, left.index, left.worktree, left.originalPath ?? null]);
-  const b = JSON.stringify([right.path, right.index, right.worktree, right.originalPath ?? null]);
-  return a < b ? -1 : a > b ? 1 : 0;
+  return compareText(
+    JSON.stringify([left.path, left.index, left.worktree, left.originalPath ?? null]),
+    JSON.stringify([right.path, right.index, right.worktree, right.originalPath ?? null]),
+  );
 }
 
 /**
@@ -97,16 +89,14 @@ export class WorkspaceObserver implements AsyncIterableIterator<WorkspaceObserva
   constructor(workspace: Workspace, options: WorkspaceObserverOptions = {}) {
     this.workspace = { ...workspace };
     this.options = { ...options };
-    this.intervalMs = integer(options.intervalMs, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.intervalMs, 'intervalMs', 50, 60_000);
-    this.gitTimeoutMs = integer(options.gitTimeoutMs, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.gitTimeoutMs, 'gitTimeoutMs', 1, 60_000);
-    this.maxGitEntries = integer(options.maxGitEntries, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.maxGitEntries, 'maxGitEntries', 1, 20_000);
-    this.captureOptions = {
-      maxFiles: integer(options.capture?.maxFiles, DEFAULT_CAPTURE_LIMITS.maxFiles, 'capture.maxFiles', 1, 100_000),
-      maxFileBytes: integer(options.capture?.maxFileBytes, DEFAULT_CAPTURE_LIMITS.maxFileBytes, 'capture.maxFileBytes', 1, 67_108_864),
-      maxTotalBytes: integer(options.capture?.maxTotalBytes, DEFAULT_CAPTURE_LIMITS.maxTotalBytes, 'capture.maxTotalBytes', 1, 268_435_456),
-      maxEntries: integer(options.capture?.maxEntries, DEFAULT_CAPTURE_LIMITS.maxEntries, 'capture.maxEntries', 1, 500_000),
-      maxDepth: integer(options.capture?.maxDepth, DEFAULT_CAPTURE_LIMITS.maxDepth, 'capture.maxDepth', 0, 256),
-    };
+    this.intervalMs = boundedInteger(options.intervalMs, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.intervalMs, 'intervalMs', 50, 60_000);
+    this.gitTimeoutMs = boundedInteger(options.gitTimeoutMs, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.gitTimeoutMs, 'gitTimeoutMs', 1, 60_000);
+    this.maxGitEntries = boundedInteger(options.maxGitEntries, DEFAULT_WORKSPACE_OBSERVER_OPTIONS.maxGitEntries, 'maxGitEntries', 1, 20_000);
+    const capture: Required<Omit<CaptureWorkspaceOptions, 'signal'>> = { ...DEFAULT_CAPTURE_LIMITS };
+    for (const key of Object.keys(CAPTURE_LIMIT_CEILINGS) as (keyof typeof CAPTURE_LIMIT_CEILINGS)[]) {
+      capture[key] = boundedInteger(options.capture?.[key], DEFAULT_CAPTURE_LIMITS[key], `capture.${key}`, key === 'maxDepth' ? 0 : 1, CAPTURE_LIMIT_CEILINGS[key]);
+    }
+    this.captureOptions = capture;
   }
 
   get state(): WorkspaceObserverState { return this.currentState; }
@@ -190,12 +180,11 @@ export class WorkspaceObserver implements AsyncIterableIterator<WorkspaceObserva
 
   private async checkRoot(): Promise<void> {
     try {
-      const canonical = await resolveWorkspacePath(this.workspace, '.');
-      const metadata = await stat(canonical, { bigint: true });
-      if (!metadata.isDirectory() || this.rootIdentity && (metadata.dev !== this.rootIdentity.dev || metadata.ino !== this.rootIdentity.ino)) {
+      const { dev, ino } = await workspaceRootIdentity(this.workspace);
+      if (this.rootIdentity && (dev !== this.rootIdentity.dev || ino !== this.rootIdentity.ino)) {
         throw new EngineError('WORKSPACE_ROOT_CHANGED', 'Workspace root directory identity changed after observer start.');
       }
-      this.rootIdentity ??= { dev: metadata.dev, ino: metadata.ino };
+      this.rootIdentity ??= { dev, ino };
     } catch (error) {
       if (error instanceof EngineError) throw error;
       throw new EngineError('WORKSPACE_UNAVAILABLE', 'Workspace root is unavailable during observation.');
@@ -208,7 +197,7 @@ export class WorkspaceObserver implements AsyncIterableIterator<WorkspaceObserva
     const status = await getGitStatus(this.workspace, { signal: this.controller.signal, timeoutMs: this.gitTimeoutMs });
     await this.checkRoot();
     const files: Sample['files'] = new Map();
-    for (const [relative, file] of [...capture.files].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
+    for (const [relative, file] of [...capture.files].sort(([a], [b]) => compareText(a, b))) {
       files.set(relative, { hash: file.hash, bytes: Buffer.byteLength(file.content, 'utf8') });
     }
     const entries = [...status.entries].sort(compareEntries);
