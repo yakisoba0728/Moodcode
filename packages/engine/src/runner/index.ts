@@ -19,6 +19,7 @@ import type {
 import { clientEffectToolName, clientReadToolInput, terminalCommandLine, workspaceLocalPath, type BackendClientReadInput, type BackendClientReadProof, type BackendClientEffectInput, type BackendClientPermissionProof } from '../agent-backends/client-effects.js';
 import { codeJson, CODE_MODE_TOOLS, codeModeError } from '../code-mode/types.js';
 import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
+import { plainJson } from '../shared/data.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
 import { SEMANTIC_MEMORY_PREFIX } from '../context/semantic-memory.js';
 import { ACTIVE_PREFIX_MEMORY_PREFIX } from '../context/active-prefix.js';
@@ -108,36 +109,8 @@ interface ClientReadCapture {
 
 /** Preserve request insertion order without evaluating adapter-added serializers or accessors. */
 function originalRequestSha256(value: TurnRequest, maxBytes: number): string {
-  let nodes = 0, bytes = 0;
-  const ancestors = new Set<object>();
-  function invalid(): never { throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'The original request must retain ordinary bounded JSON data'); }
-  const copy = (item: unknown, depth: number): unknown => {
-    if (++nodes > 32768 || depth > 32) invalid();
-    if (item === null || typeof item === 'boolean') return item;
-    if (typeof item === 'number') { if (!Number.isFinite(item)) invalid(); return item; }
-    if (typeof item === 'string') { bytes += Buffer.byteLength(item); if (bytes > maxBytes || Buffer.from(item).toString('utf8') !== item) invalid(); return item; }
-    if (!item || typeof item !== 'object' || types.isProxy(item) || ancestors.has(item)) invalid();
-    const object = item as object, prototype = Object.getPrototypeOf(object), descriptors = Object.getOwnPropertyDescriptors(object);
-    if (Array.isArray(object) ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) invalid();
-    ancestors.add(object);
-    try {
-      if (Array.isArray(object)) {
-        const length = descriptors.length?.value;
-        if (!Number.isSafeInteger(length) || length < 0 || length > 4096 || Reflect.ownKeys(descriptors).length !== length + 1) invalid();
-        const result: unknown[] = []; Object.setPrototypeOf(result, null);
-        for (let index = 0; index < length; index++) { const descriptor = descriptors[String(index)]; if (!descriptor?.enumerable || !('value' in descriptor)) invalid(); result[index] = copy(descriptor.value, depth + 1); }
-        return result;
-      }
-      const result = Object.create(null) as Record<string, unknown>;
-      for (const key of Reflect.ownKeys(descriptors)) {
-        if (typeof key !== 'string') invalid(); const descriptor = descriptors[key as string]!;
-        if (!descriptor.enumerable || !('value' in descriptor)) invalid(); bytes += Buffer.byteLength(key as string); if (bytes > maxBytes) invalid();
-        result[key as string] = copy(descriptor.value, depth + 1);
-      }
-      return result;
-    } finally { ancestors.delete(object); }
-  };
-  const encoded = JSON.stringify(copy(value, 0));
+  const invalid = (): never => { throw new EngineError('BACKEND_REQUEST_OWNER_STALE', 'The original request must retain ordinary bounded JSON data'); };
+  const encoded = JSON.stringify(plainJson(value, { maxBytes, maxNodes: 32_768, maxDepth: 32, maxItems: 4_096, accounting: 'text', wellFormed: true, nullPrototype: true, fail: invalid }));
   if (Buffer.byteLength(encoded) > maxBytes) invalid(); return createHash('sha256').update(encoded).digest('hex');
 }
 
@@ -170,63 +143,15 @@ function errorOf(error: unknown, code = 'INTERNAL_ERROR', message = 'Run executi
 /** Validate descriptors before copying native output: no getters, toJSON or proxy traps. */
 function copyReplay(items: unknown, providerId: string, maxBytes: number, binding: Pick<ProviderReplay, 'modelId' | 'protocol' | 'version'> = {}): ProviderReplay {
   const invalid = (): never => { throw new EngineError('INVALID_PROVIDER_REPLAY', 'Provider replay must contain plain JSON output objects'); };
+  const overBudget = (): never => { throw new EngineError('CONTEXT_LIMIT', 'Provider replay exceeds the context byte budget'); };
   if (typeof providerId !== 'string' || !providerId.trim() || Buffer.byteLength(providerId, 'utf8') > 256 || /[\u0000-\u001f\u007f]/u.test(providerId)) return invalid();
-  let remaining = maxBytes - (Buffer.byteLength(JSON.stringify({ providerId, items: [], ...binding }), 'utf8') - 2);
-  const spend = (bytes: number): void => {
-    if (bytes > remaining) throw new EngineError('CONTEXT_LIMIT', 'Provider replay exceeds the context byte budget');
-    remaining -= bytes;
-  };
-  spend(0);
-  const ancestors = new Set<object>();
-  const copy = (value: unknown, depth: number): JsonValue => {
-    if (value === null) { spend(4); return null; }
-    if (typeof value === 'boolean') { spend(value ? 4 : 5); return value; }
-    if (typeof value === 'string') {
-      // A JS string cannot serialize to fewer bytes than its UTF-16 length.
-      if (value.length > remaining) spend(value.length);
-      spend(Buffer.byteLength(JSON.stringify(value), 'utf8'));
-      return value;
-    }
-    if (typeof value === 'number' && Number.isFinite(value)) { spend(Buffer.byteLength(JSON.stringify(value))); return value; }
-    if (!value || typeof value !== 'object' || depth > 64 || types.isProxy(value) || ancestors.has(value)) return invalid();
-    const array = Array.isArray(value);
-    const prototype: unknown = Object.getPrototypeOf(value);
-    if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) return invalid();
-    ancestors.add(value);
-    try {
-      const keys = Reflect.ownKeys(value);
-      if (array) {
-        const length = Object.getOwnPropertyDescriptor(value, 'length')?.value as unknown;
-        if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0 || keys.length !== length + 1) return invalid();
-        spend(2);
-        const result: JsonValue[] = [];
-        for (let index = 0; index < length; index++) {
-          const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-          if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) return invalid();
-          if (index) spend(1);
-          result.push(copy(descriptor.value, depth + 1));
-        }
-        return result;
-      }
-      spend(2);
-      const result: JsonObject = {};
-      let index = 0;
-      for (const key of keys) {
-        if (typeof key !== 'string') return invalid();
-        const descriptor = Object.getOwnPropertyDescriptor(value, key);
-        if (!descriptor || !('value' in descriptor) || !descriptor.enumerable) return invalid();
-        if (index++) spend(1);
-        if (key.length > remaining) spend(key.length);
-        spend(Buffer.byteLength(JSON.stringify(key), 'utf8') + 1);
-        Object.defineProperty(result, key, { value: copy(descriptor.value, depth + 1), enumerable: true, configurable: true, writable: true });
-      }
-      return result;
-    } finally { ancestors.delete(value); }
-  };
+  const budget = maxBytes - (Buffer.byteLength(JSON.stringify({ providerId, items: [], ...binding }), 'utf8') - 2);
+  if (budget < 0) return overBudget();
   if (types.isProxy(items) || !Array.isArray(items)) return invalid();
-  // Include the providerReplay object level so stored context has the same bound.
-  const copied = copy(items, 1);
-  if (!Array.isArray(copied) || copied.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) return invalid();
+  // As stored context does, bound containers to 64 levels below providerReplay (63 below items); primitive leaves may sit one level deeper.
+  const copied = plainJson(items as JsonValue[], { maxBytes: budget, maxNodes: Infinity, maxDepth: 63, containerDepth: true, maxItems: budget, accounting: 'encoded',
+    fail: fault => fault === 'bytes' || fault === 'items' ? overBudget() : invalid() });
+  if (copied.some((item) => !item || typeof item !== 'object' || Array.isArray(item))) return invalid();
   return { providerId, items: copied as JsonObject[], ...binding };
 }
 

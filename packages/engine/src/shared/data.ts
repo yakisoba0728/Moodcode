@@ -7,6 +7,8 @@ export interface PlainJsonOptions {
   readonly maxBytes: number;
   readonly maxNodes: number;
   readonly maxDepth: number;
+  /** Apply maxDepth to objects and arrays only, so primitive leaves may sit one level deeper. */
+  readonly containerDepth?: boolean;
   readonly maxItems?: number;
   /** text charges the UTF-8 bytes of strings and keys; encoded charges the JSON.stringify length. */
   readonly accounting: 'text' | 'encoded';
@@ -17,12 +19,14 @@ export interface PlainJsonOptions {
   readonly lenient?: boolean;
   readonly freeze?: boolean;
   readonly nullPrototype?: boolean;
+  /** Copy -0 as 0, as JSON text does. */
+  readonly positiveZero?: boolean;
   readonly fail: (fault: PlainJsonFault) => never;
 }
 
 /** Bounded copy of JSON data read through property descriptors: no getter or serializer runs, nor a proxy trap unless lenient. */
 export function plainJson<T>(input: T, options: PlainJsonOptions): T {
-  const { maxBytes, maxNodes, maxDepth, maxItems, wellFormed, rejectNul, rejectKeys = [], lenient, freeze, nullPrototype } = options;
+  const { maxBytes, maxNodes, maxDepth, containerDepth, maxItems, wellFormed, rejectNul, rejectKeys = [], lenient, freeze, nullPrototype, positiveZero } = options;
   const fail: (fault: PlainJsonFault) => never = options.fail;
   const encoded = options.accounting === 'encoded', visiting = new Set<object>();
   let bytes = 0, nodes = 0;
@@ -85,7 +89,7 @@ export function plainJson<T>(input: T, options: PlainJsonOptions): T {
     return target;
   };
   function visit(value: unknown, depth: number): unknown {
-    if (++nodes > maxNodes || depth > maxDepth) fail('structure');
+    if (++nodes > maxNodes || depth > maxDepth && (!containerDepth || typeof value === 'object' && value !== null)) fail('structure');
     if (value === null || typeof value === 'boolean') { syntax(value === false ? 5 : 4); return value; }
     if (typeof value === 'string') {
       if (wellFormed && !value.isWellFormed() || rejectNul && value.includes('\0')) fail('text');
@@ -95,7 +99,7 @@ export function plainJson<T>(input: T, options: PlainJsonOptions): T {
     if (typeof value === 'number') {
       if (!Number.isFinite(value)) fail('number');
       syntax(Buffer.byteLength(JSON.stringify(value)));
-      return value;
+      return positiveZero && value === 0 ? 0 : value;
     }
     if (typeof value !== 'object' || !lenient && types.isProxy(value)) fail('value');
     if (visiting.has(value)) fail('cycle');

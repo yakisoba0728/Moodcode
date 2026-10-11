@@ -1,9 +1,9 @@
-import { createHash } from 'node:crypto';
-import { types } from 'node:util';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
 import type { ScopedToolRuntime, ToolCatalogue } from '../tools/runtime/index.js';
 import { TOOL_DISCOVERY_LIMITS, validateDiscoveryQuery, type ResolvedToolDiscoveryPolicy, type ToolDiscoveryCatalogue } from '../tools/runtime/discovery.js';
+import { jsonTextSha256 } from '../shared/canonical.js';
+import { plainRecord, utf8Prefix } from '../shared/data.js';
 
 export const DISCOVERY_TOOL_NAME = 'discover_tools';
 export type ToolDiscoveryAction = 'add' | 'replace';
@@ -14,26 +14,9 @@ function action(value: unknown): ToolDiscoveryAction {
 }
 function discoveryInput(value: unknown): { query: string; limit: number; action?: ToolDiscoveryAction } {
   const invalid = (): never => { throw new EngineError('INVALID_TOOL_DISCOVERY_QUERY', 'Discovery requires plain query, optional limit and optional action data'); };
-  if (!value || typeof value !== 'object' || types.isProxy(value) || Array.isArray(value)) return invalid();
-  const proto = Object.getPrototypeOf(value);
-  if (proto !== Object.prototype && proto !== null) return invalid();
-  const input: Record<string, unknown> = Object.create(null);
-  for (const key of Reflect.ownKeys(value)) {
-    if (typeof key !== 'string' || !['query', 'limit', 'action'].includes(key)) return invalid();
-    const field = Object.getOwnPropertyDescriptor(value, key)!;
-    if (!field.enumerable || !('value' in field)) return invalid();
-    input[key] = field.value;
-  }
+  const input: Record<string, unknown> = Object.assign(Object.create(null), plainRecord(value, [], ['query', 'limit', 'action'], invalid));
   const args = validateDiscoveryQuery(input.query, Object.hasOwn(input, 'limit') ? input.limit : 4);
   return { ...args, ...(Object.hasOwn(input, 'action') ? { action: action(input.action) } : {}) };
-}
-const sha = (value: string) => createHash('sha256').update(value).digest('hex');
-function prefix(text: string, maximum: number): string {
-  const bytes = Buffer.from(text);
-  if (bytes.length <= maximum) return text;
-  let end = maximum;
-  while (end > 0 && (bytes[end]! & 0xc0) === 0x80) end--;
-  return bytes.subarray(0, end).toString('utf8');
 }
 interface ToolDiscoveryDispatch {
   catalogue: ToolCatalogue;
@@ -65,10 +48,9 @@ export class RunToolDiscovery {
   private names(source: ToolDiscoveryCatalogue, selected: ReadonlySet<string>): string[] {
     const always = this.always(source);
     if (selected.size > this.policy.maxSelectedTools) throw new EngineError('TOOL_DISCOVERY_LIMIT', 'Run selected-tool count exceeds its discovery policy');
-    const names = source.tools.filter(tool => always.has(tool.name) || selected.has(tool.name)).map(tool => tool.name);
+    const visible = source.tools.filter(tool => always.has(tool.name) || selected.has(tool.name)), names = visible.map(tool => tool.name);
     if (names.length > TOOL_DISCOVERY_LIMITS.maxVisibleTools) throw new EngineError('TOOL_DISCOVERY_LIMIT', 'Visible tool count exceeds its discovery limit');
-    const selectedMetadata = source.tools.filter(tool => always.has(tool.name) || selected.has(tool.name));
-    const bytes = 2 + selectedMetadata.reduce((total, tool) => total + tool.definitionBytes, 0) + Math.max(0, names.length - 1);
+    const bytes = 2 + visible.reduce((total, tool) => total + tool.definitionBytes, 0) + Math.max(0, names.length - 1);
     if (bytes > this.policy.maxSchemaBytes) throw new EngineError('TOOL_DISCOVERY_LIMIT', 'Selected tool schemas exceed the Run discovery byte budget');
     return names;
   }
@@ -84,8 +66,7 @@ export class RunToolDiscovery {
     if (!this.advertised || this.dirty) {
       const names = this.names(this.source, this.selected);
       const catalogue = this.runtime.materializeDiscovery(this.source, names, { maxTools: TOOL_DISCOVERY_LIMITS.maxVisibleTools, maxBytes: this.policy.maxSchemaBytes });
-      const tools = JSON.stringify(catalogue.tools);
-      this.advertised = { catalogue, reservedBytes: Buffer.byteLength(JSON.stringify({ messages: [], tools: catalogue.tools })) - 2, toolCatalogueSha256: sha(tools) };
+      this.advertised = { catalogue, reservedBytes: Buffer.byteLength(JSON.stringify({ messages: [], tools: catalogue.tools })) - 2, toolCatalogueSha256: jsonTextSha256(catalogue.tools) };
       this.dirty = false;
     }
     return this.advertised;
@@ -115,7 +96,7 @@ export class RunToolDiscovery {
       query, registryRevision: source.revision, policyVersion: source.policyVersion,
       activation: 'next-model-boundary',
       ...(selectionAction === 'replace' ? { selectionMode: 'replace' } : {}),
-      matches: matches.map(tool => ({ name: tool.name, description: prefix(tool.description, 512),
+      matches: matches.map(tool => ({ name: tool.name, description: utf8Prefix(tool.description, 512),
         descriptionTruncated: Buffer.byteLength(tool.description) > 512, schemaSha256: tool.schemaSha256,
         definitionSha256: tool.definitionSha256, schemaBytes: tool.schemaBytes, definitionBytes: tool.definitionBytes,
         alreadyVisible: always.has(tool.name) || this.selected.has(tool.name) })),
@@ -159,7 +140,7 @@ export function createToolDiscoveryTool(host: DiscoveryHost): ToolDefinition {
     async prepare(value, context) {
       const args = discoveryInput(value), expected = host.identity(context);
       const preview: JsonObject = { ...args, ...expected };
-      const result: PreparedTool = { name: DISCOVERY_TOOL_NAME, input: { ...args }, fingerprint: sha(JSON.stringify({ preview, sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId })), requiresApproval: false, preview };
+      const result: PreparedTool = { name: DISCOVERY_TOOL_NAME, input: { ...args }, fingerprint: jsonTextSha256({ preview, sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId }), requiresApproval: false, preview };
       prepared.set(result, { ...args, expected }); return result;
     },
     async execute(value, context) {

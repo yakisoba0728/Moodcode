@@ -658,6 +658,19 @@ test("actual inspector rejects foreign Run selection and hostile selection acces
     ),
   );
   assert.equal(traps, 0);
+  assert.throws(
+    () =>
+      invoke<DiagnosticExecutionPage>(
+        f.engine,
+        "getExecutionObservations",
+        Object.defineProperty(
+          { workspaceId: f.workspace.id, runId: run.id },
+          "limit",
+          { value: 1 },
+        ),
+      ),
+    errorCode("INVALID_EXECUTION_OBSERVATION"),
+  );
   const other = await observationFixture(t, { script: readOnce });
   assert.throws(
     () =>

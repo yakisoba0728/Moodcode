@@ -1,19 +1,15 @@
 import { types } from 'node:util';
 import { createHash } from 'node:crypto';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
+import { plainRecord } from '../shared/data.js';
 
 const INPUT_DOCUMENT_ID = /^doc_[a-f0-9]{32}$/u;
 export interface DocumentLimits { maxDocumentBytes: number; maxInputDocuments: number; maxInputBytes: number; maxSessionDocuments: number; maxSessionBytes: number }
 /** Local storage budgets, independent of provider limits or document token estimates. */
 export const DEFAULT_DOCUMENT_LIMITS: Readonly<DocumentLimits> = Object.freeze({ maxDocumentBytes: 524_288, maxInputDocuments: 1, maxInputBytes: 1_048_576, maxSessionDocuments: 32, maxSessionBytes: 16_777_216 });
 export function fail(code: string): never { throw new EngineError(code, 'Document input validation failed.'); }
-function plain(value: unknown, keys?: readonly string[]): value is Record<string, unknown> {
-  if (types.isProxy(value) || !value || typeof value !== 'object' || Array.isArray(value) || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) return false;
-  const own = Reflect.ownKeys(value);
-  return own.every(key => typeof key === 'string' && (!keys || keys.includes(key)) && Object.getOwnPropertyDescriptor(value, key)?.enumerable && Object.hasOwn(Object.getOwnPropertyDescriptor(value, key)!, 'value'));
-}
 export function documentLimits(input: Partial<DocumentLimits> = {}): Readonly<DocumentLimits> {
-  if (!plain(input, Object.keys(DEFAULT_DOCUMENT_LIMITS))) fail('DOCUMENT_INVALID_CONFIG');
+  plainRecord(input, [], Object.keys(DEFAULT_DOCUMENT_LIMITS), () => fail('DOCUMENT_INVALID_CONFIG'));
   const limits = { ...DEFAULT_DOCUMENT_LIMITS, ...input };
   for (const key of Object.keys(limits) as (keyof DocumentLimits)[]) if (!Number.isSafeInteger(limits[key]) || limits[key] < 1 || limits[key] > DEFAULT_DOCUMENT_LIMITS[key]) fail('DOCUMENT_INVALID_CONFIG');
   return Object.freeze(limits);
@@ -23,9 +19,8 @@ export function cancelled(signal?: AbortSignal): void {
   if (signal?.aborted) fail('DOCUMENT_CANCELLED');
 }
 export function digest(bytes: Uint8Array): string { return createHash('sha256').update(bytes).digest('hex'); }
-export function attachment(value: unknown, limits: Readonly<DocumentLimits> = DEFAULT_DOCUMENT_LIMITS): InputDocumentAttachment {
-  const keys = ['id', 'kind', 'mimeType', 'bytes', 'sha256'];
-  if (!plain(value, keys) || Reflect.ownKeys(value).length !== keys.length) fail('DOCUMENT_INVALID_REFERENCE');
+export function attachment(input: unknown, limits: Readonly<DocumentLimits> = DEFAULT_DOCUMENT_LIMITS): InputDocumentAttachment {
+  const value = plainRecord(input, ['id', 'kind', 'mimeType', 'bytes', 'sha256'], [], () => fail('DOCUMENT_INVALID_REFERENCE'));
   if (typeof value.id !== 'string' || !INPUT_DOCUMENT_ID.test(value.id) || value.kind !== 'document' || value.mimeType !== 'application/pdf'
     || typeof value.sha256 !== 'string' || !/^[a-f0-9]{64}$/u.test(value.sha256) || typeof value.bytes !== 'number'
     || !Number.isSafeInteger(value.bytes) || value.bytes < 1 || value.bytes > limits.maxDocumentBytes) fail('DOCUMENT_INVALID_REFERENCE');

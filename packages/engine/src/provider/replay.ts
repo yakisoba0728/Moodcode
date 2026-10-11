@@ -2,6 +2,7 @@ import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contract
 import { isDeepStrictEqual } from 'node:util';
 import type { ProviderMessage } from '../ports.js';
 import { credentialSecrets, redactCredentialJson, redactCredentialText } from './helpers.js';
+import { plainJson } from '../shared/data.js';
 
 export interface ReplayValidationOptions {
   secrets?: readonly string[];
@@ -47,75 +48,9 @@ function dataProperty(value: unknown, key: string, required = true, array = fals
   return descriptor.value;
 }
 
-/** JSON.stringify's UTF-8 string size, without allocating an escaped copy. */
-function quotedBytes(value: string): number {
-  let bytes = 2;
-  for (let offset = 0; offset < value.length; offset++) {
-    const unit = value.charCodeAt(offset);
-    if (unit === 34 || unit === 92) bytes += 2;
-    else if (unit < 32) bytes += [8, 9, 10, 12, 13].includes(unit) ? 2 : 6;
-    else if (unit < 128) bytes++;
-    else if (unit < 2048) bytes += 2;
-    else if (unit >= 0xd800 && unit <= 0xdbff) {
-      const next = value.charCodeAt(offset + 1);
-      if (next >= 0xdc00 && next <= 0xdfff) { bytes += 4; offset++; }
-      else bytes += 6;
-    } else bytes += unit >= 0xdc00 && unit <= 0xdfff ? 6 : 3;
-  }
-  return bytes;
-}
-
-/** Read only data descriptors: getters, toJSON hooks and prototypes are not executed. */
+/** Read only data descriptors: getters, toJSON hooks, proxies and prototypes are not executed. */
 function cloneJson(value: unknown, maximum: number): JsonValue {
-  let bytes = 0;
-  const ancestors = new Set<object>();
-  const account = (count: number) => { bytes += count; if (bytes > maximum) invalid(); };
-  const visit = (source: unknown, depth: number): JsonValue => {
-    if (depth > 64) invalid();
-    if (source === null) { account(4); return null; }
-    if (typeof source === 'boolean') { account(source ? 4 : 5); return source; }
-    if (typeof source === 'string') { account(quotedBytes(source)); return source; }
-    if (typeof source === 'number') {
-      if (!Number.isFinite(source)) invalid();
-      account(JSON.stringify(source).length);
-      return source === 0 ? 0 : source;
-    }
-    if (typeof source !== 'object' || ancestors.has(source)) invalid();
-    const array = Array.isArray(source);
-    const prototype = Object.getPrototypeOf(source);
-    if (array ? prototype !== Array.prototype : prototype !== Object.prototype && prototype !== null) invalid();
-    ancestors.add(source);
-    try {
-      account(2);
-      const keys = Reflect.ownKeys(source);
-      if (array) {
-        const length = Object.getOwnPropertyDescriptor(source, 'length')?.value as unknown;
-        if (typeof length !== 'number' || !Number.isSafeInteger(length) || length < 0 || length > maximum || keys.length !== length + 1) invalid();
-        for (const key of keys) {
-          if (key === 'length') continue;
-          if (typeof key !== 'string' || !/^(0|[1-9][0-9]*)$/.test(key) || Number(key) >= length) invalid();
-        }
-        const result: JsonValue[] = [];
-        for (let offset = 0; offset < length; offset++) {
-          const descriptor = Object.getOwnPropertyDescriptor(source, String(offset));
-          if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) invalid();
-          if (offset > 0) account(1);
-          result.push(visit(descriptor.value, depth + 1));
-        }
-        return result;
-      }
-      const result: JsonObject = {};
-      for (const [offset, key] of keys.entries()) {
-        if (typeof key !== 'string') invalid();
-        const descriptor = Object.getOwnPropertyDescriptor(source, key);
-        if (!descriptor || !descriptor.enumerable || !('value' in descriptor)) invalid();
-        account(quotedBytes(key) + 1 + (offset > 0 ? 1 : 0));
-        Object.defineProperty(result, key, { value: visit(descriptor.value, depth + 1), enumerable: true, writable: true, configurable: true });
-      }
-      return result;
-    } finally { ancestors.delete(source); }
-  };
-  return visit(value, 0);
+  return plainJson(value as JsonValue, { maxBytes: maximum, maxNodes: Infinity, maxDepth: 64, maxItems: maximum, accounting: 'encoded', positiveZero: true, fail: invalid });
 }
 
 function argumentCloneBudget(bytes: number): number {

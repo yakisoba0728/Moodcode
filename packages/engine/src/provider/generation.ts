@@ -1,6 +1,7 @@
 import { types } from 'node:util';
 import { EngineError, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 import type { ProviderEvent, ProviderMessage, ProviderTool, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
+import { plainRecord } from '../shared/data.js';
 
 /** Host-owned work has no coding Run, Session, Turn, or tool authority. */
 export interface HostGenerationOwner {
@@ -46,19 +47,7 @@ function invalid(): never {
   throw new EngineError('PROVIDER_INVALID_REQUEST', 'Host generation requires bounded plain text input and explicit host ownership.');
 }
 function plain(value: unknown, required: readonly string[], optional: readonly string[] = []): Record<string, unknown> {
-  if (value === null || typeof value !== 'object' || types.isProxy(value)
-    || ![Object.prototype, null].includes(Object.getPrototypeOf(value))) invalid();
-  const descriptors = Object.getOwnPropertyDescriptors(value);
-  const keys = Reflect.ownKeys(descriptors);
-  if (keys.some(key => typeof key !== 'string' || !required.includes(key) && !optional.includes(key))) invalid();
-  const result: Record<string, unknown> = Object.create(null);
-  for (const key of keys) {
-    const descriptor = descriptors[key as string]!;
-    if (!('value' in descriptor) || !descriptor.enumerable) invalid();
-    result[key as string] = descriptor.value;
-  }
-  if (required.some(key => !Object.hasOwn(result, key))) invalid();
-  return result;
+  return Object.assign(Object.create(null), plainRecord(value, required, optional, invalid));
 }
 function array(value: unknown, maximum: number): readonly unknown[] {
   if (types.isProxy(value) || !Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype || value.length > maximum) invalid();

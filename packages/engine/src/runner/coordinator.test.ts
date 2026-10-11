@@ -1102,6 +1102,26 @@ test('normal finish stores provider-bound replay separately from deltas and snap
   } finally { await runner.close(); }
 });
 
+test('replay may hold a primitive leaf 65 levels below providerReplay under its deepest container', { timeout: 5_000 }, async () => {
+  let item: JsonObject = { leaf: 'deepest replay leaf' };
+  for (let index = 0; index < 62; index++) item = { nested: item };
+  const read = tool('deep_replay_read', false, async () => ({ content: 'deep replay read result' }));
+  const provider = new FakeProvider(async function* (request) {
+    if (request.turnIndex === 0) {
+      yield call('deep-replay-call', read.name);
+      yield { type: 'finish', reason: 'tool_calls', replayItems: [item] };
+    } else yield finish;
+  });
+  const { runner, input, store } = fixture(provider, [read]);
+  try {
+    const receipt = runner.submit(input());
+    assert.equal((await runner.waitForRun(receipt.runId)).state, 'completed');
+    const expected = { providerId: provider.id, items: [item] };
+    assert.deepEqual([...store.messages.values()].find((message) => message.role === 'assistant' && message.toolCalls?.length)?.providerReplay, expected);
+    assert.deepEqual(provider.requests[1]!.messages.find((message) => message.role === 'assistant')?.providerReplay, expected);
+  } finally { await runner.close(); }
+});
+
 test('unsafe replay metadata fails with fixed errors before persistence or tool effects', { timeout: 5_000 }, async (t) => {
   let getterReads = 0;
   let proxyReads = 0;

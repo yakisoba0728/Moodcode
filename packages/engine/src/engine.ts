@@ -2,6 +2,7 @@ import {CommandLifetimeService,createCommandLifetimeTools} from './jobs/command-
 import {EffectBatchHost} from './effect-batches/host.js';
 import {CodeModeHost} from './code-mode/host.js';
 import {jobJson} from './jobs/validation.js';
+import { plainRecord } from './shared/data.js';
 import { MediaSegmentStore } from './media/segment-store.js';
 import { providerSegments } from './media/segment-provider.js';
 import { PrFeedbackHost } from './pr-feedback/host.js';
@@ -1875,9 +1876,9 @@ terminalJournal = new SqliteTerminalJournal(join(realpathSync(artifactDir), 'ter
 
   getExecutionObservations(input: { workspaceId: string; runId: string } & DiagnosticExecutionPageOptions) {
     if (this.closing) throw new EngineError('ENGINE_CLOSED', 'Engine is closing');
-    if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) || ![Object.prototype, null].includes(Object.getPrototypeOf(input))) throw new EngineError('INVALID_EXECUTION_OBSERVATION', 'Observation queries require plain bounded data');
-    const descriptors = Object.getOwnPropertyDescriptors(input);
-    if (!['workspaceId', 'runId'].every(key => Object.hasOwn(descriptors[key] ?? {}, 'value')) || Reflect.ownKeys(input).some(key => typeof key !== 'string' || !['workspaceId', 'runId', 'afterOrdinal', 'throughOrdinal', 'limit', 'maxBytes'].includes(key) || !Object.hasOwn(descriptors[key]!, 'value'))) throw new EngineError('INVALID_EXECUTION_OBSERVATION', 'Observation queries require exact plain bounded data');
+    plainRecord(input, ['workspaceId', 'runId'], ['afterOrdinal', 'throughOrdinal', 'limit', 'maxBytes'], fault => {
+      throw new EngineError('INVALID_EXECUTION_OBSERVATION', fault === 'shape' ? 'Observation queries require plain bounded data' : 'Observation queries require exact plain bounded data');
+    });
     const { workspaceId, runId, ...page } = input;
     return this.store.readExecutionObservationEvidence(() => {
       if (this.store.getRun(runId).workspaceId !== workspaceId) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Observation Run belongs to another workspace');
@@ -2389,11 +2390,9 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   private proposalApplyRecoveryDecision(operation: 'acknowledge' | 'resume', input: { readonly workspaceId: string; readonly requestId: string; readonly preview: ProposalApplyRecoveryPreview; readonly reason: string }) {
     try {
       this.assertProposalApplyEnabled();
-      if (!input || typeof input !== 'object' || types.isProxy(input) || Array.isArray(input) || ![Object.prototype, null].includes(Object.getPrototypeOf(input))) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
-      const fields = Object.getOwnPropertyDescriptors(input);
-      if (Reflect.ownKeys(fields).length !== 4 || ['workspaceId','requestId','preview','reason'].some(key => !fields[key]?.enumerable || !Object.hasOwn(fields[key]!, 'value'))) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
-      const workspaceId = fields.workspaceId!.value as string, requestId = fields.requestId!.value as string,
-        preview = fields.preview!.value as ProposalApplyRecoveryPreview, reason = fields.reason!.value as string;
+      const { workspaceId, requestId, preview, reason } = plainRecord(input, ['workspaceId', 'requestId', 'preview', 'reason'], [], () => {
+        throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires original bounded host data');
+      }) as typeof input;
       if (this.proposalApplyRecoveryPreviews.get(preview) !== workspaceId || typeof reason !== 'string' || !reason.trim()
         || Buffer.byteLength(reason, 'utf8') > 512 || Buffer.from(reason, 'utf8').toString('utf8') !== reason) throw new EngineError('INVALID_PROPOSAL_APPLY_RECOVERY', 'Recovery requires its original preview and bounded explicit reason');
       return this.coordinator.withRecoveryDecisionLease(workspaceId, async signal => {
@@ -2823,7 +2822,8 @@ registerWorkflow(input: Parameters<WorkflowService['register']>[0]) { this.asser
   /** Host-only read of a native media Part; archive/reopened DATA never dispatches a provider. */
   async readMediaOutput(input:{sessionId:string;partId:string;offset?:number;limit?:number;signal?:AbortSignal}){
     if(this.closing)throw new EngineError('ENGINE_CLOSED','Engine is closing');
-    if(!input||typeof input!=='object'||types.isProxy(input)||![Object.prototype,null].includes(Object.getPrototypeOf(input))||Reflect.ownKeys(input).some(k=>typeof k!=='string'))throw new EngineError('MEDIA_INVALID_READ','Read options must be ordinary data');const d=Object.getOwnPropertyDescriptor(input,'signal');if(d&&(!d.enumerable||!('value'in d)))throw new EngineError('MEDIA_INVALID_READ','Read options must be ordinary data');const signal=d?.value as AbortSignal|undefined;const raw=Object.fromEntries(Object.entries(Object.getOwnPropertyDescriptors(input)).filter(([key])=>key!=='signal').map(([key,value])=>{if(!value.enumerable||!('value'in value))throw new EngineError('MEDIA_INVALID_READ','Read options cannot contain accessors');return[key,value.value];}));const safe=jobJson(raw,4096) as Omit<typeof input,'signal'>;if(Object.keys(safe).some(k=>!['sessionId','partId','offset','limit'].includes(k))||typeof safe.sessionId!=='string'||typeof safe.partId!=='string'||safe.offset!==undefined&&(!Number.isSafeInteger(safe.offset)||safe.offset<0)||safe.limit!==undefined&&(!Number.isSafeInteger(safe.limit)||safe.limit<1||safe.limit>65536))throw new EngineError('MEDIA_INVALID_READ','Bounded native media read options are required');
+    const fields=plainRecord(input,['sessionId','partId'],['offset','limit','signal'],fault=>{throw new EngineError('MEDIA_INVALID_READ',fault==='shape'?'Read options must be ordinary data':fault==='fields'?'Bounded native media read options are required':'Read options cannot contain accessors');});
+    const {signal,...raw}=Object.assign(Object.create(null),fields) as typeof input;const safe=jobJson(raw,4096);if(typeof safe.sessionId!=='string'||typeof safe.partId!=='string'||safe.offset!==undefined&&(!Number.isSafeInteger(safe.offset)||safe.offset<0)||safe.limit!==undefined&&(!Number.isSafeInteger(safe.limit)||safe.limit<1||safe.limit>65536))throw new EngineError('MEDIA_INVALID_READ','Bounded native media read options are required');
     const part=this.store.readProviderMediaPart(safe.sessionId,safe.partId);const operation=(await this.managedArtifacts()).read(part.artifact.id,{identity:part.artifact.identity,...(safe.offset===undefined?{}:{offset:safe.offset}),limit:safe.limit??8192,signal:signal?AbortSignal.any([signal,this.hostResources.signal]):this.hostResources.signal});this.pendingStorage.add(operation);try{return await operation;}finally{this.pendingStorage.delete(operation);}
   }
   getMediaCapabilities(providerId:string,modelId:string){return this.mediaCapabilities(providerId,modelId);}

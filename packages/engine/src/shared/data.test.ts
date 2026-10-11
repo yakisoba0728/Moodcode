@@ -75,9 +75,12 @@ test('the walker reports text and NUL faults, cycles and structural bounds to it
   const options = { maxBytes: 64, maxNodes: 4, maxDepth: 2, maxItems: 2, accounting: 'text', wellFormed: true, rejectNul: true, fail: fault } as const;
   const run = (value: unknown, extra: object = {}) => plainJson(value, { ...options, ...extra });
   assert.deepEqual(run({ a: 'b' }), { a: 'b' });
+  assert.ok(Object.is(run(-0), -0)); assert.ok(Object.is((run([-0], { positiveZero: true }) as number[])[0], 0));
   assert.throws(() => run('a\0b'), reported('text'));
   assert.throws(() => run([1, 2, 3]), reported('items'));
   assert.throws(() => run({ a: { b: { c: 1 } } }), reported('structure'));
+  assert.deepEqual(run({ a: { b: { c: 1 } } }, { containerDepth: true }), { a: { b: { c: 1 } } });
+  assert.throws(() => run({ a: { b: { c: {} } } }, { containerDepth: true }), reported('structure'));
   assert.throws(() => run('x'.repeat(65)), reported('bytes'));
   const cycle: Record<string, unknown> = {}; cycle.self = cycle;
   assert.throws(() => run(cycle, { maxDepth: 8 }), reported('cycle'));

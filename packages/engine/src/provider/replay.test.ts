@@ -163,7 +163,7 @@ test('required limits are finite integers and cannot be omitted', () => {
   }
 });
 
-test('JSON-only cloning rejects cycles, exotic prototypes, accessors and non-JSON values', () => {
+test('JSON-only cloning rejects cycles, exotic prototypes, proxies, accessors and non-JSON values', () => {
   const cyclic: Record<string, unknown> = {}; cyclic.self = cyclic;
   const sparse = Array(1);
   const extraArray = [1]; Object.defineProperty(extraArray, 'extra', { value: 2, enumerable: true });
@@ -172,7 +172,7 @@ test('JSON-only cloning rejects cycles, exotic prototypes, accessors and non-JSO
   let invoked = 0;
   const getter = {}; Object.defineProperty(getter, 'secret', { enumerable: true, get() { invoked++; throw new Error(SECRET); } });
   const toJSON = { toJSON() { invoked++; throw new Error(SECRET); } };
-  for (const value of [undefined, NaN, Infinity, 1n, () => {}, Symbol('x'), new Date(), new Map(), new Uint8Array([1]), Object.create({ inherited: 1 }), cyclic, sparse, extraArray, symbol, hidden, getter, toJSON]) {
+  for (const value of [undefined, NaN, Infinity, 1n, () => {}, Symbol('x'), new Date(), new Map(), new Uint8Array([1]), Object.create({ inherited: 1 }), new Proxy({}, {}), cyclic, sparse, extraArray, symbol, hidden, getter, toJSON]) {
     invalid(() => validateReplayItems([{ ...message(), extra: value }], limits));
   }
   assert.equal(invoked, 0);
