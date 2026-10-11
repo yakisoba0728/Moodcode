@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import {
   DEFAULT_LIMITS,
   EngineError,
@@ -134,6 +135,18 @@ test("child dispatch reserves bounded parent authority and durable request id av
   };
   const { manager, input, store, worktrees } = await fixture(t, host);
   const task = await manager.start(input, fresh().signal);
+  assert.equal(
+    task.fingerprint,
+    createHash("sha256")
+      .update(
+        JSON.stringify({
+          ...input,
+          allowedTools: ["patch_files", "read_file"],
+          requestedTools: ["read_file"],
+        }),
+      )
+      .digest("hex"),
+  );
   assert.equal((await manager.wait("s", task.id)).state, "completed");
   assert.equal((await manager.start(input, fresh().signal)).id, task.id);
   const restarted = new ChildTaskManager({ documents: store, worktrees, host });
@@ -143,6 +156,39 @@ test("child dispatch reserves bounded parent authority and durable request id av
     restarted.start({ ...input, prompt: "changed" }, fresh().signal),
     code("CHILD_REQUEST_CONFLICT"),
   );
+});
+test("truncated child outcomes keep whole UTF-8 scalars, including a U+FFFD before the cut", async (t) => {
+  const contents = [
+    "a".repeat(509) + "\ufffd" + "b",
+    "a".repeat(511) + "\u{1f600}",
+  ];
+  const host = completedHost();
+  host.start = async ({ task }) => {
+    const content = contents.shift()!;
+    return {
+      runId: `run_${task.id}`,
+      async wait() {
+        return { ...outcome(), content };
+      },
+      async cancel() {},
+    };
+  };
+  const { manager, input, worktrees, workspace } = await fixture(t, host);
+  const first = await manager.start(input, fresh().signal);
+  const secondWt = await worktrees.create(
+    { sessionId: "s", requestId: "wt-2", workspace },
+    fresh().signal,
+  );
+  const second = await manager.start(
+    { ...input, requestId: "child-2", worktreeId: secondWt.id },
+    fresh().signal,
+  );
+  const kept = (await manager.wait("s", first.id)).outcome!;
+  assert.equal(kept.content, "a".repeat(509) + "\ufffd");
+  assert.equal(kept.truncated, true);
+  const cut = (await manager.wait("s", second.id)).outcome!;
+  assert.equal(cut.content, "a".repeat(511));
+  assert.equal(cut.truncated, true);
 });
 test("tool escalation and shared sibling budget overflow fail before host dispatch", async (t) => {
   let calls = 0;

@@ -1,10 +1,11 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { lstatSync, realpathSync } from 'node:fs';
 import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError, type JsonObject, type Workspace } from '@moodcode/contracts';
 import type { GrantDocumentPort } from '../permission/grants.js';
+import { jsonTextSha256 } from '../shared/canonical.js';
 import { workspaceIdForRoot } from '../workspace/index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
 import { WORKTREE_JOURNAL } from '../worktrees/journal.js';
@@ -45,7 +46,6 @@ export interface ChildStorageSelectionOptions {
   hostIdentity: ChildStorageHostIdentity; childrenDirectory: string; mode?: 'source' | 'archive-historical'; signal?: AbortSignal;
 }
 export interface ChildStorageSelectionBudget { maxMetadataBytes?: number; readonly remainingMetadataBytes?: number; readonly remainingRows?: number; charge?(bytes: number): void; chargeRows?(rows: number): void; check?(): void }
-const hash = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 function fail(message: string): never { throw new EngineError('CHILD_STORAGE_BINDING_INVALID', message); }
 const id = (value: unknown): value is string => typeof value === 'string' && value.length > 0 && Buffer.byteLength(value) <= 256 && !/[\x00-\x1f\x7f]/.test(value);
 const sha = (value: unknown): value is string => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -90,9 +90,9 @@ export function childStorageKind(taskId: string): string {
   if (!/^child_[a-f0-9]{32}$/.test(taskId)) return fail('Task identity is invalid');
   return `child.storage.${taskId}`;
 }
-export function childRequestKind(requestId: string): string { return `child.request.${hash(requestId).slice(0, 32)}`; }
-export function childRequestFingerprint(request: EngineChildRequest): string { return hash(request); }
-export function childStorageBindingSha256(binding: ChildStorageBinding): string { return hash(binding); }
+export function childRequestKind(requestId: string): string { return `child.request.${jsonTextSha256(requestId).slice(0, 32)}`; }
+export function childRequestFingerprint(request: EngineChildRequest): string { return jsonTextSha256(request); }
+export function childStorageBindingSha256(binding: ChildStorageBinding): string { return jsonTextSha256(binding); }
 export function validateChildStorageRecord(value: unknown): ChildStorageRecord {
   const record = plain(value); keys(record, ['schemaVersion', 'binding', 'sha256'], ['confirmedClose']);
   const binding = plain(record.binding); keys(binding, ['schemaVersion','nonce','phase','hostIdentity','childrenDirectory','relativePaths','lineage','worktree','child','physical','preparedAt'], ['admittedAt']);
@@ -112,7 +112,7 @@ export function validateChildStorageRecord(value: unknown): ChildStorageRecord {
   const child = plain(binding.child); keys(child, ['sessionId','workspaceId','root'], ['runId']);
   if (!id(child.sessionId) || !id(child.workspaceId) || child.root !== worktree.root || child.workspaceId !== workspaceIdForRoot(String(child.root)) || child.sessionId === lineage.sessionId) fail('Child workspace/session is invalid');
   if (binding.phase === 'admitted' ? !id(child.runId) || !date(binding.admittedAt) : child.runId !== undefined || binding.admittedAt !== undefined) fail('Admission proof is incomplete');
-  if (!sha(record.sha256) || record.sha256 !== hash(binding)) fail('Binding digest does not match');
+  if (!sha(record.sha256) || record.sha256 !== jsonTextSha256(binding)) fail('Binding digest does not match');
   if (record.confirmedClose !== undefined) { const close = plain(record.confirmedClose); keys(close, ['method','bindingSha256','closedAt']); if (binding.phase !== 'admitted' || close.method !== 'engine-close-resolved' || close.bindingSha256 !== record.sha256 || !date(close.closedAt)) fail('Close proof is invalid'); }
   if (Buffer.byteLength(JSON.stringify(record)) > CHILD_STORAGE_LIMITS.maxRecordBytes) fail('Binding exceeds its byte bound');
   return structuredClone(record) as unknown as ChildStorageRecord;
@@ -139,7 +139,7 @@ export function prepareChildStorageBinding(root: GrantDocumentPort, child: Grant
     worktree: { id: worktree.id, workspaceId: worktree.workspaceId, root: worktree.root, baseRoot: worktree.baseRoot, baseCommit: worktree.baseCommit, reference: worktree.reference, fingerprint: worktree.fingerprint, device: worktree.device, inode: worktree.inode },
     child: { sessionId: input.childSessionId, workspaceId: workspace.id, root: workspace.root },
     physical: { database: childStoragePhysicalIdentity(join(directory, relativePaths.database)), owner: childStoragePhysicalIdentity(join(directory, relativePaths.owner)), artifacts: childStoragePhysicalIdentity(join(directory, relativePaths.artifacts), true) }, preparedAt: new Date().toISOString() };
-  const record = validateChildStorageRecord({ schemaVersion: 1, binding, sha256: hash(binding) });
+  const record = validateChildStorageRecord({ schemaVersion: 1, binding, sha256: jsonTextSha256(binding) });
   // Separate durable intent writes. A partial phase stays explicit and is never repaired implicitly.
   root.putSessionDocument(task.sessionId, childStorageKind(task.id), 0, record as unknown as JsonObject);
   child.putSessionDocument(input.childSessionId, CHILD_STORAGE_MIRROR_KIND, 0, record as unknown as JsonObject);
@@ -156,7 +156,7 @@ export function admitChildStorageBinding(root: GrantDocumentPort, child: GrantDo
   const rootDocument = exactDocument(root, before.binding.lineage.sessionId, childStorageKind(before.binding.lineage.taskId), before);
   const mirrorDocument = exactDocument(child, before.binding.child.sessionId, CHILD_STORAGE_MIRROR_KIND, before);
   const binding: ChildStorageBinding = { ...before.binding, phase: 'admitted', child: { ...before.binding.child, runId }, admittedAt: new Date().toISOString() };
-  const admitted = validateChildStorageRecord({ schemaVersion: 1, binding, sha256: hash(binding) });
+  const admitted = validateChildStorageRecord({ schemaVersion: 1, binding, sha256: jsonTextSha256(binding) });
   root.putSessionDocument(binding.lineage.sessionId, childStorageKind(binding.lineage.taskId), rootDocument.revision, admitted as unknown as JsonObject);
   child.putSessionDocument(binding.child.sessionId, CHILD_STORAGE_MIRROR_KIND, mirrorDocument.revision, admitted as unknown as JsonObject);
   return admitted;

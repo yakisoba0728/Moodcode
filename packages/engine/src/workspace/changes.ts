@@ -1,6 +1,7 @@
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { lstat, realpath } from 'node:fs/promises';
 import { EngineError, type Checkpoint, type Workspace } from '@moodcode/contracts';
+import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
 import { exactPath, readExactText } from '../tools/file-actions/text.js';
 import { WorkspaceObserver, type WorkspaceObservation, type WorkspaceObserverOptions } from './observer.js';
 
@@ -32,7 +33,7 @@ const clone = <T>(value: T): T => structuredClone(value);
 const fail = (code: string, message: string) => new EngineError(code, message);
 function check(signal?: AbortSignal): void { if (signal?.aborted) throw fail('ABORTED', 'Workspace change observation was cancelled'); }
 function id(value: unknown): string { if (typeof value !== 'string' || !value.trim() || Buffer.byteLength(value) > 256 || /[\u0000-\u001f\u007f]/u.test(value)) throw fail('INVALID_CHANGE_OWNER', 'Workspace change owner requires a bounded identifier'); return value; }
-function sha(content: string | null): string | null { return content === null ? null : createHash('sha256').update(content).digest('hex'); }
+function sha(content: string | null): string | null { return content === null ? null : sha256Hex(content); }
 
 class ChangeQueue implements AsyncIterableIterator<WorkspaceChangeEvent> {
   private queue: { event: WorkspaceChangeEvent; bytes: number }[] = [];
@@ -230,7 +231,7 @@ export class WorkspaceChangeHub {
       const result: WorkspaceFileChange[] = [];
       for (const checkpoint of checkpoints) {
         check(request.signal); check(entry.controller.signal);
-        const bound = { ...owner, checkpointId: checkpoint.checkpointId }, fingerprint = createHash('sha256').update(JSON.stringify([bound, checkpoint.files])).digest('hex');
+        const bound = { ...owner, checkpointId: checkpoint.checkpointId }, fingerprint = jsonTextSha256([bound, checkpoint.files]);
         const processed = entry.processed.get(checkpoint.checkpointId);
         if (processed) {
           if (processed.fingerprint !== fingerprint) throw fail('CHECKPOINT_CHANGE_CONFLICT', 'A checkpoint identity cannot be rebound to different changes');

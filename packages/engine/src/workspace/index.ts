@@ -1,17 +1,13 @@
-import { createHash } from 'node:crypto';
 import { constants } from 'node:fs';
 import { lstat, open, opendir, realpath, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
+import { sha256Hex } from '../shared/canonical.js';
+import { within } from '../shared/fs.js';
 import { gitFailure, readBranch, runGit, type GitOperationOptions } from './git.js';
 
 function codeOf(error: unknown): string | undefined {
   return error instanceof Error && 'code' in error ? String(error.code) : undefined;
-}
-
-function within(root: string, candidate: string): boolean {
-  const relative = path.relative(root, candidate);
-  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
 const PROTECTED_DIRECTORIES = ['.git', 'node_modules'];
@@ -36,7 +32,7 @@ async function validateRoot(workspace: Workspace): Promise<string> {
 }
 
 export function workspaceIdForRoot(root: string): string {
-  return `workspace_${createHash('sha256').update(root).digest('hex')}`;
+  return `workspace_${sha256Hex(root)}`;
 }
 
 /** Opens the canonical Git top-level directory, including unborn repositories. */
@@ -268,7 +264,7 @@ export async function captureWorkspace(workspace: Workspace, options: CaptureWor
       try { content = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(data); }
       catch { warn(`Skipped binary or non-UTF-8 file: ${relative}`); return; }
       checkAbort();
-      files.set(relative, { content, hash: createHash('sha256').update(data).digest('hex') });
+      files.set(relative, { content, hash: sha256Hex(data) });
       totalBytes += bytes;
     } catch (error) {
       if (error instanceof EngineError && error.code === 'ABORTED') throw error;

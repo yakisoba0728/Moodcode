@@ -26,6 +26,7 @@ import {
   knowledgeHash,
   immutableKnowledgeJson,
 } from "../knowledge/validation.js";
+import { reseal } from "../shared/canonical.js";
 
 export const RESIDENT_KIND_PREFIX = "resident.child.";
 export interface ResidentRunEvidence {
@@ -211,6 +212,28 @@ export function validateResidentRecord(value: unknown): ResidentChildRecord {
       );
   return r;
 }
+type ResidentPatch = Partial<Omit<ResidentChildRecord, "sha256">>;
+/** The next sealed revision, validated before any store writes it. */
+export function nextResidentRecord(
+  record: ResidentChildRecord,
+  patch: ResidentPatch,
+): ResidentChildRecord {
+  return reseal(
+    record,
+    { ...patch, revision: record.revision + 1 },
+    validateResidentRecord,
+  );
+}
+export function uncertainResidentPatch(
+  record: ResidentChildRecord,
+): ResidentPatch {
+  return {
+    state: "uncertain",
+    runs: record.runs.map((x) =>
+      x.state === "running" ? { ...x, state: "uncertain" } : x,
+    ),
+  };
+}
 export function childRunConfig(
   config: RunConfig,
   budget: ChildBudget,
@@ -344,13 +367,9 @@ export class ResidentChild {
       );
     return validateResidentRecord(d.data);
   }
-  private save(patch: Partial<ResidentChildRecord>): void {
-    const { sha256: _sha, ...old } = this.read();
-    const body = { ...old, ...patch, revision: old.revision + 1 };
-    const next = validateResidentRecord({
-      ...body,
-      sha256: knowledgeHash(body),
-    });
+  private save(patch: ResidentPatch): void {
+    const current = this.read();
+    const next = nextResidentRecord(current, patch);
     if (patch.state !== "closed" && patch.state !== "uncertain") {
       this.engine.store.putSessionDocument(
         this.record.childSessionId,
@@ -363,7 +382,7 @@ export class ResidentChild {
     this.root.store.putResidentDocument(
       this.task.sessionId,
       RESIDENT_KIND_PREFIX + this.task.id,
-      old.revision,
+      current.revision,
       next as unknown as JsonObject,
     );
     this.record = next;
@@ -647,12 +666,7 @@ export class ResidentChild {
       await this.ports.close();
     } catch {}
     try {
-      this.save({
-        state: "uncertain",
-        runs: this.record.runs.map((x) =>
-          x.state === "running" ? { ...x, state: "uncertain" } : x,
-        ),
-      });
+      this.save(uncertainResidentPatch(this.record));
     } catch {}
     this.reject(error);
   }

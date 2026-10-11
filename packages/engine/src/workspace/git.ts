@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { EngineError } from '@moodcode/contracts';
-import { createCommandEnvironment } from '../tools/command/process-control.js';
+import { createCommandEnvironment } from '../shared/runtime.js';
 
 export interface GitOperationOptions {
   signal?: AbortSignal;

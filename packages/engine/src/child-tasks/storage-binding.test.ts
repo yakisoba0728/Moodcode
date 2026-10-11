@@ -9,7 +9,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { GrantDocumentPort } from '../permission/grants.js';
 import type { ChildTaskRecord } from './index.js';
 import type { ManagedWorktree } from '../worktrees/index.js';
-import { admitChildStorageBinding, CHILD_STORAGE_MIRROR_KIND, childStorageKind, childStoragePhysicalIdentity, confirmChildStorageClosed, prepareChildStorageBinding, readChildStorageSelection, validateChildStorageRecord, type ChildStorageRecord } from './storage-binding.js';
+import { admitChildStorageBinding, CHILD_STORAGE_MIRROR_KIND, childRequestFingerprint, childRequestKind, childStorageBindingSha256, childStorageKind, childStoragePhysicalIdentity, confirmChildStorageClosed, prepareChildStorageBinding, readChildStorageSelection, validateChildStorageRecord, type ChildStorageRecord } from './storage-binding.js';
 
 class Documents implements GrantDocumentPort {
   records = new Map<string, { revision: number; data: JsonObject }>();
@@ -50,6 +50,13 @@ function closed(t: import('node:test').TestContext) {
   const value = fixture(t), prepared = prepareChildStorageBinding(value.root,value.child,value.input), admitted = admitChildStorageBinding(value.root,value.child,prepared,'child-run'), record = confirmChildStorageClosed(value.root,admitted);
   value.task.state = 'completed'; value.task.childRunId = 'child-run'; delete value.worktree.ownerId; value.persist(record); return {...value,prepared,admitted,record};
 }
+test('child request keys, request fingerprints and binding digests keep their persisted bytes',()=>{
+  assert.equal(childRequestKind('child-request'),'child.request.0c2e0f00f4da3e8cf1747a6bdcbd476e');
+  assert.equal(childRequestKind('\u00e9"\u{1f600}'),'child.request.f8f6e80e0246d8dc97899e0a0204d5fe');
+  const request = { sessionId:'root-session',requestId:'child-request',parentRunId:'root-run',worktreeId:`worktree_${'2'.repeat(32)}`,prompt:'Read \u00e9 and \u{1f600}',tools:['read_file'],allocation:{turns:1,toolCalls:1,outputBytes:512,durationMs:1000} };
+  assert.equal(childRequestFingerprint(request),'8c9848794d2fb7336719e6125b7bc85aa5505277785a14c087be162424a885ed');
+  assert.equal(childStorageBindingSha256({schemaVersion:1,nonce:'n',phase:'prepared',lineage:{b:2,a:1}} as unknown as ChildStorageRecord['binding']),'0f4fb70152c18d0d64a89b1f73d7fb1cb49b5c6c0ddd74bc2323d28c04dbedd2');
+});
 test('prepared/admitted mirror and root-only close proof preserve the immutable admitted digest',t=>{
   const value = closed(t);
   assert.equal(value.prepared.binding.phase,'prepared'); assert.equal(value.prepared.binding.child.runId,undefined);

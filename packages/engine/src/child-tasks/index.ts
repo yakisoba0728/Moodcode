@@ -1,10 +1,13 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   EngineError,
   type JsonObject,
   type Workspace,
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
+import { jsonTextSha256 } from "../shared/canonical.js";
+import { utf8Prefix } from "../shared/data.js";
+import { raceAbort, settleWithin } from "../shared/runtime.js";
 import type { WorktreeManager } from "../worktrees/index.js";
 import {
   CHILD_BUDGET_KEYS as KEYS,
@@ -162,58 +165,31 @@ function boundedOutcome(
       "CHILD_BUDGET_EXCEEDED",
       "Child outcome or measured usage exceeds its reserved allocation",
     );
-  if (Buffer.byteLength(value.content) > 16 * 1024 * 1024)
+  const bytes = Buffer.byteLength(value.content);
+  if (bytes > 16 * 1024 * 1024)
     throw new EngineError(
       "CHILD_RESULT_LIMIT",
       "Child result producer exceeds the 16 MiB bound",
     );
-  let content = value.content;
-  const raw = Buffer.from(content);
   const limit = Math.min(budget.outputBytes, 4096);
-  const truncated = raw.length > limit || value.truncated === true;
-  if (raw.length > limit) {
-    content = raw.subarray(0, limit).toString("utf8");
-    while (Buffer.byteLength(content) > limit || content.endsWith("\ufffd"))
-      content = content.slice(0, -1);
-  }
+  const over = bytes > limit;
   return {
     state: value.state,
-    content,
+    content: over ? utf8Prefix(value.content, limit) : value.content,
     usage: clone(value.usage),
-    ...(truncated ? { truncated: true } : {}),
+    ...(over || value.truncated === true ? { truncated: true } : {}),
   };
 }
 function cancelled(): EngineError {
   return new EngineError("CANCELLED", "Child task was cancelled");
 }
-function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  if (signal.aborted) return Promise.reject(cancelled());
-  return new Promise((resolve, reject) => {
-    const abort = () => reject(cancelled());
-    signal.addEventListener("abort", abort, { once: true });
-    promise
-      .then(resolve, reject)
-      .finally(() => signal.removeEventListener("abort", abort))
-      .catch(() => {});
-  });
-}
 async function within<T>(promise: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) => {
-      timer = setTimeout(
-        () =>
-          reject(
-            new EngineError(
-              "CHILD_CLEANUP_UNCERTAIN",
-              "Child dispatch or cancellation did not settle before the cleanup deadline",
-            ),
-          ),
-        ms,
-      );
-    }),
-  ]).finally(() => clearTimeout(timer!));
+  if (!(await settleWithin(promise, ms)))
+    throw new EngineError(
+      "CHILD_CLEANUP_UNCERTAIN",
+      "Child dispatch or cancellation did not settle before the cleanup deadline",
+    );
+  return promise;
 }
 
 /** Durable allocation and lifecycle boundary. The host owns actual run execution and result-input deduplication. */
@@ -430,15 +406,11 @@ export class ChildTaskManager {
         "CHILD_TOOL_ESCALATION",
         "Child tools must be a subset of parent permissions",
       );
-    const fingerprint = createHash("sha256")
-      .update(
-        JSON.stringify({
-          ...input,
-          allowedTools: allowed,
-          requestedTools: requested,
-        }),
-      )
-      .digest("hex");
+    const fingerprint = jsonTextSha256({
+      ...input,
+      allowedTools: allowed,
+      requestedTools: requested,
+    });
     let journal = this.journal(input.sessionId);
     const prior = journal.tasks.find((t) => t.requestId === input.requestId);
     if (prior) {
@@ -645,7 +617,11 @@ export class ChildTaskManager {
       .finally(() => this.pendingCleanup.delete(lateCleanup))
       .catch(() => {});
     try {
-      const handle = await abortable(pending, live.controller.signal);
+      const handle = await raceAbort(
+        pending,
+        live.controller.signal,
+        cancelled,
+      );
       if (
         !handle ||
         typeof handle.runId !== "string" ||
@@ -671,9 +647,10 @@ export class ChildTaskManager {
       }
       if (live.controller.signal.aborted)
         await within(handle.cancel(), this.timeout);
-      const outcome = await abortable(
+      const outcome = await raceAbort(
         handle.wait(),
         live.controller.signal,
+        cancelled,
       ).catch(async (error) => {
         if (!live.controller.signal.aborted) throw error;
         await within(handle.cancel(), this.timeout);

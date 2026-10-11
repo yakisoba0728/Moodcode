@@ -1,6 +1,6 @@
 import type { WorkflowChildEvidence } from "../workflows/effect-evidence.js";
 import type { WorkflowStageSpec } from "../workflows/types.js";
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { mkdirSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { EngineError, type Run, type Session } from "@moodcode/contracts";
@@ -23,6 +23,8 @@ import {
 import { ActualChildTeamBridge } from "./team-bridge.js";
 import { holdChildProviderAdmission } from "./provider-admission.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
+import { raceAbort } from "../shared/runtime.js";
 import {
   workflowAbort,
   type ActualWorkflowOwnerPort,
@@ -38,7 +40,9 @@ import {
   bindResidentProviderGuard,
   childOutcomeState,
   childRunConfig,
+  nextResidentRecord,
   RESIDENT_KIND_PREFIX,
+  uncertainResidentPatch,
   validateResidentRecord,
   type ResidentChildRecord,
 } from "./resident.js";
@@ -450,23 +454,14 @@ private readonly recoveredSessions = new Set<string>();
             ["running", "idle"].includes(r.state) &&
             !this.executions.has(task.id)
           ) {
-            const { sha256, ...old } = r;
-            const body = {
-              ...old,
-              revision: r.revision + 1,
-              state: "uncertain",
-              runs: r.runs.map((x) =>
-                x.state === "running" ? { ...x, state: "uncertain" } : x,
-              ),
-            };
-            this.root.store.putSessionDocument(
+            this.root.store.putResidentDocument(
               session.id,
               RESIDENT_KIND_PREFIX + task.id,
               d.revision,
-              {
-                ...body,
-                sha256: knowledgeHash(body),
-              } as unknown as import("@moodcode/contracts").JsonObject,
+              nextResidentRecord(
+                r,
+                uncertainResidentPatch(r),
+              ) as unknown as import("@moodcode/contracts").JsonObject,
             );
             this.recover(session.id);
           }
@@ -1028,25 +1023,12 @@ const engine = this.create({
     ): Promise<T> => {
       workflowAbort(signal);
       if (!signal) return pending;
-      let abort!: () => void;
-      try {
-        return await Promise.race([
-          pending,
-          new Promise<never>((_, reject) => {
-            abort = () =>
-              reject(
-                new EngineError(
-                  "CANCELLED",
-                  "Workflow observation was cancelled",
-                ),
-              );
-            signal.addEventListener("abort", abort, { once: true });
-            if (signal.aborted) abort();
-          }),
-        ]);
-      } finally {
-        signal.removeEventListener("abort", abort);
-      }
+      return raceAbort(
+        pending,
+        signal,
+        () =>
+          new EngineError("CANCELLED", "Workflow observation was cancelled"),
+      );
     };
     const verify = (child: OriginalChild): ChildTaskRecord => {
       const { request, execution, proof } = child;
@@ -1084,9 +1066,7 @@ const engine = this.create({
         record.binding.child.runId !== execution.runId ||
         record.binding.child.workspaceId !== proof.childWorkspaceId ||
         execution.admittedRun.prompt !== request.prompt ||
-        createHash("sha256")
-          .update(execution.admittedRun.prompt)
-          .digest("hex") !== proof.promptSha256
+        sha256Hex(execution.admittedRun.prompt) !== proof.promptSha256
       )
         fail();
       const parent = owners.read(child.owner);
@@ -1196,9 +1176,7 @@ const engine = this.create({
           worktreeId: task.worktreeId,
           storageSha256: execution.storageRecord.sha256,
           requestId: task.requestId,
-          promptSha256: createHash("sha256")
-            .update(execution.admittedRun.prompt)
-            .digest("hex"),
+          promptSha256: sha256Hex(execution.admittedRun.prompt),
           tools: [...task.toolNames],
           allocation: structuredClone(task.budget),
         };

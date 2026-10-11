@@ -80,6 +80,7 @@ test('virtual environments and Python/build caches are excluded only as traversa
 test('continuations authenticate a bounded offset, scope and snapshot without carrying path authority', () => {
   const scope = snapshotFingerprint({ workspace: 'one', path: 'src' });
   const snapshot = snapshotFingerprint(['a.py', 'b.py', 'c.py']);
+  assert.equal(snapshotFingerprint({ b: 1, a: ['\u00e9'] }), '2d01fc215e152aeb7cc3061324aef7886ac417c52816fb5caec5f1ca08613cd4');
   const token = continuationToken(scope, snapshot, 2);
   assert.ok(Buffer.byteLength(token) <= 2048);
   assert.equal(continuationOffset(token, scope, snapshot, 3), 2);

@@ -6,7 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { test, type TestContext } from 'node:test';
 import { promisify } from 'node:util';
-import { captureWorkspace, getGitStatus, openWorkspace, resolveWorkspacePath, workspaceWritePath } from './index.js';
+import { captureWorkspace, getGitStatus, openWorkspace, resolveWorkspacePath, workspaceIdForRoot, workspaceWritePath } from './index.js';
 import { runGit } from './git.js';
 
 const exec = promisify(execFile);
@@ -32,6 +32,8 @@ test('opening nested paths and aliases uses the canonical Git root and stable id
   assert.equal(nested.root, root);
   assert.equal(nested.gitRoot, root);
   assert.equal(nested.id, workspace.id);
+  assert.equal(workspace.id, workspaceIdForRoot(root));
+  assert.equal(workspaceIdForRoot('/tmp/\u00e9'), 'workspace_ed2fd1a3eec8c400c3fc93078b4c1b94316ae6a982c816aafd500b2bb0b3a741');
   assert.equal(nested.branch, 'main');
   assert.ok(!Number.isNaN(Date.parse(nested.createdAt)));
   const alias = path.join(temporary, 'alias');

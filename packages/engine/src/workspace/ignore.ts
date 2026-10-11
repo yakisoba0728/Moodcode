@@ -1,6 +1,7 @@
-import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { EngineError, type Workspace } from '@moodcode/contracts';
+import { jsonTextSha256 } from '../shared/canonical.js';
 import { GIT_DETACHED, GIT_SAFE_ARGS, gitEnvironment, killGit } from './git.js';
 import { resolveWorkspacePath } from './index.js';
 
@@ -89,9 +90,7 @@ export async function excludedWorkspacePaths(workspace: Workspace, paths: readon
   return new Set(paths.filter(path => ignored.has(path) || excludedTraversalPath(path, false)));
 }
 
-export function snapshotFingerprint(value: unknown): string {
-  return createHash('sha256').update(JSON.stringify(value)).digest('hex');
-}
+export const snapshotFingerprint: (value: unknown) => string = jsonTextSha256;
 
 interface PageToken { scope: string; snapshot: string; offset: number }
 function invalidContinuation(): never { throw new EngineError('INVALID_CONTINUATION', 'Continuation is malformed or does not belong to this process; request a fresh page'); }

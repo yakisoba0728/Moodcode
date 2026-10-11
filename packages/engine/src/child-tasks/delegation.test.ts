@@ -3,7 +3,7 @@ import test from 'node:test';
 import { DEFAULT_LIMITS } from '@moodcode/contracts';
 import type { ToolContext } from '../ports.js';
 import type { ChildTaskRecord } from './index.js';
-import { createDelegateTaskTool, parseDelegationInput, type DelegationHost, type DelegationInspection } from './delegation.js';
+import { createDelegateTaskTool, delegationDigest, parseDelegationInput, type DelegationHost, type DelegationInspection } from './delegation.js';
 
 const input = { requestId: 'observe', prompt: 'Read file.txt and report.', tools: ['read_file'], allocation: { turns: 2, toolCalls: 2, outputBytes: 4096, durationMs: 5000 } };
 const context = (): ToolContext => ({ sessionId: 'session', runId: 'run', toolCallId: 'tool', workspace: { id: 'workspace', root: '/fixture', gitRoot: '/fixture', branch: 'main', createdAt: new Date().toISOString() }, signal: new AbortController().signal, limits: { ...DEFAULT_LIMITS }, artifactDir: '/artifacts', executionLockPath: '/effects.sqlite', recordCheckpoint() {} });
@@ -29,6 +29,7 @@ test('approval fingerprint binds immutable commit/tools/request, rather than obs
   assert.equal(one.requiresApproval, true);
   assert.equal(tool.effectClass, 'write');
   assert.equal(one.fingerprint, two.fingerprint);
+  assert.equal(delegationDigest({ request: 'x', b: [1, '\u00e9'], a: null }), 'c71f4fc1b5d56d463d8d7f849be3f7281dec669b98c8904b5672907783eee45c');
   assert.equal(one.preview.uncommittedChangesIncluded, false);
   assert.equal(one.preview.automaticDelivery, false);
   assert.equal(one.preview.automaticMerge, false);

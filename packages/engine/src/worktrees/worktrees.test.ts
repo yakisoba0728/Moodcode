@@ -11,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { SqliteStore } from "../storage/index.js";
 import { openWorkspace } from "../workspace/index.js";
@@ -71,6 +72,18 @@ test("real Git detached worktree create records creating/boot/ready and preserve
   const input = { sessionId: session.id, requestId: "create-1", workspace };
   const result = await bootManager.create(input, signal());
   assert.equal(result.state, "ready");
+  assert.equal(
+    result.fingerprint,
+    createHash("sha256")
+      .update(
+        JSON.stringify({
+          workspaceId: workspace.id,
+          root: workspace.root,
+          reference: "HEAD",
+        }),
+      )
+      .digest("hex"),
+  );
   assert.equal(bootState, "booting");
   assert.equal(await readFile(join(repo, "a"), "utf8"), "parent user edit");
   assert.equal((await manager.create(input, signal())).id, result.id);

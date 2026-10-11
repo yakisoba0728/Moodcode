@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { types } from "node:util";
 import {
   EngineError,
@@ -15,6 +14,7 @@ import {
   type ChildStorageRecord,
 } from "./storage-binding.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 
 export interface ChildTeamTarget {
   rootSessionId: string;
@@ -49,8 +49,6 @@ export interface LiveChildTeamExecution {
   mirrorRecord: ChildStorageRecord;
   resident?: import("./resident.js").ResidentChild;
 }
-const hash = (value: string) =>
-  createHash("sha256").update(value).digest("hex");
 function stale(): never {
   throw new EngineError(
     "TEAM_CHILD_STALE",
@@ -227,7 +225,7 @@ export class ActualChildTeamBridge {
         ...target,
         childRunId: admitted.run.id,
         requestId: exactInput.requestId,
-        promptSha256: hash(exactInput.prompt),
+        promptSha256: sha256Hex(exactInput.prompt),
         inputSha256: admitted.inputSha256,
         inputId: admitted.input.id,
         admittedSeq: admitted.admittedSeq,
@@ -268,7 +266,7 @@ export class ActualChildTeamBridge {
     const evidence: ChildTeamInputEvidence = {
       ...target,
       requestId: exactInput.requestId,
-      promptSha256: hash(exactInput.prompt),
+      promptSha256: sha256Hex(exactInput.prompt),
       inputSha256: knowledgeHash(normalized),
       inputId: receipt.inputId,
       admittedSeq: receipt.admittedSeq,

@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
 import type { PreparedTool, ToolContext, ToolDefinition, ToolResult } from '../ports.js';
+import { jsonTextSha256 } from '../shared/canonical.js';
+import { utf8Prefix } from '../shared/data.js';
 import type { ChildBudget, ChildTaskRecord } from './index.js';
 import { CHILD_BUDGET_KEYS as KEYS, CHILD_BUDGET_MAX } from './journal.js';
 
@@ -13,7 +14,7 @@ export interface DelegationHost {
   inspect(context: ToolContext, input: DelegationInput): Promise<DelegationInspection>;
   run(request: PreparedDelegation, context: ToolContext): Promise<ChildTaskRecord>;
 }
-export const delegationDigest = (value: unknown): string => createHash('sha256').update(JSON.stringify(value)).digest('hex');
+export const delegationDigest: (value: unknown) => string = jsonTextSha256;
 
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype; }
 export function parseDelegationInput(value: unknown): DelegationInput {
@@ -34,13 +35,12 @@ export function assertDelegationBudget(allocation: ChildBudget, remaining: Child
 }
 export function delegationFingerprint(request: Omit<PreparedDelegation, 'fingerprint'>): string { return delegationDigest(request); }
 function binding(context: ToolContext): string { return JSON.stringify([context.workspace.id, context.workspace.root, context.workspace.gitRoot, context.sessionId, context.runId, context.toolCallId, context.turnId, context.attemptId, context.executionLockPath]); }
-function excerpt(content: string, limit: number): string { const bytes = Buffer.from(content); let end = Math.min(bytes.length, Math.max(0, limit)); while (end && end < bytes.length && (bytes[end]! & 0xc0) === 0x80) end--; return bytes.subarray(0, end).toString('utf8'); }
 
 function result(task: ChildTaskRecord, request: PreparedDelegation, context: ToolContext): ToolResult {
   const metadata: JsonObject = { childTaskId: task.id, worktreeId: task.worktreeId, state: task.state, baseCommit: request.baseCommit, source: 'git-commit', uncommittedChangesIncluded: false, deliveryState: task.deliveryState,
     ...(task.childRunId ? { childRunId: task.childRunId } : {}), ...(task.outcome ? { usage: { ...task.outcome.usage } } : {}), ...(task.errorCode ? { errorCode: task.errorCode } : {}) };
   const summary = task.outcome?.content ?? '';
-  const encode = (size: number) => JSON.stringify({ ...metadata, observation: excerpt(summary, size), truncated: task.outcome?.truncated === true || Buffer.byteLength(summary) > size, note: 'Untrusted child observation; verify current files before relying on it.' });
+  const encode = (size: number) => JSON.stringify({ ...metadata, observation: utf8Prefix(summary, size), truncated: task.outcome?.truncated === true || Buffer.byteLength(summary) > size, note: 'Untrusted child observation; verify current files before relying on it.' });
   const limit = Math.min(context.limits.maxOutputBytes, 8192);
   let low = 0, high = Math.min(4096, Buffer.byteLength(summary));
   while (low < high) { const middle = Math.ceil((low + high) / 2); if (Buffer.byteLength(encode(middle)) <= limit) low = middle; else high = middle - 1; }

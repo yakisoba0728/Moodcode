@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { lstat, mkdir, realpath } from "node:fs/promises";
 import { join, parse, resolve, sep } from "node:path";
 import {
@@ -7,6 +7,8 @@ import {
   type Workspace,
 } from "@moodcode/contracts";
 import type { GrantDocumentPort } from "../permission/grants.js";
+import { jsonTextSha256 } from "../shared/canonical.js";
+import { raceAbort, settleWithin } from "../shared/runtime.js";
 import { runGit } from "../workspace/git.js";
 import { workspaceIdForRoot } from "../workspace/index.js";
 import { WORKTREE_JOURNAL, WORKTREE_STATES } from "./journal.js";
@@ -90,31 +92,17 @@ async function boundedBoot(
   signal: AbortSignal,
   timeoutMs: number,
 ): Promise<void> {
-  if (signal.aborted)
-    throw new EngineError("CANCELLED", "Worktree boot cancelled");
-  let timer: ReturnType<typeof setTimeout>;
-  let abort!: () => void;
-  await Promise.race([
+  const boot = raceAbort(
     promise,
-    new Promise<never>((_, reject) => {
-      abort = () =>
-        reject(new EngineError("CANCELLED", "Worktree boot cancelled"));
-      signal.addEventListener("abort", abort, { once: true });
-      timer = setTimeout(
-        () =>
-          reject(
-            new EngineError(
-              "WORKTREE_BOOT_TIMEOUT",
-              "Worktree boot exceeded its deadline",
-            ),
-          ),
-        timeoutMs,
-      );
-    }),
-  ]).finally(() => {
-    clearTimeout(timer!);
-    signal.removeEventListener("abort", abort);
-  });
+    signal,
+    () => new EngineError("CANCELLED", "Worktree boot cancelled"),
+  );
+  if (!(await settleWithin(boot, timeoutMs)))
+    throw new EngineError(
+      "WORKTREE_BOOT_TIMEOUT",
+      "Worktree boot exceeded its deadline",
+    );
+  return boot;
 }
 /** Detached worktrees only; no user branch is created, reset, deleted or implicitly committed. */
 export class WorktreeManager {
@@ -327,16 +315,12 @@ export class WorktreeManager {
         "UNSAFE_WORKTREE_PATH",
         "Worktree storage must be outside the canonical parent workspace",
       );
-    const fingerprint = createHash("sha256")
-      .update(
-        JSON.stringify({
-          workspaceId: input.workspace.id,
-          root: input.workspace.root,
-          reference,
-          ...(input.safeCheckout ? { safeCheckout: true } : {}),
-        }),
-      )
-      .digest("hex");
+    const fingerprint = jsonTextSha256({
+      workspaceId: input.workspace.id,
+      root: input.workspace.root,
+      reference,
+      ...(input.safeCheckout ? { safeCheckout: true } : {}),
+    });
     const prior = this.list(input.sessionId).find(
       (item) => item.requestId === input.requestId,
     );
@@ -656,25 +640,10 @@ export class WorktreeManager {
       ...this.operations.values(),
       ...this.bootPending,
     ]);
-    let timer: ReturnType<typeof setTimeout>;
-    try {
-      await Promise.race([
-        settled,
-        new Promise<never>((_, reject) => {
-          timer = setTimeout(
-            () =>
-              reject(
-                new EngineError(
-                  "WORKTREE_CLEANUP_UNCERTAIN",
-                  "Worktree boot or Git preparation did not confirm teardown",
-                ),
-              ),
-            1000,
-          );
-        }),
-      ]);
-    } finally {
-      clearTimeout(timer!);
-    }
+    if (!(await settleWithin(settled, 1000)))
+      throw new EngineError(
+        "WORKTREE_CLEANUP_UNCERTAIN",
+        "Worktree boot or Git preparation did not confirm teardown",
+      );
   }
 }
