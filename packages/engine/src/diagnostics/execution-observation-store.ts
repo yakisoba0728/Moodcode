@@ -52,6 +52,7 @@ export const DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS = Object.freeze({
   pageBytes: 1048576,
   activeCaptures: 128,
 });
+const LIMITS = DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS;
 function fail(code: string, message: string): never {
   throw new EngineError(code, message);
 }
@@ -171,8 +172,8 @@ function validateExecutionSourceSnapshot(
       "INVALID_EXECUTION_OBSERVATION",
       "Source snapshot requires explicit observed coverage",
     );
-  integer(v.fileCount, DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.maxSources);
-  integer(v.bytes, DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.maxSourceBytes);
+  integer(v.fileCount, LIMITS.maxSources);
+  integer(v.bytes, LIMITS.maxSourceBytes);
   if (v.completeness === "full") digest(v.sha256);
   else if (v.sha256 !== null)
     fail(
@@ -232,10 +233,7 @@ export function validateDiagnosticExecutionObservationArchiveRow(
         "Effect epoch requires its workspace owner",
       );
     timestamp(v.updatedAt);
-    if (
-      Buffer.byteLength(JSON.stringify(v)) >
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes
-    )
+    if (Buffer.byteLength(JSON.stringify(v)) > LIMITS.epochBytes)
       fail("EXECUTION_OBSERVATION_LIMIT", "Epoch row exceeds its bound");
   } else {
     fields(v, DIAGNOSTIC_EXECUTION_OBSERVATION_FIELDS);
@@ -307,10 +305,7 @@ export function validateDiagnosticExecutionObservationArchiveRow(
         "INVALID_EXECUTION_OBSERVATION",
         "Observation cannot claim unavailable terminal evidence",
       );
-    if (
-      Buffer.byteLength(JSON.stringify(v)) >
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes
-    )
+    if (Buffer.byteLength(JSON.stringify(v)) > LIMITS.rowBytes)
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Execution observation row exceeds its native cap",
@@ -419,7 +414,7 @@ function nativeTool(
       "tools",
       "id=?",
       [owner.toolCallId],
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.nativeRowBytes,
+      LIMITS.nativeRowBytes,
     ),
     turn = db
       .prepare(
@@ -492,7 +487,7 @@ function nativeTool(
       "message_parts",
       "id=?",
       [String(part[0]!.id)],
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.nativeRowBytes,
+      LIMITS.nativeRowBytes,
     )!,
     parsedPart = parsed(raw);
   if (
@@ -576,7 +571,7 @@ export class DiagnosticExecutionObservationStorage {
       "diagnostic_effect_epochs",
       "workspace_id=?",
       [workspaceId],
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
+      LIMITS.epochBytes,
     );
     return row
       ? (decoded(row, "diagnostic_effect_epochs") as DiagnosticEffectEpoch)
@@ -593,7 +588,7 @@ export class DiagnosticExecutionObservationStorage {
       "diagnostic_execution_observations",
       "workspace_id=? AND tool_call_id=?",
       [workspaceId, toolCallId],
-      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
+      LIMITS.rowBytes,
     );
     return row
       ? (decoded(
@@ -651,9 +646,7 @@ export class DiagnosticExecutionObservationStorage {
         "EXECUTION_OBSERVATION_SOURCE_INVALID",
         "Dispatch needs an original trusted source handle",
       );
-    if (
-      this.#live.size >= DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.activeCaptures
-    )
+    if (this.#live.size >= LIMITS.activeCaptures)
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Original active observation captures exceed the host cap",
@@ -752,21 +745,21 @@ export class DiagnosticExecutionObservationStorage {
     this.#live.add(capture);
     return Object.freeze({ capture, record });
   }
-  private owned(capture: DiagnosticExecutionCapture): {
-    record: DiagnosticExecutionObservation;
-    source: object;
-  } {
+  #issued(capture: DiagnosticExecutionCapture, message: string) {
     if (
       !capture ||
       typeof capture !== "object" ||
       types.isProxy(capture) ||
       !this.#live.has(capture)
     )
-      fail(
-        "EXECUTION_OBSERVATION_CAPTURE_INVALID",
+      fail("EXECUTION_OBSERVATION_CAPTURE_INVALID", message);
+    return this.#captures.get(capture)!;
+  }
+  private owned(capture: DiagnosticExecutionCapture) {
+    const owned = this.#issued(
+        capture,
         "Observation capability is copied, released, foreign or never issued",
-      );
-    const owned = this.#captures.get(capture)!,
+      ),
       actual = this.getObservation(
         owned.record.workspaceId,
         owned.record.toolCallId,
@@ -903,17 +896,10 @@ export class DiagnosticExecutionObservationStorage {
     return next;
   }
   release(capture: DiagnosticExecutionCapture): void {
-    if (
-      !capture ||
-      typeof capture !== "object" ||
-      types.isProxy(capture) ||
-      !this.#live.has(capture)
-    )
-      fail(
-        "EXECUTION_OBSERVATION_CAPTURE_INVALID",
-        "Release requires the original issued observation capability",
-      );
-    const issued = this.#captures.get(capture)!;
+    const issued = this.#issued(
+      capture,
+      "Release requires the original issued observation capability",
+    );
     try {
       const actual = this.getObservation(
         issued.record.workspaceId,
@@ -970,14 +956,8 @@ export class DiagnosticExecutionObservationStorage {
       ["afterOrdinal", "throughOrdinal", "limit", "maxBytes"],
     );
     const after = integer(options.afterOrdinal ?? 0),
-      limit = integer(
-        options.limit ?? DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageRows,
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageRows,
-      ),
-      cap = integer(
-        options.maxBytes ?? DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageBytes,
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageBytes,
-      );
+      limit = integer(options.limit ?? LIMITS.pageRows, LIMITS.pageRows),
+      cap = integer(options.maxBytes ?? LIMITS.pageBytes, LIMITS.pageBytes);
     if (limit < 1 || cap < 256)
       fail(
         "INVALID_EXECUTION_OBSERVATION",
@@ -1014,10 +994,7 @@ export class DiagnosticExecutionObservationStorage {
     const items: DiagnosticExecutionObservation[] = [];
     let bytes = 0;
     for (const h of headers.slice(0, limit)) {
-      const size = integer(
-        Number(h.bytes),
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
-      );
+      const size = integer(Number(h.bytes), LIMITS.rowBytes);
       if (bytes + size + items.length + 256 > cap) {
         if (!items.length)
           fail(
@@ -1026,8 +1003,7 @@ export class DiagnosticExecutionObservationStorage {
           );
         break;
       }
-      const row = this.getObservation(workspaceId, String(h.tool_call_id))!;
-      items.push(row);
+      items.push(this.getObservation(workspaceId, String(h.tool_call_id))!);
       bytes += size;
     }
     const result = {
@@ -1057,29 +1033,27 @@ export function validateDiagnosticExecutionObservationDatabase(
   let rows = 0,
     bytes = 0;
   const epochs = new Map<string, DiagnosticEffectEpoch>();
+  const charge = (size: unknown, cap: number, message: string) => {
+    check();
+    if (++rows > 65536 || (bytes += integer(Number(size), cap)) > 67108864)
+      fail("EXECUTION_OBSERVATION_LIMIT", message);
+  };
   for (const h of db
     .prepare(
       "SELECT e.workspace_id,length(CAST(e.data AS BLOB)) AS bytes,count(o.ordinal) AS count FROM diagnostic_effect_epochs e LEFT JOIN diagnostic_execution_observations o ON o.workspace_id=e.workspace_id GROUP BY e.workspace_id ORDER BY e.workspace_id",
     )
     .iterate()) {
-    check();
-    if (
-      ++rows > 65536 ||
-      (bytes += integer(
-        Number(h.bytes),
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
-      )) > 67108864
-    )
-      fail(
-        "EXECUTION_OBSERVATION_LIMIT",
-        "Native diagnostic validation exceeds bounded rows/bytes",
-      );
+    charge(
+      h.bytes,
+      LIMITS.epochBytes,
+      "Native diagnostic validation exceeds bounded rows/bytes",
+    );
     const raw = rawRow(
         db,
         "diagnostic_effect_epochs",
         "workspace_id=?",
         [String(h.workspace_id)],
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
+        LIMITS.epochBytes,
       )!,
       epoch = decoded(raw, "diagnostic_effect_epochs") as DiagnosticEffectEpoch;
     if (h.count !== epoch.revision)
@@ -1095,24 +1069,17 @@ export function validateDiagnosticExecutionObservationDatabase(
       "SELECT ordinal,id,workspace_id,length(CAST(data AS BLOB)) AS bytes FROM diagnostic_execution_observations ORDER BY ordinal",
     )
     .iterate()) {
-    check();
-    if (
-      ++rows > 65536 ||
-      (bytes += integer(
-        Number(h.bytes),
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
-      )) > 67108864
-    )
-      fail(
-        "EXECUTION_OBSERVATION_LIMIT",
-        "Native execution validation exceeds bounded rows/bytes",
-      );
+    charge(
+      h.bytes,
+      LIMITS.rowBytes,
+      "Native execution validation exceeds bounded rows/bytes",
+    );
     const row = rawRow(
         db,
         "diagnostic_execution_observations",
         "id=?",
         [String(h.id)],
-        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
+        LIMITS.rowBytes,
       )!,
       record = decoded(
         row,

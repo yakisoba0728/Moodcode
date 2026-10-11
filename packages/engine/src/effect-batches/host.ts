@@ -5,6 +5,7 @@ import {
 } from "@moodcode/contracts";
 import type { ToolContext } from "../ports.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { raceAbort } from "../shared/runtime.js";
 import {
   acquireExecutionLock,
   assertExecutionLockCurrent,
@@ -41,33 +42,13 @@ export interface EffectBatchAdmission {
   signal: AbortSignal;
   assertCurrent(): void;
 }
-function deferred() {
-  let resolve!: () => void;
-  const promise = new Promise<void>((r) => (resolve = r));
-  return { promise, resolve };
-}
-async function wait(
-  promise: Promise<void>,
-  signal: AbortSignal,
-): Promise<void> {
-  if (signal.aborted) throw signal.reason;
-  let abort!: () => void;
-  try {
-    await Promise.race([
-      promise,
-      new Promise<void>((_, reject) => {
-        abort = () =>
-          reject(
-            signal.reason ??
-              new EngineError("CANCELLED", "Effect batch cancelled"),
-          );
-        signal.addEventListener("abort", abort, { once: true });
-      }),
-    ]);
-  } finally {
-    signal.removeEventListener("abort", abort);
-  }
-}
+const wait = (promise: Promise<void>, signal: AbortSignal): Promise<void> =>
+  raceAbort(
+    promise,
+    signal,
+    () => new EngineError("CANCELLED", "Effect batch cancelled"),
+    { propagateReason: true },
+  );
 /** Keeps at most 256 UTF-16 units without splitting a surrogate pair. */
 function errorPrefix(text: string): string {
   const high = text.charCodeAt(255);
@@ -94,7 +75,7 @@ export class EffectBatchHost {
   }
 }
 export class EffectBatchExecution {
-  private readonly arrival = deferred();
+  private readonly arrival = Promise.withResolvers<void>();
   private readonly changed = new Set<() => void>();
   private readonly originals = new Map<number, object>();
   private readonly permits = new Map<number, object>();
@@ -258,7 +239,7 @@ export class EffectBatchExecution {
         (p, i) => p.wave < m.wave && !this.settled.has(i),
       )
     ) {
-      const d = deferred();
+      const d = Promise.withResolvers<void>();
       this.changed.add(d.resolve);
       try {
         await wait(d.promise, context.signal);

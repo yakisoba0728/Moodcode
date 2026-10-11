@@ -51,9 +51,7 @@ function limits(value: unknown, reject: Reject): Readonly<ArchivedChildDocumentS
 function signal(value: unknown): { signal?: AbortSignal; releaseSignal(): void } {
   const source = nativeAbortSignal(value, invalidRequest);
   if (!source) return { releaseSignal() {} };
-  // Node's unobserved composite signals can compute cancellation lazily from
-  // a public source surface. A live native observer activates the dependency
-  // throughout this operation; the inspector must release it in finally.
+  // An unobserved composite signal may read the source lazily; a live native observer pins it until releaseSignal in finally.
   const selected = AbortSignal.any([source]), observer = () => {};
   EventTarget.prototype.addEventListener.call(selected, 'abort', observer, { once: true });
   let released = false;
@@ -130,8 +128,7 @@ export function buildArchivedChildDocumentStorageReport(value: ArchivedChildDocu
   const allCountsKnown = !uncheckedChildren && children.every(item => item.countsKnown), initialOmissions = children.reduce((sum, item) => sum + (item.observedDocumentsOmitted ?? 0), 0);
   report.observedDocumentsOmitted = initialOmissions; report.documentsOmitted = allCountsKnown ? initialOmissions : null;
   if (uncheckedChildren) report.reasons.push('selected-children-unchecked'); if (children.some(item => item.indexComplete === false)) report.reasons.push('child-index-incomplete'); if (initialOmissions) report.reasons.push('document-sample-limit'); if (proofStats.exhaustedReason) report.reasons.push(proofStats.exhaustedReason);
-  // Samples are display-only. Trim those first, preserving proven counts and
-  // known subtotal even if the separately bounded report omits child details.
+  // Display-only samples go first; proven counts and the known subtotal survive even when child details are omitted.
   while (Buffer.byteLength(JSON.stringify(report)) > bounds.maxReportBytes) {
     const sampled = report.children.findLast(item => item.documents.length > 0);
     if (sampled) { sampled.documents.pop(); sampled.observedDocumentsOmitted = (sampled.observedDocumentsOmitted ?? 0) + 1; if (sampled.documentsOmitted !== null) sampled.documentsOmitted++; report.observedDocumentsOmitted++; if (report.documentsOmitted !== null) report.documentsOmitted++; }

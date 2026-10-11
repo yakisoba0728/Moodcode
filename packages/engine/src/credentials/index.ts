@@ -1,5 +1,6 @@
 import { inspect } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { raceAbort } from '../shared/runtime.js';
 export interface CredentialReference { id: string; audience: string }
 export interface HostCredential { bearerToken: string; expiresAt: number }
 export interface CredentialHostCallbacks { resolve(reference: CredentialReference, signal: AbortSignal): Promise<HostCredential>; refresh?(reference: CredentialReference, signal: AbortSignal): Promise<HostCredential> }
@@ -42,15 +43,6 @@ export class CredentialBroker {
     return use(`Bearer ${credential.bearerToken}`);
   }
 }
-async function cancellable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
-  let listener: (() => void) | undefined;
-  try {
-    return await Promise.race([promise, new Promise<never>((_resolve, reject) => {
-      listener = () => reject(new EngineError('CREDENTIAL_CANCELLED', 'Credential request cancelled'));
-      signal.addEventListener('abort', listener, { once: true });
-      if (signal.aborted) listener();
-    })]);
-  } finally {
-    if (listener) signal.removeEventListener('abort', listener);
-  }
+function cancellable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  return raceAbort(promise, signal, () => new EngineError('CREDENTIAL_CANCELLED', 'Credential request cancelled'));
 }

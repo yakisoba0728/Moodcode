@@ -57,8 +57,7 @@ export function getStallObservation(samples: readonly StallSample[], options: St
     validSample(sample);
     if (i > 0 && (sample.runId !== samples[0]!.runId || sample.seq <= samples[i - 1]!.seq)) invalid('Stall samples must belong to one Run in increasing journal order');
   }
-  // Streaming revisions of one tool are not multiple executions. Keep the last
-  // revision before selecting the window, so a large single result never stalls.
+  // Streaming revisions of one tool are one execution: keep its last revision before selecting the window.
   const seen = new Set<string>(), selected: StallSample[] = [];
   for (let i = samples.length - 1; i >= 0; i--) {
     const sample = samples[i]!;

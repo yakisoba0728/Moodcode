@@ -154,7 +154,6 @@ function body(
     String(db.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id)!.data),
   );
 }
-/** The payload of the one bounded event matching the search. */
 function onlyEvent(
   db: DatabaseSync,
   search: Omit<EventSearch, "maxRows" | "maxRowBytes">,
@@ -434,12 +433,11 @@ export function hasUncertainEffectBatches(
   db: DatabaseSync,
   workspaceId: string,
 ): boolean {
-  const row = db
+  return !!db
     .prepare(
       "SELECT 1 FROM session_documents d JOIN sessions s ON s.id=d.session_id WHERE s.workspace_id=? AND d.kind GLOB 'effect.batch.*' AND (json_extract(d.data,'$.state')='uncertain' OR EXISTS (SELECT 1 FROM json_each(d.data,'$.members') m WHERE json_extract(m.value,'$.state')='uncertain') OR json_extract(d.data,'$.state') IN ('preparing','prepared','running') AND EXISTS (SELECT 1 FROM runs r WHERE r.id=json_extract(d.data,'$.runId') AND r.state IN ('completed','failed','cancelled','interrupted'))) LIMIT 1",
     )
     .get(workspaceId);
-  return !!row;
 }
 export function hasKnownEffectBatchMarker(
   db: DatabaseSync,

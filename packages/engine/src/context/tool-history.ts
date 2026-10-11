@@ -35,32 +35,30 @@ export function projectToolHistory(
     } catch {
       return message;
     }
+    const excerpt = textPrefix(message.content, 1024);
     const content = `${TOOL_HISTORY_PREFIX}\n${JSON.stringify({
       historicalObservation: true,
       currentFileEvidence: false,
       outcome: result.outcome,
       toolCallId: message.toolCallId,
-      excerpt: textPrefix(message.content, 1024),
+      excerpt,
       omittedContentBytes: Math.max(
         0,
-        Buffer.byteLength(message.content) -
-          Buffer.byteLength(textPrefix(message.content, 1024)),
+        Buffer.byteLength(message.content) - Buffer.byteLength(excerpt),
       ),
       warnings: result.warnings
         .slice(0, 8)
         .map((warning) => textPrefix(warning, 256)),
       omittedWarnings: Math.max(0, result.warnings.length - 8),
-      artifacts: result.artifactRefs
-        .slice(0, 4)
-        .map((ref) => ({
-          id: ref.id,
-          identity: ref.identity,
-          sha256: ref.sha256,
-          storedBytes: ref.storedBytes,
-          complete: ref.complete,
-          outcome: ref.outcome,
-          expiresAt: ref.expiresAt,
-        })),
+      artifacts: result.artifactRefs.slice(0, 4).map((ref) => ({
+        id: ref.id,
+        identity: ref.identity,
+        sha256: ref.sha256,
+        storedBytes: ref.storedBytes,
+        complete: ref.complete,
+        outcome: ref.outcome,
+        expiresAt: ref.expiresAt,
+      })),
       omittedArtifactRefs: Math.max(0, result.artifactRefs.length - 4),
     })}`;
     // Pathological identity lengths cannot make a historical projection larger than its source.

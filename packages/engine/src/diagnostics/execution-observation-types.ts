@@ -1,9 +1,6 @@
 import type { ToolEffectClass } from "../ports.js";
 
-/**
- * Host-issued source coverage of the entire physical workspace outside .git
- * metadata, ignored files included; never accepted from a provider/tool result payload.
- */
+/** Host-issued coverage of the whole physical workspace outside .git metadata, ignored files included; never taken from a tool result. */
 export interface ExecutionSourceSnapshot {
   readonly schemaVersion: 1;
   readonly completeness: "full" | "unknown";

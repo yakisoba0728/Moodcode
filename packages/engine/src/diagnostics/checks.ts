@@ -2,6 +2,7 @@ import { constants } from 'node:fs';
 import { access, lstat, realpath, stat } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { EngineError } from '@moodcode/contracts';
+import { errnoCode } from '../shared/fs.js';
 import type { ArtifactDiagnostic, CommandPlatformAssessment, NodeAssessment, SqliteDiagnostic } from './types.js';
 
 export function checkAbort(signal?: AbortSignal): void {
@@ -105,7 +106,7 @@ export async function probeArtifactParent(requested: string, signal?: AbortSigna
       return { status: 'observed', requestedParent: requested, existingAncestor: canonical, missingDirectories: missing, mode: (info.mode & 0o7777).toString(8).padStart(4, '0'), readable, writable, searchable, createPossible: process.platform === 'win32' ? null : writable && searchable === true, assessment: 'access_checks_only' };
     } catch (error) {
       checkAbort(signal);
-      const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : null;
+      const code = errnoCode(error);
       if (code !== 'ENOENT' && code !== 'ENOTDIR') return { ...result, code: 'ARTIFACT_ANCESTOR_UNAVAILABLE' };
       const parent = dirname(candidate);
       if (parent === candidate) return { ...result, code: 'ARTIFACT_ANCESTOR_UNAVAILABLE' };

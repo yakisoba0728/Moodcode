@@ -46,14 +46,8 @@ const LIMIT_KEYS = ['maxTurns', 'maxToolCalls', 'maxDurationMs', 'toolTimeoutMs'
 const BUDGET_KEYS = ['turnAllowance', 'maxToolCallsPerTurn', 'maxPendingInputs', 'maxPendingBytes', 'maxSteerBatch', 'maxReadConcurrency', 'maxProviderAttempts', 'providerRequestTimeoutMs', 'providerInactivityTimeoutMs', 'retryBaseDelayMs', 'maxSummaryCalls', 'maxSummaryBytes', 'maxArtifactBytes', 'maxProducerBytes'];
 const RUN_STATES = ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted'];
 function fail(message: string): never { throw new EngineError('INVALID_CODING_EVIDENCE', message); }
-function identifier(value: unknown): string {
-  if (!isBoundedId(value)) return fail('Identity must be a bounded string');
-  return value;
-}
-function digest(value: unknown): string {
-  if (!isSha256(value)) return fail('Digest must be a lowercase SHA-256');
-  return value;
-}
+function identifier(value: unknown): string { return isBoundedId(value) ? value : fail('Identity must be a bounded string'); }
+function digest(value: unknown): string { return isSha256(value) ? value : fail('Digest must be a lowercase SHA-256'); }
 function plain(value: unknown, keys: string[]): void {
   plainRecord(value, [], keys, fault => fail(fault === 'shape' ? 'Coding evidence options require plain data' : 'Coding evidence options reject unknown fields, accessors and symbols'));
 }

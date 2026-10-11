@@ -126,7 +126,7 @@ function plain(
 function integer(
   value: unknown,
   minimum: number,
-  maximum: number,
+  maximum = Number.MAX_SAFE_INTEGER,
 ): asserts value is number {
   if (
     !Number.isSafeInteger(value) ||
@@ -139,7 +139,6 @@ function identifier(value: unknown): asserts value is string {
   if (!isBoundedId(value))
     fail("Native evidence requires a bounded owner identity");
 }
-/** Validates before readNativeCodingEvidence destructures options. */
 function validateNativeCodingEvidenceOptions(
   input: NativeCodingEvidenceOptions,
 ): void {
@@ -158,13 +157,9 @@ function validateNativeCodingEvidenceOptions(
   if (execution !== undefined) {
     plain(execution, ["afterOrdinal", "throughOrdinal", "limit", "maxBytes"]);
     if (execution.afterOrdinal !== undefined)
-      integer(execution.afterOrdinal, 0, Number.MAX_SAFE_INTEGER);
+      integer(execution.afterOrdinal, 0);
     if (execution.throughOrdinal !== undefined)
-      integer(
-        execution.throughOrdinal,
-        execution.afterOrdinal ?? 0,
-        Number.MAX_SAFE_INTEGER,
-      );
+      integer(execution.throughOrdinal, execution.afterOrdinal ?? 0);
     if (execution.limit !== undefined)
       integer(
         execution.limit,
@@ -226,11 +221,7 @@ function checkedPage(
     ["items", "next", "throughOrdinal", "bytes"],
     ["items", "next", "throughOrdinal", "bytes"],
   );
-  integer(
-    page.throughOrdinal,
-    options.afterOrdinal ?? 0,
-    Number.MAX_SAFE_INTEGER,
-  );
+  integer(page.throughOrdinal, options.afterOrdinal ?? 0);
   integer(
     page.bytes,
     0,

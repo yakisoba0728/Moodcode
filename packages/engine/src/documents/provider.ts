@@ -68,8 +68,7 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
       if (supplied === undefined || Array.isArray(supplied) && !supplied.length) return new Map();
       invalid();
     }
-    // Images are decoded once by adapters that already validated them. Direct
-    // callers still receive the same image boundary before sharing the byte cap.
+    // Adapters validated images already; direct callers get the same image boundary before sharing the byte cap.
     if (!imagesValidated) providerImages(request, true, signal);
     for (const message of request.messages) for (const image of imageAttachments(message.attachments ?? [])) {
       total += image.bytes;

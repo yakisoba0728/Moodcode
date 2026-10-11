@@ -179,8 +179,7 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
   const { afterSeq, throughSeq, limit, maxBytes } = pageBounds(options);
   const session = reader.getSession(options.sessionId);
   if (session.id !== options.sessionId || !id(session.workspaceId)) throw new EngineError('TRAJECTORY_SCOPE_MISMATCH', 'Trajectory session owner is invalid');
-  // An extra row provides a bounded continuation observation. A short native
-  // page may result from its own source byte cap and is never treated as EOF.
+  // One extra row observes continuation; a short native page may hit its own byte cap, so it is never EOF.
   const readLimit = Math.min(limit + 1, TRAJECTORY_LIMITS.maxEvents, throughSeq === undefined ? TRAJECTORY_LIMITS.maxEvents : throughSeq - afterSeq);
   const raw = readLimit === 0 ? [] : reader.readSessionEvents(options.sessionId, afterSeq, readLimit);
   if (!Array.isArray(raw) || raw.length > readLimit) throw new EngineError('TRAJECTORY_SOURCE_INVALID', 'Journal reader exceeded its bounded contract');
@@ -197,8 +196,6 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
     coverage: { source: 'bounded-native-journal-page', sessionFrontier: 'unknown', inspectedEvents: 0, selectedEvents: 0, omittedSelectedEvents: 0, completeRequestedRange: throughSeq === afterSeq ? true : null, truncated: false, stopReason: 'source-page-end', rawPayloads: 'not-exported', opaqueProviderReplay: 'not-exported', credentials: 'not-read', producerEffects: 'not-executed', replay: 'inspection-only', rawJournalSha256: null },
     nextCursor: null, projectionSha256: '0'.repeat(64),
   };
-  // Reserve final coverage/cursor metadata before admitting another record.
-  const fits = (): boolean => Buffer.byteLength(JSON.stringify(report)) + 128 <= maxBytes;
   for (const event of raw) {
     if (event.seq > boundary) { report.coverage.stopReason = 'requested-boundary'; report.coverage.completeRequestedRange = true; break; }
     if (report.coverage.inspectedEvents >= limit) { report.coverage.truncated = true; report.coverage.stopReason = 'event-limit'; break; }
@@ -207,21 +204,18 @@ export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOp
     const lastInspected = report.range.inspectedThroughSeq;
     report.range.inspectedThroughSeq = event.seq; report.coverage.inspectedEvents++;
     report.coverage.selectedEvents = report.events.length;
-    // Reserve the real cursor before testing bytes so the final report cannot
-    // grow past its budget when truncation discovers one oversized event.
+    // The real cursor and 128 bytes of final metadata are reserved before testing, so truncation cannot overrun the budget.
     report.nextCursor = { sessionId: session.id, afterSeq: event.seq, throughSeq: throughSeq ?? null };
-    if (!fits()) {
+    if (Buffer.byteLength(JSON.stringify(report)) + 128 > maxBytes) {
       if (selected) report.events.pop();
       report.range.inspectedThroughSeq = lastInspected; report.coverage.inspectedEvents--; report.coverage.selectedEvents = report.events.length;
       report.coverage.truncated = true; report.coverage.stopReason = 'byte-limit'; break;
     }
   }
-  const notExported = raw.filter(event => event.seq <= boundary && event.seq > report.range.inspectedThroughSeq && (options.runId === undefined || ownData(event, 'runId') === options.runId)).length;
-  report.coverage.omittedSelectedEvents = notExported;
+  report.coverage.omittedSelectedEvents = raw.filter(event => event.seq <= boundary && event.seq > report.range.inspectedThroughSeq && (options.runId === undefined || ownData(event, 'runId') === options.runId)).length;
   if (throughSeq !== undefined && report.range.inspectedThroughSeq >= throughSeq) { report.coverage.completeRequestedRange = true; if (!report.coverage.truncated) report.coverage.stopReason = 'requested-boundary'; }
   else if (throughSeq !== undefined && report.coverage.truncated) report.coverage.completeRequestedRange = false;
-  // Always allow a continuation when the session frontier is unknown, even for
-  // empty/short pages. Consumers stop by their own bound, not by invented EOF.
+  // The session frontier is unknown, so even empty or short pages continue; consumers stop by their own bound.
   report.nextCursor = report.coverage.completeRequestedRange === true ? null : { sessionId: session.id, afterSeq: report.range.inspectedThroughSeq, throughSeq: throughSeq ?? null };
   if (Buffer.byteLength(JSON.stringify(report)) > maxBytes) throw new EngineError('TRAJECTORY_EXPORT_LIMIT', 'Trajectory metadata exceeds the byte budget');
   const { projectionSha256: _omitted, ...projection } = report;
