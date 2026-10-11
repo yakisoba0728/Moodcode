@@ -1,7 +1,6 @@
 import { readOwnedCommandJob } from "../jobs/owned-command-records.js";
 import { createHash, randomUUID } from "node:crypto";
 import type { DatabaseSync } from "node:sqlite";
-import { relative, isAbsolute, sep } from "node:path";
 import {
   EngineError,
   type JsonObject,
@@ -24,11 +23,15 @@ import type {
   BackendWriteProof,
   BackendDisposalProof,
 } from "./process.js";
-import type {
-  BackendClientReadInput,
-  BackendClientReadProof,
-  BackendClientEffectInput,
-  BackendClientPermissionProof,
+import {
+  clientEffectToolName,
+  clientReadToolInput,
+  terminalCommandLine,
+  workspaceLocalPath,
+  type BackendClientReadInput,
+  type BackendClientReadProof,
+  type BackendClientEffectInput,
+  type BackendClientPermissionProof,
 } from "./client-effects.js";
 import {
   assertBackendTransition,
@@ -2524,15 +2527,6 @@ function validateTerminalControl(
   )
     fail("BACKEND_DELIVERY_INVALID");
 }
-function effectTool(
-  input: BackendClientReadInput | BackendClientEffectInput,
-): string {
-  return !("method" in input)
-    ? "read_file"
-    : input.method === "fs/write_text_file"
-      ? "apply_patch"
-      : "run_command";
-}
 function validateEffectInput(
   message: AcpV1Message,
   input: BackendClientReadInput | BackendClientEffectInput,
@@ -2631,7 +2625,7 @@ function validatePermissionSql(
     fail("BACKEND_PERMISSION_INVALID");
   const tool = readPrimary(db, "tools", p.toolCallId);
   if (
-    tool.name !== effectTool(e.input) ||
+    tool.name !== clientEffectToolName(e.input) ||
     tool.sessionId !== p.sessionId ||
     tool.runId !== p.runId ||
     knowledgeHash(tool.input) !== p.inputSha256
@@ -2755,7 +2749,7 @@ function validateClientEffectSql(
     fail("BACKEND_EFFECT_INVALID");
   const tool = readPrimary(db, "tools", p.toolCallId, outputBudget * 6 + 65536);
   if (
-    tool.name !== effectTool(e.input) ||
+    tool.name !== clientEffectToolName(e.input) ||
     tool.sessionId !== p.sessionId ||
     tool.runId !== p.runId ||
     tool.state !== p.state ||
@@ -2781,12 +2775,10 @@ function validateClientEffectSql(
       fail("BACKEND_EFFECT_INPUT_INVALID");
     if (p.effectMethod !== e.input.method) fail("BACKEND_EFFECT_INPUT_INVALID");
     if (e.input.method === "fs/write_text_file") {
-      const local = relative(workspace.root, e.input.path).split(sep).join("/");
+      const local = workspaceLocalPath(workspace.root, e.input.path);
       const changes = toolInput.changes;
       if (
-        !local ||
-        local === ".." ||
-        local.startsWith("../") ||
+        local === undefined ||
         !Array.isArray(changes) ||
         changes.length !== 1 ||
         !changes[0] ||
@@ -2797,15 +2789,15 @@ function validateClientEffectSql(
       )
         fail("BACKEND_EFFECT_INPUT_INVALID");
     } else {
-      const quote = (arg: string) => "'" + arg.replaceAll("'", "'\\''") + "'";
-      const command = e.input.args.length
-        ? [e.input.command, ...e.input.args].map(quote).join(" ")
-        : e.input.command;
-      if (toolInput.command !== command || toolInput.cwd !== e.input.cwd)
+      if (
+        toolInput.command !==
+          terminalCommandLine(e.input.command, e.input.args) ||
+        toolInput.cwd !== e.input.cwd
+      )
         fail("BACKEND_EFFECT_INPUT_INVALID");
     }
     if (
-      effectTool(e.input) === "run_command" &&
+      clientEffectToolName(e.input) === "run_command" &&
       p.result &&
       typeof p.result === "object" &&
       !Array.isArray(p.result) &&
@@ -2884,26 +2876,13 @@ function validateClientEffectSql(
         fail("BACKEND_EFFECT_CHECKPOINT_INVALID");
     }
   } else {
-    const localPath = relative(workspace.root, e.input.path)
-      .split(sep)
-      .join("/");
+    const localPath = workspaceLocalPath(workspace.root, e.input.path);
     if (
-      !localPath ||
-      localPath === ".." ||
-      localPath.startsWith("../") ||
-      isAbsolute(localPath)
-    )
-      fail("BACKEND_EFFECT_INPUT_INVALID");
-    const startLine = e.input.line ?? 1,
-      endLine =
-        e.input.limit === undefined ? undefined : startLine + e.input.limit - 1;
-    if (
+      localPath === undefined ||
       knowledgeHash(tool.input) !==
-      knowledgeHash({
-        path: localPath,
-        startLine,
-        ...(endLine === undefined ? {} : { endLine }),
-      })
+        knowledgeHash(
+          clientReadToolInput(localPath, e.input.line, e.input.limit),
+        )
     )
       fail("BACKEND_EFFECT_INPUT_INVALID");
   }
@@ -2920,7 +2899,7 @@ function validateClientEffectSql(
         part.type === "tool" &&
         part.toolCallId === p.toolCallId &&
         part.providerCallId === p.providerToolCallId &&
-        part.name === effectTool(e.input) &&
+        part.name === clientEffectToolName(e.input) &&
         ["completed", "failed", "interrupted"].includes(String(part.state))
       );
     })
@@ -2945,7 +2924,7 @@ function validateClientEffectSql(
       return (
         event.payload?.toolCallId === p.toolCallId &&
         event.payload?.providerToolCallId === p.providerToolCallId &&
-        event.payload?.toolName === effectTool(e.input) &&
+        event.payload?.toolName === clientEffectToolName(e.input) &&
         event.payload?.inputSha256 === p.inputSha256 &&
         event.payload?.preparedFingerprint === p.preparedFingerprint
       );
@@ -2965,7 +2944,7 @@ function validateClientEffectSql(
           approval.fingerprint === p.preparedFingerprint &&
           approval.sessionId === p.sessionId &&
           approval.runId === p.runId &&
-          approval.toolName === effectTool(e.input)
+          approval.toolName === clientEffectToolName(e.input)
         );
       }) &&
       (p.state === "completed" ||

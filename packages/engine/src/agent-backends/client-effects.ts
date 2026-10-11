@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { isAbsolute, relative, sep } from "node:path";
 import { EngineError, type JsonValue } from "@moodcode/contracts";
 import type { TurnRequest } from "../ports.js";
 import type { BackendProcessPort } from "./process.js";
@@ -220,6 +221,53 @@ export type BackendClientEffectInput =
       cwd: string;
       outputByteLimit: number;
     };
+
+/** The Runner tool that executes a client read or effect. */
+export function clientEffectToolName(
+  input: BackendClientReadInput | BackendClientEffectInput,
+): "read_file" | "apply_patch" | "run_command" {
+  return !("method" in input)
+    ? "read_file"
+    : input.method === "fs/write_text_file"
+      ? "apply_patch"
+      : "run_command";
+}
+
+/** The workspace-relative POSIX path, or undefined when `path` is not inside `root`. */
+export function workspaceLocalPath(
+  root: string,
+  path: string,
+): string | undefined {
+  const local = relative(root, path).split(sep).join("/");
+  return !local ||
+    local === ".." ||
+    local.startsWith("../") ||
+    isAbsolute(local)
+    ? undefined
+    : local;
+}
+
+/** The run_command line: the bare command, or every word single-quoted when there are arguments. */
+export function terminalCommandLine(
+  command: string,
+  args: readonly string[],
+): string {
+  const quote = (arg: string) => "'" + arg.replaceAll("'", "'\\''") + "'";
+  return args.length ? [command, ...args].map(quote).join(" ") : command;
+}
+
+/** The read_file input for `limit` lines from `line` (default 1). */
+export function clientReadToolInput(
+  local: string,
+  line: number | undefined,
+  limit: number | undefined,
+): { path: string; startLine: number; endLine?: number } {
+  const startLine = line ?? 1;
+  return limit === undefined
+    ? { path: local, startLine }
+    : { path: local, startLine, endLine: startLine + limit - 1 };
+}
+
 export interface BackendClientPermissionProof {
   workspaceId: string;
   sessionId: string;

@@ -16,7 +16,7 @@ import type {
   ProviderMessage, ToolContext, ToolDefinition, ToolResult,
   ChildRunReservation, RunUsage, LifecycleContinuationCapture, TurnRequest, ProviderRequestOwner,
 } from '../ports.js';
-import type { BackendClientReadInput, BackendClientReadProof, BackendClientEffectInput, BackendClientPermissionProof } from '../agent-backends/client-effects.js';
+import { clientEffectToolName, clientReadToolInput, terminalCommandLine, workspaceLocalPath, type BackendClientReadInput, type BackendClientReadProof, type BackendClientEffectInput, type BackendClientPermissionProof } from '../agent-backends/client-effects.js';
 import { codeJson, CODE_MODE_TOOLS, codeModeError } from '../code-mode/types.js';
 import { immutableKnowledgeJson, knowledgeHash } from '../knowledge/validation.js';
 import { EXTRACTIVE_MEMORY_PREFIX } from '../context/index.js';
@@ -400,14 +400,14 @@ export class RunCoordinator implements CoordinatorPort {
     if (signal.aborted) throw signal.reason ?? new EngineError('RUN_CANCELLED', 'Client read was cancelled');
     if (captured.pendingRead || owner.callIds.has(input.callId)) throw new EngineError('BACKEND_CLIENT_READ_CONFLICT', 'Client reads must be serialized with distinct request identities');
     if (this.retainedClientReads.size >= 128) throw new EngineError('BACKEND_CLIENT_READ_LIMIT', 'Client read completion handle limit was reached');
-    const startLine = input.line ?? 1, endLine = input.limit === undefined ? undefined : startLine + input.limit - 1;
-    if (endLine !== undefined && !Number.isSafeInteger(endLine)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'Client line range exceeds its integer bound');
-    const workspace = this.options.store.getWorkspace(proof.workspaceId), localPath = relative(workspace.root, input.path).split(sep).join('/');
-    if (!localPath || localPath === '..' || localPath.startsWith('../') || isAbsolute(localPath)) throw new EngineError('BACKEND_CLIENT_READ_OUTSIDE', 'Client reads must remain inside the actual workspace');
+    const workspace = this.options.store.getWorkspace(proof.workspaceId), localPath = workspaceLocalPath(workspace.root, input.path);
+    if (localPath === undefined) throw new EngineError('BACKEND_CLIENT_READ_OUTSIDE', 'Client reads must remain inside the actual workspace');
+    const readInput = clientReadToolInput(localPath, input.line, input.limit);
+    if (readInput.endLine !== undefined && !Number.isSafeInteger(readInput.endLine)) throw new EngineError('BACKEND_CLIENT_READ_INVALID', 'Client line range exceeds its integer bound');
     if (this.remainingChildBudget(owner).toolCalls < 1) throw new EngineError('TOOL_CALL_LIMIT', 'The original Run tool budget is exhausted');
     owner.budget.reserveToolCalls(1);
     const toolCallId = randomUUID(), message = this.message(owner, 'assistant');
-    const call: ProviderToolCall = { id: input.callId, name: 'read_file', input: { path: localPath, startLine, ...(endLine === undefined ? {} : { endLine }) } };
+    const call: ProviderToolCall = { id: input.callId, name: clientEffectToolName(input), input: readInput };
     owner.callIds.add(call.id); owner.invocations.set(call.id, toolCallId);
     this.options.store.commit(owner.run.id, 'backend.client_read_proposed', { toolCallId, providerToolCallId: call.id, turnId: proof.turnId, attemptId: proof.attemptId }, { message });
     owner.turn!.toolProposal(message.id, toolCallId, call);
@@ -458,7 +458,7 @@ export class RunCoordinator implements CoordinatorPort {
         'BACKEND_CLIENT_READ_LIMIT',
         'Client completion retention limit reached',
       );
-    let toolInput: JsonObject, name: string;
+    let toolInput: JsonObject;
     if (input.method === 'fs/write_text_file') {
       if (
         Object.keys(input).some(
@@ -472,13 +472,8 @@ export class RunCoordinator implements CoordinatorPort {
           'BACKEND_CLIENT_EFFECT_INVALID',
           'Invalid bounded client write',
         );
-      const local = relative(workspace.root, input.path).split(sep).join('/');
-      if (
-        !local ||
-        local === '..' ||
-        local.startsWith('../') ||
-        isAbsolute(local)
-      )
+      const local = workspaceLocalPath(workspace.root, input.path);
+      if (local === undefined)
         throw new EngineError(
           'BACKEND_CLIENT_READ_OUTSIDE',
           'Client effects stay inside the workspace',
@@ -572,7 +567,6 @@ export class RunCoordinator implements CoordinatorPort {
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
-      name = 'apply_patch';
       toolInput = {
         changes: [{ path: local, expectedHash, content: input.content }],
       };
@@ -608,12 +602,8 @@ export class RunCoordinator implements CoordinatorPort {
           'BACKEND_CLIENT_EFFECT_INVALID',
           'Invalid exact terminal input',
         );
-      const quote = (arg: string) => "'" + arg.replaceAll("'", "'\\''") + "'";
-      name = 'run_command';
       toolInput = {
-        command: input.args.length
-          ? [input.command, ...input.args].map(quote).join(' ')
-          : input.command,
+        command: terminalCommandLine(input.command, input.args),
         cwd: input.cwd,
         timeoutMs: Math.min(owner.run.config.limits.toolTimeoutMs, 300000),
       };
@@ -622,6 +612,7 @@ export class RunCoordinator implements CoordinatorPort {
         'ACP_EFFECT_UNSUPPORTED',
         'Unsupported client effect',
       );
+    const name = clientEffectToolName(input);
     if (!request.tools.some((tool) => tool.name === name))
       throw new EngineError(
         'TOOL_NOT_ALLOWED',
