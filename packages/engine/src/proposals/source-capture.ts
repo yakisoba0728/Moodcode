@@ -190,6 +190,17 @@ function pinMatches(
     }) === knowledgeHash(original)
   );
 }
+/** Source failures every proposal reader reports as stale rather than unknown. */
+export function isProposalSourceStale(error: unknown): boolean {
+  return (
+    error instanceof EngineError &&
+    [
+      "PROPOSAL_SOURCE_STALE",
+      "PROPOSAL_SOURCE_BINDING_CHANGED",
+      "PROPOSAL_SOURCE_UNSAFE",
+    ].includes(error.code)
+  );
+}
 function absent(error: unknown): boolean {
   return error instanceof Error && "code" in error && error.code === "ENOENT";
 }

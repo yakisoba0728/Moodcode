@@ -749,7 +749,8 @@ export class MoodcodeEngine implements EngineRuntime {
         readSourceCapture: original => this.proposalSource.read(original),
         assertSourcesCurrent: (native, original) => this.proposalService.assertCommitCurrent(native, original) });
       this.proposalService = new ProposalHostService(this.proposalRecords, this.proposalSource,
-        operation => this.store.readExecutionObservationEvidence(operation), this.hostResources.signal);
+        operation => this.store.readExecutionObservationEvidence(operation), reference => this.store.readProposalBlobText(reference),
+        this.hostResources.signal);
       this.proposalApplies = this.store.createProposalApplyStorage({ checkBinding: knowledgeBinding,
         getRevision: (workspaceId, id) => this.proposalRecords.getRevision(workspaceId, id),
         getHead: (workspaceId, id) => this.proposalRecords.getSet(workspaceId, id),

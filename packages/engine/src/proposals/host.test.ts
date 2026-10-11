@@ -56,7 +56,8 @@ async function fixture() {
       throw error;
     }
   };
-  const source = new ProposalSourceCaptureHost({ checkBinding: () => binding });
+  const source = new ProposalSourceCaptureHost({ checkBinding: () => binding }),
+    blobs = new ProposalBlobStorage(db);
   let host: ProposalHostService;
   const native = new ProposalStorage(db, {
     writeTx: tx,
@@ -65,12 +66,13 @@ async function fixture() {
     readSourceCapture: (original) => source.read(original as never),
     assertSourcesCurrent: (capture, original) =>
       host.assertCommitCurrent(capture, original),
-    blobs: new ProposalBlobStorage(db),
+    blobs,
   });
   host = new ProposalHostService(
     native,
     source,
     tx,
+    (ref) => blobs.readText(ref),
     new AbortController().signal,
   );
   return {

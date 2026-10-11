@@ -2,9 +2,9 @@ import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
 import { assertNativeSignal } from '../shared/data.js';
 import { normalizeProposalCaptureInput, type ProposalStorage } from './store.js';
-import { ProposalSourceCaptureHost, type PreparedProposalSourceCapture } from './source-capture.js';
-import type { AppendProposalRevisionResult, PreparedProposalCapture, ProposalCaptureInput, ProposalSelection } from './types.js';
-import { buildProposalDiff, type ProposalReadonlyDiff } from './overlay.js';
+import { isProposalSourceStale, ProposalSourceCaptureHost, type PreparedProposalSourceCapture } from './source-capture.js';
+import type { AppendProposalRevisionResult, PreparedProposalCapture, ProposalBlobReference, ProposalCaptureInput, ProposalSelection } from './types.js';
+import { buildProposalDiff, PROPOSAL_DIFF_LIMITS, type ProposalReadonlyDiff } from './overlay.js';
 import { ownDataFields, trackPending } from './validation.js';
 
 export interface CreateProposalSetInput {
@@ -56,7 +56,8 @@ export class ProposalHostService {
   readonly #pending = new Set<Promise<unknown>>();
   readonly #close = new AbortController();
   constructor(readonly native: ProposalStorage, readonly source: ProposalSourceCaptureHost,
-    readonly readTx: <T>(operation: () => T) => T, readonly hostSignal: AbortSignal) {}
+    readonly readTx: <T>(operation: () => T) => T, readonly readBlobText: (reference: ProposalBlobReference) => string,
+    readonly hostSignal: AbortSignal) {}
   private open(signal?: AbortSignal): void {
     if (this.#close.signal.aborted || this.hostSignal.aborted) fail('ENGINE_CLOSED');
     if (signal?.aborted) fail('PROPOSAL_CANCELLED');
@@ -129,8 +130,9 @@ export class ProposalHostService {
       const options = { ...(cursor === undefined ? {} : { after: Number(cursor) }),
         ...(fields.limit?.value === undefined ? {} : { limit: fields.limit.value }), ...(fields.maxBytes?.value === undefined ? {} : { maxBytes: fields.maxBytes.value }) };
       // Reject invalid paging before beginning physical observations or reading bodies.
-      const limit = options.limit ?? 64, maxBytes = options.maxBytes ?? 65_536;
-      if (!Number.isSafeInteger(limit) || limit < 1 || limit > 64 || !Number.isSafeInteger(maxBytes) || maxBytes < 512 || maxBytes > 65_536
+      const limit = options.limit ?? PROPOSAL_DIFF_LIMITS.rows, maxBytes = options.maxBytes ?? PROPOSAL_DIFF_LIMITS.bytes;
+      if (!Number.isSafeInteger(limit) || limit < 1 || limit > PROPOSAL_DIFF_LIMITS.rows || !Number.isSafeInteger(maxBytes)
+        || maxBytes < PROPOSAL_DIFF_LIMITS.minBytes || maxBytes > PROPOSAL_DIFF_LIMITS.bytes
         || Number(cursor ?? 0) > revision.files.length) fail('INVALID_PROPOSAL_PAGE');
       if (this.#pending.size >= 16) fail('PROPOSAL_CAPACITY');
       return trackPending(this.#pending, (async () => {
@@ -138,7 +140,7 @@ export class ProposalHostService {
         try { await this.source.assertStoredManifestCurrent(revision.binding, revision.sourceManifest, signal); }
         catch (error) {
           this.open(signal);
-          sourceFreshness = error instanceof EngineError && ['PROPOSAL_SOURCE_STALE','PROPOSAL_SOURCE_BINDING_CHANGED','PROPOSAL_SOURCE_UNSAFE'].includes(error.code) ? 'stale' : 'unknown';
+          sourceFreshness = isProposalSourceStale(error) ? 'stale' : 'unknown';
         }
         this.open(signal);
         return this.readTx(() => {
@@ -147,9 +149,8 @@ export class ProposalHostService {
           const head = this.native.getSet(revision.workspaceId, revision.proposalId);
           if (!head) fail('PROPOSAL_CORRUPT');
           return buildProposalDiff(current, ref => {
-            const page = this.native.ports.blobs.read(ref, { offset: 0, limit: Math.max(1, Math.min(ref.bytes, 65_536)) });
-            if (page.nextOffset !== null) fail('PROPOSAL_DIFF_BODY_LIMIT');
-            return Buffer.from(page.bytes).toString('utf8');
+            if (ref.bytes > PROPOSAL_DIFF_LIMITS.bytes) fail('PROPOSAL_DIFF_BODY_LIMIT');
+            return this.readBlobText(ref);
           }, { ...options, sourceFreshness, proposalStatus: head.status });
         });
       })());

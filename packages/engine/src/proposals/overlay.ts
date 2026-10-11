@@ -23,7 +23,10 @@ import type {
   ProposalSelection,
   ProposalSet,
 } from "./types.js";
-import type { ProposalSourceManifest } from "./source-capture.js";
+import {
+  isProposalSourceStale,
+  type ProposalSourceManifest,
+} from "./source-capture.js";
 
 export const PROPOSAL_OVERLAY_PREFIX =
   "[Moodcode pending proposal overlay v1]\n";
@@ -32,6 +35,11 @@ export const PROPOSAL_CONTEXT_LIMITS = Object.freeze({
   slotBytes: 32768,
   profiles: 16,
   handles: 256,
+});
+export const PROPOSAL_DIFF_LIMITS = Object.freeze({
+  rows: 64,
+  bytes: 65_536,
+  minBytes: 512,
 });
 export interface ProposalContextProfile {
   readonly id: string;
@@ -298,11 +306,11 @@ function selection(
     fail("PROPOSAL_CONTEXT_STALE");
   return Object.freeze({ set, revision });
 }
-function payload(
-  revision: ProposalRevision,
+function payloadFile(
+  file: ProposalFileEntry,
   read: (ref: ProposalBlobReference) => string,
   empty = false,
-): PayloadProposal {
+): PayloadFile {
   const readBody = (ref: ProposalBlobReference | null): string | null => {
     if (ref === null) return null;
     if (empty) return "";
@@ -318,22 +326,27 @@ function payload(
     return body;
   };
   return Object.freeze({
+    path: file.path,
+    operation: file.operation,
+    beforeSha256: file.before?.sha256 ?? null,
+    afterSha256: file.after?.sha256 ?? null,
+    before: readBody(file.before),
+    after: readBody(file.after),
+  });
+}
+function payload(
+  revision: ProposalRevision,
+  read: (ref: ProposalBlobReference) => string,
+  empty = false,
+): PayloadProposal {
+  return Object.freeze({
     proposalId: revision.proposalId,
     revisionId: revision.id,
     revision: revision.revision,
     revisionSha256: revision.sha256,
     sourceSha256: revision.sourceManifestSha256,
     files: Object.freeze(
-      revision.files.map((file) =>
-        Object.freeze({
-          path: file.path,
-          operation: file.operation,
-          beforeSha256: file.before?.sha256 ?? null,
-          afterSha256: file.after?.sha256 ?? null,
-          before: readBody(file.before),
-          after: readBody(file.after),
-        }),
-      ),
+      revision.files.map((file) => payloadFile(file, read, empty)),
     ),
   });
 }
@@ -438,6 +451,13 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
       request.workspace.root !== binding.root
     )
       fail("PROPOSAL_CONTEXT_STALE");
+  }
+  private assertSelectedCurrent({ request, binding, selected }: Owned): void {
+    this.tx(() => {
+      this.owner(request, binding);
+      for (const value of selected)
+        this.current(request, binding, value.selection);
+    });
   }
   private current(
     request: Omit<ProposalContextRequest, "signal">,
@@ -575,11 +595,9 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
         } catch (error) {
           check(signal);
           if (
+            isProposalSourceStale(error) ||
             (error instanceof EngineError &&
               [
-                "PROPOSAL_SOURCE_STALE",
-                "PROPOSAL_SOURCE_BINDING_CHANGED",
-                "PROPOSAL_SOURCE_UNSAFE",
                 "PROPOSAL_SOURCE_PREIMAGE_MISMATCH",
                 "PROPOSAL_CONTEXT_STALE",
               ].includes(error.code)) ||
@@ -594,11 +612,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
         }
       }
       check(signal);
-      this.tx(() => {
-        this.owner(request, binding);
-        for (const value of selected)
-          this.current(request, binding, value.selection);
-      });
+      this.assertSelectedCurrent({ request, binding, selected });
       const messages = selected.length
           ? [
               message(
@@ -669,11 +683,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
       combined = AbortSignal.any([inputSignal, this.#close.signal]);
     check(combined);
     const task = (async () => {
-      this.tx(() => {
-        this.owner(owned.request, owned.binding);
-        for (const value of owned.selected)
-          this.current(owned.request, owned.binding, value.selection);
-      });
+      this.assertSelectedCurrent(owned);
       for (const value of owned.selected) {
         await this.#ports.assertSourcesCurrent(
           owned.binding,
@@ -684,11 +694,7 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
       }
       this.owned(original);
       check(combined);
-      this.tx(() => {
-        this.owner(owned.request, owned.binding);
-        for (const value of owned.selected)
-          this.current(owned.request, owned.binding, value.selection);
-      });
+      this.assertSelectedCurrent(owned);
     })();
     return trackPending(this.#pending, task);
   }
@@ -746,15 +752,21 @@ export function buildProposalDiff(
   );
   if (typeof readBlobText !== "function") fail();
   const after = count(options.after ?? 0, revision.files.length),
-    limit = count(options.limit ?? 64, 64),
-    maxBytes = count(options.maxBytes ?? 65536, 65536),
+    limit = count(
+      options.limit ?? PROPOSAL_DIFF_LIMITS.rows,
+      PROPOSAL_DIFF_LIMITS.rows,
+    ),
+    maxBytes = count(
+      options.maxBytes ?? PROPOSAL_DIFF_LIMITS.bytes,
+      PROPOSAL_DIFF_LIMITS.bytes,
+    ),
     sourceFreshness = (options.sourceFreshness ?? "unknown") as
       "current" | "stale" | "unknown",
     proposalStatus = (options.proposalStatus ?? "unknown") as
       ProposalSet["status"] | "unknown";
   if (
     !limit ||
-    maxBytes < 512 ||
+    maxBytes < PROPOSAL_DIFF_LIMITS.minBytes ||
     !["current", "stale", "unknown"].includes(sourceFreshness) ||
     ![
       "pending",
@@ -805,14 +817,7 @@ export function buildProposalDiff(
   };
   for (; cursor < revision.files.length && cursor < after + limit; cursor++) {
     const file = revision.files[cursor]!,
-      mock = {
-        path: file.path,
-        operation: file.operation,
-        beforeSha256: file.before?.sha256 ?? null,
-        afterSha256: file.after?.sha256 ?? null,
-        before: file.before === null ? null : "",
-        after: file.after === null ? null : "",
-      };
+      mock = payloadFile(file, readBlobText, true);
     if (
       Buffer.byteLength(
         JSON.stringify({
@@ -831,10 +836,7 @@ export function buildProposalDiff(
       if (!omit(file.path)) break;
       continue;
     }
-    const value = payload(
-      { ...revision, files: [file] } as ProposalRevision,
-      readBlobText,
-    ).files[0]!;
+    const value = payloadFile(file, readBlobText);
     if (
       Buffer.byteLength(
         JSON.stringify({
