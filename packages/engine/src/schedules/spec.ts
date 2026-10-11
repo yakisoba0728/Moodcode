@@ -11,6 +11,7 @@ import {
   validateWorkflowObjectSchema,
   validateWorkflowValue,
 } from "../workflows/spec.js";
+import type { ScheduleTargetProof } from "./journal.js";
 import type {
   ScheduleSpec,
   ScheduleTargetPin,
@@ -90,8 +91,8 @@ export function scheduleSha(input: unknown): string {
 }
 export function scheduleInteger(
   input: unknown,
-  max = Number.MAX_SAFE_INTEGER,
   min = 0,
+  max = Number.MAX_SAFE_INTEGER,
 ): number {
   if (
     typeof input !== "number" ||
@@ -132,6 +133,22 @@ export function validateSchedulePrompt(input: unknown): string {
 /** Validated serialized scope still conveys no runtime owner, time, approval or lease authority. */
 export function validateScheduleTarget(input: unknown): ScheduleTargetPin {
   return validateQueueTarget(input);
+}
+/** The fields a ScheduleTargetProof signs for a pin; producer, host and journal all compare against it. */
+export function scheduleTargetProofBody(
+  workspaceId: string,
+  pin: ScheduleTargetPin,
+): Omit<ScheduleTargetProof, "sha256"> {
+  return {
+    workspaceId,
+    sessionId: pin.sessionId,
+    sourceSha256: pin.workspaceBindingSha256,
+    config: pin.config,
+    configSha256: pin.runConfigSha256,
+    capabilitiesSha256: pin.capabilitiesSha256,
+    catalogueSha256: pin.catalogueSha256,
+    profile: pin.profile,
+  };
 }
 function trigger(input: unknown): ScheduleTrigger {
   const kind = scheduleObject(
@@ -196,9 +213,8 @@ function trigger(input: unknown): ScheduleTrigger {
       "secretReference",
       "bodySchema",
     ]);
-    let bodySchema: ScheduleTrigger & { kind: "webhook" };
     try {
-      bodySchema = {
+      return {
         kind,
         secretReference: externalId(value.secretReference),
         bodySchema: validateWorkflowObjectSchema(value.bodySchema),
@@ -206,7 +222,6 @@ function trigger(input: unknown): ScheduleTrigger {
     } catch {
       return scheduleError("SCHEDULE_WEBHOOK_SCHEMA_INVALID");
     }
-    return bodySchema;
   }
   return scheduleError("SCHEDULE_TRIGGER_INVALID");
 }
@@ -254,12 +269,12 @@ export function validateScheduleSpec(input: unknown): ScheduleSpec {
     trigger: selected,
     misfire: {
       mode: misfire.mode as "skip" | "latest" | "catch-up",
-      graceMs: scheduleInteger(misfire.graceMs, SCHEDULE_LIMITS.graceMs),
+      graceMs: scheduleInteger(misfire.graceMs, 0, SCHEDULE_LIMITS.graceMs),
     },
     concurrency: scheduleInteger(
       value.concurrency,
-      SCHEDULE_LIMITS.concurrency,
       1,
+      SCHEDULE_LIMITS.concurrency,
     ),
   });
   const sha256 = knowledgeHash(definition);

@@ -150,6 +150,18 @@ function candidate(
   };
   return scheduleJson({ ...body, sha256: knowledgeHash(body) });
 }
+function assertSameCandidate(
+  value: Record<string, unknown> | ScheduleOccurrenceCandidate,
+  expected: ScheduleOccurrenceCandidate,
+): void {
+  if (
+    scheduleSha(value.sha256) !== expected.sha256 ||
+    value.occurrenceId !== expected.occurrenceId ||
+    value.inputRequestId !== expected.inputRequestId ||
+    value.dataSha256 !== expected.dataSha256
+  )
+    scheduleError("SCHEDULE_OCCURRENCE_INVALID");
+}
 function validateCandidateData(
   input: unknown,
   spec: Pick<ScheduleSpec, "id" | "sha256">,
@@ -185,13 +197,7 @@ function validateCandidateData(
     scheduleTimestamp(value.scheduledAt),
     data as JsonObject,
   );
-  if (
-    scheduleSha(value.sha256) !== expected.sha256 ||
-    value.occurrenceId !== expected.occurrenceId ||
-    value.inputRequestId !== expected.inputRequestId ||
-    value.dataSha256 !== expected.dataSha256
-  )
-    scheduleError("SCHEDULE_OCCURRENCE_INVALID");
+  assertSameCandidate(value, expected);
   return expected;
 }
 export function validateScheduleOccurrence(
@@ -199,12 +205,11 @@ export function validateScheduleOccurrence(
   originalSpec: ScheduleSpec,
 ): ScheduleOccurrenceCandidate {
   const spec = validateScheduleSpec(originalSpec),
-    value = validateCandidateData(input, spec);
-  const scheduledAt = scheduleTimestamp(value.scheduledAt);
+    value = validateCandidateData(input, spec),
+    scheduledAt = value.scheduledAt;
   if (
     scheduledAt < spec.startsAt ||
-    (spec.endsAt !== null && scheduledAt > spec.endsAt) ||
-    typeof value.triggerKey !== "string"
+    (spec.endsAt !== null && scheduledAt > spec.endsAt)
   )
     scheduleError("SCHEDULE_OCCURRENCE_INVALID");
   let data: JsonObject;
@@ -227,13 +232,7 @@ export function validateScheduleOccurrence(
       scheduleError("SCHEDULE_OCCURRENCE_INVALID");
   }
   const expected = candidate(spec, value.triggerKey, scheduledAt, data);
-  if (
-    scheduleSha(value.sha256) !== expected.sha256 ||
-    value.occurrenceId !== expected.occurrenceId ||
-    value.inputRequestId !== expected.inputRequestId ||
-    value.dataSha256 !== expected.dataSha256
-  )
-    scheduleError("SCHEDULE_OCCURRENCE_INVALID");
+  assertSameCandidate(value, expected);
   return expected;
 }
 export function initialScheduleCursor(
@@ -287,7 +286,7 @@ export function calculateScheduleDue(
         ? initialScheduleCursor(spec)
         : validateScheduleCursor(inputCursor, spec),
     now = scheduleTimestamp(inputNow),
-    limit = scheduleInteger(maxDue, SCHEDULE_LIMITS.due, 1);
+    limit = scheduleInteger(maxDue, 1, SCHEDULE_LIMITS.due);
   const empty = (
     nextCursor: ScheduleDueCursor,
     clockRollback = false,

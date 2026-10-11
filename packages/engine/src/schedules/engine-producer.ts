@@ -20,16 +20,21 @@ import type { ToolCatalogue } from "../tools/runtime/index.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import type { ActualScheduleInputPort } from "./host.js";
 import { scheduleHostError, scheduleHostRecord } from "./host.js";
+import { scheduleInputSha256, scheduleRunSha256 } from "./journal.js";
 import type {
   ScheduleAcceptedInputProof,
-  ScheduleClaimImage,
+  ScheduleDueBatchProof,
   ScheduleInputObservationProof,
   ScheduleStorage,
   ScheduleTargetProof,
   ScheduleTriggerProof,
   SchedulerWorkerProof,
 } from "./store.js";
-import { scheduleIdentifier, scheduleJson } from "./spec.js";
+import {
+  scheduleIdentifier,
+  scheduleJson,
+  scheduleTargetProofBody,
+} from "./spec.js";
 import {
   calculateScheduleDue,
   calculateWebhookOccurrence,
@@ -39,18 +44,29 @@ import type {
   ScheduleSpec,
   ScheduleTargetPin,
   ScheduleOccurrenceCandidate,
-  ScheduleDueBatch,
 } from "./types.js";
 
-interface Target {
+interface TargetBase {
   readonly pin: ScheduleTargetPin;
   readonly proof: ScheduleTargetProof;
   readonly binding: KnowledgeHostBinding;
-  readonly catalogue?: ToolCatalogue;
-  readonly input?: AcceptInput;
-  readonly claim?: object;
-  readonly observation?: object;
 }
+interface SelectedTarget extends TargetBase {
+  readonly kind: "target";
+  readonly catalogue: ToolCatalogue;
+}
+interface InputTarget extends TargetBase {
+  readonly kind: "input";
+  readonly catalogue: ToolCatalogue;
+  readonly input: AcceptInput;
+  readonly claim: object;
+}
+interface ObservationTarget extends TargetBase {
+  readonly kind: "observation";
+  readonly observation: object;
+}
+/** A captured selection, a dispatch input bound to its claim, or an observation of a historical pin. */
+type Target = SelectedTarget | InputTarget | ObservationTarget;
 interface Worker {
   readonly proof: SchedulerWorkerProof;
   readonly binding: KnowledgeHostBinding;
@@ -58,14 +74,6 @@ interface Worker {
 interface Trigger {
   readonly proof: ScheduleTriggerProof;
   readonly observedAt: number;
-}
-interface DueProof {
-  readonly workspaceId: string;
-  readonly scheduleRevisionId: string;
-  readonly scheduleSha256: string;
-  readonly previousCursorSha256: string;
-  readonly batch: ScheduleDueBatch;
-  readonly sha256: string;
 }
 const signed = <T extends object>(body: T): T & { readonly sha256: string } =>
   scheduleJson({ ...body, sha256: knowledgeHash(body) });
@@ -81,7 +89,7 @@ export class EngineScheduleProducer {
   private readonly workers = new WeakMap<object, Worker>();
   private readonly targets = new WeakMap<object, Target>();
   private readonly triggers = new WeakMap<object, Trigger>();
-  private readonly due = new WeakMap<object, DueProof>();
+  private readonly due = new WeakMap<object, ScheduleDueBatchProof>();
   private readonly accepted = new WeakMap<object, ScheduleAcceptedInputProof>();
   private readonly observed = new WeakMap<
     object,
@@ -162,7 +170,7 @@ export class EngineScheduleProducer {
     workspaceId: string,
     sessionId: string,
     config: RunConfig,
-  ): Target {
+  ): SelectedTarget {
     const { pin, binding, catalogue } = describeQueueTarget(
       this.engine,
       (id) => this.binding(id),
@@ -171,17 +179,15 @@ export class EngineScheduleProducer {
       config,
       (change) => scheduleHostError(TARGET_CHANGES[change]),
     );
-    const proof = signed({
-      workspaceId,
-      sessionId,
-      sourceSha256: pin.workspaceBindingSha256,
-      config: pin.config,
-      configSha256: pin.runConfigSha256,
-      capabilitiesSha256: pin.capabilitiesSha256,
-      catalogueSha256: pin.catalogueSha256,
-      profile: pin.profile,
-    });
-    return { pin, proof, binding, catalogue };
+    const proof = signed(scheduleTargetProofBody(workspaceId, pin));
+    return { kind: "target", pin, proof, binding, catalogue };
+  }
+  /** Describes the target afresh and requires it to match the pin. */
+  private current(workspaceId: string, pin: ScheduleTargetPin): SelectedTarget {
+    const target = this.describe(workspaceId, pin.sessionId, pin.config);
+    if (knowledgeHash(target.pin) !== knowledgeHash(pin))
+      scheduleHostError("SCHEDULE_TARGET_STALE");
+    return target;
   }
   captureTarget(input: {
     workspaceId: string;
@@ -238,18 +244,10 @@ export class EngineScheduleProducer {
   }
   private assertTarget(target: Target): void {
     this.assertBinding(target.binding);
-    if (!target.catalogue) scheduleHostError("SCHEDULE_TARGET_STALE");
-    this.engine.toolRuntime.assertCatalogueCurrent(target.catalogue);
-    if (
-      knowledgeHash(
-        this.describe(
-          target.pin.workspaceId,
-          target.pin.sessionId,
-          target.pin.config,
-        ).pin,
-      ) !== knowledgeHash(target.pin)
-    )
+    if (target.kind === "observation")
       scheduleHostError("SCHEDULE_TARGET_STALE");
+    this.engine.toolRuntime.assertCatalogueCurrent(target.catalogue);
+    this.current(target.pin.workspaceId, target.pin);
     this.engine.coordinator.assertWorkspaceCleanupConfirmed(
       target.pin.workspaceId,
     );
@@ -346,12 +344,12 @@ export class EngineScheduleProducer {
       }),
     );
   }
-  readDueBatch(original: object): DueProof {
+  readDueBatch(original: object): ScheduleDueBatchProof {
     return scheduleJson(this.original(this.due, original));
   }
   assertDueBatchCurrent(
     original: object,
-    expected: DueProof,
+    expected: ScheduleDueBatchProof,
     spec: ScheduleSpec,
   ): void {
     const proof = this.original(this.due, original);
@@ -365,16 +363,6 @@ export class EngineScheduleProducer {
       expected.previousCursorSha256 !== knowledgeHash(record.cursor)
     )
       scheduleHostError("SCHEDULE_DUE_STALE");
-  }
-  private fromImage(image: ScheduleClaimImage): Target {
-    const target = this.describe(
-      image.workspaceId,
-      image.target.sessionId,
-      image.target.config,
-    );
-    if (knowledgeHash(target.pin) !== knowledgeHash(image.target))
-      scheduleHostError("SCHEDULE_TARGET_STALE");
-    return target;
   }
   captureInput(
     originalClaim: object,
@@ -398,7 +386,7 @@ export class EngineScheduleProducer {
       data.prompt !== expectedPrompt
     )
       scheduleHostError("SCHEDULE_CLAIM_STALE");
-    const target = this.fromImage(image);
+    const target = this.current(image.workspaceId, image.target);
     const input = normalizeAcceptInput({
       sessionId: image.target.sessionId,
       requestId: data.inputRequestId,
@@ -408,21 +396,24 @@ export class EngineScheduleProducer {
     });
     return this.issue(this.targets, {
       ...target,
+      kind: "input",
       input: scheduleJson(input),
       claim: originalClaim,
     });
   }
-  assertInputCurrent(original: object): void {
+  private inputTarget(original: object): InputTarget {
     const target = this.original(this.targets, original);
-    if (!target.input || !target.claim)
-      scheduleHostError("SCHEDULE_CLAIM_STALE");
+    if (target.kind !== "input") scheduleHostError("SCHEDULE_CLAIM_STALE");
     this.native().assertClaimCurrent(target.claim, "dispatch");
     this.assertTarget(target);
+    return target;
+  }
+  assertInputCurrent(original: object): void {
+    this.inputTarget(original);
   }
   acceptInput(original: object): object {
-    this.assertInputCurrent(original);
-    const target = this.original(this.targets, original),
-      input = target.input!;
+    const target = this.inputTarget(original),
+      input = target.input;
     const receipt = this.engine.scheduler.accept(input),
       stored = this.engine.store.getInput(receipt.inputId);
     if (
@@ -441,6 +432,7 @@ export class EngineScheduleProducer {
     });
     return this.issue(this.accepted, proof);
   }
+  /** The stored request as recorded, attachments included, for a raw comparison with what was sent. */
   private acceptedRequest(input: InputRecord): AcceptInput {
     return {
       sessionId: input.sessionId,
@@ -469,21 +461,12 @@ export class EngineScheduleProducer {
   captureInputObservation(original: object): object {
     const image = this.native().readObservation(original);
     this.native().assertClaimCurrent(original, "observe");
-    this.binding(image.workspaceId);
     // Observation retains historical pins and never requires a dispatch-capable current catalogue.
     const binding = this.binding(image.workspaceId);
     const target: Target = {
+      kind: "observation",
       pin: image.target,
-      proof: signed({
-        workspaceId: image.workspaceId,
-        sessionId: image.target.sessionId,
-        sourceSha256: image.target.workspaceBindingSha256,
-        config: image.target.config,
-        configSha256: image.target.runConfigSha256,
-        capabilitiesSha256: image.target.capabilitiesSha256,
-        catalogueSha256: image.target.catalogueSha256,
-        profile: image.target.profile,
-      }),
+      proof: signed(scheduleTargetProofBody(image.workspaceId, image.target)),
       binding,
       observation: original,
     };
@@ -491,7 +474,8 @@ export class EngineScheduleProducer {
   }
   observeInput(original: object): object {
     const target = this.original(this.targets, original);
-    if (!target.observation) scheduleHostError("SCHEDULE_OBSERVATION_STALE");
+    if (target.kind !== "observation")
+      scheduleHostError("SCHEDULE_OBSERVATION_STALE");
     this.native().assertClaimCurrent(target.observation, "observe");
     this.assertBinding(target.binding);
     const image = this.native().readObservation(target.observation);
@@ -536,20 +520,11 @@ export class EngineScheduleProducer {
       workspaceId: input.workspaceId,
       sessionId: input.sessionId,
       inputId: input.id,
-      inputSha256: knowledgeHash(this.acceptedRequest(input)),
+      inputSha256: scheduleInputSha256(input),
       state: input.state,
       runId: run?.id ?? null,
       runState: run?.state ?? null,
-      runSha256: run
-        ? knowledgeHash({
-            id: run.id,
-            inputId: run.inputId,
-            sessionId: run.sessionId,
-            workspaceId: run.workspaceId,
-            prompt: run.prompt,
-            config: run.config,
-          })
-        : null,
+      runSha256: run ? scheduleRunSha256(run) : null,
       cleanupConfirmed,
       usage,
     });
@@ -562,18 +537,12 @@ export class EngineScheduleProducer {
     const binding = this.native().lookupScheduleInput(input);
     if (!binding) return;
     if (!this.isEnabled()) scheduleHostError("SCHEDULES_DISABLED");
-    const current = this.describe(
+    const current = this.current(binding.target.workspaceId, binding.target);
+    this.engine.toolRuntime.assertCatalogueCurrent(current.catalogue);
+    this.engine.coordinator.assertWorkspaceCleanupConfirmed(
       binding.target.workspaceId,
-      binding.target.sessionId,
-      binding.target.config,
     );
-    if (knowledgeHash(current.pin) !== knowledgeHash(binding.target))
-      scheduleHostError("SCHEDULE_TARGET_STALE");
-    this.assertTarget(current);
-    if (
-      binding.occurrence.state === "paused-import" ||
-      !["accepted", "promoted"].includes(binding.occurrence.state)
-    )
+    if (!["accepted", "promoted"].includes(binding.occurrence.state))
       scheduleHostError("SCHEDULE_ACCEPTANCE_UNCERTAIN");
   }
   /** Recheck after awaited context/lifecycle work, immediately before each actual provider iterator. */

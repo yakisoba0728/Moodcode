@@ -3,8 +3,10 @@ import type { DatabaseSync } from "node:sqlite";
 import {
   EngineError,
   isTerminal,
+  type AcceptInput,
   type InputRecord,
   type JsonObject,
+  type Run,
   type RunConfig,
   type RunState,
 } from "@moodcode/contracts";
@@ -24,7 +26,11 @@ import type {
   ScheduleSpec,
   ScheduleOccurrenceCandidate,
 } from "./types.js";
-import { SCHEDULE_LIMITS, validateScheduleSpec } from "./spec.js";
+import {
+  SCHEDULE_LIMITS,
+  scheduleTargetProofBody,
+  validateScheduleSpec,
+} from "./spec.js";
 import {
   formatScheduleInput,
   validateScheduleOccurrence,
@@ -252,6 +258,29 @@ export function integer(
   )
     fail("SCHEDULE_LIMIT");
   return Number(value);
+}
+function acceptedInput(record: InputRecord): AcceptInput {
+  return normalizeAcceptInput({
+    sessionId: record.sessionId,
+    requestId: record.requestId,
+    prompt: record.prompt,
+    config: record.config,
+    delivery: record.delivery,
+  });
+}
+/** Identity of a scheduled input; the producer's proofs and the journal's audit both use it. */
+export function scheduleInputSha256(record: InputRecord): string {
+  return knowledgeHash(acceptedInput(record));
+}
+export function scheduleRunSha256(run: Run): string {
+  return knowledgeHash({
+    id: run.id,
+    inputId: run.inputId,
+    sessionId: run.sessionId,
+    workspaceId: run.workspaceId,
+    prompt: run.prompt,
+    config: run.config,
+  });
 }
 /** Occurrence transition rules shared by the writer and the semantic auditor. */
 export function observedOccurrenceState(
@@ -783,18 +812,12 @@ export class ScheduleJournal {
     );
   }
   protected target(proof: ScheduleTargetProof, spec: ScheduleSpec): void {
-    digest(proof);
-    const target = spec.target;
+    const { sha256: _sha, ...body } = digest(proof);
     if (
-      proof.workspaceId !== target.workspaceId ||
-      proof.sessionId !== target.sessionId ||
-      proof.sourceSha256 !== target.workspaceBindingSha256 ||
-      proof.capabilitiesSha256 !== target.capabilitiesSha256 ||
-      proof.catalogueSha256 !== target.catalogueSha256 ||
-      proof.configSha256 !== target.runConfigSha256 ||
-      knowledgeHash(proof.config) !== target.runConfigSha256 ||
-      knowledgeHash(proof.config) !== knowledgeHash(target.config) ||
-      knowledgeHash(proof.profile) !== knowledgeHash(target.profile)
+      knowledgeHash(body) !==
+      knowledgeHash(
+        scheduleTargetProofBody(spec.target.workspaceId, spec.target),
+      )
     )
       fail("SCHEDULE_TARGET_STALE");
     const session = this.db
@@ -875,14 +898,8 @@ export class ScheduleJournal {
       )
       .get(String(meta.id), Number(meta.bytes), Number(meta.fingerprint_bytes));
     if (!raw) fail();
-    const record = validateInputRecord(JSON.parse(String(raw.data)));
-    const accepted = normalizeAcceptInput({
-      sessionId: record.sessionId,
-      requestId: record.requestId,
-      prompt: record.prompt,
-      config: record.config,
-      delivery: record.delivery,
-    });
+    const record = validateInputRecord(JSON.parse(String(raw.data))),
+      accepted = acceptedInput(record);
     if (
       record.id !== meta.id ||
       record.workspaceId !== meta.workspace_id ||
@@ -903,20 +920,13 @@ export class ScheduleJournal {
     return record;
   }
   protected inputProof(record: InputRecord): ScheduleAcceptedInputProof {
-    const accepted = normalizeAcceptInput({
-      sessionId: record.sessionId,
-      requestId: record.requestId,
-      prompt: record.prompt,
-      config: record.config,
-      delivery: record.delivery,
-    });
     return signed({
       workspaceId: record.workspaceId,
       sessionId: record.sessionId,
       inputId: record.id,
       requestId: record.requestId,
       admittedSeq: record.admittedSeq,
-      inputSha256: knowledgeHash(accepted),
+      inputSha256: scheduleInputSha256(record),
     });
   }
   protected observation(
@@ -965,7 +975,7 @@ export class ScheduleJournal {
       proof.inputId !== record.id ||
       proof.workspaceId !== record.workspaceId ||
       proof.sessionId !== record.sessionId ||
-      proof.inputSha256 !== this.inputProof(record).inputSha256 ||
+      proof.inputSha256 !== scheduleInputSha256(record) ||
       ((!historical || proof.state !== "pending") &&
         proof.state !== record.state) ||
       ((!historical || proof.runId !== null) &&
@@ -994,7 +1004,7 @@ export class ScheduleJournal {
       )
       .get(proof.runId, Number(meta.bytes));
     if (!row) fail();
-    const run = JSON.parse(String(row.data)) as Record<string, unknown>;
+    const run = JSON.parse(String(row.data)) as Run;
     if (
       meta.session_id !== record.sessionId ||
       meta.workspace_id !== record.workspaceId ||
@@ -1004,15 +1014,7 @@ export class ScheduleJournal {
       ((!historical ||
         (proof.runState !== null && isTerminal(proof.runState as RunState))) &&
         proof.runState !== run.state) ||
-      proof.runSha256 !==
-        knowledgeHash({
-          id: run.id,
-          inputId: run.inputId,
-          sessionId: run.sessionId,
-          workspaceId: run.workspaceId,
-          prompt: run.prompt,
-          config: run.config,
-        }) ||
+      proof.runSha256 !== scheduleRunSha256(run) ||
       run.prompt !== record.prompt ||
       knowledgeHash(run.config) !== knowledgeHash(record.config)
     )

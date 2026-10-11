@@ -86,7 +86,7 @@ export class ScheduleDispatcher {
   }): void {
     scheduleIdentifier(input.workspaceId);
     scheduleIdentifier(input.requestId);
-    scheduleInteger(input.expectedRevision, Number.MAX_SAFE_INTEGER, 1);
+    scheduleInteger(input.expectedRevision, 1);
   }
   private request(
     operation: "dispatch" | "observe",

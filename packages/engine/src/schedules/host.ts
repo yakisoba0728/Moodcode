@@ -8,6 +8,7 @@ import {
   scheduleInteger,
   scheduleJson,
   scheduleSha,
+  scheduleTargetProofBody,
   validateScheduleTarget,
 } from "./spec.js";
 import type { ScheduleClaimImage, ScheduleTargetProof } from "./store.js";
@@ -112,7 +113,7 @@ export class ScheduleHost {
       image.inputRequestId,
     ])
       scheduleIdentifier(id);
-    scheduleInteger(image.occurrenceRevision, Number.MAX_SAFE_INTEGER, 1);
+    scheduleInteger(image.occurrenceRevision, 1);
     for (const digest of [
       image.scheduleSha256,
       image.occurrenceSha256,
@@ -135,21 +136,13 @@ export class ScheduleHost {
     return image;
   }
   private assertTarget(image: ScheduleClaimImage, original: object): void {
-    const actual = scheduleJson(this.ports.input.readTarget(original));
-    const expected = {
-      workspaceId: image.workspaceId,
-      sessionId: image.target.sessionId,
-      sourceSha256: image.target.workspaceBindingSha256,
-      config: image.target.config,
-      configSha256: image.target.runConfigSha256,
-      capabilitiesSha256: image.target.capabilitiesSha256,
-      catalogueSha256: image.target.catalogueSha256,
-      profile: image.target.profile,
-    };
-    const { sha256, ...body } = actual;
+    const { sha256, ...body } = scheduleJson(
+      this.ports.input.readTarget(original),
+    );
     if (
       scheduleSha(sha256) !== knowledgeHash(body) ||
-      knowledgeHash(body) !== knowledgeHash(expected)
+      knowledgeHash(body) !==
+        knowledgeHash(scheduleTargetProofBody(image.workspaceId, image.target))
     )
       scheduleHostError("SCHEDULE_TARGET_STALE");
   }
