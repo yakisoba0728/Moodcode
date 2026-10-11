@@ -144,6 +144,17 @@ test('oversized/deep opaque replay and message accessors are bounded and rejecte
   assert.throws(() => projectMediaHistory(snapshot([getter]), { policy }), errorCode('IMAGE_HISTORY_INVALID_SOURCE')); assert.equal(invoked, 0);
 });
 
+test('hidden or proxied replay data and proxied messages are rejected without traps', () => {
+  let traps = 0;
+  const hidden = Object.defineProperty({ providerId: 'fixture', items: [] }, 'hidden', { value: 'not JSON-visible', enumerable: false });
+  const proxy = new Proxy({ providerId: 'fixture', items: [] }, { ownKeys(target) { traps++; return Reflect.ownKeys(target); }, getPrototypeOf() { traps++; return Object.prototype; } });
+  for (const providerReplay of [hidden, proxy]) assert.throws(() => projectMediaHistory(snapshot([{ ...assistant('native', 'current'), providerReplay } as Message]), { policy }), errorCode('IMAGE_HISTORY_INVALID_SOURCE'));
+  const proxied = snapshot([user('latest', 'current', [ref()])]);
+  proxied.messages[0] = new Proxy(proxied.messages[0]!, { getPrototypeOf() { traps++; return Object.prototype; } });
+  assert.throws(() => projectMediaHistory(proxied, { policy }), errorCode('IMAGE_HISTORY_INVALID_SOURCE'));
+  assert.equal(traps, 0);
+});
+
 test('plain text and empty image lists create no false notice, and enabled policy does not drop messages', () => {
   const source = snapshot([user('goal', 'current', []), assistant('empty', 'current', ''), assistant('latest-complete', 'current')]);
   const result = projectMediaHistory(source, { policy, activeRunId: 'current' }); assert.deepEqual(result.snapshot, source); assert.equal(result.requiredNotice, null);

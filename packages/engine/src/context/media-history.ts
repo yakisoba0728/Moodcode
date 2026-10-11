@@ -1,12 +1,12 @@
-import { EngineError, type InputImageAttachment, type Message, type SessionSnapshot } from '@moodcode/contracts';
+import type { InputImageAttachment, Message, SessionSnapshot } from '@moodcode/contracts';
 import type { ProviderMessage } from '../ports.js';
 import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
 import { isBoundedId } from '../shared/data.js';
-import { entryBytes } from './memory.js';
 import { attachments, DEFAULT_IMAGE_LIMITS, sameAttachment } from '../media/validation.js';
+import { fail, HISTORY_PROJECTION_LIMITS, inspectReplay, provenanceNotice, record, requiredUserAnchors, type ReplayFault } from './history-projection.js';
 
 export const MEDIA_HISTORY_NOTICE_PREFIX = '[Moodcode image history provenance v1]\n';
-export const MEDIA_HISTORY_LIMITS = Object.freeze({ maxSourceMessages: 512, maxMetadataBytes: 16_384, maxReplayNodes: 4096, maxReplayDepth: 32 });
+export const MEDIA_HISTORY_LIMITS = HISTORY_PROJECTION_LIMITS;
 /** Host-only opt-in. These bounds can tighten, never expand, the image transport caps. */
 export interface MediaHistoryPolicy {
   kind: 'reference-only-older-images';
@@ -56,13 +56,8 @@ export interface MediaHistoryProjection {
   requiredExchangeMessageIds: string[];
   diagnostics: MediaHistoryDiagnostics;
 }
-function fail(code: string, message: string): never { throw new EngineError(code, message); }
 function checkAbort(signal?: AbortSignal): void { if (signal?.aborted) fail('CANCELLED', 'Image history projection was cancelled'); }
 function plain(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value) && Object.getPrototypeOf(value) === Object.prototype; }
-function dataRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value) && [Object.prototype, null].includes(Object.getPrototypeOf(value))
-    && Reflect.ownKeys(value).every(key => typeof key === 'string' && Object.getOwnPropertyDescriptor(value, key)?.enumerable && 'value' in Object.getOwnPropertyDescriptor(value, key)!);
-}
 export function validateMediaHistoryPolicy(value: MediaHistoryPolicy): Required<MediaHistoryPolicy> {
   if (!plain(value) || Reflect.ownKeys(value).some(key => typeof key !== 'string' || !['kind', 'version', 'maxImageOccurrences', 'maxImageBytes', 'maxMetadataBytes'].includes(key))
       || Object.values(Object.getOwnPropertyDescriptors(value)).some(item => !('value' in item) || !item.enumerable)
@@ -76,29 +71,18 @@ export function validateMediaHistoryPolicy(value: MediaHistoryPolicy): Required<
   return { kind: 'reference-only-older-images', version: 1, ...limits };
 }
 
+const REPLAY_FAULTS: Record<ReplayFault, [string, string]> = {
+  nodes: ['IMAGE_HISTORY_REPLAY_LIMIT', 'Opaque replay inspection exceeds its bounded metadata limit'],
+  keys: ['IMAGE_HISTORY_REPLAY_LIMIT', 'Opaque replay key count exceeds its bounded metadata limit'],
+  proxy: ['IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay must be plain JSON'],
+  cycle: ['IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay must be acyclic JSON'],
+  prototype: ['IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay must be plain JSON'],
+  accessor: ['IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay cannot contain accessors'],
+  unsupported: ['IMAGE_HISTORY_REPLAY_MEDIA_UNSUPPORTED', 'Media-shaped opaque replay cannot be omitted or counted as imported image history'],
+};
 /** Recognized media-shaped replay is not a text/history image reference and cannot be safely counted here. */
-function inspectReplay(value: unknown, signal?: AbortSignal): void {
-  const pending: { value: unknown; depth: number }[] = [{ value, depth: 0 }], seen = new Set<object>();
-  let visited = 0, entries = 0;
-  while (pending.length) {
-    checkAbort(signal); const current = pending.pop()!;
-    if (++visited > MEDIA_HISTORY_LIMITS.maxReplayNodes || current.depth > MEDIA_HISTORY_LIMITS.maxReplayDepth) fail('IMAGE_HISTORY_REPLAY_LIMIT', 'Opaque replay inspection exceeds its bounded metadata limit');
-    if (current.value === null || typeof current.value !== 'object') continue;
-    if (seen.has(current.value)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay must be acyclic JSON'); seen.add(current.value);
-    if (Object.getPrototypeOf(current.value) !== (Array.isArray(current.value) ? Array.prototype : Object.prototype) && Object.getPrototypeOf(current.value) !== null) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay must be plain JSON');
-    const descriptors = Object.getOwnPropertyDescriptors(current.value), keys = Reflect.ownKeys(current.value);
-    entries += keys.length;
-    if (entries > MEDIA_HISTORY_LIMITS.maxReplayNodes) fail('IMAGE_HISTORY_REPLAY_LIMIT', 'Opaque replay key count exceeds its bounded metadata limit');
-    for (const key of keys) {
-      const descriptor = typeof key === 'string' ? descriptors[key] : undefined;
-      if (!descriptor || !('value' in descriptor)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history replay cannot contain accessors');
-      const child: unknown = descriptor.value;
-      if (key === 'type' && typeof child === 'string' && ['input_image', 'output_image', 'image', 'image_url', 'image_generation_call', 'input_audio', 'output_audio', 'input_video', 'video'].includes(child)
-          || key === 'image_url' || ['mimeType', 'mime_type', 'media_type'].includes(String(key)) && typeof child === 'string' && /^(image|audio|video)\//u.test(child)) fail('IMAGE_HISTORY_REPLAY_MEDIA_UNSUPPORTED', 'Media-shaped opaque replay cannot be omitted or counted as imported image history');
-      if (child !== null && typeof child === 'object') pending.push({ value: child, depth: current.depth + 1 });
-    }
-  }
-}
+const mediaShaped = (key: string, child: unknown) => key === 'type' && typeof child === 'string' && ['input_image', 'output_image', 'image', 'image_url', 'image_generation_call', 'input_audio', 'output_audio', 'input_video', 'video'].includes(child)
+  || key === 'image_url' || ['mimeType', 'mime_type', 'media_type'].includes(key) && typeof child === 'string' && /^(image|audio|video)\//u.test(child);
 
 function latestCompleteExchange(messages: Message[], activeRunId?: string): string[] {
   for (let index = messages.length - 1; index >= 0; index--) {
@@ -129,7 +113,7 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     metadataTokenEstimate: { tokens: 0, source: 'utf8-byte-upper-bound', estimated: true }, imageTokens: null, summarized: false, activeCutoffCreated: false });
   if (options.policy === undefined) return { snapshot: structuredClone(source), requiredNotice: null, provenance: [], requiredTextMessageIds: [], requiredExchangeMessageIds: [], diagnostics: empty() };
   const policy = validateMediaHistoryPolicy(options.policy);
-  if (!dataRecord(source) || !dataRecord(source.session) || !isBoundedId(source.session.id) || !Array.isArray(source.messages) || source.messages.length > MEDIA_HISTORY_LIMITS.maxSourceMessages
+  if (!record(source) || !record(source.session) || !isBoundedId(source.session.id) || !Array.isArray(source.messages) || source.messages.length > MEDIA_HISTORY_LIMITS.maxSourceMessages
       || Reflect.ownKeys(source.messages).length !== source.messages.length + 1) fail('IMAGE_HISTORY_SOURCE_LIMIT', 'Image history requires a bounded dense source snapshot');
   if (options.activeRunId !== undefined && !isBoundedId(options.activeRunId)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history owner identifiers must be bounded');
   const imageRefs = new Map<string, InputImageAttachment[]>(), identities = new Map<string, InputImageAttachment>(), messageIds = new Set<string>();
@@ -139,10 +123,10 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     const descriptor = Object.getOwnPropertyDescriptor(source.messages, String(index));
     if (!descriptor || !('value' in descriptor)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history cannot contain sparse messages or accessors');
     const message: Message = descriptor.value;
-    if (!dataRecord(message) || !isBoundedId(message.id) || !isBoundedId(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messageIds.has(message.id)
+    if (!record(message) || !isBoundedId(message.id) || !isBoundedId(message.runId) || message.sessionId !== source.session.id || !['user', 'assistant', 'tool'].includes(message.role) || typeof message.content !== 'string' || messageIds.has(message.id)
         || message.toolCalls !== undefined && !Array.isArray(message.toolCalls)) fail('IMAGE_HISTORY_INVALID_SOURCE', 'Image history messages must have exact same-session identities');
     messageIds.add(message.id);
-    if (message.providerReplay !== undefined) inspectReplay(message.providerReplay, signal);
+    if (message.providerReplay !== undefined) inspectReplay(message.providerReplay, () => checkAbort(signal), mediaShaped, fault => fail(...REPLAY_FAULTS[fault]));
     if (message.attachments === undefined) continue;
     let refs: InputImageAttachment[];
     try { refs = attachments(message.attachments); } catch { fail('IMAGE_HISTORY_INVALID_REFERENCE', 'Image history contains invalid imported image references'); }
@@ -150,8 +134,7 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
     for (const ref of refs) { const previous = identities.get(ref.id); if (previous && !sameAttachment(previous, ref)) fail('IMAGE_HISTORY_REFERENCE_CONFLICT', 'The same imported image identity has inconsistent historical metadata'); identities.set(ref.id, ref); }
     if (refs.length) { imageRefs.set(message.id, refs); sourceOccurrences += refs.length; }
   }
-  const users = source.messages.filter(message => message.role === 'user'), activeUsers = users.filter(message => options.activeRunId === undefined || message.runId === options.activeRunId);
-  const requiredText = new Set([users[0]?.id, activeUsers[0]?.id, activeUsers.at(-1)?.id].filter((id): id is string => !!id));
+  const requiredText = new Set(requiredUserAnchors(source.messages, options.activeRunId));
   const latestImageId = source.messages.findLast(message => imageRefs.has(message.id))?.id;
   const retained = new Map<string, InputImageAttachment>(); let retainedOccurrences = 0, retainedBytes = 0;
   for (const ref of latestImageId ? imageRefs.get(latestImageId)! : []) { retainedOccurrences++; retainedBytes += ref.bytes; retained.set(ref.id, ref); }
@@ -169,14 +152,12 @@ export function projectMediaHistory(source: SessionSnapshot, options: MediaHisto
   const requiredExchangeMessageIds = latestCompleteExchange(source.messages, options.activeRunId);
   const policySha256 = jsonTextSha256(policy);
   const sourceSha256 = jsonTextSha256(source.messages.map((message, index) => ({ messageId: message.id, runId: message.runId, sessionId: message.sessionId, ordinal: index + 1, contentSha256: sha256Hex(message.content), attachments: imageRefs.get(message.id) ?? [] })));
-  const requiredNotice: ProviderMessage | null = provenance.length ? { role: 'assistant', content: MEDIA_HISTORY_NOTICE_PREFIX + JSON.stringify({
+  const { requiredNotice, noticeBytes, metadataBytes } = provenanceNotice(MEDIA_HISTORY_NOTICE_PREFIX, provenance.length ? {
     version: 1, observationKind: 'quoted-image-provenance', pixelScope: 'historical-message-occurrence',
     pixels: 'pixels unavailable in this request for the listed historical message occurrences; an identical reference may have pixels in a separately retained latest or host-pinned message',
     summarized: false, currentFileEvidence: false, permissionOrInstruction: false, sourceSha256, policySha256, omissions: provenance,
-  }) } : null;
-  const noticeBytes = requiredNotice ? entryBytes(requiredNotice) : 0;
-  const metadataBytes = noticeBytes + Buffer.byteLength(JSON.stringify({ provenance, requiredTextMessageIds: [...requiredText], requiredExchangeMessageIds, policySha256, sourceSha256 }));
-  if (metadataBytes > policy.maxMetadataBytes) fail('IMAGE_HISTORY_METADATA_LIMIT', 'Required image provenance and its model notice cannot fit the explicit metadata budget');
+  } : null, { provenance, requiredTextMessageIds: [...requiredText], requiredExchangeMessageIds, policySha256, sourceSha256 }, policy.maxMetadataBytes,
+  () => fail('IMAGE_HISTORY_METADATA_LIMIT', 'Required image provenance and its model notice cannot fit the explicit metadata budget'));
   checkAbort(signal);
   return { snapshot, requiredNotice, provenance, requiredTextMessageIds: [...requiredText], requiredExchangeMessageIds,
     diagnostics: { enabled: true, policySha256, sourceSha256, sourceImageOccurrences: sourceOccurrences, retainedImageOccurrences: retainedOccurrences,
