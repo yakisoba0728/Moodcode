@@ -5,6 +5,7 @@ import type {
   KnowledgePublicationProvenance,
   KnowledgePublicationReceipt,
   KnowledgePublicationRecord,
+  KnowledgePublicationTable,
   PrepareKnowledgePublication,
   WorkspaceDocumentHead,
   WorkspaceDocumentRevision,
@@ -428,4 +429,20 @@ export function validateKnowledgePublicationArchiveRow(
       "Publication archive key and workspace disagree",
     );
   return r as unknown as KnowledgePublicationArchiveRow;
+}
+export function publicationRow<T>(
+  table: KnowledgePublicationTable,
+  value: unknown,
+  workspaceId?: string,
+): T {
+  const data = immutableKnowledgeJson(value) as unknown as {
+    id: string;
+    workspaceId: string;
+  };
+  return validateKnowledgePublicationArchiveRow({
+    table,
+    key: data.id,
+    workspaceId: workspaceId ?? data.workspaceId,
+    data,
+  }).data as T;
 }

@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { EngineError } from "@moodcode/contracts";
 import {
+  knowledgePublicationProvenance,
   readKnowledgePublicationHistory,
   type KnowledgePublicationHistory,
 } from "./publication-history.js";
@@ -8,9 +9,6 @@ import {
   validateKnowledgePublicationArchiveRow,
   workspaceDocumentHeadId,
 } from "./publication-validation.js";
-import {
-  validateKnowledgeGenerationArchiveRow,
-} from "./generation-validation.js";
 import type {
   KnowledgeGenerationAttempt,
   KnowledgeGenerationRecord,
@@ -28,7 +26,7 @@ import type {
 } from "./types.js";
 import {
   identifier,
-  knowledgeHash,
+  sameKnowledge as same,
   validateKnowledgeArchiveRow,
 } from "./validation.js";
 
@@ -40,6 +38,56 @@ export interface KnowledgeImportDocumentProof {
   readonly receipt: KnowledgePublicationReceipt;
   readonly history: KnowledgePublicationHistory;
   readonly currentTrust: TrustRevision | null;
+}
+
+export function assertImportedDocumentChain(
+  chain: Omit<KnowledgeImportDocumentProof, "currentTrust">,
+  documentKey: string,
+  fail: () => never,
+): void {
+  const { head, document, publication, receipt, history } = chain,
+    provenance = knowledgePublicationProvenance(history);
+  if (
+    head.documentKey !== documentKey ||
+    document.documentKey !== documentKey ||
+    head.revisionId !== document.id ||
+    head.revision !== document.revision ||
+    head.status !== document.status ||
+    head.status !== "active" ||
+    head.publicationId !== publication.id ||
+    document.publicationId !== publication.id ||
+    head.bodySha256 !== document.bodySha256 ||
+    head.updatedAt !== document.createdAt ||
+    publication.state !== "completed" ||
+    publication.operation !== "publish" ||
+    document.status !== "active" ||
+    publication.documentRevisionId !== document.id ||
+    publication.documentKey !== documentKey ||
+    publication.body !== document.body ||
+    publication.bodySha256 !== document.bodySha256 ||
+    publication.updatedAt !== document.createdAt ||
+    publication.expectedHeadRevision + 1 !== document.revision ||
+    publication.expectedHeadRevisionId !== document.previousRevisionId ||
+    Date.parse(publication.updatedAt) >= Date.parse(publication.expiresAt) ||
+    receipt.publicationId !== publication.id ||
+    receipt.documentRevisionId !== document.id ||
+    receipt.requestId !== publication.requestId ||
+    receipt.requestSha256 !== publication.requestSha256 ||
+    receipt.operation !== "publish" ||
+    receipt.createdAt !== document.createdAt ||
+    !same(document.binding, history.candidate.binding) ||
+    !same(publication.binding, history.candidate.binding) ||
+    !same(document.provenance, provenance) ||
+    !same(publication.provenance, provenance) ||
+    history.candidate.body !== document.body ||
+    history.candidate.bodySha256 !== document.bodySha256 ||
+    history.candidate.target.kind !== "workspace-document" ||
+    history.candidate.target.key !== documentKey ||
+    history.candidate.target.revision !== publication.expectedHeadRevision ||
+    history.candidate.target.sha256 !== publication.expectedHeadSha256 ||
+    history.candidate.expiresAt !== history.plan.expiresAt
+  )
+    fail();
 }
 
 export function readKnowledgeImportDocumentProof(
@@ -148,19 +196,17 @@ export function readKnowledgeImportDocumentProof(
         }).data as T)
       : undefined;
   };
-  const legacy = <T>(
-    table:
-      | "knowledge_candidates"
-      | "knowledge_generation_plans"
-      | "workspace_trust_revisions",
-    id: string,
-  ): T =>
+  const coreRow = <T>(table: string, id: string): T =>
     validateKnowledgeArchiveRow({
       table,
       key: id,
       workspaceId,
       data: row(table, id),
     }).data as T;
+  const scoped =
+    <T>(table: string) =>
+    (id: string, key: string): T =>
+      (id === workspaceId ? row(table, key) : fail()) as T;
   const head = pub<WorkspaceDocumentHead>(
     "workspace_document_heads",
     workspaceDocumentHeadId(workspaceId, documentKey),
@@ -187,39 +233,13 @@ export function readKnowledgeImportDocumentProof(
   )!;
   const history = readKnowledgePublicationHistory(
     {
-      getCandidate: (id, key) => {
-        if (id !== workspaceId) fail();
-        return legacy<KnowledgeCandidate>("knowledge_candidates", key);
-      },
-      getPlan: (id, key) => {
-        if (id !== workspaceId) fail();
-        return legacy<KnowledgeGenerationPlan>(
-          "knowledge_generation_plans",
-          key,
-        );
-      },
-      getGeneration: (id, key) => {
-        if (id !== workspaceId) fail();
-        return validateKnowledgeGenerationArchiveRow({
-          table: "knowledge_generations",
-          key,
-          workspaceId,
-          data: row("knowledge_generations", key),
-        }).data as KnowledgeGenerationRecord;
-      },
-      getAttempt: (id, key) => {
-        if (id !== workspaceId) fail();
-        return validateKnowledgeGenerationArchiveRow({
-          table: "knowledge_generation_attempts",
-          key,
-          workspaceId,
-          data: row("knowledge_generation_attempts", key),
-        }).data as KnowledgeGenerationAttempt;
-      },
-      getTrustRevision: (id, key) => {
-        if (id !== workspaceId) fail();
-        return legacy<TrustRevision>("workspace_trust_revisions", key);
-      },
+      getCandidate: scoped<KnowledgeCandidate>("knowledge_candidates"),
+      getPlan: scoped<KnowledgeGenerationPlan>("knowledge_generation_plans"),
+      getGeneration: scoped<KnowledgeGenerationRecord>("knowledge_generations"),
+      getAttempt: scoped<KnowledgeGenerationAttempt>(
+        "knowledge_generation_attempts",
+      ),
+      getTrustRevision: scoped<TrustRevision>("workspace_trust_revisions"),
     },
     workspaceId,
     publication.provenance.candidateId,
@@ -238,7 +258,7 @@ export function readKnowledgeImportDocumentProof(
       workspaceId,
       data: rawHead,
     });
-    currentTrust = legacy<TrustRevision>(
+    currentTrust = coreRow<TrustRevision>(
       "workspace_trust_revisions",
       String(rawHead.revisionId),
     );
@@ -249,56 +269,11 @@ export function readKnowledgeImportDocumentProof(
     )
       fail();
   }
-  const p = publication.provenance;
-  if (
-    head.documentKey !== documentKey ||
-    document.documentKey !== documentKey ||
-    head.revisionId !== document.id ||
-    head.revision !== document.revision ||
-    head.status !== document.status ||
-    head.publicationId !== publication.id ||
-    document.publicationId !== publication.id ||
-    head.bodySha256 !== document.bodySha256 ||
-    head.updatedAt !== document.createdAt ||
-    publication.state !== "completed" ||
-    publication.operation !== "publish" ||
-    document.status !== "active" ||
-    publication.documentRevisionId !== document.id ||
-    publication.documentKey !== documentKey ||
-    publication.body !== document.body ||
-    publication.bodySha256 !== document.bodySha256 ||
-    publication.updatedAt !== document.createdAt ||
-    publication.expectedHeadRevision + 1 !== document.revision ||
-    publication.expectedHeadRevisionId !== document.previousRevisionId ||
-    Date.parse(publication.updatedAt) >= Date.parse(publication.expiresAt) ||
-    knowledgeHash(publication.binding) !== knowledgeHash(document.binding) ||
-    knowledgeHash(p) !== knowledgeHash(document.provenance) ||
-    receipt.publicationId !== publication.id ||
-    receipt.documentRevisionId !== document.id ||
-    receipt.requestId !== publication.requestId ||
-    receipt.requestSha256 !== publication.requestSha256 ||
-    receipt.operation !== "publish" ||
-    receipt.createdAt !== document.createdAt ||
-    p.candidateId !== history.candidate.id ||
-    p.candidateSha256 !== history.candidate.sha256 ||
-    p.generationId !== history.generation.id ||
-    p.generationSha256 !== history.generation.sha256 ||
-    p.attemptId !== history.attempt.id ||
-    p.attemptSha256 !== history.attempt.sha256 ||
-    p.planId !== history.plan.id ||
-    p.planSha256 !== history.plan.sha256 ||
-    p.trustRevisionId !== history.trust.id ||
-    p.trustRevisionSha256 !== history.trust.sha256 ||
-    knowledgeHash(document.binding) !==
-      knowledgeHash(history.candidate.binding) ||
-    history.candidate.body !== document.body ||
-    history.candidate.target.kind !== "workspace-document" ||
-    history.candidate.target.key !== documentKey ||
-    history.candidate.target.revision !== publication.expectedHeadRevision ||
-    history.candidate.target.sha256 !== publication.expectedHeadSha256 ||
-    history.candidate.expiresAt !== history.plan.expiresAt
-  )
-    fail();
+  assertImportedDocumentChain(
+    { head, document, publication, receipt, history },
+    documentKey,
+    fail,
+  );
   return Object.freeze({
     head,
     document,

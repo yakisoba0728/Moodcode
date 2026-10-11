@@ -1,6 +1,9 @@
 import { types } from "node:util";
 import { EngineError } from "@moodcode/contracts";
-import type { KnowledgeImportDocumentProof } from "./import-document-proof.js";
+import {
+  assertImportedDocumentChain,
+  type KnowledgeImportDocumentProof,
+} from "./import-document-proof.js";
 import type {
   ImportedKnowledgeDocumentActivation,
   ImportedKnowledgeDocumentProof,
@@ -11,11 +14,8 @@ import type {
   KnowledgeImportRecoveryPreview,
   PrepareKnowledgeImportRecoveryPreview,
 } from "./import-recovery-types.js";
-import {
-  knowledgePublicationProvenance,
-  readKnowledgePublicationHistory,
-} from "./publication-history.js";
-import { validateKnowledgePublicationArchiveRow } from "./publication-validation.js";
+import { readKnowledgePublicationHistory } from "./publication-history.js";
+import { publicationRow } from "./publication-validation.js";
 import type {
   KnowledgeHostBinding,
   KnowledgeSourceManifest,
@@ -216,74 +216,31 @@ export class KnowledgeImportRecoveryService {
       workspaceId,
       candidate.id,
     );
-    const headInput = immutableKnowledgeJson(raw.head),
-      documentInput = immutableKnowledgeJson(raw.document),
-      publicationInput = immutableKnowledgeJson(raw.publication),
-      receiptInput = immutableKnowledgeJson(raw.receipt);
-    const head = validateKnowledgePublicationArchiveRow({
-        table: "workspace_document_heads",
-        key: headInput.id,
+    const head = publicationRow<typeof raw.head>(
+        "workspace_document_heads",
+        raw.head,
         workspaceId,
-        data: headInput,
-      }).data as typeof raw.head,
-      document = validateKnowledgePublicationArchiveRow({
-        table: "workspace_document_revisions",
-        key: documentInput.id,
+      ),
+      document = publicationRow<typeof raw.document>(
+        "workspace_document_revisions",
+        raw.document,
         workspaceId,
-        data: documentInput,
-      }).data as typeof raw.document,
-      publication = validateKnowledgePublicationArchiveRow({
-        table: "knowledge_publications",
-        key: publicationInput.id,
+      ),
+      publication = publicationRow<typeof raw.publication>(
+        "knowledge_publications",
+        raw.publication,
         workspaceId,
-        data: publicationInput,
-      }).data as typeof raw.publication,
-      receipt = validateKnowledgePublicationArchiveRow({
-        table: "knowledge_publication_receipts",
-        key: receiptInput.id,
+      ),
+      receipt = publicationRow<typeof raw.receipt>(
+        "knowledge_publication_receipts",
+        raw.receipt,
         workspaceId,
-        data: receiptInput,
-      }).data as typeof raw.receipt;
-    const provenance = knowledgePublicationProvenance(history);
-    if (
-      head.documentKey !== key ||
-      document.documentKey !== key ||
-      publication.documentKey !== key ||
-      head.status !== "active" ||
-      document.status !== "active" ||
-      publication.operation !== "publish" ||
-      publication.state !== "completed" ||
-      head.revisionId !== document.id ||
-      head.publicationId !== publication.id ||
-      head.revision !== document.revision ||
-      head.bodySha256 !== document.bodySha256 ||
-      publication.documentRevisionId !== document.id ||
-      document.publicationId !== publication.id ||
-      receipt.publicationId !== publication.id ||
-      receipt.documentRevisionId !== document.id ||
-      receipt.requestId !== publication.requestId ||
-      receipt.requestSha256 !== publication.requestSha256 ||
-      receipt.operation !== "publish" ||
-      head.updatedAt !== document.createdAt ||
-      publication.updatedAt !== document.createdAt ||
-      receipt.createdAt !== document.createdAt ||
-      publication.expectedHeadRevision + 1 !== document.revision ||
-      publication.expectedHeadRevisionId !== document.previousRevisionId ||
-      Date.parse(publication.updatedAt) >= Date.parse(publication.expiresAt) ||
-      publication.bodySha256 !== document.bodySha256 ||
-      !same(document.binding, history.candidate.binding) ||
-      !same(publication.binding, history.candidate.binding) ||
-      !same(document.provenance, provenance) ||
-      !same(publication.provenance, provenance) ||
-      history.candidate.target.kind !== "workspace-document" ||
-      history.candidate.target.key !== key ||
-      history.candidate.target.revision !== publication.expectedHeadRevision ||
-      history.candidate.target.sha256 !== publication.expectedHeadSha256 ||
-      document.body !== history.candidate.body ||
-      publication.body !== document.body ||
-      document.bodySha256 !== history.candidate.bodySha256
-    )
-      fail("KNOWLEDGE_IMPORT_EVIDENCE_INVALID");
+      );
+    assertImportedDocumentChain(
+      { head, document, publication, receipt, history },
+      key,
+      () => fail("KNOWLEDGE_IMPORT_EVIDENCE_INVALID"),
+    );
     if (!samePhysicalRoot(document.binding, binding))
       fail("KNOWLEDGE_IMPORT_RELOCATION_UNSUPPORTED");
     const trust = validateTrustRevision(raw.currentTrust);
@@ -315,7 +272,7 @@ export class KnowledgeImportRecoveryService {
         publicationSha256: publication.sha256,
         receiptId: receipt.id,
         receiptSha256: receipt.sha256,
-        provenanceSha256: knowledgeHash(provenance),
+        provenanceSha256: knowledgeHash(publication.provenance),
         sourceManifestSha256: knowledgeHash(history.candidate.source),
         originalBinding: document.binding,
         currentTrustId: trust.id,
@@ -452,7 +409,7 @@ export class KnowledgeImportRecoveryService {
       fail("KNOWLEDGE_IMPORT_PREVIEW_INVALID");
     return state;
   }
-  /** Called only by native commit inside its actual transaction, using the private original native preview. */
+  /** Fences a commit: apply() calls it before native commit, and native commit calls it again inside its write transaction. Requires the private original native preview registered in #commits. */
   assertCommitCurrent(preview: KnowledgeImportRecoveryPreview): void {
     const commit = this.#commits.get(preview);
     if (!commit || commit.state.native !== preview)
@@ -535,23 +492,22 @@ export class KnowledgeImportRecoveryService {
         approved: true as const,
         reason: request.reason,
       };
+      const sameRequest = (decision?: KnowledgeImportRecoveryDecision) =>
+        decision?.previewSha256 === state.native.sha256 &&
+        decision.operation === operation &&
+        decision.reason === request.reason;
+      const committed = (duplicate: boolean) =>
+        Object.freeze({
+          ...this.#ports.native.commit(state.native, nativeInput),
+          duplicate,
+        });
       const prior = this.#ports.native.findRequest(
         request.workspaceId,
         request.requestId,
       );
       if (prior) {
-        if (
-          prior.previewSha256 !== state.native.sha256 ||
-          prior.operation !== operation ||
-          prior.reason !== request.reason
-        )
-          fail("KNOWLEDGE_IMPORT_REQUEST_CONFLICT");
-        return Promise.resolve(
-          Object.freeze({
-            ...this.#ports.native.commit(state.native, nativeInput),
-            duplicate: true,
-          }),
-        );
+        if (!sameRequest(prior)) fail("KNOWLEDGE_IMPORT_REQUEST_CONFLICT");
+        return Promise.resolve(committed(true));
       }
       if (state.used) fail("KNOWLEDGE_IMPORT_PREVIEW_USED");
       if (this.#close.signal.aborted) fail("KNOWLEDGE_IMPORT_CLOSED");
@@ -591,12 +547,8 @@ export class KnowledgeImportRecoveryService {
               });
               try {
                 this.assertCommitCurrent(state.native);
-                const committed = this.#ports.native.commit(
-                  state.native,
-                  nativeInput,
-                );
                 // Cancellation after this original commit cannot erase an observed receipt.
-                return Object.freeze({ ...committed, duplicate: false });
+                return committed(false);
               } finally {
                 this.#commits.delete(state.native);
               }
@@ -628,15 +580,7 @@ export class KnowledgeImportRecoveryService {
             request.workspaceId,
             request.requestId,
           );
-          if (
-            observed?.previewSha256 === state.native.sha256 &&
-            observed.operation === operation &&
-            observed.reason === request.reason
-          )
-            return Object.freeze({
-              ...this.#ports.native.commit(state.native, nativeInput),
-              duplicate: false,
-            });
+          if (sameRequest(observed)) return committed(false);
           throw error;
         })
         .finally(() => linked.removeEventListener("abort", interrupted));

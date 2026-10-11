@@ -6,15 +6,11 @@ import {
   type KnowledgePublicationHistory,
   type KnowledgePublicationHistoryPorts,
 } from "./publication-history.js";
-import {
-  MAX_APPROVAL_MS,
-  validateKnowledgePublicationArchiveRow,
-} from "./publication-validation.js";
+import { MAX_APPROVAL_MS, publicationRow } from "./publication-validation.js";
 import type {
   KnowledgePublicationCapture,
   KnowledgePublicationCommitResult,
   KnowledgePublicationRecord,
-  KnowledgePublicationTable,
   PrepareKnowledgePublication,
   PrepareKnowledgePublicationResult,
   WorkspaceDocumentHead,
@@ -171,21 +167,6 @@ function hostInput(
     "Publication input must be plain data",
     "Publication input fields contain unsupported values",
   );
-}
-function publicationRow<T>(
-  table: KnowledgePublicationTable,
-  value: unknown,
-): T {
-  const data = immutableKnowledgeJson(value) as unknown as {
-    id: string;
-    workspaceId: string;
-  };
-  return validateKnowledgePublicationArchiveRow({
-    table,
-    key: data.id,
-    workspaceId: data.workspaceId,
-    data,
-  }).data as T;
 }
 function actualSignal(value: unknown): asserts value is AbortSignal {
   assertKnowledgeSignal(
