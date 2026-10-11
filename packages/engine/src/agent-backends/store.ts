@@ -1,6 +1,5 @@
 import { readOwnedCommandJob } from "../jobs/owned-command-records.js";
-import { randomUUID } from "node:crypto";
-import type { DatabaseSync } from "node:sqlite";
+import type { DatabaseSync, SQLInputValue, SQLOutputValue } from "node:sqlite";
 import {
   EngineError,
   type JsonObject,
@@ -11,6 +10,14 @@ import {
   knowledgeHash,
 } from "../knowledge/validation.js";
 import { sha256Hex } from "../shared/canonical.js";
+import { readBoundedBody } from "../storage/evidence-read.js";
+import {
+  assertOnlyChanged,
+  assertRevisionLink,
+  createRevisionJournal,
+  type RevisionJournal,
+  type RevisionJournalProfile,
+} from "../storage/revision-journal.js";
 import type { TurnRequest } from "../ports.js";
 import type {
   AgentBackendSpec,
@@ -281,8 +288,6 @@ export const AGENT_BACKEND_STORAGE_LIMITS = Object.freeze({
   effects: 512,
   outputBytes: 24576,
 });
-type Kind = BackendJournalKind | "transition";
-type Body = AgentBackendRecord | BackendTransitionReceipt;
 interface SignedBackendRevisionInput<T extends AgentBackendRecord> {
   readonly kind: BackendJournalKind;
   readonly entityId: string;
@@ -298,27 +303,6 @@ interface SignedBackendRevisionInput<T extends AgentBackendRecord> {
 interface SignedBackendRevisionPair<T extends AgentBackendRecord> {
   readonly record: T;
   readonly receipt: BackendTransitionReceipt;
-}
-interface Row {
-  id: string;
-  workspace_id: string;
-  kind: Kind;
-  entity_id: string;
-  revision: number;
-  previous_id: string | null;
-  session_id: string | null;
-  run_id: string | null;
-  turn_id: string | null;
-  attempt_id: string | null;
-  tool_id: string | null;
-  connection_id: string | null;
-  owner_epoch: string | null;
-  request_scope: string;
-  request_id: string;
-  request_sha256: string;
-  sha256: string;
-  bytes: number;
-  data: string;
 }
 function fail(code = "BACKEND_DATABASE_INVALID"): never {
   throw new EngineError(
@@ -486,86 +470,90 @@ function backendClock(db: DatabaseSync, now: number): string {
       .get()?.at;
   return typeof last === "string" && last > at ? last : at;
 }
+/** Index columns of a revision row; the receipt row of a backend revision has no session. */
+function revisionColumns(r: AgentBackendRecord, receipt: boolean) {
+  const o = ownerOf(r);
+  return {
+    session_id:
+      o?.sessionId ??
+      (!receipt && r.kind === "backend" ? r.spec.target.sessionId : null),
+    run_id: o?.runId ?? null,
+    turn_id: o?.turnId ?? null,
+    attempt_id: o?.attemptId ?? null,
+    tool_id:
+      r.kind === "client-effect" ? (r.completion?.toolCallId ?? null) : null,
+    connection_id: r.kind === "backend" ? null : r.connectionId,
+    owner_epoch: o?.ownerEpoch ?? null,
+  };
+}
+const BACKEND_JOURNAL: RevisionJournalProfile<
+  BackendJournalKind,
+  AgentBackendRecord
+> = {
+  revisions: "backend_revisions",
+  heads: "backend_heads",
+  columns: [
+    "session_id",
+    "run_id",
+    "turn_id",
+    "attempt_id",
+    "tool_id",
+    "connection_id",
+    "owner_epoch",
+  ],
+  limits: {
+    rowBytes: AGENT_BACKEND_STORAGE_LIMITS.rowBytes,
+    rows: AGENT_BACKEND_STORAGE_LIMITS.rows,
+    bytes: AGENT_BACKEND_STORAGE_LIMITS.bytes,
+    kinds: {
+      backend: AGENT_BACKEND_STORAGE_LIMITS.backends,
+      connection: AGENT_BACKEND_STORAGE_LIMITS.connections,
+      request: AGENT_BACKEND_STORAGE_LIMITS.requests,
+      "client-effect": AGENT_BACKEND_STORAGE_LIMITS.effects,
+    },
+  },
+  index: revisionColumns,
+  scope(kind, entityId, operation) {
+    const record = `${kind}:${entityId}:${operation}`;
+    return { record, receipt: `receipt:${record}` };
+  },
+  receiptPrevious: () => null,
+  identifier: id,
+  sealed: digest,
+  verify(record, db) {
+    validateBody(record);
+    validateOwnerSql(db, record);
+  },
+  fail,
+  codes: {
+    limit: "BACKEND_LIMIT",
+    revisionConflict: "BACKEND_REVISION_CONFLICT",
+    requestConflict: "BACKEND_REQUEST_CONFLICT",
+  },
+};
+type BackendJournal = RevisionJournal<
+  BackendJournalKind,
+  AgentBackendRecord,
+  BackendTransitionReceipt
+>;
+function backendJournal(db: DatabaseSync): BackendJournal {
+  return createRevisionJournal<
+    BackendJournalKind,
+    AgentBackendRecord,
+    BackendTransitionReceipt
+  >(db, BACKEND_JOURNAL);
+}
 /** Native SQLite owns history; all live execution authorization remains in ORIGINAL Root producers. */
 export class AgentBackendStorage {
+  private readonly journal: BackendJournal;
   constructor(
     readonly db: DatabaseSync,
     private readonly ports: AgentBackendStoragePorts,
-  ) {}
+  ) {
+    this.journal = backendJournal(db);
+  }
   private time(): string {
     return backendClock(this.db, this.ports.now?.() ?? Date.now());
-  }
-  private row(ws: string, rid: string): Row | undefined {
-    const h = this.db
-      .prepare(
-        "SELECT id,workspace_id,kind,entity_id,revision,previous_id,session_id,run_id,turn_id,attempt_id,tool_id,connection_id,owner_epoch,request_scope,request_id,request_sha256,sha256,length(CAST(data AS BLOB)) bytes FROM backend_revisions WHERE workspace_id=? AND id=?",
-      )
-      .get(id(ws), id(rid)) as unknown as Row | undefined;
-    if (!h) return;
-    if (integer(h.bytes) > AGENT_BACKEND_STORAGE_LIMITS.rowBytes)
-      fail("BACKEND_LIMIT");
-    const b = this.db
-      .prepare(
-        "SELECT data FROM backend_revisions WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(ws, rid, h.bytes);
-    if (!b) fail();
-    return { ...h, data: String(b.data) };
-  }
-  private read<T extends Body>(ws: string, rid: string, kind?: Kind): T {
-    const row = this.row(ws, rid);
-    if (!row || (kind && row.kind !== kind)) fail();
-    const b = digest(JSON.parse(row.data) as Body);
-    if (
-      b.id !== row.id ||
-      b.workspaceId !== row.workspace_id ||
-      (b.kind !== row.kind && row.kind !== "transition") ||
-      b.entityId !== row.entity_id ||
-      b.sha256 !== row.sha256
-    )
-      fail();
-    if (row.kind !== "transition") {
-      const r = b as AgentBackendRecord;
-      if (r.revision !== row.revision || r.previousId !== row.previous_id)
-        fail();
-      validateBody(r);
-      validateOwnerSql(this.db, r);
-    } else {
-      const r = b as BackendTransitionReceipt;
-      if (
-        r.requestId !== row.request_id ||
-        r.requestSha256 !== row.request_sha256 ||
-        knowledgeHash(r.requestInput) !== r.requestSha256
-      )
-        fail();
-    }
-    return b as T;
-  }
-  private head<T extends AgentBackendRecord>(
-    ws: string,
-    kind: BackendJournalKind,
-    eid: string,
-  ): T | undefined {
-    const h = this.db
-      .prepare(
-        "SELECT revision_id,revision,sha256 FROM backend_heads WHERE workspace_id=? AND kind=? AND entity_id=?",
-      )
-      .get(id(ws), kind, id(eid));
-    if (!h) return;
-    const r = this.read<T>(ws, String(h.revision_id), kind);
-    if (
-      r.entityId !== eid ||
-      r.revision !== h.revision ||
-      r.sha256 !== h.sha256
-    )
-      fail();
-    const max = this.db
-      .prepare(
-        "SELECT max(revision) revision FROM backend_revisions WHERE workspace_id=? AND kind=? AND entity_id=?",
-      )
-      .get(ws, kind, eid);
-    if (max?.revision !== r.revision) fail();
-    return r;
   }
   private get<T extends AgentBackendRecord>(
     ws: string,
@@ -573,8 +561,8 @@ export class AgentBackendStorage {
     eid: string,
     revisionId?: string,
   ): T | undefined {
-    if (!revisionId) return this.head<T>(ws, kind, eid);
-    const r = this.read<T>(ws, id(revisionId), kind);
+    if (!revisionId) return this.journal.head<T>(ws, kind, eid);
+    const r = this.journal.read<T>(ws, revisionId, kind);
     if (r.entityId !== eid) fail();
     return r;
   }
@@ -625,64 +613,45 @@ export class AgentBackendStorage {
     ws: string,
     effectId: string,
   ): BackendClientEffectRevision | undefined {
-    return this.head(ws, "client-effect", effectId);
-  }
-  private list<T extends AgentBackendRecord>(
-    ws: string,
-    kind: BackendJournalKind,
-    max: number,
-  ): T[] {
-    const hs = this.db
-      .prepare(
-        "SELECT entity_id FROM backend_heads WHERE workspace_id=? AND kind=? ORDER BY entity_id LIMIT ?",
-      )
-      .all(id(ws), kind, max + 1);
-    if (hs.length > max) fail("BACKEND_LIMIT");
-    return hs.map((h) => this.head<T>(ws, kind, String(h.entity_id))!);
+    return this.journal.head(ws, "client-effect", effectId);
   }
   inspectBackends(ws: string): AgentBackendRevision[] {
-    return this.list(ws, "backend", AGENT_BACKEND_STORAGE_LIMITS.backends);
+    return this.journal.list(
+      ws,
+      "backend",
+      AGENT_BACKEND_STORAGE_LIMITS.backends,
+    );
   }
   inspectConnections(ws: string): BackendConnectionRevision[] {
-    return this.list(
+    return this.journal.list(
       ws,
       "connection",
       AGENT_BACKEND_STORAGE_LIMITS.connections,
     );
   }
   inspectRequests(ws: string): BackendRemoteRequest[] {
-    return this.list(ws, "request", AGENT_BACKEND_STORAGE_LIMITS.requests);
+    return this.journal.list(
+      ws,
+      "request",
+      AGENT_BACKEND_STORAGE_LIMITS.requests,
+    );
   }
   inspectClientEffects(ws: string): BackendClientEffectRevision[] {
-    return this.list(ws, "client-effect", AGENT_BACKEND_STORAGE_LIMITS.effects);
+    return this.journal.list(
+      ws,
+      "client-effect",
+      AGENT_BACKEND_STORAGE_LIMITS.effects,
+    );
   }
   private duplicate<T extends AgentBackendRecord>(
     ws: string,
     kind: BackendJournalKind,
     eid: string,
     op: string,
-    input: object,
+    input: BackendMutationInput,
   ): BackendRequestResult<T> | undefined {
-    const x = input as BackendMutationInput,
-      scope = `${kind}:${eid}:${op}`;
-    const h = this.db
-      .prepare(
-        "SELECT id,request_sha256 FROM backend_revisions WHERE workspace_id=? AND kind='transition' AND request_scope=? AND request_id=?",
-      )
-      .get(ws, `receipt:${scope}`, id(x.requestId));
-    if (!h) return;
-    if (h.request_sha256 !== knowledgeHash(input))
-      fail("BACKEND_REQUEST_CONFLICT");
-    const receipt = this.read<BackendTransitionReceipt>(
-      ws,
-      String(h.id),
-      "transition",
-    );
-    return json({
-      record: this.read<T>(ws, receipt.afterRevisionId, kind),
-      receipt,
-      duplicate: true,
-    });
+    const pair = this.journal.replay<T>(ws, kind, eid, op, input);
+    return pair && json({ ...pair, duplicate: true });
   }
   /** Builds the next revision and its receipt under every journal bound, without writing them. */
   private admit<T extends AgentBackendRecord>(
@@ -693,56 +662,26 @@ export class AgentBackendStorage {
     before: T | undefined,
     body: Omit<T, keyof BackendRevisionBase>,
   ): BackendRequestResult<T> {
-    if ((before?.revision ?? 0) !== integer(input.expectedRevision))
-      fail("BACKEND_REVISION_CONFLICT");
-    const max =
-      kind === "backend"
-        ? AGENT_BACKEND_STORAGE_LIMITS.backends
-        : kind === "connection"
-          ? AGENT_BACKEND_STORAGE_LIMITS.connections
-          : kind === "request"
-            ? AGENT_BACKEND_STORAGE_LIMITS.requests
-            : AGENT_BACKEND_STORAGE_LIMITS.effects;
-    if (
-      !before &&
-      Number(
-        this.db
-          .prepare("SELECT count(*) n FROM backend_heads WHERE kind=?")
-          .get(kind)?.n,
-      ) >= max
-    )
-      fail("BACKEND_LIMIT");
-    const total = this.db
-      .prepare(
-        "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM backend_revisions",
-      )
-      .get()!;
-    const rid = randomUUID(),
-      receiptId = randomUUID(),
-      at = this.time();
-    const { record, receipt } = prepareSignedBackendRevision<T>({
+    const pair = this.journal.admit<T>({
       kind,
-      entityId: eid,
-      workspaceId: input.workspaceId,
       before,
-      body,
-      requestInput: input,
-      revisionId: rid,
-      receiptId,
-      operation: op,
-      createdAt: at,
+      expectedRevision: input.expectedRevision,
+      build: (revisionId, receiptId) =>
+        prepareSignedBackendRevision<T>({
+          kind,
+          entityId: eid,
+          workspaceId: input.workspaceId,
+          before,
+          body,
+          requestInput: input,
+          revisionId,
+          receiptId,
+          operation: op,
+          createdAt: this.time(),
+        }),
+      reserve: (record) => administrativeReserve(this.db, record),
     });
-    const reserve = administrativeReserve(this.db, record);
-    if (
-      Number(total.n) + 2 + reserve.rows > AGENT_BACKEND_STORAGE_LIMITS.rows ||
-      Number(total.bytes) +
-        Buffer.byteLength(JSON.stringify(record)) +
-        Buffer.byteLength(JSON.stringify(receipt)) +
-        reserve.bytes >
-        AGENT_BACKEND_STORAGE_LIMITS.bytes
-    )
-      fail("BACKEND_LIMIT");
-    return json({ record, receipt, duplicate: false });
+    return json({ ...pair, duplicate: false });
   }
   private append<T extends AgentBackendRecord>(
     kind: BackendJournalKind,
@@ -752,92 +691,8 @@ export class AgentBackendStorage {
     before: T | undefined,
     body: Omit<T, keyof BackendRevisionBase>,
   ): BackendRequestResult<T> {
-    const admitted = this.admit(kind, eid, op, input, before, body),
-      { record, receipt } = admitted,
-      rid = record.id,
-      receiptId = receipt.id;
-    const owner = ownerOf(record),
-      scope = `${kind}:${eid}:${op}`,
-      connectionId =
-        kind === "connection"
-          ? eid
-          : kind === "request" || kind === "client-effect"
-            ? (record as BackendRemoteRequest).connectionId
-            : null;
-    const toolId =
-      kind === "client-effect"
-        ? ((record as BackendClientEffectRevision).completion?.toolCallId ??
-          null)
-        : null;
-    const insert = this.db.prepare(
-      "INSERT INTO backend_revisions(id,workspace_id,kind,entity_id,revision,previous_id,session_id,run_id,turn_id,attempt_id,tool_id,connection_id,owner_epoch,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-    );
-    insert.run(
-      rid,
-      input.workspaceId,
-      kind,
-      eid,
-      record.revision,
-      record.previousId,
-      owner?.sessionId ??
-        (kind === "backend"
-          ? (record as AgentBackendRevision).spec.target.sessionId
-          : null),
-      owner?.runId ?? null,
-      owner?.turnId ?? null,
-      owner?.attemptId ?? null,
-      toolId,
-      connectionId,
-      owner?.ownerEpoch ?? null,
-      scope,
-      input.requestId,
-      receipt.requestSha256,
-      record.sha256,
-      JSON.stringify(record),
-    );
-    insert.run(
-      receiptId,
-      input.workspaceId,
-      "transition",
-      eid,
-      record.revision,
-      null,
-      owner?.sessionId ?? null,
-      owner?.runId ?? null,
-      owner?.turnId ?? null,
-      owner?.attemptId ?? null,
-      toolId,
-      connectionId,
-      owner?.ownerEpoch ?? null,
-      `receipt:${scope}`,
-      input.requestId,
-      receipt.requestSha256,
-      receipt.sha256,
-      JSON.stringify(receipt),
-    );
-    if (before) {
-      const result = this.db
-        .prepare(
-          "UPDATE backend_heads SET revision_id=?,revision=?,sha256=? WHERE workspace_id=? AND kind=? AND entity_id=? AND revision_id=? AND revision=? AND sha256=?",
-        )
-        .run(
-          rid,
-          record.revision,
-          record.sha256,
-          input.workspaceId,
-          kind,
-          eid,
-          before.id,
-          before.revision,
-          before.sha256,
-        );
-      if (result.changes !== 1) fail("BACKEND_REVISION_CONFLICT");
-    } else
-      this.db
-        .prepare(
-          "INSERT INTO backend_heads(workspace_id,kind,entity_id,revision_id,revision,sha256) VALUES(?,?,?,?,?,?)",
-        )
-        .run(input.workspaceId, kind, eid, rid, record.revision, record.sha256);
+    const admitted = this.admit(kind, eid, op, input, before, body);
+    this.journal.write(admitted, before);
     return admitted;
   }
   private input<T extends BackendMutationInput>(
@@ -2147,13 +2002,15 @@ function validateSessionLoadSourceSql(
       Number(h.bytes) > AGENT_BACKEND_STORAGE_LIMITS.rowBytes
     )
       fail("BACKEND_LOAD_SOURCE_INVALID");
-    const raw = db
-      .prepare(
-        "SELECT data FROM backend_revisions WHERE id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(rid, Number(h.bytes));
-    if (!raw) fail("BACKEND_LOAD_SOURCE_INVALID");
-    const r = json(JSON.parse(String(raw.data))) as unknown as T;
+    const invalid = () => fail("BACKEND_LOAD_SOURCE_INVALID");
+    const raw =
+      readBoundedBody(
+        db,
+        { table: "backend_revisions", where: "id=?", params: [rid] },
+        Number(h.bytes),
+        invalid,
+      ) ?? invalid();
+    const r = json(JSON.parse(raw)) as unknown as T;
     validateBody(r);
     validateOwnerSql(db, r);
     if (
@@ -2558,27 +2415,64 @@ function validateEffectInput(
       fail("BACKEND_EFFECT_INPUT_INVALID");
   }
 }
+interface SessionEvent {
+  readonly header: Record<string, SQLOutputValue>;
+  readonly event: { readonly payload?: JsonObject };
+}
+/** Bounded `session_events` rows of one type matching `where`, read one body at a time. */
+function* sessionEvents(
+  db: DatabaseSync,
+  type: string,
+  where: string,
+  params: readonly SQLInputValue[],
+): Generator<SessionEvent> {
+  const headers = db
+    .prepare(
+      `SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type=? AND ${where} LIMIT 513`,
+    )
+    .all(type, ...params);
+  if (headers.length > 512) fail("BACKEND_LIMIT");
+  for (const header of headers) {
+    if (Number(header.bytes) > 65536) fail("BACKEND_LIMIT");
+    const raw =
+      readBoundedBody(
+        db,
+        {
+          table: "session_events",
+          where: "session_id=? AND seq=?",
+          params: [header.session_id!, header.seq!],
+        },
+        Number(header.bytes),
+        fail,
+      ) ?? fail();
+    yield { header, event: JSON.parse(raw) };
+  }
+}
+function ownerEvents(
+  db: DatabaseSync,
+  owner: BackendTurnProof,
+  type: string,
+): Generator<SessionEvent> {
+  return sessionEvents(
+    db,
+    type,
+    "session_id=? AND run_id=? AND turn_id=? AND attempt_id=?",
+    [owner.sessionId, owner.runId, owner.turnId, owner.attemptId],
+  );
+}
+function some<T>(items: Iterable<T>, match: (item: T) => boolean): boolean {
+  for (const item of items) if (match(item)) return true;
+  return false;
+}
 function nativePayloads(
   db: DatabaseSync,
   owner: BackendTurnProof,
   type: string,
 ): JsonObject[] {
-  const heads = db
-    .prepare(
-      "SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type=? LIMIT 513",
-    )
-    .all(owner.sessionId, owner.runId, owner.turnId, owner.attemptId, type);
-  if (heads.length > 512) fail("BACKEND_LIMIT");
-  return heads.map((h) => {
-    if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
-    const row = db
-      .prepare(
-        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(owner.sessionId, Number(h.seq), Number(h.bytes));
-    if (!row) fail();
-    return JSON.parse(String(row.data)).payload as JsonObject;
-  });
+  return Array.from(
+    ownerEvents(db, owner, type),
+    (e) => e.event.payload as JsonObject,
+  );
 }
 function validatePermissionSql(
   db: DatabaseSync,
@@ -2893,30 +2787,18 @@ function validateClientEffectSql(
   )
     fail("BACKEND_EFFECT_PART_INVALID");
   if (p.preparedFingerprint !== null) {
-    const policyHeaders = db
-      .prepare(
-        "SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND run_id=? AND turn_id=? AND attempt_id=? AND type='tool.prepared' LIMIT 513",
+    if (
+      !some(
+        ownerEvents(db, e.owner, "tool.prepared"),
+        ({ event }) =>
+          event.payload?.toolCallId === p.toolCallId &&
+          event.payload?.providerToolCallId === p.providerToolCallId &&
+          event.payload?.toolName === clientEffectToolName(e.input) &&
+          event.payload?.inputSha256 === p.inputSha256 &&
+          event.payload?.preparedFingerprint === p.preparedFingerprint,
       )
-      .all(p.sessionId, p.runId, p.turnId, p.attemptId);
-    if (policyHeaders.length > 512) fail("BACKEND_LIMIT");
-    const hasPrepared = policyHeaders.some((h) => {
-      if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
-      const raw = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-        )
-        .get(p.sessionId, Number(h.seq), Number(h.bytes));
-      if (!raw) fail();
-      const event = JSON.parse(String(raw.data));
-      return (
-        event.payload?.toolCallId === p.toolCallId &&
-        event.payload?.providerToolCallId === p.providerToolCallId &&
-        event.payload?.toolName === clientEffectToolName(e.input) &&
-        event.payload?.inputSha256 === p.inputSha256 &&
-        event.payload?.preparedFingerprint === p.preparedFingerprint
-      );
-    });
-    if (!hasPrepared) fail("BACKEND_EFFECT_FINGERPRINT_INVALID");
+    )
+      fail("BACKEND_EFFECT_FINGERPRINT_INVALID");
     const approvals = db
       .prepare("SELECT id FROM approvals WHERE tool_call_id=? LIMIT 17")
       .all(p.toolCallId);
@@ -3307,49 +3189,31 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
     return;
   }
   if (r.kind === "connection") {
-    const headers = db
-      .prepare(
-        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.launch_reserved' AND json_extract(data,'$.payload.ownerSha256')=? AND json_extract(data,'$.payload.launchSha256')=? LIMIT 513",
-      )
-      .all(r.proof.ownerSha256, r.proof.launchSha256);
-    if (headers.length > 512) fail("BACKEND_LIMIT");
-    const anchor = headers.some((h) => {
-      if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
-      const raw = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-        )
-        .get(String(h.session_id), Number(h.seq), Number(h.bytes));
-      if (!raw) fail();
-      const event = JSON.parse(String(raw.data));
-      return (
+    const anchor = some(
+      sessionEvents(
+        db,
+        "backend.launch_reserved",
+        "json_extract(data,'$.payload.ownerSha256')=? AND json_extract(data,'$.payload.launchSha256')=?",
+        [r.proof.ownerSha256, r.proof.launchSha256],
+      ),
+      ({ header, event }) =>
         event.payload?.backendId === r.backendId &&
         event.payload?.backendRevisionId === r.backendRevisionId &&
         event.payload?.ownerSha256 === r.proof.ownerSha256 &&
         event.payload?.launchSha256 === r.proof.launchSha256 &&
-        event.payload?.turnId === h.turn_id &&
-        event.payload?.attemptId === h.attempt_id
-      );
-    });
+        event.payload?.turnId === header.turn_id &&
+        event.payload?.attemptId === header.attempt_id,
+    );
     if (!anchor) fail("BACKEND_CONNECTION_OWNER_INVALID");
-    const admissions = db
-      .prepare(
-        "SELECT session_id,seq,run_id,turn_id,attempt_id,length(CAST(data AS BLOB)) bytes FROM session_events WHERE type='backend.connection_admitted' AND json_extract(data,'$.payload.connectionId')=? AND json_extract(data,'$.payload.ownerSha256')=? LIMIT 513",
-      )
-      .all(r.connectionId, r.proof.ownerSha256);
-    if (admissions.length > 512) fail("BACKEND_LIMIT");
-    const hasAdmission = admissions.some((h) => {
-      if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
-      const raw = db
-        .prepare(
-          "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
-        )
-        .get(String(h.session_id), Number(h.seq), Number(h.bytes));
-      if (!raw) fail();
-      const event = JSON.parse(String(raw.data)),
-        p = event.payload;
-      if (!p) return false;
-      return (
+    const hasAdmission = some(
+      sessionEvents(
+        db,
+        "backend.connection_admitted",
+        "json_extract(data,'$.payload.connectionId')=? AND json_extract(data,'$.payload.ownerSha256')=?",
+        [r.connectionId, r.proof.ownerSha256],
+      ),
+      ({ event: { payload: p } }) =>
+        !!p &&
         p.connectionId === r.connectionId &&
         p.epoch === r.proof.epoch &&
         p.processId === r.proof.processId &&
@@ -3361,9 +3225,8 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
         p.launchSha256 === r.proof.launchSha256 &&
         knowledgeHash(p.clientCapabilities ?? null) ===
           knowledgeHash(r.proof.clientCapabilities ?? null) &&
-        (p.executionMode ?? null) === (r.proof.executionMode ?? null)
-      );
-    });
+        (p.executionMode ?? null) === (r.proof.executionMode ?? null),
+    );
     if (!hasAdmission) fail("BACKEND_CONNECTION_OWNER_INVALID");
   }
   if (r.kind === "request" || r.kind === "client-effect") {
@@ -3373,6 +3236,51 @@ function validateOwnerSql(db: DatabaseSync, r: AgentBackendRecord): void {
       if (r.completion) validateClientEffectSql(db, r, r.completion);
     }
   }
+}
+/** Body keys each operation may change; operations missing here are rejected. */
+const MUTABLE: ReadonlyMap<string, readonly string[]> = new Map([
+  ["register", ["spec", "target", "enabled"]],
+  ["disable", ["enabled"]],
+  ["negotiate", ["capabilities"]],
+  ["load-intent", ["sessionLoad"]],
+  [
+    "load-ready",
+    [
+      "sessionLoad",
+      "state",
+      "receiveOrdinal",
+      "writeOrdinal",
+      "observation",
+      "remoteSessionId",
+    ],
+  ],
+  ["observe", ["state", "receiveOrdinal", "remoteSessionId", "observation"]],
+  ["dispose", ["state", "disposal", "errorCode"]],
+  ["cancel-wire", ["cancellation"]],
+  ["dispatch-intent", ["state"]],
+  ["dispatch", ["state", "dispatch"]],
+  ["settle", ["state", "terminal", "errorCode"]],
+  ["bind-effect", ["executionFrame"]],
+  ["terminal-control", ["controls"]],
+  ["permission", ["permission", "permissionDelivery"]],
+  ["settle-read", ["state", "completion", "errorCode", "delivery"]],
+  ["delivery", ["delivery"]],
+  ["effect-ack", ["delivery"]],
+  ["uncertain", ["state", "errorCode"]],
+  ["recover", ["state", "errorCode"]],
+  ["pause-import", ["state", "errorCode"]],
+]);
+function mutableKeys(
+  before: AgentBackendRecord,
+  op: string,
+): readonly string[] {
+  if (op === "pause-import" && before.kind === "backend") return ["enabled"];
+  const keys = MUTABLE.get(op) ?? fail("BACKEND_TRANSITION_INVALID");
+  return before.kind === "connection" &&
+    ((op === "observe" && before.sessionLoad) ||
+      (op === "dispose" && before.sessionLoad?.state === "dispatching"))
+    ? [...keys, "sessionLoad"]
+    : keys;
 }
 function validateTransition(
   before: AgentBackendRecord | undefined,
@@ -3395,85 +3303,13 @@ function validateTransition(
       fail();
     return;
   }
-  if (
-    before.kind !== after.kind ||
-    before.entityId !== after.entityId ||
-    before.workspaceId !== after.workspaceId ||
-    before.revision + 1 !== after.revision ||
-    after.previousId !== before.id
-  )
-    fail();
-  const left = bodyOf(before) as Record<string, unknown>,
-    right = bodyOf(after) as Record<string, unknown>;
-  const mutable =
-    op === "negotiate"
-      ? ["capabilities"]
-      : op === "load-intent"
-        ? ["sessionLoad"]
-        : op === "load-ready"
-          ? [
-              "sessionLoad",
-              "state",
-              "receiveOrdinal",
-              "writeOrdinal",
-              "observation",
-              "remoteSessionId",
-            ]
-          : op === "cancel-wire"
-            ? ["cancellation"]
-            : op === "register"
-              ? ["spec", "target", "enabled"]
-              : op === "disable" ||
-                  (op === "pause-import" && before.kind === "backend")
-                ? ["enabled"]
-                : op === "observe"
-                  ? [
-                      "state",
-                      "receiveOrdinal",
-                      "remoteSessionId",
-                      "observation",
-                      ...(before.kind === "connection" && before.sessionLoad
-                        ? ["sessionLoad"]
-                        : []),
-                    ]
-                  : op === "dispose"
-                    ? [
-                        "state",
-                        "disposal",
-                        "errorCode",
-                        ...(before.kind === "connection" &&
-                        before.sessionLoad?.state === "dispatching"
-                          ? ["sessionLoad"]
-                          : []),
-                      ]
-                    : op === "dispatch-intent"
-                      ? ["state"]
-                      : op === "dispatch"
-                        ? ["state", "dispatch"]
-                        : op === "settle"
-                          ? ["state", "terminal", "errorCode"]
-                          : op === "bind-effect"
-                            ? ["executionFrame"]
-                            : op === "terminal-control"
-                              ? ["controls"]
-                              : op === "permission"
-                                ? ["permission", "permissionDelivery"]
-                                : op === "settle-read"
-                                  ? [
-                                      "state",
-                                      "completion",
-                                      "errorCode",
-                                      "delivery",
-                                    ]
-                                  : op === "delivery" || op === "effect-ack"
-                                    ? ["delivery"]
-                                    : ["state", "errorCode"];
-  for (const key of Object.keys(left))
-    if (
-      !mutable.includes(key) &&
-      knowledgeHash(left[key]) !== knowledgeHash(right[key])
-    )
-      fail("BACKEND_TRANSITION_INVALID");
+  assertRevisionLink(before, after, fail);
+  assertOnlyChanged(
+    bodyOf(before),
+    bodyOf(after),
+    mutableKeys(before, op),
+    () => fail("BACKEND_TRANSITION_INVALID"),
+  );
   if (
     op === "bind-effect" &&
     before.kind === "client-effect" &&
@@ -3603,8 +3439,11 @@ function validateTransition(
         knowledgeHash(after.cancellation.message))
   )
     fail();
-  if (op === "disable" && after.kind === "backend" && after.enabled) fail();
-  if (op === "pause-import" && after.kind === "backend" && after.enabled)
+  if (
+    (op === "disable" || op === "pause-import") &&
+    after.kind === "backend" &&
+    after.enabled
+  )
     fail();
   if (
     op === "observe" &&
@@ -3667,149 +3506,11 @@ export function validateAgentBackendDatabase(
   db: DatabaseSync,
   options: { check?: () => void } = {},
 ): void {
-  const total = db
-    .prepare(
-      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM backend_revisions",
-    )
-    .get()!;
-  if (
-    Number(total.n) > AGENT_BACKEND_STORAGE_LIMITS.rows ||
-    Number(total.bytes) > AGENT_BACKEND_STORAGE_LIMITS.bytes
-  )
-    fail("BACKEND_LIMIT");
-  const heads = db
-    .prepare(
-      "SELECT workspace_id,kind,entity_id,revision_id,revision,sha256 FROM backend_heads LIMIT 1185",
-    )
-    .all();
-  if (heads.length > 1184) fail("BACKEND_LIMIT");
-  for (const k of [
-    "backend",
-    "connection",
-    "request",
-    "client-effect",
-  ] as const) {
-    const max = k === "backend" ? 32 : k === "connection" ? 64 : 512;
-    if (heads.filter((h) => h.kind === k).length > max) fail("BACKEND_LIMIT");
-  }
-  const rows = db
-    .prepare(
-      "SELECT id,workspace_id,kind,entity_id,revision,previous_id,session_id,run_id,turn_id,attempt_id,tool_id,connection_id,owner_epoch,request_scope,request_id,request_sha256,sha256,length(CAST(data AS BLOB)) bytes FROM backend_revisions ORDER BY kind,workspace_id,entity_id,revision",
-    )
-    .all() as unknown as Row[];
-  const records = new Map<string, AgentBackendRecord>(),
-    receipts = new Map<string, BackendTransitionReceipt>();
-  for (const h of rows) {
-    options.check?.();
-    if (integer(h.bytes) > 65536) fail("BACKEND_LIMIT");
-    const raw = db
-      .prepare(
-        "SELECT data FROM backend_revisions WHERE id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(h.id, h.bytes);
-    if (!raw) fail();
-    const b = digest(JSON.parse(String(raw.data)) as Body);
-    if (
-      b.id !== h.id ||
-      b.workspaceId !== h.workspace_id ||
-      b.entityId !== h.entity_id ||
-      b.sha256 !== h.sha256
-    )
-      fail();
-    if (h.kind === "transition") {
-      const t = b as BackendTransitionReceipt;
-      fields(t, [
-        "id",
-        "workspaceId",
-        "kind",
-        "entityId",
-        "operation",
-        "beforeRevisionId",
-        "afterRevisionId",
-        "afterSha256",
-        "requestId",
-        "requestSha256",
-        "requestInput",
-        "createdAt",
-        "sha256",
-      ]);
-      if (
-        t.requestId !== h.request_id ||
-        t.requestSha256 !== h.request_sha256 ||
-        knowledgeHash(t.requestInput) !== t.requestSha256
-      )
-        fail();
-      receipts.set(h.id, t);
-    } else {
-      const r = b as AgentBackendRecord;
-      if (
-        r.kind !== h.kind ||
-        r.revision !== h.revision ||
-        r.previousId !== h.previous_id
-      )
-        fail();
-      validateBody(r);
-      validateOwnerSql(db, r);
-      const o = ownerOf(r);
-      if (
-        h.session_id !==
-          (o?.sessionId ??
-            (r.kind === "backend" ? r.spec.target.sessionId : null)) ||
-        h.run_id !== (o?.runId ?? null) ||
-        h.turn_id !== (o?.turnId ?? null) ||
-        h.attempt_id !== (o?.attemptId ?? null) ||
-        h.tool_id !==
-          (r.kind === "client-effect"
-            ? (r.completion?.toolCallId ?? null)
-            : null) ||
-        h.connection_id !== (r.kind === "backend" ? null : r.connectionId) ||
-        h.owner_epoch !== (o?.ownerEpoch ?? null)
-      )
-        fail();
-      records.set(h.id, r);
-    }
-  }
-  const headers = new Map(rows.map((h) => [h.id, h]));
-  const maxima = new Map<string, AgentBackendRecord>();
+  const journal = backendJournal(db),
+    graph = journal.scan(options.check),
+    records = graph.records;
   for (const r of records.values()) {
-    const t = receipts.get(r.lastReceiptId);
-    if (
-      !t ||
-      t.afterRevisionId !== r.id ||
-      t.afterSha256 !== r.sha256 ||
-      t.workspaceId !== r.workspaceId ||
-      t.kind !== r.kind ||
-      t.entityId !== r.entityId ||
-      t.beforeRevisionId !== r.previousId ||
-      t.createdAt !== r.createdAt
-    )
-      fail();
-    const header = headers.get(r.id)!,
-      receiptHeader = headers.get(t.id)!;
-    const scope = `${r.kind}:${r.entityId}:${t.operation}`;
-    if (
-      header.request_scope !== scope ||
-      receiptHeader.request_scope !== `receipt:${scope}` ||
-      header.request_id !== t.requestId ||
-      header.request_sha256 !== t.requestSha256 ||
-      receiptHeader.revision !== r.revision ||
-      receiptHeader.previous_id !== null ||
-      t.requestInput.workspaceId !== r.workspaceId ||
-      t.requestInput.requestId !== t.requestId ||
-      t.requestInput.expectedRevision !== r.revision - 1
-    )
-      fail();
-    const expectedOwner = ownerOf(r);
-    if (
-      receiptHeader.session_id !== (expectedOwner?.sessionId ?? null) ||
-      receiptHeader.run_id !== (expectedOwner?.runId ?? null) ||
-      receiptHeader.turn_id !== (expectedOwner?.turnId ?? null) ||
-      receiptHeader.attempt_id !== (expectedOwner?.attemptId ?? null) ||
-      receiptHeader.tool_id !== header.tool_id ||
-      receiptHeader.connection_id !== header.connection_id ||
-      receiptHeader.owner_epoch !== header.owner_epoch
-    )
-      fail();
+    const t = journal.receiptOf(r, graph);
     if (r.kind === "client-effect" && r.controls)
       for (const control of r.controls)
         validateTerminalOutputSql(db, r, control);
@@ -3856,8 +3557,7 @@ export function validateAgentBackendDatabase(
       validatePermissionResponse(r, r.permission, message);
       if (r.permissionDelivery.frameSha256 !== knowledgeHash(message)) fail();
     }
-    const before = r.previousId ? records.get(r.previousId) : undefined;
-    if ((r.previousId && !before) || (!before && r.revision !== 1)) fail();
+    const before = journal.previousOf(r, graph);
     assertBackendTransition(
       r.kind,
       before ? state(before) : null,
@@ -3965,46 +3665,25 @@ export function validateAgentBackendDatabase(
         if (!parent) fail();
       }
     }
-    const key = `${r.workspaceId}\0${r.kind}\0${r.entityId}`,
-      old = maxima.get(key);
-    if (!old || old.revision < r.revision) maxima.set(key, r);
   }
-  if (receipts.size !== records.size || heads.length !== maxima.size) fail();
-  for (const h of heads) {
-    const r = maxima.get(`${h.workspace_id}\0${h.kind}\0${h.entity_id}`);
-    if (
-      !r ||
-      h.revision_id !== r.id ||
-      h.revision !== r.revision ||
-      h.sha256 !== r.sha256
-    )
-      fail();
-  }
+  journal.assertHeads(graph);
 }
 function appendAdministrative(
-  db: DatabaseSync,
+  journal: BackendJournal,
   before: AgentBackendRecord,
   operation: "recover" | "pause-import",
   at: string,
   archiveSha?: string,
 ): void {
-  const budget = db
-    .prepare(
-      "SELECT count(*) n,coalesce(sum(length(CAST(data AS BLOB))),0) bytes FROM backend_revisions",
-    )
-    .get()!;
-  if (Number(budget.n) + 2 > AGENT_BACKEND_STORAGE_LIMITS.rows)
-    fail("BACKEND_LIMIT");
-  const requestId =
+  const input = {
+    workspaceId: before.workspaceId,
+    requestId:
       operation === "recover"
         ? `recover:${before.id}`
         : `import:${archiveSha}:${before.id}`,
-    input = {
-      workspaceId: before.workspaceId,
-      requestId,
-      expectedRevision: before.revision,
-      ...(archiveSha ? { archiveSha256: archiveSha } : {}),
-    };
+    expectedRevision: before.revision,
+    ...(archiveSha ? { archiveSha256: archiveSha } : {}),
+  };
   const body = bodyOf(before) as Record<string, unknown>;
   if (before.kind === "backend") body.enabled = false;
   else {
@@ -4012,114 +3691,23 @@ function appendAdministrative(
     body.errorCode =
       operation === "recover" ? "BACKEND_OWNER_LOST" : "BACKEND_IMPORTED";
   }
-  const rid = randomUUID(),
-    tid = randomUUID();
-  const { record: after, receipt } = prepareSignedBackendRevision({
+  journal.append({
     kind: before.kind,
-    entityId: before.entityId,
-    workspaceId: before.workspaceId,
     before,
-    body: body as Omit<AgentBackendRecord, keyof BackendRevisionBase>,
-    requestInput: input,
-    revisionId: rid,
-    receiptId: tid,
-    operation,
-    createdAt: at,
-  });
-  if (
-    Number(budget.bytes) +
-      Buffer.byteLength(JSON.stringify(after)) +
-      Buffer.byteLength(JSON.stringify(receipt)) >
-    AGENT_BACKEND_STORAGE_LIMITS.bytes
-  )
-    fail("BACKEND_LIMIT");
-  const o = ownerOf(after),
-    cid = after.kind === "backend" ? null : after.connectionId,
-    tool =
-      after.kind === "client-effect"
-        ? (after.completion?.toolCallId ?? null)
-        : null,
-    scope = `${before.kind}:${before.entityId}:${operation}`;
-  const insert = db.prepare(
-    "INSERT INTO backend_revisions(id,workspace_id,kind,entity_id,revision,previous_id,session_id,run_id,turn_id,attempt_id,tool_id,connection_id,owner_epoch,request_scope,request_id,request_sha256,sha256,data) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-  );
-  insert.run(
-    rid,
-    after.workspaceId,
-    after.kind,
-    after.entityId,
-    after.revision,
-    after.previousId,
-    o?.sessionId ??
-      (after.kind === "backend" ? after.spec.target.sessionId : null),
-    o?.runId ?? null,
-    o?.turnId ?? null,
-    o?.attemptId ?? null,
-    tool,
-    cid,
-    o?.ownerEpoch ?? null,
-    scope,
-    requestId,
-    receipt.requestSha256,
-    after.sha256,
-    JSON.stringify(after),
-  );
-  insert.run(
-    tid,
-    after.workspaceId,
-    "transition",
-    after.entityId,
-    after.revision,
-    null,
-    o?.sessionId ?? null,
-    o?.runId ?? null,
-    o?.turnId ?? null,
-    o?.attemptId ?? null,
-    tool,
-    cid,
-    o?.ownerEpoch ?? null,
-    `receipt:${scope}`,
-    requestId,
-    receipt.requestSha256,
-    receipt.sha256,
-    JSON.stringify(receipt),
-  );
-  const cas = db
-    .prepare(
-      "UPDATE backend_heads SET revision_id=?,revision=?,sha256=? WHERE workspace_id=? AND kind=? AND entity_id=? AND revision_id=? AND revision=? AND sha256=?",
-    )
-    .run(
-      rid,
-      after.revision,
-      after.sha256,
-      after.workspaceId,
-      after.kind,
-      after.entityId,
-      before.id,
-      before.revision,
-      before.sha256,
-    );
-  if (cas.changes !== 1) fail("BACKEND_REVISION_CONFLICT");
-}
-function currentBodies(
-  db: DatabaseSync,
-  workspaceId?: string,
-): AgentBackendRecord[] {
-  const hs = db
-    .prepare(
-      `SELECT h.revision_id,length(CAST(r.data AS BLOB)) bytes FROM backend_heads h JOIN backend_revisions r ON r.id=h.revision_id ${workspaceId ? "WHERE h.workspace_id=?" : ""} LIMIT 1185`,
-    )
-    .all(...(workspaceId ? [id(workspaceId)] : []));
-  if (hs.length > 1184) fail("BACKEND_LIMIT");
-  return hs.map((h) => {
-    if (Number(h.bytes) > 65536) fail("BACKEND_LIMIT");
-    const r = db
-      .prepare(
-        "SELECT data FROM backend_revisions WHERE id=? AND length(CAST(data AS BLOB))=?",
-      )
-      .get(String(h.revision_id), Number(h.bytes));
-    if (!r) fail();
-    return digest(JSON.parse(String(r.data)) as AgentBackendRecord);
+    expectedRevision: before.revision,
+    build: (revisionId, receiptId) =>
+      prepareSignedBackendRevision({
+        kind: before.kind,
+        entityId: before.entityId,
+        workspaceId: before.workspaceId,
+        before,
+        body: body as Omit<AgentBackendRecord, keyof BackendRevisionBase>,
+        requestInput: input,
+        revisionId,
+        receiptId,
+        operation,
+        createdAt: at,
+      }),
   });
 }
 export function recoverAgentBackends(
@@ -4127,10 +3715,9 @@ export function recoverAgentBackends(
   at = backendClock(db, Date.now()),
 ): number {
   validateAgentBackendDatabase(db);
-  const records = currentBodies(db).filter((r) =>
-    recoverable(r.kind, state(r)),
-  );
-  for (const r of records) appendAdministrative(db, r, "recover", at);
+  const journal = backendJournal(db),
+    records = journal.current().filter((r) => recoverable(r.kind, state(r)));
+  for (const r of records) appendAdministrative(journal, r, "recover", at);
   return records.length;
 }
 export function markImportedAgentBackendsPaused(
@@ -4140,26 +3727,29 @@ export function markImportedAgentBackendsPaused(
 ): void {
   sha(archiveSha);
   validateAgentBackendDatabase(db);
-  const at = backendClock(db, Date.now());
-  for (const r of currentBodies(db, workspaceId))
+  const at = backendClock(db, Date.now()),
+    journal = backendJournal(db);
+  for (const r of journal.current(workspaceId))
     if (pausable(r.kind, state(r)))
-      appendAdministrative(db, r, "pause-import", at, archiveSha);
+      appendAdministrative(journal, r, "pause-import", at, archiveSha);
 }
 export function hasAgentBackendBlocker(
   db: DatabaseSync,
   workspaceId: string,
 ): boolean {
-  return currentBodies(db, workspaceId).some(
-    (r) =>
-      r.kind !== "backend" &&
-      (r.state === "uncertain" ||
-        (r.state === "paused-import" &&
-          (r.kind === "connection"
-            ? r.disposal?.cleanupConfirmed !== true
-            : r.kind === "request"
-              ? r.terminal === null
-              : r.completion === null ||
-                r.completion.cleanupConfirmed !== true ||
-                r.delivery === null))),
-  );
+  return backendJournal(db)
+    .current(workspaceId)
+    .some(
+      (r) =>
+        r.kind !== "backend" &&
+        (r.state === "uncertain" ||
+          (r.state === "paused-import" &&
+            (r.kind === "connection"
+              ? r.disposal?.cleanupConfirmed !== true
+              : r.kind === "request"
+                ? r.terminal === null
+                : r.completion === null ||
+                  r.completion.cleanupConfirmed !== true ||
+                  r.delivery === null))),
+    );
 }
