@@ -7,6 +7,7 @@ import { verificationHash } from "../verification/types.js";
 import {
   gitSha,
   commitData,
+  commitFields,
   commitJson,
   commitId,
   commitDigest,
@@ -328,14 +329,6 @@ export function validateCommitVerification(
       gitCommitError("GIT_COMMIT_VERIFICATION_INVALID");
   }
 }
-function exactFields(value: object, names: readonly string[]): void {
-  const actual = Object.keys(value);
-  if (
-    actual.length !== names.length ||
-    actual.some((name) => !names.includes(name))
-  )
-    gitCommitError("GIT_COMMIT_RECEIPT_INVALID");
-}
 type GitCommitState = GitCommitReceipt["state"];
 const TRANSITIONS: Readonly<Record<GitCommitState, readonly GitCommitState[]>> =
   {
@@ -363,22 +356,27 @@ const TRANSITIONS: Readonly<Record<GitCommitState, readonly GitCommitState[]>> =
   };
 export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
   const r = commitJson(value) as GitCommitReceipt;
-  exactFields(r, [
-    "version",
-    "id",
-    "revision",
-    "preview",
-    "state",
-    "requestSha256",
-    "outcome",
-    "commitSha",
-    "reconciled",
-    "errorCode",
-    "importArchiveSha256",
-    "createdAt",
-    "updatedAt",
-    "sha256",
-  ]);
+  commitFields(
+    r,
+    [
+      "version",
+      "id",
+      "revision",
+      "preview",
+      "state",
+      "requestSha256",
+      "outcome",
+      "commitSha",
+      "reconciled",
+      "errorCode",
+      "importArchiveSha256",
+      "createdAt",
+      "updatedAt",
+      "sha256",
+    ],
+    true,
+    "GIT_COMMIT_RECEIPT_INVALID",
+  );
   if (
     !r ||
     r.version !== 1 ||
@@ -393,31 +391,36 @@ export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
   commitDigest(sha256);
   if (knowledgeHash(record) !== sha256)
     gitCommitError("GIT_COMMIT_RECEIPT_INVALID");
-  exactFields(r.preview, [
-    "version",
-    "id",
-    "requestId",
-    "workspaceId",
-    "sessionId",
-    "runId",
-    "binding",
-    "ownerEpoch",
-    "repository",
-    "paths",
-    "selection",
-    "entries",
-    "message",
-    "expectedTree",
-    "expectedIndexProjectionSha256",
-    "verification",
-    "verificationRevision",
-    "verificationDocumentSha256",
-    "source",
-    "timeoutMs",
-    "maxOutputBytes",
-    "createdAt",
-    "sha256",
-  ]);
+  commitFields(
+    r.preview,
+    [
+      "version",
+      "id",
+      "requestId",
+      "workspaceId",
+      "sessionId",
+      "runId",
+      "binding",
+      "ownerEpoch",
+      "repository",
+      "paths",
+      "selection",
+      "entries",
+      "message",
+      "expectedTree",
+      "expectedIndexProjectionSha256",
+      "verification",
+      "verificationRevision",
+      "verificationDocumentSha256",
+      "source",
+      "timeoutMs",
+      "maxOutputBytes",
+      "createdAt",
+      "sha256",
+    ],
+    true,
+    "GIT_COMMIT_RECEIPT_INVALID",
+  );
   const p = r.preview,
     { sha256: previewSha, ...preview } = p;
   if (
@@ -425,11 +428,11 @@ export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
     knowledgeHash(preview) !== previewSha ||
     p.id !== r.id ||
     !p.paths.length ||
-    p.paths.length > 64 ||
+    p.paths.length > GIT_COMMIT_LIMITS.paths ||
     new Set(p.paths).size !== p.paths.length ||
     p.paths.length !== p.entries.length ||
     !p.message.endsWith("\n") ||
-    Buffer.byteLength(p.message) > 8192 ||
+    Buffer.byteLength(p.message) > GIT_COMMIT_LIMITS.messageBytes ||
     !p.message.trim()
   )
     gitCommitError("GIT_COMMIT_PREVIEW_INVALID");
@@ -460,27 +463,32 @@ export function validateGitCommitReceipt(value: unknown): GitCommitReceipt {
   commitDigest(p.source.sha256);
   commitDigest(p.expectedIndexProjectionSha256);
   if (r.outcome) {
-    exactFields(r.outcome, [
-      "exitCode",
-      "signal",
-      "cancelled",
-      "timedOut",
-      "cleanupConfirmed",
-      "started",
-      "groupPid",
-      "supervisorPid",
-      "indexAfterSha256",
-      "indexAfterProjectionSha256",
-      "selectedAfter",
-      "stdout",
-      "stderr",
-      "beforeHead",
-      "afterHead",
-      "parent",
-      "tree",
-      "message",
-      "errorCode",
-    ]);
+    commitFields(
+      r.outcome,
+      [
+        "exitCode",
+        "signal",
+        "cancelled",
+        "timedOut",
+        "cleanupConfirmed",
+        "started",
+        "groupPid",
+        "supervisorPid",
+        "indexAfterSha256",
+        "indexAfterProjectionSha256",
+        "selectedAfter",
+        "stdout",
+        "stderr",
+        "beforeHead",
+        "afterHead",
+        "parent",
+        "tree",
+        "message",
+        "errorCode",
+      ],
+      true,
+      "GIT_COMMIT_RECEIPT_INVALID",
+    );
     if (
       [
         r.outcome.cancelled,

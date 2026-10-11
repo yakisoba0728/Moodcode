@@ -17,13 +17,19 @@ import {
   indexProjection,
   indexBeforeUpdate,
   fileBytes,
+  fileSha,
   objectOid,
   inspectCommit,
 } from "./commit-preview.js";
 import { GitCommitStorage } from "./commit-receipts.js";
 import { groupExists } from "../tools/command/process-control.js";
-import { openGitCommitProcess } from "./commit-process.js";
 import {
+  openGitCommitProcess,
+  type OwnedGitProcess,
+} from "./commit-process.js";
+import {
+  commitData,
+  commitFields,
   commitJson,
   commitId,
   commitDigest,
@@ -78,26 +84,23 @@ export class GitCommitHost {
       !["staged", "working-tree"].includes(i.selection) ||
       typeof i.message !== "string" ||
       !i.message.trim() ||
-      Buffer.byteLength(i.message) > 8191
+      Buffer.byteLength(i.message) > GIT_COMMIT_LIMITS.messageBytes - 1
     )
       gitCommitError("INVALID_GIT_COMMIT");
-    const keys = Object.keys(i);
-    if (
-      keys.some(
-        (k) =>
-          ![
-            "sessionId",
-            "requestId",
-            "runId",
-            "paths",
-            "message",
-            "selection",
-            "timeoutMs",
-            "maxOutputBytes",
-          ].includes(k),
-      )
-    )
-      gitCommitError("INVALID_GIT_COMMIT");
+    commitFields(
+      i,
+      [
+        "sessionId",
+        "requestId",
+        "runId",
+        "paths",
+        "message",
+        "selection",
+        "timeoutMs",
+        "maxOutputBytes",
+      ],
+      false,
+    );
     const session = this.ports.store.getSession(i.sessionId);
     return this.tracked(
       this.ports.lease(session.workspaceId, async (signal) => {
@@ -283,12 +286,15 @@ export class GitCommitHost {
     const i = commitJson(input);
     for (const id of [i.workspaceId, i.sessionId, i.requestId]) commitId(id);
     commitDigest(i.previewSha256);
-    if (
-      i.expectedRevision !== 1 ||
-      !["allow", "deny"].includes(i.decision) ||
-      Object.keys(i).sort().join(",") !==
-        "decision,expectedRevision,previewSha256,requestId,sessionId,workspaceId"
-    )
+    commitFields(i, [
+      "workspaceId",
+      "sessionId",
+      "requestId",
+      "previewSha256",
+      "expectedRevision",
+      "decision",
+    ]);
+    if (i.expectedRevision !== 1 || !["allow", "deny"].includes(i.decision))
       gitCommitError("INVALID_GIT_COMMIT");
     const requestSha256 = knowledgeHash(i),
       prior = this.ports.records.get(i.workspaceId, i.sessionId, i.requestId);
@@ -316,9 +322,11 @@ export class GitCommitHost {
       gitCommitError("GIT_COMMIT_PREVIEW_OWNER_INVALID");
     return this.tracked(
       this.ports.lease(i.workspaceId, async (leaseSignal) => {
-        const abort = signal
-          ? AbortSignal.any([signal, leaseSignal, this.ports.lifetime])
-          : AbortSignal.any([leaseSignal, this.ports.lifetime]);
+        const abort = AbortSignal.any([
+          ...(signal ? [signal] : []),
+          leaseSignal,
+          this.ports.lifetime,
+        ]);
         let current = this.ports.records.get(
           i.workspaceId,
           i.sessionId,
@@ -350,11 +358,10 @@ export class GitCommitHost {
           write("cancelled", { errorCode: "CANCELLED" });
           return { kind: "settled" as const, receipt: current };
         }
-        let process:
-          Awaited<ReturnType<typeof openGitCommitProcess>> | undefined;
+        let owned: OwnedGitProcess | undefined;
         try {
           await this.assertCurrent(p, abort);
-          process = await openGitCommitProcess(
+          owned = await openGitCommitProcess(
             p,
             this.ports.executionLockPath,
             this.ports.artifactDir,
@@ -372,20 +379,15 @@ export class GitCommitHost {
             {
               id: p.id,
               previewSha256: p.sha256,
-              supervisorPid: process.supervisorPid,
+              supervisorPid: owned.supervisorPid,
             },
           );
           write("dispatched");
-          const outcome = commitJson(await process.start());
+          const outcome = commitJson(await owned.start());
           this.ports.store.commitGitCommitObservation(
             p.sessionId,
             "git.commit.closed",
-            {
-              id: p.id,
-              previewSha256: p.sha256,
-              outcome:
-                outcome as unknown as import("@moodcode/contracts").JsonObject,
-            },
+            { id: p.id, previewSha256: p.sha256, outcome: commitData(outcome) },
           );
           const matches = this.matches(p, outcome);
           const confirmed =
@@ -415,7 +417,7 @@ export class GitCommitHost {
             },
           );
         } catch (e) {
-          await process?.stopAndJoin();
+          await owned?.stopAndJoin();
           let physicalIdle = false;
           try {
             verifyExecutionIdle(this.ports.executionLockPath);
@@ -476,11 +478,9 @@ export class GitCommitHost {
         knowledgeHash(p.repository)
     )
       gitCommitError("GIT_COMMIT_STALE");
-    for (const e of p.entries) {
-      const b = await fileBytes(p.binding.root, e.path);
-      if ((b === null ? null : gitSha(b)) !== e.fileSha256)
+    for (const e of p.entries)
+      if ((await fileSha(p.binding.root, e.path)) !== e.fileSha256)
         gitCommitError("GIT_COMMIT_STALE");
-    }
     const snapshot = this.ports.plans.get(p.sessionId, p.runId),
       doc = this.ports.store.getSessionDocument(
         p.sessionId,
@@ -580,13 +580,10 @@ export class GitCommitHost {
           indexAfterSha256: repository.indexSha256,
           indexAfterProjectionSha256,
           selectedAfter: await Promise.all(
-            p.entries.map(async (e) => {
-              const bytes = await fileBytes(root, e.path);
-              return {
-                path: e.path,
-                fileSha256: bytes === null ? null : gitSha(bytes),
-              };
-            }),
+            p.entries.map(async (e) => ({
+              path: e.path,
+              fileSha256: await fileSha(root, e.path),
+            })),
           ),
           stdout: "",
           stderr: "",
@@ -603,12 +600,7 @@ export class GitCommitHost {
         this.ports.store.commitGitCommitObservation(
           p.sessionId,
           "git.commit.reconciled",
-          {
-            id: r.id,
-            previewSha256: p.sha256,
-            outcome:
-              outcome as unknown as import("@moodcode/contracts").JsonObject,
-          },
+          { id: r.id, previewSha256: p.sha256, outcome: commitData(outcome) },
         );
         return this.ports.records.write(
           signedCommit({

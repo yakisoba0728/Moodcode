@@ -23,7 +23,6 @@ export const PR_LIMITS = Object.freeze({
   pages: 4,
   checks: 256,
   reviews: 128,
-  textBytes: 2048,
   promptBytes: 32768,
   intervalMs: 1000,
   requests: 2048,

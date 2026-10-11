@@ -7,6 +7,7 @@ import type {
   VerificationSource,
 } from "../verification/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { createCommandEnvironment } from "../shared/runtime.js";
 export const GIT_COMMIT_LIMITS = Object.freeze({
   records: 64,
   recordBytes: 131072,
@@ -206,6 +207,27 @@ export function signedCommit<T extends object>(
   };
 }
 export const commitData = (value: object) => value as unknown as JsonObject;
+/** Rejects keys outside `names`; `exact` also requires every name. */
+export function commitFields(
+  value: object,
+  names: readonly string[],
+  exact = true,
+  code = "INVALID_GIT_COMMIT",
+): void {
+  const actual = Object.keys(value);
+  if (
+    (exact && actual.length !== names.length) ||
+    actual.some((name) => !names.includes(name))
+  )
+    gitCommitError(code);
+}
+/** Inherited Git selectors and config injections could override `-C`. */
+export function gitFreeEnvironment(): NodeJS.ProcessEnv {
+  const env = createCommandEnvironment();
+  for (const key of Object.keys(env))
+    if (key.toUpperCase().startsWith("GIT_")) delete env[key];
+  return env;
+}
 export function commitId(value: unknown): string {
   if (
     typeof value !== "string" ||

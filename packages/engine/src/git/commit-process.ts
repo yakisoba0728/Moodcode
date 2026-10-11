@@ -1,8 +1,8 @@
 import { fork } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { createCommandEnvironment } from "../tools/command/process-control.js";
 import {
   gitCommitError,
+  gitFreeEnvironment,
   type GitCommitPreview,
   type GitCommitOutcome,
 } from "./types.js";
@@ -27,12 +27,9 @@ export async function openGitCommitProcess(
   const execArgv = import.meta.url.endsWith(".ts")
     ? ["--import", fileURLToPath(import.meta.resolve("tsx"))]
     : [];
-  const environment = createCommandEnvironment();
-  for (const key of Object.keys(environment))
-    if (key.toUpperCase().startsWith("GIT_")) delete environment[key];
   const child = fork(module, [], {
     cwd: artifactDir,
-    env: environment,
+    env: gitFreeEnvironment(),
     execArgv,
     stdio: ["ignore", "ignore", "ignore", "ipc"],
   });

@@ -87,6 +87,13 @@ export async function fileBytes(
     gitCommitError("GIT_COMMIT_SOURCE_STALE");
   return bytes;
 }
+export async function fileSha(
+  root: string,
+  path: string,
+): Promise<string | null> {
+  const bytes = await fileBytes(root, path);
+  return bytes === null ? null : gitSha(bytes);
+}
 async function optionalFile(path: string): Promise<string | null> {
   try {
     const st = await lstat(path);

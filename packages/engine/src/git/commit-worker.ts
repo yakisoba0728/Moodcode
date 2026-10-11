@@ -6,21 +6,19 @@ import {
   acquireExecutionLock,
   type ExecutionLock,
 } from "../tools/command/execution-lock.js";
-import {
-  cleanupGroup,
-  groupExists,
-  createCommandEnvironment,
-} from "../tools/command/process-control.js";
+import { cleanupGroup, groupExists } from "../tools/command/process-control.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { NO_AUTO_MAINTENANCE } from "../worktrees/safe-checkout.js";
 import {
   repositoryPin,
   fileBytes,
+  fileSha,
   inspectCommit,
   indexProjection,
 } from "./commit-preview.js";
 import {
   gitSha,
+  gitFreeEnvironment,
   GIT_COMMIT_LIMITS,
   type GitCommitPreview,
   type GitCommitOutcome,
@@ -36,6 +34,7 @@ let input: Input | undefined,
   stopped = false,
   group: number | null = null,
   controller = new AbortController();
+class StaleError extends Error {}
 const send = (message: object) => {
   if (process.connected) process.send?.(message);
 };
@@ -117,17 +116,24 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     errorCode: string | null = null,
     commitPid: number | null = null,
     observedBytes = 0;
+  /** Returns the call's own stdout; `capture` also keeps it out of the outcome. */
   async function git(
     args: string[],
-    stdin?: Buffer,
-    commit = false,
-    realIndex = false,
-  ): Promise<number> {
+    options: {
+      stdin?: Buffer;
+      commit?: boolean;
+      realIndex?: boolean;
+      capture?: boolean;
+    } = {},
+  ): Promise<{ code: number; stdout: string }> {
     if (controller.signal.aborted) throw Error("cancelled");
-    const env = createCommandEnvironment();
-    for (const k of Object.keys(env))
-      if (k.toUpperCase().startsWith("GIT_")) delete env[k];
-    Object.assign(env, {
+    const {
+      stdin,
+      commit = false,
+      realIndex = false,
+      capture = false,
+    } = options;
+    const env = Object.assign(gitFreeEnvironment(), {
       LC_ALL: "C",
       GIT_TERMINAL_PROMPT: "0",
       GIT_PAGER: "cat",
@@ -147,6 +153,7 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
       { env, shell: false, detached: true, stdio: ["pipe", "pipe", "pipe"] },
     );
     let closed = false,
+      own = "",
       stopping: Promise<boolean> | undefined;
     const stop = () => {
       if (!stopping)
@@ -187,8 +194,12 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         stop();
         return;
       }
-      if (stream === "stdout") stdout += b.toString("utf8");
-      else stderr += b.toString("utf8");
+      const text = b.toString("utf8");
+      if (stream === "stderr") stderr += text;
+      else {
+        own += text;
+        if (!capture) stdout += text;
+      }
     };
     child.stdout.on("data", (b: Buffer) => output("stdout", b));
     child.stderr.on("data", (b: Buffer) => output("stderr", b));
@@ -214,33 +225,29 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
     if (child.pid && groupExists(child.pid)) cleanup = false;
     group = null;
     if (cancelled || timedOut || errorCode || !cleanup) throw Error("stopped");
-    return commit ? (exitCode ?? 1) : (child.exitCode ?? 1);
+    return {
+      code: commit ? (exitCode ?? 1) : (child.exitCode ?? 1),
+      stdout: own,
+    };
   }
   async function gitText(args: string[], stdin?: Buffer) {
-    const before = stdout;
-    stdout = "";
-    try {
-      return (await git(args, stdin)) === 0 ? stdout.trim() : null;
-    } finally {
-      stdout = before;
-    }
+    const r = await git(args, { stdin, capture: true });
+    return r.code === 0 ? r.stdout.trim() : null;
   }
   try {
     dir = await mkdtemp(join(i.artifactDir, "git-commit-"));
     const actual = await repositoryPin(root, controller.signal);
     if (knowledgeHash(actual) !== knowledgeHash(p.repository))
-      throw Error("stale");
-    for (const e of p.entries) {
-      const b = await fileBytes(root, e.path);
-      if ((b === null ? null : gitSha(b)) !== e.fileSha256)
-        throw Error("stale");
-    }
-    if ((await git(["read-tree", p.repository.head])) !== 0)
+      throw new StaleError();
+    for (const e of p.entries)
+      if ((await fileSha(root, e.path)) !== e.fileSha256)
+        throw new StaleError();
+    if ((await git(["read-tree", p.repository.head])).code !== 0)
       throw Error("prepare");
     for (const e of p.entries)
       if (p.selection === "working-tree" && e.oid) {
         const b = await fileBytes(root, e.path);
-        if (!b || gitSha(b) !== e.fileSha256) throw Error("stale");
+        if (!b || gitSha(b) !== e.fileSha256) throw new StaleError();
         if (
           (await gitText(
             ["hash-object", "-w", "--stdin", "--no-filters"],
@@ -257,15 +264,18 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         )
         .join(""),
     );
-    if ((await git(["update-index", "-z", "--index-info"], updates)) !== 0)
+    if (
+      (await git(["update-index", "-z", "--index-info"], { stdin: updates }))
+        .code !== 0
+    )
       throw Error("prepare");
     if ((await gitText(["write-tree"])) !== p.expectedTree)
-      throw Error("stale");
+      throw new StaleError();
     if (
       knowledgeHash(await repositoryPin(root, controller.signal)) !==
       knowledgeHash(p.repository)
     )
-      throw Error("stale");
+      throw new StaleError();
     await writeFile(join(dir, "message"), p.message, { mode: 0o600 });
     await git(
       [
@@ -275,8 +285,7 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         "--file",
         join(dir, "message"),
       ],
-      undefined,
-      true,
+      { commit: true },
     );
     if (p.selection === "working-tree") {
       const committed = await inspectCommit(root);
@@ -286,14 +295,14 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         committed.message !== p.message ||
         (await repositoryPin(root)).indexSha256 !== p.repository.indexSha256
       )
-        throw Error("stale");
+        throw new StaleError();
       if (
-        (await git(
-          ["update-index", "-z", "--index-info"],
-          updates,
-          false,
-          true,
-        )) !== 0
+        (
+          await git(["update-index", "-z", "--index-info"], {
+            stdin: updates,
+            realIndex: true,
+          })
+        ).code !== 0
       )
         throw Error("index");
     }
@@ -304,7 +313,7 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
         ? "CANCELLED"
         : started
           ? "GIT_COMMIT_FAILED"
-          : String(e).includes("stale")
+          : e instanceof StaleError
             ? "GIT_COMMIT_STALE"
             : "GIT_COMMIT_PREPARE_FAILED";
   }
@@ -318,13 +327,11 @@ async function execute(i: Input): Promise<GitCommitOutcome> {
   const selectedAfter: { path: string; fileSha256: string | null }[] = [];
   try {
     afterRepository = await repositoryPin(root);
-    for (const e of p.entries) {
-      const bytes = await fileBytes(root, e.path);
+    for (const e of p.entries)
       selectedAfter.push({
         path: e.path,
-        fileSha256: bytes === null ? null : gitSha(bytes),
+        fileSha256: await fileSha(root, e.path),
       });
-    }
   } catch {
     errorCode ??= "GIT_COMMIT_CHECKPOINT_FAILED";
   }
