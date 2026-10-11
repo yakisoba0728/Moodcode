@@ -1,12 +1,6 @@
-import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import {
-  constants,
-  closeSync,
-  fstatSync,
   lstatSync,
-  openSync,
-  readSync,
   realpathSync,
   mkdtempSync,
   mkdirSync,
@@ -20,6 +14,7 @@ import { release, tmpdir } from "node:os";
 import { join, isAbsolute, relative, dirname, resolve } from "node:path";
 import { createServer } from "node:net";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { streamStableFile } from "../shared/fs.js";
 import { GIT_SAFE_ARGS, gitEnvironment } from "../workspace/git.js";
 import {
   sandboxError,
@@ -33,31 +28,14 @@ export function physicalPin(path: string): SandboxPhysicalPin {
   const s = lstatSync(path, { bigint: true });
   if (s.isSymbolicLink() || (!s.isDirectory() && !s.isFile()))
     sandboxError("SANDBOX_SOURCE_STALE");
-  let hash: string | null = null;
-  if (s.isFile()) {
-    if (s.size > 536870912n) sandboxError("SANDBOX_LIMIT");
-    const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-    try {
-      const before = fstatSync(fd, { bigint: true });
-      const digest = createHash("sha256");
-      const b = Buffer.alloc(65536);
-      let n;
-      while ((n = readSync(fd, b, 0, b.length, null)) > 0)
-        digest.update(b.subarray(0, n));
-      const after = fstatSync(fd, { bigint: true });
-      if (
-        before.dev !== after.dev ||
-        before.ino !== after.ino ||
-        before.size !== after.size ||
-        before.mtimeNs !== after.mtimeNs ||
-        s.ino !== before.ino
-      )
-        sandboxError("SANDBOX_SOURCE_STALE");
-      hash = digest.digest("hex");
-    } finally {
-      closeSync(fd);
-    }
-  }
+  const hash = s.isFile()
+    ? streamStableFile(path, s, {
+        maxBytes: 536870912,
+        stable: ["size", "mtime"],
+        onChanged: () => sandboxError("SANDBOX_SOURCE_STALE"),
+        onLimit: () => sandboxError("SANDBOX_LIMIT"),
+      }).sha256
+    : null;
   return {
     path,
     kind: s.isDirectory() ? "directory" : "file",

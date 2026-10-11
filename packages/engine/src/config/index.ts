@@ -1,9 +1,8 @@
-import { constants } from 'node:fs';
-import { lstat, open } from 'node:fs/promises';
-import { dirname, join, parse, relative, resolve, sep } from 'node:path';
+import { resolve } from 'node:path';
 import { EngineError, type EngineBudgets, type RunConfig, type RunLimits } from '@moodcode/contracts';
 import { normalizeRunConfig } from '@moodcode/contracts/validation';
 import { providerURLAllowed } from '../provider/helpers.js';
+import { readBoundedTextFile, type BoundedReadFailure } from '../shared/fs.js';
 
 const MAX_CONFIG_BYTES = 65_536;
 const MAX_PROVIDERS = 64;
@@ -164,89 +163,28 @@ function validateLayer(value: unknown, source: Source): Layer {
   return { runConfig, providers };
 }
 
-function fsCode(error: unknown): string | undefined {
-  return error !== null && typeof error === 'object' && 'code' in error && typeof error.code === 'string' ? error.code : undefined;
-}
-
-/** Check every path component without following symlink directory aliases. */
-async function parentsExist(path: string, source: Source, signal: AbortSignal | undefined): Promise<boolean> {
-  const root = parse(path).root;
-  let current = root;
-  const segments = relative(root, dirname(path)).split(sep).filter(Boolean);
-  for (const segment of segments) {
-    current = join(current, segment);
-    cancelled(signal, source);
-    let info;
-    try { info = await lstat(current); }
-    catch (error) {
-      cancelled(signal, source);
-      if (fsCode(error) === 'ENOENT') return false;
-      if (fsCode(error) === 'ENOTDIR') failure('CONFIG_FILE_TYPE', source, 'Configuration path must contain regular directories.');
-      throw error;
-    }
-    cancelled(signal, source);
-    if (info.isSymbolicLink() || !info.isDirectory()) {
-      failure('CONFIG_FILE_TYPE', source, 'Configuration path must not contain symbolic links or non-directory parents.');
-    }
-  }
-  return true;
-}
+const READ_FAILURES: Readonly<Record<BoundedReadFailure, readonly [code: string, message: string]>> = {
+  type: ['CONFIG_FILE_TYPE', 'Configuration must be a regular file without symbolic links or non-directory parents.'],
+  limit: ['CONFIG_FILE_LIMIT', 'Configuration file must not exceed 65536 bytes.'],
+  opened: ['CONFIG_FILE_TYPE', 'Configuration file changed while it was being opened.'],
+  changed: ['CONFIG_IO', 'Configuration file changed while it was being read.'],
+  encoding: ['CONFIG_JSON', 'Configuration must contain valid UTF-8 JSON.'],
+  io: ['CONFIG_IO', 'Configuration file could not be read.'],
+};
 
 async function readLayer(path: string, source: Source, signal: AbortSignal | undefined): Promise<Layer | undefined> {
+  const text = await readBoundedTextFile(path, MAX_CONFIG_BYTES, {
+    check: () => cancelled(signal, source),
+    onFailure: reason => failure(READ_FAILURES[reason][0], source, READ_FAILURES[reason][1]),
+    verifyParents: true,
+  });
   cancelled(signal, source);
-  let existed = false;
-  try {
-    if (!await parentsExist(path, source, signal)) return undefined;
-    const initial = await lstat(path);
-    existed = true;
-    cancelled(signal, source);
-    if (initial.isSymbolicLink() || !initial.isFile()) failure('CONFIG_FILE_TYPE', source, 'Configuration must be a regular file without symbolic links.');
-    if (initial.size > MAX_CONFIG_BYTES) failure('CONFIG_FILE_LIMIT', source, 'Configuration file must not exceed 65536 bytes.');
-    const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-    let text: string;
-    try {
-      cancelled(signal, source);
-      const opened = await handle.stat();
-      cancelled(signal, source);
-      if (!opened.isFile() || opened.dev !== initial.dev || opened.ino !== initial.ino) {
-        failure('CONFIG_FILE_TYPE', source, 'Configuration file changed while it was being opened.');
-      }
-      if (opened.size > MAX_CONFIG_BYTES) failure('CONFIG_FILE_LIMIT', source, 'Configuration file must not exceed 65536 bytes.');
-      if (!await parentsExist(path, source, signal)) failure('CONFIG_IO', source, 'Configuration path changed while it was being opened.');
-      const bytes = Buffer.alloc(MAX_CONFIG_BYTES + 1);
-      let count = 0;
-      while (count < bytes.length) {
-        cancelled(signal, source);
-        const part = await handle.read(bytes, count, bytes.length - count, count);
-        cancelled(signal, source);
-        if (part.bytesRead === 0) break;
-        count += part.bytesRead;
-      }
-      if (count > MAX_CONFIG_BYTES) failure('CONFIG_FILE_LIMIT', source, 'Configuration file must not exceed 65536 bytes.');
-      const final = await handle.stat();
-      cancelled(signal, source);
-      if (final.size !== opened.size || final.mtimeMs !== opened.mtimeMs || final.ctimeMs !== opened.ctimeMs) {
-        failure('CONFIG_IO', source, 'Configuration file changed while it was being read.');
-      }
-      if (!await parentsExist(path, source, signal)) failure('CONFIG_IO', source, 'Configuration path changed while it was being read.');
-      try { text = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, count)); }
-      catch { failure('CONFIG_JSON', source, 'Configuration must contain valid UTF-8 JSON.'); }
-    } finally {
-      await handle.close();
-    }
-    cancelled(signal, source);
-    let parsed: unknown;
-    try { parsed = JSON.parse(text); }
-    catch { failure('CONFIG_JSON', source, 'Configuration must contain valid JSON.'); }
-    cancelled(signal, source);
-    return validateLayer(parsed, source);
-  } catch (error) {
-    cancelled(signal, source);
-    if (error instanceof EngineError) throw error;
-    if (fsCode(error) === 'ENOENT' && !existed) return undefined;
-    if (fsCode(error) === 'ELOOP' || fsCode(error) === 'ENOTDIR') failure('CONFIG_FILE_TYPE', source, 'Configuration path must not contain symbolic links or non-directory parents.');
-    failure('CONFIG_IO', source, 'Configuration file could not be read.');
-  }
+  if (text === undefined) return undefined;
+  let parsed: unknown;
+  try { parsed = JSON.parse(text); }
+  catch { failure('CONFIG_JSON', source, 'Configuration must contain valid JSON.'); }
+  cancelled(signal, source);
+  return validateLayer(parsed, source);
 }
 
 function configPath(value: unknown, field: 'userConfigPath' | 'workspaceConfigPath'): string | undefined {

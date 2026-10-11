@@ -1,4 +1,4 @@
-import { randomUUID, createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { types } from "node:util";
 import type {
   JsonObject,
@@ -11,6 +11,7 @@ import type { ToolContext, PreparedTool, ToolResult } from "../ports.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 import {
   describeQueueTarget,
   jobTargetChanged,
@@ -239,7 +240,7 @@ export class CodeModeHost {
       allocation.maxResultBytes > context.limits.maxOutputBytes
     )
       codeModeError("CODE_MODE_BUDGET");
-    const sourceSha256 = createHash("sha256").update(x.source).digest("hex"),
+    const sourceSha256 = sha256Hex(x.source),
       preview = {
         codeModeSourceSha256: sourceSha256,
         codeModeGrantSha256: c.grant.sha256,
@@ -314,7 +315,7 @@ export class CodeModeHost {
       grantSha256: c.grant.sha256,
       runtime: c.grant.runtime,
       source: captured.source,
-      sourceSha256: createHash("sha256").update(captured.source).digest("hex"),
+      sourceSha256: sha256Hex(captured.source),
       allocation: captured.allocation,
       generation,
     });

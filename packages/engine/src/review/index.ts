@@ -4,6 +4,7 @@ import { lstat, open, realpath, unlink } from 'node:fs/promises';
 import path from 'node:path';
 import { EngineError, isTerminal, type Checkpoint, type CheckpointFile, type FileDiff, type ReviewDiff, type Workspace } from '@moodcode/contracts';
 import type { EngineStore } from '../ports.js';
+import { sha256Hex } from '../shared/canonical.js';
 import { acquireExecutionLock, assertExecutionLockAvailable } from '../tools/command/execution-lock.js';
 
 const MAX_SESSIONS = 1_000;
@@ -84,16 +85,12 @@ function validateRestoreOptions(options: RestoreOptions): void {
   }
 }
 
-function hash(content: string): string {
-  return createHash('sha256').update(content, 'utf8').digest('hex');
-}
-
 function imageProblem(content: string | null, expectedHash: string | null): string | undefined {
   if (content === null) return expectedHash === null ? undefined : 'Absent image has a non-null hash';
   if (typeof content !== 'string' || typeof expectedHash !== 'string' || !SHA256.test(expectedHash)) return 'Invalid content image or SHA-256 hash';
   if (Buffer.byteLength(content, 'utf8') > MAX_FILE_BYTES) return 'Content image exceeds the per-file restoration limit';
   if (Buffer.from(content, 'utf8').toString('utf8') !== content) return 'Recorded content is not representable as exact UTF-8 text';
-  return hash(content) === expectedHash ? undefined : 'Recorded content does not match its SHA-256 hash';
+  return sha256Hex(content) === expectedHash ? undefined : 'Recorded content does not match its SHA-256 hash';
 }
 
 function recordProblem(file: CheckpointFile): string | undefined {
@@ -442,7 +439,7 @@ async function buildRestorePreview(workspace: Workspace, checkpoint: Checkpoint,
   const sortedRuns = [...activeRunIds].sort();
   // The fingerprint binds restore targets and observed state. A caller may add
   // the shared lease after a readonly preview without changing those targets.
-  const fingerprint = hash(JSON.stringify({ version: 1, workspaceId: workspace.id, root: workspace.root, checkpointId: checkpoint.id, runId: checkpoint.runId, toolCallId: checkpoint.toolCallId, files, identities, activeRunIds: sortedRuns, warnings: restoreWarnings(checkpoint) }));
+  const fingerprint = sha256Hex(JSON.stringify({ version: 1, workspaceId: workspace.id, root: workspace.root, checkpointId: checkpoint.id, runId: checkpoint.runId, toolCallId: checkpoint.toolCallId, files, identities, activeRunIds: sortedRuns, warnings: restoreWarnings(checkpoint) }));
   return { checkpointId: checkpoint.id, runId: checkpoint.runId, workspaceId: workspace.id, atomic: false, fingerprint, files, diff, activeRunIds: sortedRuns, canRestore: !sortedRuns.length && files.every((file) => file.status === 'ready'), warnings,
     limits: { maxFiles: MAX_FILES, maxFileBytes: MAX_FILE_BYTES, maxTotalBytes: MAX_TOTAL_BYTES, maxMetadataBytes: MAX_RESTORE_METADATA_BYTES }, totalBytes };
 }

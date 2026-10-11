@@ -4,7 +4,7 @@ import { appendFileSync, chmodSync, linkSync, lstatSync, mkdirSync, mkdtempSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
-import { errnoCode, openSingleLinkFile, readStableFile, sameRegularFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, syncDirectoryAsync, within, type StableField } from './fs.js';
+import { errnoCode, openSingleLinkFile, readBoundedTextFile, readStableFile, sameRegularFile, stableStat, streamStableFile, symlinkFreeDirectory, symlinkFreeDirectorySync, syncDirectory, syncDirectoryAsync, within, type BoundedReadOptions, type StableField } from './fs.js';
 
 const fault = (name: string) => (): never => { throw new Error(name); };
 const reported = (name: string) => (error: unknown) => error instanceof Error && error.message === name;
@@ -88,6 +88,34 @@ test('readStableFile pins only canonical regular files within the limit', t => {
   assert.throws(() => readStableFile(source, { ...options, maxBytes: 2 }), reported('unsafe'));
   linkSync(source, join(root, 'hard'));
   assert.throws(() => readStableFile(source, { ...options, requireSingleLink: true, onUnsafe: undefined }), reported('changed'));
+});
+
+test('readBoundedTextFile returns strict UTF-8 text, undefined when missing, and a reason for every failure', async t => {
+  const root = directory(t), path = join(root, 'file'), other = join(root, 'other');
+  writeFileSync(path, 'abc');
+  const read = (target: string, options: Partial<BoundedReadOptions> = {}, maxBytes = 16) =>
+    readBoundedTextFile(target, maxBytes, { onFailure: reason => { throw new Error(reason); }, ...options });
+  const atCheck = (call: number, action: () => void) => { let calls = 0; return () => { if (++calls === call) action(); }; };
+  assert.equal(await read(path, { zeroFill: true }), 'abc');
+  assert.equal(await read(join(root, 'missing')), undefined);
+  assert.equal(await read(join(root, 'absent', 'file'), { verifyParents: true }), undefined);
+  await assert.rejects(read(path, {}, 2), reported('limit'));
+  await assert.rejects(read(root), reported('type'));
+  await assert.rejects(read(join(path, 'child')), reported('type'));
+  symlinkSync(path, join(root, 'link'));
+  await assert.rejects(read(join(root, 'link')), reported('type'));
+  symlinkSync(root, join(root, 'parent'));
+  assert.equal(await read(join(root, 'parent', 'file')), 'abc');
+  await assert.rejects(read(join(root, 'parent', 'file'), { verifyParents: true }), reported('type'));
+  await assert.rejects(read(path, { check: atCheck(2, () => appendFileSync(path, 'd')) }), reported('opened'));
+  await assert.rejects(read(path, { check: atCheck(4, () => appendFileSync(path, 'e')) }), reported('changed'));
+  writeFileSync(other, 'xyz');
+  await assert.rejects(read(path, { check: atCheck(4, () => renameSync(other, path)) }), reported('changed'));
+  await assert.rejects(read(path, { check: () => { throw new Error('cancelled'); } }), reported('cancelled'));
+  writeFileSync(path, Buffer.from([0x7b, 0xc3, 0x28, 0x7d]));
+  await assert.rejects(read(path), reported('encoding'));
+  chmodSync(path, 0);
+  if (process.getuid?.() !== 0) await assert.rejects(read(path), reported('io'));
 });
 
 test('within rejects parent escapes but not names that only start with two dots', () => {

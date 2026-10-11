@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import type { JsonObject, JsonValue } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { sha256Hex } from "../shared/canonical.js";
 import type { SessionDocument } from "../storage/native-records.js";
 import {
   CODE_MODE_LIMITS,
@@ -126,8 +126,7 @@ function validateCodeModeRecord(value: unknown): CodeModeRecord {
   digest(s);
   parseCodeProgram(s.source);
   validateCodeAllocation(s.allocation);
-  if (createHash("sha256").update(s.source).digest("hex") !== s.sourceSha256)
-    codeModeError();
+  if (sha256Hex(s.source) !== s.sourceSha256) codeModeError();
   for (const f of [
     "workspaceId",
     "sessionId",
@@ -410,9 +409,7 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
       tool.name !== c.name ||
       tool.state !== c.state ||
       knowledgeHash(tool.input) !== c.inputSha256 ||
-      createHash("sha256")
-        .update(tool.output ?? "")
-        .digest("hex") !== c.outputSha256 ||
+      sha256Hex(tool.output ?? "") !== c.outputSha256 ||
       Buffer.byteLength(tool.output ?? "") !== c.outputBytes
     )
       codeModeError("CODE_MODE_CALL_INVALID");
@@ -582,7 +579,7 @@ export class CodeModeStorage {
           codeModeRecordKind(r.id) !== h.kind
         )
           codeModeError("CODE_MODE_DOCUMENT_INVALID");
-        const hash = createHash("sha256").update(raw).digest("hex");
+        const hash = sha256Hex(raw);
         if (
           anchors(this.db, r.source, "session.document.updated", hash).filter(
             (e) =>

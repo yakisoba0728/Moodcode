@@ -1,9 +1,8 @@
-import { constants, type BigIntStats } from 'node:fs';
-import { lstat, open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { inspect } from 'node:util';
 import { EngineError, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
+import { readBoundedTextFile } from '../shared/fs.js';
 
 export interface CodexAuthOptions {
   /** A local Codex credential directory. Defaults to CODEX_HOME or ~/.codex. */
@@ -87,51 +86,15 @@ function cancelled(signal?: AbortSignal): void {
 function isCancellation(error: unknown): boolean {
   return error instanceof EngineError && error.code === 'PROVIDER_CANCELLED';
 }
-function fileError(error: unknown, allowMissing: boolean): EngineError {
-  if (isCancellation(error)) return error as EngineError;
-  const code = error !== null && typeof error === 'object' && 'code' in error ? error.code : undefined;
-  return authError(allowMissing && code === 'ENOENT' ? 'missing' : 'unreadable');
-}
-function sameFile(a: BigIntStats, b: BigIntStats): boolean {
-  return a.isFile() && b.isFile() && a.dev === b.dev && a.ino === b.ino && a.size === b.size && a.mtimeNs === b.mtimeNs && a.ctimeNs === b.ctimeNs;
-}
-
 /** Bounded descriptor reads reject links, non-files, replacement and in-place writes. */
 async function readLocalFile(path: string, maximum: number, signal?: AbortSignal): Promise<string> {
-  cancelled(signal);
-  let before: BigIntStats;
-  try { before = await lstat(path, { bigint: true }); } catch (error) { throw fileError(error, true); }
-  cancelled(signal);
-  if (!before.isFile() || before.isSymbolicLink() || before.size > BigInt(maximum)) throw authError('unreadable');
-  let handle;
-  try { handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); } catch (error) { throw fileError(error, false); }
-  const bytes = Buffer.alloc(maximum + 1);
-  try {
-    cancelled(signal);
-    const opened = await handle.stat({ bigint: true });
-    if (!sameFile(before, opened)) throw authError('unreadable');
-    let length = 0;
-    while (length <= maximum) {
-      cancelled(signal);
-      const result = await handle.read(bytes, length, Math.min(16_384, maximum + 1 - length), length);
-      cancelled(signal);
-      if (!result.bytesRead) break;
-      length += result.bytesRead;
-    }
-    if (length > maximum || BigInt(length) !== opened.size) throw authError('unreadable');
-    const after = await handle.stat({ bigint: true });
-    cancelled(signal);
-    const current = await lstat(path, { bigint: true });
-    cancelled(signal);
-    if (!sameFile(opened, after) || !sameFile(after, current)) throw authError('unreadable');
-    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)); } catch { throw authError('invalid'); }
-  } catch (error) {
-    if (error instanceof EngineError && (isCancellation(error) || error.code.startsWith('CODEX_AUTH_'))) throw error;
-    throw fileError(error, false);
-  } finally {
-    bytes.fill(0);
-    await handle.close().catch(() => {});
-  }
+  const text = await readBoundedTextFile(path, maximum, {
+    check: () => cancelled(signal),
+    onFailure: reason => { throw authError(reason === 'encoding' ? 'invalid' : 'unreadable'); },
+    zeroFill: true,
+  });
+  if (text === undefined) throw authError('missing');
+  return text;
 }
 
 function plain(value: unknown, depth = 0): void {

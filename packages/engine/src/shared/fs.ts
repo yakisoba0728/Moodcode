@@ -141,3 +141,74 @@ export function readStableFile(path: string, options: StableFileOptions & { read
   if (!expected.isFile() || options.requireSingleLink && expected.nlink !== 1n || expected.size > BigInt(options.maxBytes) || realpathSync(path) !== path) (options.onUnsafe ?? options.onChanged)();
   return streamStableFile(path, expected, options);
 }
+
+export type BoundedReadFailure = 'type' | 'limit' | 'opened' | 'changed' | 'encoding' | 'io';
+export interface BoundedReadOptions {
+  /** Runs before the read and after every filesystem await; what it throws passes through unmapped. */
+  readonly check?: () => void;
+  /** Gets a reason, never the native error, so no path or native message reaches the caller's error. */
+  readonly onFailure: (reason: BoundedReadFailure) => never;
+  /** Every parent must be a directory without symlinks before, while and after the file is read. */
+  readonly verifyParents?: boolean;
+  readonly zeroFill?: boolean;
+}
+
+const READ_STABLE: readonly StableField[] = ['size', 'mtime', 'ctime'];
+const READ_CHUNK_BYTES = 16_384;
+/** Strict UTF-8 text of a regular file of at most maxBytes, or undefined when it or a parent is missing before it is opened. Links, non-files, replacement and writes during the read fail. */
+export async function readBoundedTextFile(path: string, maxBytes: number, options: BoundedReadOptions): Promise<string | undefined> {
+  const { check = () => {}, onFailure, verifyParents = false, zeroFill = false } = options;
+  const native = (error: unknown): never => {
+    check();
+    const code = errnoCode(error);
+    return onFailure(code === 'ELOOP' || code === 'ENOTDIR' ? 'type' : 'io');
+  };
+  const step = async <T>(operation: Promise<T>): Promise<T> => {
+    const value = await operation.catch(native);
+    check();
+    return value;
+  };
+  const entry = (target: string) => step(lstat(target, { bigint: true }).catch((error: unknown) => {
+    if (errnoCode(error) === 'ENOENT') return undefined;
+    throw error;
+  }));
+  const parentsExist = async (): Promise<boolean> => {
+    if (!verifyParents) return true;
+    let current = parse(path).root;
+    for (const component of relative(current, dirname(path)).split(sep).filter(Boolean)) {
+      const info = await entry(current = join(current, component));
+      if (!info) return false;
+      if (info.isSymbolicLink() || !info.isDirectory()) onFailure('type');
+    }
+    return true;
+  };
+  check();
+  if (!await parentsExist()) return undefined;
+  const before = await entry(path);
+  if (!before) return undefined;
+  if (!before.isFile()) onFailure('type');
+  if (before.size > BigInt(maxBytes)) onFailure('limit');
+  const bytes = Buffer.alloc(maxBytes + 1);
+  const handle = await open(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0)).catch(native);
+  try {
+    check();
+    const opened = await step(handle.stat({ bigint: true }));
+    if (!opened.isFile() || !stableStat(before, opened, READ_STABLE)) onFailure('opened');
+    if (!await parentsExist()) onFailure('changed');
+    let length = 0;
+    while (length <= maxBytes) {
+      const { bytesRead } = await step(handle.read(bytes, length, Math.min(READ_CHUNK_BYTES, bytes.length - length), length));
+      if (!bytesRead) break;
+      length += bytesRead;
+    }
+    if (length > maxBytes) onFailure('limit');
+    const after = await step(handle.stat({ bigint: true })), current = await entry(path);
+    if (BigInt(length) !== opened.size || !after.isFile() || !current?.isFile() || !stableStat(opened, after, READ_STABLE) || !stableStat(opened, current, READ_STABLE)) onFailure('changed');
+    if (!await parentsExist()) onFailure('changed');
+    try { return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, length)); }
+    catch { return onFailure('encoding'); }
+  } finally {
+    if (zeroFill) bytes.fill(0);
+    await handle.close().catch(() => {});
+  }
+}

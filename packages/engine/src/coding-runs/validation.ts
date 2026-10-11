@@ -1,16 +1,7 @@
-import { createHash } from "node:crypto";
-import {
-  constants,
-  openSync,
-  closeSync,
-  fstatSync,
-  lstatSync,
-  readSync,
-  realpathSync,
-} from "node:fs";
 import { join } from "node:path";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
+import { readStableFile } from "../shared/fs.js";
 import { workflowHostRecord } from "../workflows/host.js";
 import {
   workflowJson,
@@ -133,55 +124,21 @@ function pinCodingSource(
   path: string,
   maxBytes = 1048576,
 ): CodingSourcePin {
-  let fd: number | undefined;
-  try {
-    const first = lstatSync(path, { bigint: true });
-    if (
-      !first.isFile() ||
-      first.isSymbolicLink() ||
-      first.nlink !== 1n ||
-      first.size > BigInt(maxBytes) ||
-      realpathSync(path) !== path
-    )
-      batchFail("CODING_SOURCE_STALE");
-    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
-    const before = fstatSync(fd, { bigint: true }),
-      h = createHash("sha256"),
-      buf = Buffer.alloc(16384);
-    let size = 0;
-    for (;;) {
-      const n = readSync(fd, buf, 0, buf.length, null);
-      if (!n) break;
-      size += n;
-      if (size > maxBytes) batchFail("CODING_SOURCE_STALE");
-      h.update(buf.subarray(0, n));
-    }
-    const after = fstatSync(fd, { bigint: true }),
-      current = lstatSync(path, { bigint: true });
-    if (
-      before.dev !== first.dev ||
-      before.ino !== first.ino ||
-      before.dev !== after.dev ||
-      before.ino !== after.ino ||
-      before.size !== after.size ||
-      before.mtimeNs !== after.mtimeNs ||
-      before.ctimeNs !== after.ctimeNs ||
-      current.dev !== after.dev ||
-      current.ino !== after.ino ||
-      current.mtimeNs !== after.mtimeNs ||
-      current.ctimeNs !== after.ctimeNs
-    )
-      batchFail("CODING_SOURCE_STALE");
-    return {
-      path,
-      device: after.dev.toString(),
-      inode: after.ino.toString(),
-      size,
-      sha256: h.digest("hex"),
-    };
-  } finally {
-    if (fd !== undefined) closeSync(fd);
-  }
+  const stale = (): never => batchFail("CODING_SOURCE_STALE");
+  const { stats, bytes, sha256 } = readStableFile(path, {
+    maxBytes,
+    stable: ["size", "mtime", "ctime"],
+    requireSingleLink: true,
+    onChanged: stale,
+    onLimit: stale,
+  });
+  return {
+    path,
+    device: stats.dev.toString(),
+    inode: stats.ino.toString(),
+    size: bytes,
+    sha256,
+  };
 }
 export function assertCodingSources(pins: readonly CodingSourcePin[]): void {
   for (const pin of pins)

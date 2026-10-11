@@ -9,6 +9,12 @@ import {
   type CodeModeRuntimeSource,
 } from "./runtime.js";
 import { codeJson, codeModeError, codeSign } from "./types.js";
+/** Runs fn once on abort, at once when already aborted; returns the listener's disposer. */
+function onAbort(signal: AbortSignal, fn: () => void): () => void {
+  signal.addEventListener("abort", fn, { once: true });
+  if (signal.aborted) fn();
+  return () => signal.removeEventListener("abort", fn);
+}
 export interface CodeModeProcessProof {
   version: 1;
   generation: string;
@@ -71,9 +77,10 @@ export class OwnedCodeModeProcess {
     this.assertDispatch();
     assertCodeModeRuntime(this.source);
     const compiled = new URL("./supervisor.js", import.meta.url),
-      source = new URL("./supervisor.ts", import.meta.url);
-    this.child = fork(existsSync(compiled) ? compiled : source, [], {
-      execArgv: existsSync(compiled)
+      source = new URL("./supervisor.ts", import.meta.url),
+      useCompiled = existsSync(compiled);
+    this.child = fork(useCompiled ? compiled : source, [], {
+      execArgv: useCompiled
         ? []
         : ["--import", fileURLToPath(import.meta.resolve("tsx"))],
       env: { PATH: "/usr/bin:/bin" },
@@ -204,24 +211,13 @@ export class OwnedCodeModeProcess {
       ],
       cwd: "/",
     });
-    const abort = () => {
-      void this.stop();
-    };
-    signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) abort();
+    const disposeAbort = onAbort(signal, () => void this.stop());
+    const timer = setTimeout(
+      () => this.readyReject(new Error("CODE_MODE_PROCESS_TIMEOUT")),
+      5000,
+    );
     try {
-      await Promise.race([
-        this.readyPromise,
-        new Promise<never>((_, reject) => {
-          const timer = setTimeout(
-            () => reject(new Error("CODE_MODE_PROCESS_TIMEOUT")),
-            5000,
-          );
-          void this.readyPromise
-            .finally(() => clearTimeout(timer))
-            .catch(() => {});
-        }),
-      ]);
+      await this.readyPromise;
       this.assertDispatch();
       assertCodeModeRuntime(this.source);
       return codeJson(this.proof!);
@@ -229,7 +225,8 @@ export class OwnedCodeModeProcess {
       await this.stop();
       throw error;
     } finally {
-      signal.removeEventListener("abort", abort);
+      clearTimeout(timer);
+      disposeAbort();
     }
   }
   readProof(): CodeModeProcessProof {
@@ -248,20 +245,19 @@ export class OwnedCodeModeProcess {
       this.pending.set(id, { resolve, reject, bytes: Buffer.byteLength(text) }),
     );
     this.child.send({ type: "write", id, text });
-    const abort = () => {
-      this.pending.get(id)?.reject(signal.reason);
+    const fail = (error: unknown) => {
+      this.pending.get(id)?.reject(error);
       this.pending.delete(id);
     };
-    const timer = setTimeout(() => {
-      this.pending.get(id)?.reject(new Error("CODE_MODE_WRITE_TIMEOUT"));
-      this.pending.delete(id);
-    }, 5000);
-    signal.addEventListener("abort", abort, { once: true });
-    if (signal.aborted) abort();
+    const timer = setTimeout(
+      () => fail(new Error("CODE_MODE_WRITE_TIMEOUT")),
+      5000,
+    );
+    const disposeAbort = onAbort(signal, () => fail(signal.reason));
     try {
       await promise;
     } finally {
-      signal.removeEventListener("abort", abort);
+      disposeAbort();
       clearTimeout(timer);
     }
   }
@@ -273,17 +269,15 @@ export class OwnedCodeModeProcess {
       if (message) return codeJson(message);
       if (this.stdoutFinished) codeModeError("CODE_MODE_EOF");
       await new Promise<void>((resolve, reject) => {
-        const abort = () => {
-          this.wake = undefined;
-          reject(signal.reason);
-        };
         this.wake = () => {
-          signal.removeEventListener("abort", abort);
+          disposeAbort();
           this.wake = undefined;
           resolve();
         };
-        signal.addEventListener("abort", abort, { once: true });
-        if (signal.aborted) abort();
+        const disposeAbort = onAbort(signal, () => {
+          this.wake = undefined;
+          reject(signal.reason);
+        });
       });
     }
   }

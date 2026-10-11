@@ -1,8 +1,8 @@
-import { createHash } from 'node:crypto';
 import { closeSync, constants, lstatSync, mkdirSync, openSync, realpathSync, type Stats } from 'node:fs';
 import { basename, dirname, join, resolve } from 'node:path';
 import { DatabaseSync, type SQLOutputValue } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
+import { sha256Hex } from '../shared/canonical.js';
 import type { RestoreResult } from './index.js';
 
 export const REVIEW_JOURNAL_SCHEMA_VERSION = 1;
@@ -80,7 +80,6 @@ function identifier(value: unknown, code: string): string {
   if (valueText.includes('\0')) failure(code, 'Identifiers cannot contain NUL');
   return valueText;
 }
-function digest(value: string): string { return createHash('sha256').update(value, 'utf8').digest('hex'); }
 function binding(value: unknown): RestoreOperationInput {
   const input = object(value, 'REVIEW_JOURNAL_INPUT_INVALID');
   const result = {
@@ -195,14 +194,14 @@ function normalOutcome(value: RestoreOperationOutcome, operation: RestoreOperati
       code: text(error.code, 'REVIEW_JOURNAL_RESULT_INVALID', undefined, true),
       message: text(error.message, 'REVIEW_JOURNAL_RESULT_INVALID'),
     };
-    return { state: 'failed', hash: digest(JSON.stringify({ error: raw })), error: {
+    return { state: 'failed', hash: sha256Hex(JSON.stringify({ error: raw })), error: {
       code: shortText(raw.code, REVIEW_JOURNAL_LIMITS.maxIdBytes, () => {}),
       message: shortText(raw.message, REVIEW_JOURNAL_LIMITS.maxTextBytes, () => {}),
     } };
   }
   const raw = resultShape(value);
   if (raw.checkpointId !== operation.checkpointId || raw.runId !== operation.runId) failure('REVIEW_JOURNAL_OUTCOME_CONFLICT', 'Restore result belongs to a different operation binding');
-  return { state: 'completed', hash: digest(JSON.stringify({ result: raw })), result: boundedResult(raw) };
+  return { state: 'completed', hash: sha256Hex(JSON.stringify({ result: raw })), result: boundedResult(raw) };
 }
 
 function regularFile(file: string): Stats | undefined {
@@ -419,7 +418,7 @@ export class ReviewJournal {
       const operations = rows.map(operationFromRow);
       const finishedAt = new Date().toISOString();
       const error = JSON.stringify(INTERRUPTED_ERROR);
-      const outcomeHash = digest(error);
+      const outcomeHash = sha256Hex(error);
       const update = this.db.prepare("UPDATE review_operations SET state='interrupted',finished_at=?,error=?,outcome_hash=? WHERE id=? AND state='started'");
       for (const operation of operations) if (operation.state === 'started') update.run(finishedAt, error, outcomeHash, operation.id);
       return operations.map((operation) => operation.state === 'started' ? operationFromRow(this.row(operation.id)!) : operation);

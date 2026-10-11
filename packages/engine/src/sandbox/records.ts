@@ -12,7 +12,11 @@ import {
   type SandboxRecord,
 } from "./types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
-import type { SessionDocument } from "../storage/native-records.js";
+import { readBoundedBody } from "../storage/evidence-read.js";
+import {
+  findEventPayloads,
+  type SessionDocument,
+} from "../storage/native-records.js";
 import { validateQueueTarget } from "../runner/queue-target.js";
 import { validateCommandArtifactDescriptor } from "../tools/command/observation.js";
 import { isAbsolute } from "node:path";
@@ -366,6 +370,18 @@ function anchors(
     return r;
   });
 }
+function documentAtLeast(
+  db: DatabaseSync,
+  sessionId: string,
+  kind: string,
+  revision: number,
+): boolean {
+  return !!db
+    .prepare(
+      "SELECT revision FROM session_documents WHERE session_id=? AND kind=? AND revision>=?",
+    )
+    .get(sessionId, kind, revision);
+}
 function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
   const o = r.owner;
   if (!o || r.kind === "grant") return;
@@ -382,16 +398,18 @@ function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
     if (
       !source ||
       !grant ||
-      !db
-        .prepare(
-          "SELECT revision FROM session_documents WHERE session_id=? AND kind=? AND revision>=?",
-        )
-        .get(r.sessionId, sandboxRecordKind(source.id), source.revision) ||
-      !db
-        .prepare(
-          "SELECT revision FROM session_documents WHERE session_id=? AND kind=? AND revision>=?",
-        )
-        .get(r.sessionId, sandboxRecordKind(grant.id), grant.revision) ||
+      !documentAtLeast(
+        db,
+        r.sessionId,
+        sandboxRecordKind(source.id),
+        source.revision,
+      ) ||
+      !documentAtLeast(
+        db,
+        r.sessionId,
+        sandboxRecordKind(grant.id),
+        grant.revision,
+      ) ||
       source.kind !== "mcp" ||
       source.state !== "running" ||
       source.groupPid !== r.groupPid ||
@@ -520,17 +538,22 @@ function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
             String(o.attemptId),
             jobId,
           );
-      if (closed.length > 1) sandboxError("SANDBOX_COMPLETION_INVALID");
+      const completionInvalid = (): never =>
+        sandboxError("SANDBOX_COMPLETION_INVALID");
+      if (closed.length > 1) completionInvalid();
       if (closed.length) {
         if (Number(closed[0]!.bytes) > 8192) sandboxError("SANDBOX_LIMIT");
         const event = JSON.parse(
-            String(
-              db
-                .prepare(
-                  "SELECT data FROM session_events WHERE session_id=? AND seq=?",
-                )
-                .get(r.sessionId, closed[0]!.seq!)!.data,
-            ),
+            readBoundedBody(
+              db,
+              {
+                table: "session_events",
+                where: "session_id=? AND seq=?",
+                params: [r.sessionId, closed[0]!.seq!],
+              },
+              Number(closed[0]!.bytes),
+              completionInvalid,
+            ) ?? completionInvalid(),
           ),
           summary = {
             outcome: c.outcome,
@@ -550,7 +573,7 @@ function nativeOwner(db: DatabaseSync, r: SandboxRecord): void {
               : {}),
           };
         if (event.payload.completionSha256 !== knowledgeHash(summary))
-          sandboxError("SANDBOX_COMPLETION_INVALID");
+          completionInvalid();
       }
     }
   }
@@ -605,24 +628,23 @@ function readSandboxRecords(
       nativeOwner(db, e);
       prev = e;
     }
-    const updates = db
-      .prepare(
-        "SELECT length(CAST(data AS BLOB)) bytes,seq FROM session_events WHERE session_id=? AND type='session.document.updated' AND json_extract(data,'$.payload.kind')=? AND json_extract(data,'$.payload.revision')=? LIMIT 2",
-      )
-      .all(r.sessionId, String(h.kind), r.revision);
-    if (updates.length !== 1 || Number(updates[0]!.bytes) > 8192)
-      sandboxError("SANDBOX_HEAD_INVALID");
-    const update = JSON.parse(
-      String(
-        db
-          .prepare(
-            "SELECT data FROM session_events WHERE session_id=? AND seq=?",
-          )
-          .get(r.sessionId, updates[0]!.seq!)!.data,
-      ),
+    const headInvalid = (): never => sandboxError("SANDBOX_HEAD_INVALID");
+    const updates = findEventPayloads(
+      db,
+      {
+        sessionId: r.sessionId,
+        type: "session.document.updated",
+        payload: { kind: String(h.kind), revision: r.revision },
+        maxRows: 1,
+        maxRowBytes: 8192,
+      },
+      { limit: headInvalid, invalid: headInvalid },
     );
-    if (update.payload.sha256 !== sandboxSha(String(data.data)))
-      sandboxError("SANDBOX_HEAD_INVALID");
+    if (
+      updates.length !== 1 ||
+      updates[0]!.sha256 !== sandboxSha(String(data.data))
+    )
+      headInvalid();
     return r;
   });
 }
