@@ -7,7 +7,6 @@ import { guardedWrite } from "../storage/transaction.js";
 import {
   readProposalApplyGuard,
   validateProposalApplyGuard,
-  type ProposalApplyGuardChecks,
 } from "./execution-guards.js";
 import {
   advanceProposalHead,
@@ -22,6 +21,7 @@ import type {
   PrepareProposalApplyResult,
   ProposalApplyCapture,
   ProposalApplyCheckpoint,
+  ProposalApplyCheckpointFile,
   ProposalApplyGuard,
   ProposalApplyHistory,
   ProposalApplyOwner,
@@ -33,6 +33,7 @@ import type {
   ProposalEffectBlobReference,
   ProposalPhysicalOutcome,
 } from "./apply-types.js";
+import type { ProposalRevision } from "./types.js";
 
 const PROPOSAL_APPLY_LIMITS = Object.freeze({
   files: 32,
@@ -91,6 +92,19 @@ function transactionRequired(): never {
 function scopeMismatch(): never {
   return fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
 }
+export const proposalApplyChecks = Object.freeze({
+  ...proposalChecks({
+    fail,
+    limitCode: "PROPOSAL_APPLY_LIMIT",
+    hashCode: "PROPOSAL_APPLY_HASH_MISMATCH",
+    rowCode: "INVALID_PROPOSAL_APPLY_ROW",
+    maxBytes: PROPOSAL_APPLY_LIMITS.rowBytes,
+    maxNodes: 12_000,
+    maxDepth: 16,
+    maxItems: 128,
+  }),
+  fail,
+});
 const {
   id,
   integer: count,
@@ -101,24 +115,7 @@ const {
   seal: signed,
   verify: checkHash,
   decoded,
-} = proposalChecks({
-  fail,
-  limitCode: "PROPOSAL_APPLY_LIMIT",
-  hashCode: "PROPOSAL_APPLY_HASH_MISMATCH",
-  rowCode: "INVALID_PROPOSAL_APPLY_ROW",
-  maxBytes: PROPOSAL_APPLY_LIMITS.rowBytes,
-  maxNodes: 12_000,
-  maxDepth: 16,
-  maxItems: 128,
-});
-const guardChecks: ProposalApplyGuardChecks = {
-  fail,
-  id,
-  exact: fields,
-  json: immutable,
-  verify: checkHash,
-  decoded,
-};
+} = proposalApplyChecks;
 const inputFields = [
   "workspaceId",
   "proposalId",
@@ -354,6 +351,32 @@ function validateProposalApplyCheckpoint(
   checkHash(r);
   return r as unknown as ProposalApplyCheckpoint;
 }
+export function checkpointShape(
+  files: readonly ProposalApplyCheckpointFile[],
+  revisionFiles: ProposalRevision["files"],
+  errorCode: string | null,
+): { complete: boolean; partial: boolean } {
+  const complete = files.every((file) => file.observationComplete);
+  const partial =
+    !complete ||
+    errorCode !== null ||
+    files.some(
+      (file, index) =>
+        !file.attempted ||
+        (file.after?.sha256 ?? null) !==
+          (revisionFiles[index]!.after?.sha256 ?? null),
+    );
+  return { complete, partial };
+}
+export function assertAttemptedPrefix(
+  files: readonly ProposalApplyCheckpointFile[],
+): void {
+  let unattempted = false;
+  for (const file of files) {
+    if (!file.attempted) unattempted = true;
+    else if (unattempted) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  }
+}
 function validateProposalApplyReceipt(
   value: unknown,
 ): ProposalApplyReceipt {
@@ -406,6 +429,129 @@ function validateProposalApplyReceipt(
   checkHash(r);
   return r as unknown as ProposalApplyReceipt;
 }
+export function readApplyOwner(
+  db: DatabaseSync,
+  ws: string,
+  key: string,
+): ProposalApplyOwner | undefined {
+  const data = readRow(db, "proposal_apply_owners", id(ws), id(key));
+  if (data === undefined) return undefined;
+  const owner = validateProposalApplyOwner(data);
+  const meta = db
+    .prepare(
+      "SELECT proposal_id,revision_id,request_id,request_sha256,state,revision FROM proposal_apply_owners WHERE workspace_id=? AND id=?",
+    )
+    .get(ws, key)!;
+  if (
+    owner.id !== key ||
+    owner.workspaceId !== ws ||
+    owner.proposalId !== meta.proposal_id ||
+    owner.revisionId !== meta.revision_id ||
+    owner.requestId !== meta.request_id ||
+    owner.requestSha256 !== meta.request_sha256 ||
+    owner.state !== meta.state ||
+    owner.revision !== meta.revision
+  )
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  return owner;
+}
+export function readApplyCheckpoint(
+  db: DatabaseSync,
+  ws: string,
+  key: string,
+): ProposalApplyCheckpoint | undefined {
+  const data = readRow(db, "proposal_apply_checkpoints", id(ws), id(key));
+  if (data === undefined) return undefined;
+  const value = validateProposalApplyCheckpoint(data);
+  const meta = db
+    .prepare(
+      "SELECT owner_id FROM proposal_apply_checkpoints WHERE workspace_id=? AND id=?",
+    )
+    .get(ws, key);
+  if (
+    value.id !== key ||
+    value.ownerId !== key ||
+    value.workspaceId !== ws ||
+    meta?.owner_id !== value.ownerId
+  )
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  return value;
+}
+export function readApplyReceipt(
+  db: DatabaseSync,
+  ws: string,
+  key: string,
+): ProposalApplyReceipt | undefined {
+  const data = readRow(db, "proposal_apply_receipts", id(ws), id(key));
+  if (data === undefined) return undefined;
+  const value = validateProposalApplyReceipt(data);
+  const meta = db
+    .prepare(
+      "SELECT owner_id,request_id,request_sha256 FROM proposal_apply_receipts WHERE workspace_id=? AND id=?",
+    )
+    .get(ws, key);
+  if (
+    value.id !== key ||
+    value.ownerId !== key ||
+    value.workspaceId !== ws ||
+    meta?.owner_id !== value.ownerId ||
+    meta.request_id !== value.requestId ||
+    meta.request_sha256 !== value.requestSha256
+  )
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  return value;
+}
+export function readApplyHistory(
+  db: DatabaseSync,
+  ws: string,
+  key: string,
+): ProposalApplyHistory | undefined {
+  const owner = readApplyOwner(db, ws, key);
+  if (!owner) return undefined;
+  const checkpoint = readApplyCheckpoint(db, ws, key) ?? null,
+    receipt = readApplyReceipt(db, ws, key) ?? null;
+  if (
+    (owner.checkpointId !== null) !== (checkpoint !== null) ||
+    (["completed", "partial"].includes(owner.state) && receipt === null)
+  )
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  if (
+    (checkpoint &&
+      (checkpoint.sha256 !== owner.checkpointSha256 ||
+        checkpoint.revisionId !== owner.revisionId)) ||
+    (receipt &&
+      (receipt.checkpointSha256 !== checkpoint?.sha256 ||
+        receipt.requestSha256 !== owner.requestSha256 ||
+        receipt.requestId !== owner.requestId ||
+        receipt.revisionSha256 !== owner.revisionSha256 ||
+        receipt.cleanupConfirmed !== owner.cleanupConfirmed ||
+        receipt.beforeHead.sha256 !== owner.beforeHead.sha256 ||
+        receipt.revisionId !== owner.revisionId ||
+        receipt.afterHead.applySettlement?.ownerSha256 !== owner.sha256 ||
+        receipt.state !== owner.state))
+  )
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  const head =
+    readProposalHead(db, ws, owner.proposalId, scopeMismatch) ??
+    scopeMismatch();
+  if (receipt && head.applySettlement?.ownerId !== owner.id)
+    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  if (head.applySettlement?.ownerId === owner.id) {
+    if (
+      !receipt ||
+      knowledgeHash(head.applySettlement) !==
+        knowledgeHash(receipt.afterHead.applySettlement)
+    )
+      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    if (
+      head.status === "paused-import"
+        ? head.headRevision <= receipt.afterHead.headRevision
+        : head.sha256 !== receipt.afterHead.sha256
+    )
+      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+  }
+  return Object.freeze({ owner, checkpoint, receipt });
+}
 interface Owned {
   readonly original: object;
   readonly epoch: string;
@@ -450,26 +596,7 @@ export class ProposalApplyStorage {
     return { record, owned };
   }
   getOwner(ws: string, key: string): ProposalApplyOwner | undefined {
-    const data = readRow(this.db, "proposal_apply_owners", id(ws), id(key));
-    if (data === undefined) return undefined;
-    const owner = validateProposalApplyOwner(data);
-    const meta = this.db
-      .prepare(
-        "SELECT proposal_id,revision_id,request_id,request_sha256,state,revision FROM proposal_apply_owners WHERE workspace_id=? AND id=?",
-      )
-      .get(ws, key)!;
-    if (
-      owner.id !== key ||
-      owner.workspaceId !== ws ||
-      owner.proposalId !== meta.proposal_id ||
-      owner.revisionId !== meta.revision_id ||
-      owner.requestId !== meta.request_id ||
-      owner.requestSha256 !== meta.request_sha256 ||
-      owner.state !== meta.state ||
-      owner.revision !== meta.revision
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    return owner;
+    return readApplyOwner(this.db, ws, key);
   }
   #update(
     owner: ProposalApplyOwner,
@@ -521,94 +648,13 @@ export class ProposalApplyStorage {
       fail("PROPOSAL_APPLY_STALE");
   }
   getCheckpoint(ws: string, key: string): ProposalApplyCheckpoint | undefined {
-    const data = readRow(
-      this.db,
-      "proposal_apply_checkpoints",
-      id(ws),
-      id(key),
-    );
-    if (data === undefined) return undefined;
-    const value = validateProposalApplyCheckpoint(data);
-    const meta = this.db
-      .prepare(
-        "SELECT owner_id FROM proposal_apply_checkpoints WHERE workspace_id=? AND id=?",
-      )
-      .get(ws, key);
-    if (
-      value.id !== key ||
-      value.ownerId !== key ||
-      value.workspaceId !== ws ||
-      meta?.owner_id !== value.ownerId
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    return value;
+    return readApplyCheckpoint(this.db, ws, key);
   }
   getReceipt(ws: string, key: string): ProposalApplyReceipt | undefined {
-    const data = readRow(this.db, "proposal_apply_receipts", id(ws), id(key));
-    if (data === undefined) return undefined;
-    const value = validateProposalApplyReceipt(data);
-    const meta = this.db
-      .prepare(
-        "SELECT owner_id,request_id,request_sha256 FROM proposal_apply_receipts WHERE workspace_id=? AND id=?",
-      )
-      .get(ws, key);
-    if (
-      value.id !== key ||
-      value.ownerId !== key ||
-      value.workspaceId !== ws ||
-      meta?.owner_id !== value.ownerId ||
-      meta.request_id !== value.requestId ||
-      meta.request_sha256 !== value.requestSha256
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    return value;
+    return readApplyReceipt(this.db, ws, key);
   }
   getHistory(ws: string, key: string): ProposalApplyHistory | undefined {
-    const owner = this.getOwner(ws, key);
-    if (!owner) return undefined;
-    const checkpoint = this.getCheckpoint(ws, key) ?? null,
-      receipt = this.getReceipt(ws, key) ?? null;
-    if (
-      (owner.checkpointId !== null) !== (checkpoint !== null) ||
-      (["completed", "partial"].includes(owner.state) && receipt === null)
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    if (
-      (checkpoint &&
-        (checkpoint.sha256 !== owner.checkpointSha256 ||
-          checkpoint.revisionId !== owner.revisionId)) ||
-      (receipt &&
-        (receipt.checkpointSha256 !== checkpoint?.sha256 ||
-          receipt.requestSha256 !== owner.requestSha256 ||
-          receipt.requestId !== owner.requestId ||
-          receipt.revisionSha256 !== owner.revisionSha256 ||
-          receipt.cleanupConfirmed !== owner.cleanupConfirmed ||
-          receipt.beforeHead.sha256 !== owner.beforeHead.sha256 ||
-          receipt.revisionId !== owner.revisionId ||
-          receipt.afterHead.applySettlement?.ownerSha256 !== owner.sha256 ||
-          receipt.state !== owner.state))
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const head =
-      readProposalHead(this.db, ws, owner.proposalId, scopeMismatch) ??
-      scopeMismatch();
-    if (receipt && head.applySettlement?.ownerId !== owner.id)
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    if (head.applySettlement?.ownerId === owner.id) {
-      if (
-        !receipt ||
-        knowledgeHash(head.applySettlement) !==
-          knowledgeHash(receipt.afterHead.applySettlement)
-      )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      if (
-        head.status === "paused-import"
-          ? head.headRevision <= receipt.afterHead.headRevision
-          : head.sha256 !== receipt.afterHead.sha256
-      )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    }
-    return Object.freeze({ owner, checkpoint, receipt });
+    return readApplyHistory(this.db, ws, key);
   }
   getRequest(ws: string, requestId: string): ProposalApplyHistory | undefined {
     id(ws);
@@ -745,7 +791,7 @@ export class ProposalApplyStorage {
       const originalGuard = reserveGuard();
       const guard = validateProposalApplyGuard(
         this.ports.readExecutionGuard(capture, originalGuard),
-        guardChecks,
+        proposalApplyChecks,
       );
       if (
         guard.ownerId !== record.id ||
@@ -769,7 +815,7 @@ export class ProposalApplyStorage {
       const guard = this.ports.getExecutionGuard(record.workspaceId, record.id);
       if (
         !guard ||
-        validateProposalApplyGuard(guard, guardChecks).sha256 !==
+        validateProposalApplyGuard(guard, proposalApplyChecks).sha256 !==
           record.guardSha256
       )
         fail("PROPOSAL_APPLY_GUARD_INVALID");
@@ -816,8 +862,7 @@ export class ProposalApplyStorage {
       validateProposalRevision(revision).sha256 !== record.revisionSha256
     )
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    let total = 0,
-      seenUnattempted = false;
+    let total = 0;
     const effectBodies: {
       ref: ProposalEffectBlobReference;
       body: string;
@@ -841,11 +886,9 @@ export class ProposalApplyStorage {
         typeof f.attempted !== "boolean" ||
         typeof f.mayHaveChanged !== "boolean" ||
         typeof f.observationComplete !== "boolean" ||
-        (!f.attempted && f.mayHaveChanged) ||
-        (seenUnattempted && f.attempted)
+        (!f.attempted && f.mayHaveChanged)
       )
         fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      if (!f.attempted) seenUnattempted = true;
       const before = image(f.before),
         after = image(f.after);
       if (
@@ -900,16 +943,12 @@ export class ProposalApplyStorage {
         observationComplete: f.observationComplete,
       });
     });
-    const complete = files.every((f) => f.observationComplete),
-      partial =
-        !complete ||
-        files.some(
-          (f, i) =>
-            !f.attempted ||
-            (f.after?.sha256 ?? null) !==
-              (revision.files[i]!.after?.sha256 ?? null),
-        ) ||
-        result.errorCode !== null;
+    assertAttemptedPrefix(files);
+    const { complete, partial } = checkpointShape(
+      files,
+      revision.files,
+      result.errorCode,
+    );
     const checkpoint = validateProposalApplyCheckpoint(
       sealRecord(
         {
@@ -1152,7 +1191,7 @@ export class ProposalApplyStorage {
         );
         if (
           guard &&
-          (validateProposalApplyGuard(guard, guardChecks).ownerId !==
+          (validateProposalApplyGuard(guard, proposalApplyChecks).ownerId !==
             record.id ||
             knowledgeHash(guard.binding) !== knowledgeHash(record.binding))
         )
@@ -1221,13 +1260,10 @@ export class ProposalApplyStorage {
       )
       .get(preview.workspaceId, id(r.requestId));
     if (duplicate) {
-      const old = validateProposalApplyRecoveryDecision(
-        readRow(
-          this.db,
-          "proposal_apply_recovery_decisions",
-          preview.workspaceId,
-          id(duplicate.id),
-        ),
+      const old = readApplyDecision(
+        this.db,
+        preview.workspaceId,
+        id(duplicate.id),
       );
       if (
         old.operation !== operation ||
@@ -1370,6 +1406,15 @@ function validateProposalApplyRecoveryDecision(
   checkHash(r);
   return r as unknown as ProposalApplyRecoveryDecision;
 }
+export function readApplyDecision(
+  db: DatabaseSync,
+  ws: string,
+  key: string,
+): ProposalApplyRecoveryDecision {
+  return validateProposalApplyRecoveryDecision(
+    readRow(db, "proposal_apply_recovery_decisions", ws, key),
+  );
+}
 function latestDecision(
   db: DatabaseSync,
   ws: string,
@@ -1380,9 +1425,7 @@ function latestDecision(
     )
     .get(ws);
   if (!key) return undefined;
-  const value = validateProposalApplyRecoveryDecision(
-    readRow(db, "proposal_apply_recovery_decisions", ws, id(key.id)),
-  );
+  const value = readApplyDecision(db, ws, id(key.id));
   if (value.revision !== key.revision || value.operation !== key.operation)
     fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
   return value;
@@ -1398,9 +1441,7 @@ function resumePins(db: DatabaseSync, ws: string): Map<string, ResumePin[]> {
       "SELECT id FROM proposal_apply_recovery_decisions WHERE workspace_id=? AND operation='resume' ORDER BY revision",
     )
     .iterate(ws)) {
-    const decision = validateProposalApplyRecoveryDecision(
-        readRow(db, "proposal_apply_recovery_decisions", ws, id(row.id)),
-      ),
+    const decision = readApplyDecision(db, ws, id(row.id)),
       binding = knowledgeHash(decision.binding);
     for (const pin of decision.owners)
       pins.set(pin.id, [...(pins.get(pin.id) ?? []), { pin, binding }]);
@@ -1441,7 +1482,7 @@ function frontier(
   getGuard: (ws: string, id: string) => ProposalApplyGuard | undefined = (
     ws,
     key,
-  ) => readProposalApplyGuard(db, ws, key, guardChecks),
+  ) => readProposalApplyGuard(db, ws, key, proposalApplyChecks),
 ): ProposalApplyRecoveryPreview["owners"] {
   const resumed = resumePins(db, ws),
     resumable = new Map<string, boolean>();
@@ -1457,7 +1498,7 @@ function frontier(
         readRow(db, "proposal_apply_owners", ws, id(row.id)),
       ),
       guard = getGuard(ws, owner.id);
-    if (guard) validateProposalApplyGuard(guard, guardChecks);
+    if (guard) validateProposalApplyGuard(guard, proposalApplyChecks);
     if (
       owner.state === "uncertain" &&
       resolved(db, owner, guard, resumed, resumable)
@@ -1511,270 +1552,5 @@ export function pauseImportedProposalApplies(
       paused.archiveSha256 !== archiveSha256
     )
       fail("PROPOSAL_APPLY_IMPORT_PAUSE_REQUIRED");
-  }
-}
-/** Metadata-first native cross-row graph validation never grants a producer capability. */
-export function validateProposalApplyDatabase(
-  db: DatabaseSync,
-  check: () => void = () => {},
-): void {
-  const storage = new ProposalApplyStorage(db, {
-    writeTx: (operation) => operation(),
-    checkBinding: () => fail(),
-    getRevision: (ws, key) => {
-      const meta = db
-        .prepare(
-          "SELECT length(CAST(data AS BLOB)) AS bytes FROM proposal_revisions WHERE workspace_id=? AND id=?",
-        )
-        .get(ws, key);
-      if (!meta) return undefined;
-      count(meta.bytes, 262144);
-      return validateProposalRevision(
-        decoded(
-          db
-            .prepare(
-              "SELECT data FROM proposal_revisions WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=262144",
-            )
-            .get(ws, key)?.data,
-          262144,
-        ),
-      );
-    },
-    getHead: () => undefined,
-    readApprovedCapture: () => fail(),
-    assertCurrent: () => fail(),
-    readPhysicalResult: () => fail(),
-    readExecutionGuard: () => fail(),
-    getExecutionGuard: (ws, key) =>
-      readProposalApplyGuard(db, ws, key, guardChecks),
-    assertCleanup: () => fail(),
-  });
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_apply_owners ORDER BY id")
-    .iterate()) {
-    check();
-    const history = storage.getHistory(id(row.workspace_id), id(row.id))!,
-      owner = history.owner,
-      revision = storage.ports.getRevision(owner.workspaceId, owner.revisionId);
-    if (
-      !revision ||
-      revision.sha256 !== owner.revisionSha256 ||
-      revision.proposalId !== owner.proposalId ||
-      revision.sourceManifestSha256 !== owner.sourceManifestSha256 ||
-      knowledgeHash(revision.binding) !== knowledgeHash(owner.binding) ||
-      revision.files.length > 32 ||
-      revision.totalBytes > 4_194_304
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const guard = readProposalApplyGuard(
-      db,
-      owner.workspaceId,
-      owner.id,
-      guardChecks,
-    );
-    if (owner.guardSha256 !== null && guard?.sha256 !== owner.guardSha256)
-      fail("PROPOSAL_APPLY_GUARD_INVALID");
-    const checkpoint = history.checkpoint;
-    if (checkpoint) {
-      if (checkpoint.files.length !== revision.files.length)
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      const complete = checkpoint.files.every(
-        (file) => file.observationComplete,
-      );
-      const partial =
-        !complete ||
-        checkpoint.errorCode !== null ||
-        checkpoint.files.some(
-          (file, index) =>
-            !file.attempted ||
-            (file.after?.sha256 ?? null) !==
-              (revision.files[index]!.after?.sha256 ?? null),
-        );
-      let unattempted = false;
-      for (const file of checkpoint.files) {
-        if (!file.attempted) unattempted = true;
-        else if (unattempted) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      }
-      if (
-        checkpoint.complete !== complete ||
-        checkpoint.partial !== partial ||
-        (owner.state === "completed" &&
-          (partial ||
-            !complete ||
-            !checkpoint.producerCleanupConfirmed ||
-            owner.cleanupConfirmed !== true ||
-            owner.errorCode !== null)) ||
-        (owner.state === "partial" &&
-          (!partial ||
-            !complete ||
-            !checkpoint.producerCleanupConfirmed ||
-            owner.cleanupConfirmed !== true))
-      )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      for (const [fileIndex, file] of checkpoint.files.entries()) {
-        const original = revision.files[fileIndex]!;
-        if (
-          file.path !== original.path ||
-          knowledgeHash(file.before) !== knowledgeHash(original.before)
-        )
-          fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-        if (file.after && "ownerId" in file.after) {
-          const ref = file.after;
-          if (
-            ref.ownerId !== owner.id ||
-            ref.checkpointId !== checkpoint.id ||
-            ref.fileIndex !== fileIndex
-          )
-            fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-          const meta = db
-            .prepare(
-              "SELECT workspace_id,owner_id,checkpoint_id,file_index,sha256,bytes,header_sha256,length(CAST(data AS BLOB)) AS data_bytes,length(content) AS content_bytes FROM proposal_effect_blobs WHERE id=?",
-            )
-            .get(ref.id);
-          if (!meta) fail("PROPOSAL_APPLY_BLOB_MISSING");
-          count(meta.data_bytes, 65536);
-          count(meta.content_bytes, 1_048_576);
-          if (
-            meta.workspace_id !== owner.workspaceId ||
-            meta.owner_id !== owner.id ||
-            meta.checkpoint_id !== checkpoint.id ||
-            meta.file_index !== fileIndex ||
-            meta.sha256 !== ref.sha256 ||
-            meta.bytes !== ref.bytes ||
-            meta.header_sha256 !== ref.headerSha256 ||
-            meta.content_bytes !== ref.bytes
-          )
-            fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-          const raw = db
-            .prepare(
-              "SELECT data,content FROM proposal_effect_blobs WHERE id=? AND length(CAST(data AS BLOB))<=65536 AND length(content)<=1048576",
-            )
-            .get(ref.id)!;
-          const header = fields(immutable(decoded(raw.data, 65536)), [
-            "id",
-            "workspaceId",
-            "ownerId",
-            "checkpointId",
-            "fileIndex",
-            "sha256",
-            "bytes",
-            "headerSha256",
-            "createdAt",
-          ]);
-          const { headerSha256, ...body } = header;
-          if (
-            knowledgeHash(body) !== headerSha256 ||
-            knowledgeHash({ ...ref, createdAt: checkpoint.createdAt }) !==
-              knowledgeHash(header) ||
-            !(raw.content instanceof Uint8Array) ||
-            Buffer.byteLength(Buffer.from(raw.content).toString("utf8")) !==
-              ref.bytes ||
-            sha256Hex(Buffer.from(raw.content).toString("utf8")) !== ref.sha256
-          )
-            fail("PROPOSAL_APPLY_HASH_MISMATCH");
-        } else if (
-          file.after &&
-          knowledgeHash(file.after) !== knowledgeHash(original.before) &&
-          knowledgeHash(file.after) !== knowledgeHash(original.after)
-        )
-          fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-      }
-    }
-  }
-  for (const row of db
-    .prepare(
-      "SELECT id,workspace_id,owner_id,checkpoint_id,file_index FROM proposal_effect_blobs ORDER BY id",
-    )
-    .iterate()) {
-    check();
-    const checkpoint = storage.getCheckpoint(
-      id(row.workspace_id),
-      id(row.checkpoint_id),
-    );
-    const owner = storage.getOwner(id(row.workspace_id), id(row.owner_id));
-    const ref = checkpoint?.files[count(row.file_index, 31)]?.after;
-    if (
-      !owner ||
-      !checkpoint ||
-      !ref ||
-      !("ownerId" in ref) ||
-      ref.id !== row.id ||
-      ref.ownerId !== owner.id ||
-      ref.checkpointId !== checkpoint.id ||
-      ref.fileIndex !== row.file_index
-    )
-      fail("PROPOSAL_APPLY_BLOB_ORPHAN");
-  }
-  for (const row of db
-    .prepare(
-      "SELECT id,workspace_id FROM proposal_apply_checkpoints ORDER BY id",
-    )
-    .iterate()) {
-    check();
-    if (!storage.getOwner(id(row.workspace_id), id(row.id)))
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    storage.getCheckpoint(id(row.workspace_id), id(row.id));
-  }
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_apply_receipts ORDER BY id")
-    .iterate()) {
-    check();
-    if (!storage.getOwner(id(row.workspace_id), id(row.id)))
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    storage.getReceipt(id(row.workspace_id), id(row.id));
-  }
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_heads ORDER BY id")
-    .iterate()) {
-    check();
-    const head =
-      readProposalHead(db, id(row.workspace_id), id(row.id), scopeMismatch) ??
-      scopeMismatch();
-    if (head.applySettlement) {
-      const history = storage.getHistory(
-        head.workspaceId,
-        head.applySettlement.ownerId,
-      );
-      if (
-        !history?.receipt ||
-        history.owner.proposalId !== head.id ||
-        history.owner.revisionId !== head.revisionId ||
-        history.receipt.afterHead.applySettlement?.ownerId !==
-          head.applySettlement.ownerId
-      )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    }
-  }
-  for (const row of db
-    .prepare(
-      "SELECT id,workspace_id,revision,operation FROM proposal_apply_recovery_decisions ORDER BY workspace_id,revision",
-    )
-    .iterate()) {
-    check();
-    const decision = validateProposalApplyRecoveryDecision(
-      readRow(
-        db,
-        "proposal_apply_recovery_decisions",
-        id(row.workspace_id),
-        id(row.id),
-      ),
-    );
-    if (
-      decision.revision !== row.revision ||
-      decision.operation !== row.operation
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    for (const pin of decision.owners) {
-      const owner = storage.getOwner(decision.workspaceId, pin.id);
-      if (
-        !owner ||
-        owner.sha256 !== pin.sha256 ||
-        owner.state !== "uncertain" ||
-        owner.checkpointSha256 !== pin.checkpointSha256 ||
-        (readProposalApplyGuard(db, decision.workspaceId, owner.id, guardChecks)
-          ?.sha256 ?? owner.guardSha256) !== pin.guardSha256
-      )
-        fail("PROPOSAL_APPLY_RECOVERY_STALE");
-    }
   }
 }

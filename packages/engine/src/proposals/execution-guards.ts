@@ -22,7 +22,7 @@ export const PROPOSAL_APPLY_GUARD_SCHEMA_SQL = `CREATE TABLE proposal_apply_exec
  lock_path TEXT NOT NULL, marker_owner_pid INTEGER NOT NULL CHECK(marker_owner_pid>0), marker_updated_at TEXT NOT NULL,
  data TEXT NOT NULL CHECK(length(CAST(data AS BLOB))<=4096), UNIQUE(lock_path,marker_owner_pid,marker_updated_at)
 ) STRICT, WITHOUT ROWID;`;
-const GUARD_BYTES = 4096;
+export const PROPOSAL_APPLY_GUARD_BYTES = 4096;
 function fail(): never {
   throw new EngineError(
     "PROPOSAL_APPLY_GUARD_INVALID",
@@ -41,12 +41,14 @@ export interface ProposalApplyGuardChecks {
   readonly verify: <T extends object>(record: T) => T;
   readonly decoded: (data: unknown, maxBytes: number) => unknown;
 }
-const GUARD_CHECKS: ProposalApplyGuardChecks = Object.freeze({
-  ...recordGuards({ json: immutableKnowledgeJson, fail }),
-  fail,
-  id: identifier,
-  decoded: (data: unknown) => parseJsonOr(String(data), fail),
-});
+export const proposalApplyGuardChecks: ProposalApplyGuardChecks = Object.freeze(
+  {
+    ...recordGuards({ json: immutableKnowledgeJson, fail }),
+    fail,
+    id: identifier,
+    decoded: (data: unknown) => parseJsonOr(String(data), fail),
+  },
+);
 function physical(path: string) {
   const stat = lstatSync(path, { bigint: true });
   if (
@@ -63,7 +65,7 @@ function physicalId(value: unknown): boolean {
 }
 export function validateProposalApplyGuard(
   input: unknown,
-  checks: ProposalApplyGuardChecks = GUARD_CHECKS,
+  checks: ProposalApplyGuardChecks = proposalApplyGuardChecks,
 ): ProposalApplyGuard {
   const r = checks.exact(checks.json(input), [
     "id",
@@ -106,7 +108,7 @@ export function readProposalApplyGuard(
   db: DatabaseSync,
   workspaceId: string,
   ownerId: string,
-  checks: ProposalApplyGuardChecks = GUARD_CHECKS,
+  checks: ProposalApplyGuardChecks = proposalApplyGuardChecks,
 ): ProposalApplyGuard | undefined {
   checks.id(workspaceId);
   checks.id(ownerId);
@@ -116,61 +118,19 @@ export function readProposalApplyGuard(
     )
     .get(workspaceId, ownerId);
   if (!header) return undefined;
-  if (Number(header.bytes) > GUARD_BYTES) checks.fail();
+  if (Number(header.bytes) > PROPOSAL_APPLY_GUARD_BYTES) checks.fail();
   const row = db
     .prepare(
       `SELECT data FROM ${PROPOSAL_APPLY_GUARD_TABLE} WHERE workspace_id=? AND id=?`,
     )
     .get(workspaceId, ownerId);
   const guard = validateProposalApplyGuard(
-    checks.decoded(row?.data, GUARD_BYTES),
+    checks.decoded(row?.data, PROPOSAL_APPLY_GUARD_BYTES),
     checks,
   );
   if (guard.workspaceId !== workspaceId || guard.ownerId !== ownerId)
     checks.fail();
   return guard;
-}
-export function validateProposalApplyExecutionGuards(
-  db: DatabaseSync,
-  check: () => void = () => {},
-): void {
-  for (const header of db
-    .prepare(
-      `SELECT id,workspace_id,owner_id,lock_path,marker_owner_pid,marker_updated_at,length(CAST(data AS BLOB)) AS bytes FROM ${PROPOSAL_APPLY_GUARD_TABLE} ORDER BY id`,
-    )
-    .iterate()) {
-    check();
-    if (Number(header.bytes) > GUARD_BYTES) fail();
-    const guard = validateProposalApplyGuard(
-      GUARD_CHECKS.decoded(
-        db
-          .prepare(`SELECT data FROM ${PROPOSAL_APPLY_GUARD_TABLE} WHERE id=?`)
-          .get(String(header.id))?.data,
-        GUARD_BYTES,
-      ),
-    );
-    if (
-      guard.id !== header.id ||
-      guard.workspaceId !== header.workspace_id ||
-      guard.ownerId !== header.owner_id ||
-      guard.lock.path !== header.lock_path ||
-      guard.marker.ownerPid !== header.marker_owner_pid ||
-      guard.marker.updatedAt !== header.marker_updated_at
-    )
-      fail();
-    const owner = db
-      .prepare(
-        "SELECT workspace_id,json_extract(data,'$.binding') AS binding FROM proposal_apply_owners WHERE id=?",
-      )
-      .get(guard.ownerId);
-    if (
-      !owner ||
-      owner.workspace_id !== guard.workspaceId ||
-      knowledgeHash(JSON.parse(String(owner.binding))) !==
-        knowledgeHash(guard.binding)
-    )
-      fail();
-  }
 }
 export class ProposalApplyExecutionGuards {
   readonly #originals = new WeakMap<object, ProposalApplyGuard>();

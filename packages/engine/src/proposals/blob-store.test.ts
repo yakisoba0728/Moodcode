@@ -19,11 +19,8 @@ import {
   type PreparedProposalSourceCapture,
 } from "./source-capture.js";
 import { ProposalBlobStorage } from "./blob-store.js";
-import {
-  PROPOSAL_SCHEMA_SQL,
-  ProposalStorage,
-  validateProposalDatabase,
-} from "./store.js";
+import { validateProposalDatabase } from "./archive-relations.js";
+import { PROPOSAL_SCHEMA_SQL, ProposalStorage } from "./store.js";
 const sha = (s: string) => createHash("sha256").update(s).digest("hex");
 const code = (expected: string) => (error: unknown) =>
   error instanceof EngineError && error.code === expected;

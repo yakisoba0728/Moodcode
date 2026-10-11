@@ -10,7 +10,6 @@ import { assertNotThenable, proposalChecks } from "./validation.js";
 import type {
   PreparedProposalSourceSnapshot,
   ProposalSourceManifest,
-  ProposalSourceOperation,
 } from "./source-capture.js";
 import type {
   AppendProposalRevisionResult,
@@ -78,6 +77,19 @@ function fail(
 function transactionRequired(): never {
   return fail("PROPOSAL_TRANSACTION_REQUIRED");
 }
+export const proposalStoreChecks = Object.freeze({
+  ...proposalChecks({
+    fail,
+    limitCode: "PROPOSAL_LIMIT",
+    hashCode: "PROPOSAL_HASH_MISMATCH",
+    rowCode: "INVALID_PROPOSAL_ROW",
+    maxBytes: PROPOSAL_LIMITS.revisionBytes,
+    maxNodes: 40_000,
+    maxDepth: 20,
+    maxItems: 256,
+  }),
+  fail,
+});
 const {
   id,
   integer: number,
@@ -88,16 +100,7 @@ const {
   seal: signed,
   verify: checkHash,
   decoded,
-} = proposalChecks({
-  fail,
-  limitCode: "PROPOSAL_LIMIT",
-  hashCode: "PROPOSAL_HASH_MISMATCH",
-  rowCode: "INVALID_PROPOSAL_ROW",
-  maxBytes: PROPOSAL_LIMITS.revisionBytes,
-  maxNodes: 40_000,
-  maxDepth: 20,
-  maxItems: 256,
-});
+} = proposalStoreChecks;
 function relative(value: unknown): string {
   workspaceWritePath(
     value,
@@ -601,12 +604,13 @@ export function advanceProposalHead(
     stale,
   );
 }
-function revisionAt(
+export function readProposalRevision(
   db: DatabaseSync,
   ws: string,
   key: string,
+  mismatch?: () => never,
 ): ProposalRevision | undefined {
-  return load(db, "proposal_revisions", ws, key) as unknown as
+  return load(db, "proposal_revisions", ws, key, mismatch) as unknown as
     ProposalRevision | undefined;
 }
 interface Owned {
@@ -869,7 +873,7 @@ export class ProposalStorage {
         )
           fail("PROPOSAL_BLOB_MISMATCH");
         const { createdAt: _createdAt, ...actualReference } = header;
-        if (exactBlob(this.db, actualReference, createdAt) !== body)
+        if (readProposalBlob(this.db, actualReference, createdAt) !== body)
           fail("PROPOSAL_BLOB_MISMATCH");
       }
       assertNotThenable(
@@ -921,7 +925,7 @@ export class ProposalStorage {
     return readProposalHead(this.db, id(ws), id(key));
   }
   getRevision(ws: string, key: string): ProposalRevision | undefined {
-    return revisionAt(this.db, id(ws), id(key));
+    return readProposalRevision(this.db, id(ws), id(key));
   }
   getSelection(ws: string, key: string): ProposalSelection | undefined {
     const set = this.getSet(ws, key);
@@ -1037,7 +1041,7 @@ export function pauseImportedProposals(
   }
 }
 
-function exactBlob(
+export function readProposalBlob(
   db: DatabaseSync,
   ref: ProposalBlobReference,
   createdAt: string,
@@ -1100,97 +1104,4 @@ function exactBlob(
   )
     fail("PROPOSAL_BLOB_MISMATCH");
   return text;
-}
-/** Bounded semantic inspection reads metadata before every row/BLOB and never rebinds history. */
-export function validateProposalDatabase(
-  db: DatabaseSync,
-  check: () => void = () => {},
-): void {
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_revisions ORDER BY id")
-    .iterate() as Iterable<{ id: string; workspace_id: string }>) {
-    check();
-    const r = revisionAt(db, id(row.workspace_id), id(row.id))!;
-    if (r.expectedHeadRevision !== r.revision - 1)
-      fail("PROPOSAL_SCOPE_MISMATCH");
-    if (r.previousId !== null) {
-      const previous = revisionAt(db, r.workspaceId, r.previousId);
-      if (
-        !previous ||
-        previous.proposalId !== r.proposalId ||
-        previous.revision !== r.revision - 1 ||
-        knowledgeHash(previous.binding) !== knowledgeHash(r.binding) ||
-        Date.parse(previous.createdAt) > Date.parse(r.createdAt)
-      )
-        fail("PROPOSAL_SCOPE_MISMATCH");
-    }
-    const set = readProposalHead(db, r.workspaceId, r.proposalId);
-    if (!set) fail("PROPOSAL_HEAD_MISSING");
-    const operations: ProposalSourceOperation[] = [];
-    for (const file of r.files) {
-      check();
-      if (file.before !== null) exactBlob(db, file.before, r.createdAt);
-      const after =
-        file.after === null ? null : exactBlob(db, file.after, r.createdAt);
-      operations.push({
-        path: file.path,
-        expectedSha256: file.before?.sha256 ?? null,
-        after,
-      });
-    }
-    const request = {
-      workspaceId: r.workspaceId,
-      requestId: r.requestId,
-      ...(r.requestedProposalId === null
-        ? {}
-        : { proposalId: r.requestedProposalId }),
-      expectedHeadRevision: r.expectedHeadRevision,
-      operations,
-    };
-    if (proposalRequestFingerprint(request) !== r.requestInputSha256)
-      fail("PROPOSAL_HASH_MISMATCH");
-  }
-  for (const row of db
-    .prepare("SELECT id,workspace_id FROM proposal_heads ORDER BY id")
-    .iterate() as Iterable<{ id: string; workspace_id: string }>) {
-    check();
-    const h = readProposalHead(db, id(row.workspace_id), id(row.id))!,
-      r = revisionAt(db, h.workspaceId, h.revisionId);
-    const latest = db
-      .prepare(
-        "SELECT id,revision FROM proposal_revisions WHERE workspace_id=? AND proposal_id=? ORDER BY revision DESC LIMIT 1",
-      )
-      .get(h.workspaceId, h.id) as { id: string; revision: number } | undefined;
-    if (
-      !r ||
-      r.proposalId !== h.id ||
-      r.sha256 !== h.revisionSha256 ||
-      latest?.id !== r.id ||
-      latest.revision !== r.revision ||
-      h.headRevision < r.revision ||
-      (h.status === "pending" && h.headRevision !== r.revision) ||
-      (h.status === "paused-import" && h.headRevision <= r.revision)
-    )
-      fail("PROPOSAL_SCOPE_MISMATCH");
-  }
-  for (const row of db
-    .prepare(
-      "SELECT id,workspace_id,revision_id,operation_index,role FROM proposal_blobs ORDER BY id",
-    )
-    .iterate() as Iterable<{
-    id: string;
-    workspace_id: string;
-    revision_id: string;
-    operation_index: number;
-    role: string;
-  }>) {
-    check();
-    const r = revisionAt(db, id(row.workspace_id), id(row.revision_id));
-    const i = number(row.operation_index, PROPOSAL_LIMITS.files - 1);
-    if (!r || (row.role !== "before" && row.role !== "after"))
-      fail("PROPOSAL_SCOPE_MISMATCH");
-    const ref = r.files[i]?.[row.role];
-    if (!ref || ref.id !== row.id) fail("PROPOSAL_BLOB_ORPHAN");
-    exactBlob(db, ref, r.createdAt);
-  }
 }

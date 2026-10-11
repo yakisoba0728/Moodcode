@@ -19,9 +19,10 @@ import { KNOWLEDGE_FILE_PUBLICATION_SCHEMA_SQL, KNOWLEDGE_FILE_PUBLICATION_TABLE
 import { KNOWLEDGE_FILE_EXECUTION_GUARD_SCHEMA_SQL, KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE, validateKnowledgeFileExecutionGuards } from '../knowledge/file-execution-guards.js';
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_SCHEMA_SQL, DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES, validateDiagnosticExecutionObservationDatabase } from '../diagnostics/execution-observation-store.js';
 import { KNOWLEDGE_IMPORT_RECOVERY_SCHEMA_SQL, KNOWLEDGE_IMPORT_RECOVERY_TABLES, validateKnowledgeImportRecoveryDatabase } from '../knowledge/import-recovery-store.js';
-import { PROPOSAL_SCHEMA_SQL, PROPOSAL_TABLES, validateProposalDatabase } from '../proposals/store.js';
-import { PROPOSAL_APPLY_SCHEMA_SQL, PROPOSAL_APPLY_TABLES, validateProposalApplyDatabase } from '../proposals/apply-store.js';
-import { PROPOSAL_APPLY_GUARD_SCHEMA_SQL, PROPOSAL_APPLY_GUARD_TABLE, validateProposalApplyExecutionGuards } from '../proposals/execution-guards.js';
+import { PROPOSAL_SCHEMA_SQL, PROPOSAL_TABLES } from '../proposals/store.js';
+import { PROPOSAL_APPLY_SCHEMA_SQL, PROPOSAL_APPLY_TABLES } from '../proposals/apply-store.js';
+import { PROPOSAL_APPLY_GUARD_SCHEMA_SQL, PROPOSAL_APPLY_GUARD_TABLE } from '../proposals/execution-guards.js';
+import { validateProposalApplyDatabase, validateProposalApplyExecutionGuards, validateProposalDatabase } from '../proposals/archive-relations.js';
 import { TEAM_SCHEMA_SQL, TEAM_TABLES } from '../teams/schema.js';
 import { validateTeamDatabase } from '../teams/store.js';
 import { validateResidentTeamDatabase } from '../teams/resident-validation.js';

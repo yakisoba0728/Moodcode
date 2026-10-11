@@ -15,6 +15,7 @@ import { test } from "node:test";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash, sha256 } from "../knowledge/validation.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
+import { validateProposalDatabase } from "./archive-relations.js";
 import { ProposalBlobStorage } from "./blob-store.js";
 import {
   ProposalSourceCaptureHost,
@@ -27,7 +28,6 @@ import {
   pauseImportedProposals,
   normalizeProposalCaptureInput,
   proposalRequestFingerprint,
-  validateProposalDatabase,
 } from "./store.js";
 import type {
   AppendProposalRevisionResult,

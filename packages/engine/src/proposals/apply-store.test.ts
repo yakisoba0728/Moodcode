@@ -3,10 +3,8 @@ import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash } from "../knowledge/validation.js";
-import {
-  ProposalApplyStorage,
-  validateProposalApplyDatabase,
-} from "./apply-store.js";
+import { ProposalApplyStorage } from "./apply-store.js";
+import { validateProposalApplyDatabase } from "./archive-relations.js";
 import type {
   PrepareProposalApply,
   ProposalApplyOwner,

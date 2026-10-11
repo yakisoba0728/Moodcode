@@ -6,8 +6,10 @@ import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
 import { knowledgeHash } from "../knowledge/validation.js";
-import { validateProposalApplyDatabase } from "./apply-store.js";
-import { validateProposalDatabase } from "./store.js";
+import {
+  validateProposalApplyDatabase,
+  validateProposalDatabase,
+} from "./archive-relations.js";
 import { applyFixture, SECOND_AFTER, SECOND_BEFORE } from "./fixtures/apply.js";
 
 function actualDb(
