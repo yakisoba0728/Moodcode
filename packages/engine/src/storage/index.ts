@@ -1,15 +1,14 @@
 import {readCommandLifetimes,validateCommandLifetimeRecord,validateCommandLifetimeDatabase,pauseCommandLifetimes,lifetimeKind,type CommandLifetimeRecord} from '../jobs/command-lifetime-records.js';
 import {writeEffectBatch,hasKnownEffectBatchMarker,hasUncertainEffectBatches,listEffectBatches,readEffectBatch,validateEffectBatchDatabase,pauseEffectBatches,type EffectBatchWritePorts} from '../effect-batches/storage.js';
 import type {EffectBatchRecord} from '../effect-batches/types.js';
-import {CodeModeStorage} from '../code-mode/records.js';
+import {CodeModeStorage, type CodeModeRecordPorts} from '../code-mode/records.js';
 import { assertMediaReferenceCapacity } from '../media/storage-capacity.js';
 import {validateMediaDatabase} from '../media/native-validation.js';
 import { PrFeedbackStorage, validatePrFeedbackDatabase } from '../pr-feedback/records.js';
-import { validateCommitVerification } from '../git/commit-receipts.js';
+import { validateCommitVerification, type VerificationEvidencePin } from '../git/commit-receipts.js';
 import {deliverHostCommandResultAtomic,readHostCommandDeliveries,readHostCommandDelivery,findHostCommandDeliveryForInput,validateHostCommandDeliveryDatabase,pauseImportedHostCommandDeliveries,type HostCommandDeliveryInput,type HostCommandDeliveryPorts} from '../jobs/host-command-delivery-records.js';
-
-import { CodingBatchStorage } from "../coding-runs/groups.js";
-import {WorkflowEffectStorage, readWorkflowEffect, readWorkflowDelivery, hasWorkflowEffectUncertainty, pauseImportedWorkflowEffects, type WorkflowEffectNativePorts} from "../workflows/effects-records.js";
+import { CodingBatchStorage } from '../coding-runs/groups.js';
+import {WorkflowEffectStorage, readWorkflowEffect, readWorkflowDelivery, hasWorkflowEffectUncertainty, pauseImportedWorkflowEffects, type WorkflowEffectNativePorts} from '../workflows/effects-records.js';
 import {SandboxStorage,pauseImportedSandboxes,validateSandboxDatabase} from '../sandbox/records.js';
 import { validateResidentTeamDatabase, pauseResidentTeamHistories, assertResidentHistoryCapacity } from '../teams/resident-validation.js';
 import { HostCommandStorage, hasHostCommandUncertainty, validateHostCommandDatabase } from '../jobs/host-command-records.js';
@@ -33,7 +32,7 @@ import { normalizeDocumentAttachments, normalizeMediaAttachments, normalizeImage
 import type { CommitChange, SessionEngineStore } from '../ports.js';
 import { backupDatabase, inspectIntegrity, type DatabaseBackup, type IntegrityCheckResult, type StoreBackupOptions } from './maintenance.js';
 import { databaseVersion, DB_VERSION, migrateDatabase } from './migrations.js';
-import { NativeSessionStorage, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
+import { NativeSessionStorage, storedJson, type ExistingInputReceipt, type StoredInputPromotion } from './native.js';
 import { isSqliteBusy } from './transaction.js';
 import { NativeExecutionStorage, type PartPage, type SessionDocument, type TurnPage } from './native-records.js';
 import { ownedCommandJobKind, validateOwnedCommandJob, validateOwnedCommandJobDatabase, readOwnedCommandJobs, readOwnedCommandJob, reclaimOwnedCommandJobs, recoverInterruptedOwnedCommandJobs, pauseImportedOwnedCommandJobs, type OwnedCommandJobSource } from '../jobs/owned-command-records.js';
@@ -92,6 +91,7 @@ import { WorkflowStorage, markImportedWorkflowsPaused, type WorkflowStoragePorts
 import { ScheduleStorage, markImportedSchedulesDisabled, type ScheduleStoragePorts } from '../schedules/store.js';
 import { AgentBackendStorage, markImportedAgentBackendsPaused, hasAgentBackendBlocker, type AgentBackendStoragePorts } from '../agent-backends/store.js';
 import { JobStorage, markImportedJobsPaused, type JobStoragePorts } from '../jobs/store.js';
+import type { ExecutionLockMarker } from '../tools/command/execution-lock.js';
 export type { DatabaseBackup, IntegrityCheckResult, StoreBackupOptions } from './maintenance.js';
 export type { NativeMetricsReport } from './native-metrics.js';
 export type { InputImageIndexOptions, InputImageIndexReport } from './input-image-index.js';
@@ -175,7 +175,7 @@ export class SqliteStore implements SessionEngineStore {
   private proposalApplyRecords?: ProposalApplyStorage;
   private teamRecords?: TeamStorage;
   private workflowRecords?: WorkflowStorage;
-  private workflowEffectRecords?:WorkflowEffectStorage;
+  private workflowEffectRecords?: WorkflowEffectStorage;
   private scheduleRecords?: ScheduleStorage;
   private backendRecords?: AgentBackendStorage;
   private jobRecords?: JobStorage;
@@ -257,6 +257,12 @@ export class SqliteStore implements SessionEngineStore {
 
   private assertOpen(): void {
     if (this.closed) throw new EngineError('STORE_CLOSED', 'Storage is closed');
+  }
+  /** Single-owner bindings: the first caller owns the storage, later callers fail with the binding's code. */
+  private once<T>(current: T | undefined, code: string, message: string, create: () => T): T {
+    this.assertOpen();
+    if (current) throw new EngineError(code, message);
+    return create();
   }
   private row(sql: string, ...values: SQLInputValue[]): DataRow | undefined {
     return this.db.prepare(sql).get(...values) as DataRow | undefined;
@@ -450,34 +456,29 @@ export class SqliteStore implements SessionEngineStore {
   listSummaryAttempts(sessionId: string, options?: SummaryAttemptListOptions): SummaryAttemptPage { return this.summaryRecords.list(sessionId, options); }
   /** Set before startup recovery; the boot frontier cannot be advanced by a host decision. */
   configureSummaryRecovery(bindingScope: (workspaceId: string) => string): void {
-    this.assertOpen();
-    if (this.summaryRecovery) throw new EngineError('SUMMARY_RECOVERY_ALREADY_CONFIGURED', 'Summary recovery has already been bound');
-    this.summaryRecovery = new SummaryRecoveryStorage(this.native, this.summaryRecords, {
-      bindingScope, startupHighWater: this.summaryRecoveryHighWater,
-      appendLegacy: (run, type, payload) => this.append(run, type, payload),
-      getSummaryOverflowDependency: (id, turnId, failedAttemptId) => this.getSummaryOverflowDependency(id, turnId, failedAttemptId),
-      hasOtherExecutionUncertainty: (workspaceId, excludedSummaryAttemptId) => hasExecutionUncertainty(this.db, this, workspaceId, {
-        excludedSummaryAttemptId, hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-        hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-        hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
-      }),
-    });
+    this.summaryRecovery = this.once(this.summaryRecovery, 'SUMMARY_RECOVERY_ALREADY_CONFIGURED', 'Summary recovery has already been bound',
+      () => new SummaryRecoveryStorage(this.native, this.summaryRecords, {
+        bindingScope, startupHighWater: this.summaryRecoveryHighWater,
+        appendLegacy: (run, type, payload) => this.append(run, type, payload),
+        getSummaryOverflowDependency: (id, turnId, failedAttemptId) => this.getSummaryOverflowDependency(id, turnId, failedAttemptId),
+        hasOtherExecutionUncertainty: (workspaceId, excludedSummaryAttemptId) => hasExecutionUncertainty(this.db, this, workspaceId, this.uncertaintyOptions(excludedSummaryAttemptId)),
+      }));
   }
-  getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) {
+  private summaryRecoveryOwner(): SummaryRecoveryStorage {
     this.assertOpen();
     if (!this.summaryRecovery) throw new EngineError('SUMMARY_RECOVERY_NOT_CONFIGURED', 'Summary recovery requires a host storage binding');
-    return this.summaryRecovery.preview(sessionId, summaryAttemptId);
+    return this.summaryRecovery;
   }
-  acknowledgeSummaryRecovery(request: SummaryRecoveryRequest) {
-    this.assertOpen();
-    if (!this.summaryRecovery) throw new EngineError('SUMMARY_RECOVERY_NOT_CONFIGURED', 'Summary recovery requires a host storage binding');
-    return this.summaryRecovery.acknowledge(request);
+  private uncertaintyOptions(excludedSummaryAttemptId?: string): Parameters<typeof hasExecutionUncertainty>[3] {
+    return {
+      excludedSummaryAttemptId, hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+      hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
+      hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
+    };
   }
-  findSummaryRecoveryReceipt(request: SummaryRecoveryRequest) {
-    this.assertOpen();
-    if (!this.summaryRecovery) throw new EngineError('SUMMARY_RECOVERY_NOT_CONFIGURED', 'Summary recovery requires a host storage binding');
-    return this.summaryRecovery.findReceipt(request);
-  }
+  getSummaryRecoveryPreview(sessionId: string, summaryAttemptId: string) { return this.summaryRecoveryOwner().preview(sessionId, summaryAttemptId); }
+  acknowledgeSummaryRecovery(request: SummaryRecoveryRequest) { return this.summaryRecoveryOwner().acknowledge(request); }
+  findSummaryRecoveryReceipt(request: SummaryRecoveryRequest) { return this.summaryRecoveryOwner().findReceipt(request); }
   hasUncertainSummaries(workspaceId: string): boolean {
     return this.recoveryBlocked(() => {
       this.getWorkspace(workspaceId);
@@ -486,7 +487,21 @@ export class SqliteStore implements SessionEngineStore {
     });
   }
   hasUncertainWorkspace(workspaceId: string): boolean {
-    return this.recoveryBlocked(() => this.createCodeModeStorage().hasUncertain(workspaceId) || hasUncertainEffectBatches(this.db,workspaceId) || readCommandLifetimes(this.db,workspaceId).some(r=>r.state==='uncertain'||r.state==='paused-import'&&r.completionSha256===null) || hasWorkflowEffectUncertainty(this.db,workspaceId) || this.hasUncertainGitCommit(workspaceId) || this.hasUncertainSummaries(workspaceId) || this.hasUncertainExecution(workspaceId) || this.hasUncertainKnowledgeGeneration(workspaceId) || this.hasUncertainKnowledgeFilePublication(workspaceId) || this.hasUncertainProposalApply(workspaceId) || this.hasUncertainAgentBackend(workspaceId) || readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'));
+    const checks = [
+      () => this.createCodeModeStorage().hasUncertain(workspaceId),
+      () => hasUncertainEffectBatches(this.db, workspaceId),
+      () => readCommandLifetimes(this.db, workspaceId).some(r => r.state === 'uncertain' || r.state === 'paused-import' && r.completionSha256 === null),
+      () => hasWorkflowEffectUncertainty(this.db, workspaceId),
+      () => this.hasUncertainGitCommit(workspaceId),
+      () => this.hasUncertainSummaries(workspaceId),
+      () => this.hasUncertainExecution(workspaceId),
+      () => this.hasUncertainKnowledgeGeneration(workspaceId),
+      () => this.hasUncertainKnowledgeFilePublication(workspaceId),
+      () => this.hasUncertainProposalApply(workspaceId),
+      () => this.hasUncertainAgentBackend(workspaceId),
+      () => readOwnedCommandJobs(this.db, workspaceId).some(job => job.state === 'uncertain' || job.state === 'paused-import' && job.errorCode === 'COMMAND_JOB_CLEANUP_UNCERTAIN'),
+    ];
+    return this.recoveryBlocked(() => checks.some(check => check()));
   }
   hasUncertainAgentBackend(workspaceId: string): boolean {
     return this.recoveryBlocked(() => { this.getWorkspace(workspaceId); return hasAgentBackendBlocker(this.db, workspaceId); });
@@ -523,34 +538,22 @@ export class SqliteStore implements SessionEngineStore {
   hasUncertainExecution(workspaceId: string): boolean {
     return this.recoveryBlocked(() => {
       this.getWorkspace(workspaceId);
-      return hasHostCommandUncertainty(this.db,workspaceId) || hasExecutionUncertainty(this.db, this, workspaceId, {
-        hasValidSummaryAcknowledgment: (sessionId, id) => this.summaryRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-        hasValidProviderAcknowledgment: (sessionId, id) => this.providerRecovery?.hasValidAcknowledgment(sessionId, id) ?? false,
-        hasUnacknowledgedProviders: workspaceId => this.providerRecovery?.hasUnacknowledged(workspaceId) ?? true,
-      });
+      return hasHostCommandUncertainty(this.db,workspaceId) || hasExecutionUncertainty(this.db, this, workspaceId, this.uncertaintyOptions());
     });
   }
   configureProviderRecovery(bindingScope: (workspaceId: string) => string): void {
-    this.assertOpen();
-    if (this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_ALREADY_CONFIGURED', 'Provider recovery has already been bound');
-    this.providerRecovery = new ProviderRecoveryStorage(this.native, this, { bindingScope, startupHighWater: this.providerRecoveryHighWater,
-      appendLegacy: (run, type, payload) => this.append(run, type, payload) });
+    this.providerRecovery = this.once(this.providerRecovery, 'PROVIDER_RECOVERY_ALREADY_CONFIGURED', 'Provider recovery has already been bound',
+      () => new ProviderRecoveryStorage(this.native, this, { bindingScope, startupHighWater: this.providerRecoveryHighWater,
+        appendLegacy: (run, type, payload) => this.append(run, type, payload) }));
   }
-  getProviderRecoveryPreview(sessionId: string, attemptId: string) {
-    this.assertOpen();
-    if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
-    return this.providerRecovery.preview(sessionId, attemptId);
-  }
-  acknowledgeProviderRecovery(request: ProviderRecoveryRequest) {
+  private providerRecoveryOwner(): ProviderRecoveryStorage {
     this.assertOpen();
     if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
-    return this.providerRecovery.acknowledge(request);
+    return this.providerRecovery;
   }
-  findProviderRecoveryReceipt(request: ProviderRecoveryRequest) {
-    this.assertOpen();
-    if (!this.providerRecovery) throw new EngineError('PROVIDER_RECOVERY_NOT_CONFIGURED', 'Provider recovery requires a host storage binding');
-    return this.providerRecovery.findReceipt(request);
-  }
+  getProviderRecoveryPreview(sessionId: string, attemptId: string) { return this.providerRecoveryOwner().preview(sessionId, attemptId); }
+  acknowledgeProviderRecovery(request: ProviderRecoveryRequest) { return this.providerRecoveryOwner().acknowledge(request); }
+  findProviderRecoveryReceipt(request: ProviderRecoveryRequest) { return this.providerRecoveryOwner().findReceipt(request); }
   putPart(part: MessagePart): MessagePart { return this.executionRecords.putPart(part); }
   listParts(turnId: string): MessagePart[] { return this.executionRecords.listParts(turnId); }
   listPartsPage(turnId: string, afterPartId?: string, limit?: number): PartPage { return this.executionRecords.listPartsPage(turnId, afterPartId, limit); }
@@ -576,7 +579,7 @@ export class SqliteStore implements SessionEngineStore {
       this.executionRecords.putContextRevision(change.summaryRevision);
       this.executionRecords.putContextRevision(change.contextRevision);
       this.executionRecords.putSessionDocument(run.sessionId, 'context.active_memory', change.source.expectedMemoryRevision,
-        { active: JSON.parse(JSON.stringify(change.checkpoint)) as JsonObject });
+        { active: storedJson(change.checkpoint) });
       this.executionRecords.putSessionDocument(run.sessionId, 'context.head', change.source.expectedContextHeadRevision, change.contextData);
       const completed = this.native.appendEvent(run.sessionId, 'summary.completed', payload, { runId });
       const result = this.append(run, 'summary.completed', completed.payload);
@@ -636,23 +639,20 @@ export class SqliteStore implements SessionEngineStore {
     return new KnowledgeStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
   }
   createKnowledgeGenerationStorage(ports: Omit<KnowledgeGenerationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeGenerationStorage {
-    this.assertOpen();
-    if (this.knowledgeGenerationRecords) throw new EngineError('KNOWLEDGE_GENERATION_ALREADY_CONFIGURED', 'Native generation storage already has a host owner');
-    return this.knowledgeGenerationRecords = new KnowledgeGenerationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+    return this.knowledgeGenerationRecords = this.once(this.knowledgeGenerationRecords, 'KNOWLEDGE_GENERATION_ALREADY_CONFIGURED', 'Native generation storage already has a host owner',
+      () => new KnowledgeGenerationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) }));
   }
   createKnowledgeHostAdapter(ports: Omit<ConstructorParameters<typeof KnowledgeHostAdapter>[1], 'readTx' | 'getWorkspace'>): KnowledgeHostAdapter {
     this.assertOpen();
     return new KnowledgeHostAdapter(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.transaction(operation, false) });
   }
   createKnowledgePublicationStorage(ports: Omit<KnowledgePublicationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgePublicationStorage {
-    this.assertOpen();
-    if (this.knowledgePublicationRecords) throw new EngineError('KNOWLEDGE_PUBLICATION_ALREADY_CONFIGURED', 'Native publication storage already has a host owner');
-    return this.knowledgePublicationRecords = new KnowledgePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) });
+    return this.knowledgePublicationRecords = this.once(this.knowledgePublicationRecords, 'KNOWLEDGE_PUBLICATION_ALREADY_CONFIGURED', 'Native publication storage already has a host owner',
+      () => new KnowledgePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: operation => this.transaction(operation) }));
   }
   createKnowledgeFilePublicationStorage(ports: Omit<KnowledgeFilePublicationStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeFilePublicationStorage {
-    this.assertOpen();
-    if (this.knowledgeFilePublicationRecords) throw new EngineError('KNOWLEDGE_FILE_ALREADY_CONFIGURED', 'Native physical publication storage already has a host owner');
-    return this.knowledgeFilePublicationRecords = new KnowledgeFilePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.knowledgeFilePublicationRecords = this.once(this.knowledgeFilePublicationRecords, 'KNOWLEDGE_FILE_ALREADY_CONFIGURED', 'Native physical publication storage already has a host owner',
+      () => new KnowledgeFilePublicationStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createKnowledgeFileExecutionGuards(ports: Omit<ConstructorParameters<typeof KnowledgeFileExecutionGuards>[1], 'writeTx'>): KnowledgeFileExecutionGuards {
     return new KnowledgeFileExecutionGuards(this.db, { ...ports, writeTx: operation => this.transaction(operation) });
@@ -662,25 +662,21 @@ export class SqliteStore implements SessionEngineStore {
     return new KnowledgeContextSource(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), readTx: operation => this.evidenceRead(operation) });
   }
   createKnowledgeImportRecoveryStorage(ports: Omit<KnowledgeImportRecoveryStoragePorts, 'writeTx' | 'getWorkspace'>): KnowledgeImportRecoveryStorage {
-    this.assertOpen();
-    if (this.knowledgeImportRecoveryRecords) throw new EngineError('KNOWLEDGE_IMPORT_ALREADY_CONFIGURED', 'Native imported knowledge already has an original host recovery owner');
-    return this.knowledgeImportRecoveryRecords = new KnowledgeImportRecoveryStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.knowledgeImportRecoveryRecords = this.once(this.knowledgeImportRecoveryRecords, 'KNOWLEDGE_IMPORT_ALREADY_CONFIGURED', 'Native imported knowledge already has an original host recovery owner',
+      () => new KnowledgeImportRecoveryStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createDiagnosticExecutionObservationStorage(ports: Omit<DiagnosticExecutionObservationPorts, 'writeTx'>): DiagnosticExecutionObservationStorage {
-    this.assertOpen();
-    if (this.executionObservationRecords) throw new EngineError('EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner');
-    return this.executionObservationRecords = new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: this.nestedTx });
+    return this.executionObservationRecords = this.once(this.executionObservationRecords, 'EXECUTION_OBSERVATION_ALREADY_CONFIGURED', 'Native execution observations already have an original host owner',
+      () => new DiagnosticExecutionObservationStorage(this.db, { ...ports, writeTx: this.nestedTx }));
   }
   createProposalStorage(ports: Omit<ProposalStoragePorts, 'writeTx' | 'getWorkspace' | 'blobs'>): ProposalStorage {
-    this.assertOpen();
-    if (this.proposalRecords) throw new EngineError('PROPOSALS_ALREADY_CONFIGURED', 'Native proposals already have an original host owner');
-    return this.proposalRecords = new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
-      getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.proposalRecords = this.once(this.proposalRecords, 'PROPOSALS_ALREADY_CONFIGURED', 'Native proposals already have an original host owner',
+      () => new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
+        getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createProposalApplyStorage(ports: Omit<ProposalApplyStoragePorts, 'writeTx'>): ProposalApplyStorage {
-    this.assertOpen();
-    if (this.proposalApplyRecords) throw new EngineError('PROPOSAL_APPLY_ALREADY_CONFIGURED', 'Native proposal application already has an original host owner');
-    return this.proposalApplyRecords = new ProposalApplyStorage(this.db, { ...ports, writeTx: this.nestedTx });
+    return this.proposalApplyRecords = this.once(this.proposalApplyRecords, 'PROPOSAL_APPLY_ALREADY_CONFIGURED', 'Native proposal application already has an original host owner',
+      () => new ProposalApplyStorage(this.db, { ...ports, writeTx: this.nestedTx }));
   }
   createProposalApplyExecutionGuards(ports: Omit<ConstructorParameters<typeof ProposalApplyExecutionGuards>[1], 'writeTx'>): ProposalApplyExecutionGuards {
     this.assertOpen(); return new ProposalApplyExecutionGuards(this.db, { ...ports, writeTx: this.nestedTx });
@@ -690,9 +686,8 @@ export class SqliteStore implements SessionEngineStore {
   putResidentDocument(sessionId:string,kind:string,revision:number,data:JsonObject):void{this.transaction(()=>{if(revision===0)assertResidentHistoryCapacity(this.db,'resident');this.executionRecords.putSessionDocument(sessionId,kind,revision,data);});}
   validateResidentTeams():void{this.evidenceRead(()=>validateResidentTeamDatabase(this.db));}
   createTeamStorage(ports: Omit<TeamStoragePorts, 'writeTx' | 'getWorkspace'>): TeamStorage {
-    this.assertOpen();
-    if (this.teamRecords) throw new EngineError('TEAMS_ALREADY_CONFIGURED', 'Native team storage already has an original host owner');
-    return this.teamRecords = new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.teamRecords = this.once(this.teamRecords, 'TEAMS_ALREADY_CONFIGURED', 'Native team storage already has an original host owner',
+      () => new TeamStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   readWorkflowEffect(sessionId:string,instanceId:string,stageId:string){return this.evidenceRead(()=>readWorkflowEffect(this.db,sessionId,instanceId,stageId));}
   readWorkflowDelivery(sessionId:string,instanceId:string){return this.evidenceRead(()=>readWorkflowDelivery(this.db,sessionId,instanceId));}
@@ -701,29 +696,25 @@ export class SqliteStore implements SessionEngineStore {
   createCodingBatchStorage(): CodingBatchStorage {
     return new CodingBatchStorage(this.db, { transaction: this.nestedTx, put: this.putDocument, event: this.appendNative });
   }
-  createWorkflowEffectStorage(ports:Omit<WorkflowEffectNativePorts,'transaction'|'putDocument'|'appendEvent'>):WorkflowEffectStorage {
-    this.assertOpen();if(this.workflowEffectRecords)throw new EngineError('WORKFLOW_EFFECTS_ALREADY_BOUND','Workflow effects have one actual Root producer');
-    return this.workflowEffectRecords=new WorkflowEffectStorage(this.db,{...ports,transaction:this.nestedTx,putDocument:this.putDocument,appendEvent:this.appendWithInput});
+  createWorkflowEffectStorage(ports: Omit<WorkflowEffectNativePorts, 'transaction' | 'putDocument' | 'appendEvent'>): WorkflowEffectStorage {
+    return this.workflowEffectRecords = this.once(this.workflowEffectRecords, 'WORKFLOW_EFFECTS_ALREADY_BOUND', 'Workflow effects have one actual Root producer',
+      () => new WorkflowEffectStorage(this.db, { ...ports, transaction: this.nestedTx, putDocument: this.putDocument, appendEvent: this.appendWithInput }));
   }
   createWorkflowStorage(ports: Omit<WorkflowStoragePorts, 'writeTx' | 'getWorkspace'>): WorkflowStorage {
-    this.assertOpen();
-    if (this.workflowRecords) throw new EngineError('WORKFLOWS_ALREADY_CONFIGURED', 'Native workflows already have an original host owner');
-    return this.workflowRecords = new WorkflowStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.workflowRecords = this.once(this.workflowRecords, 'WORKFLOWS_ALREADY_CONFIGURED', 'Native workflows already have an original host owner',
+      () => new WorkflowStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createScheduleStorage(ports: Omit<ScheduleStoragePorts, 'writeTx' | 'getWorkspace'>): ScheduleStorage {
-    this.assertOpen();
-    if (this.scheduleRecords) throw new EngineError('SCHEDULES_ALREADY_CONFIGURED', 'Native schedules already have an original root owner');
-    return this.scheduleRecords = new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.scheduleRecords = this.once(this.scheduleRecords, 'SCHEDULES_ALREADY_CONFIGURED', 'Native schedules already have an original root owner',
+      () => new ScheduleStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createAgentBackendStorage(ports: Omit<AgentBackendStoragePorts, 'writeTx' | 'getWorkspace'>): AgentBackendStorage {
-    this.assertOpen();
-    if (this.backendRecords) throw new EngineError('AGENT_BACKENDS_ALREADY_CONFIGURED', 'Native agent backends already have an original root owner');
-    return this.backendRecords = new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.backendRecords = this.once(this.backendRecords, 'AGENT_BACKENDS_ALREADY_CONFIGURED', 'Native agent backends already have an original root owner',
+      () => new AgentBackendStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createJobStorage(ports: Omit<JobStoragePorts, 'writeTx' | 'getWorkspace'>): JobStorage {
-    this.assertOpen();
-    if (this.jobRecords) throw new EngineError('JOBS_ALREADY_CONFIGURED', 'Native jobs already have an original root owner');
-    return this.jobRecords = new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx });
+    return this.jobRecords = this.once(this.jobRecords, 'JOBS_ALREADY_CONFIGURED', 'Native jobs already have an original root owner',
+      () => new JobStorage(this.db, { ...ports, getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createPrFeedbackStorage(): PrFeedbackStorage { return new PrFeedbackStorage(this.db, this.recordPorts()); }
   private effectBatchWritePorts(): EffectBatchWritePorts { return {putDocument:this.putDocument,appendEvent:this.appendNative}; }
@@ -731,12 +722,12 @@ export class SqliteStore implements SessionEngineStore {
   writeEffectBatch(record:EffectBatchRecord):void {this.transaction(()=>writeEffectBatch(this.db,record,this.effectBatchWritePorts()));}
   inspectEffectBatches(workspaceId:string,sessionId?:string):EffectBatchRecord[]{return this.evidenceRead(()=>listEffectBatches(this.db,workspaceId,sessionId));}
   getEffectBatch(sessionId:string,id:string):EffectBatchRecord|null{return this.evidenceRead(()=>readEffectBatch(this.db,sessionId,id));}
-  hasKnownEffectBatchMarker(marker:import('../tools/command/execution-lock.js').ExecutionLockMarker,executionLockPath:string):boolean{return this.evidenceRead(()=>hasKnownEffectBatchMarker(this.db,marker,executionLockPath));}
+  hasKnownEffectBatchMarker(marker:ExecutionLockMarker,executionLockPath:string):boolean{return this.evidenceRead(()=>hasKnownEffectBatchMarker(this.db,marker,executionLockPath));}
   validateEffectBatches():void {this.evidenceRead(()=>validateEffectBatchDatabase(this.db));}
   recoverEffectBatches():number{return this.transaction(()=>pauseEffectBatches(this.db,this.effectBatchWritePorts()));}
   validatePrFeedback():void {this.evidenceRead(()=>validatePrFeedbackDatabase(this.db));}
-  validatePrVerificationEvidence(evidence:import('../git/commit-receipts.js').VerificationEvidencePin):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence));}
-  createCodeModeStorage(assertOriginal:import('../code-mode/records.js').CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,...this.recordPorts()});}
+  validatePrVerificationEvidence(evidence:VerificationEvidencePin):void {this.evidenceRead(()=>validateCommitVerification(this.db,evidence));}
+  createCodeModeStorage(assertOriginal:CodeModeRecordPorts['assertOriginal']=()=>{throw new EngineError('CODE_MODE_ORIGINAL_REQUIRED','Readonly code-mode history grants no execution');}):CodeModeStorage{return new CodeModeStorage(this.db,{assertOriginal,...this.recordPorts()});}
   createSandboxStorage():SandboxStorage {return new SandboxStorage(this.db,this.recordPorts());}
   validateSandboxes():void {this.evidenceRead(()=>validateSandboxDatabase(this.db));}
   pauseSandboxImports(workspaceId:string):void {pauseImportedSandboxes(this.db,workspaceId,this.recordPorts());}
@@ -822,7 +813,7 @@ export class SqliteStore implements SessionEngineStore {
   }
   hasActiveRuns(workspaceId: string, excludedRunId?: string): boolean {
     this.getWorkspace(workspaceId);
-    return this.db.prepare("SELECT 1 FROM runs WHERE workspace_id=? AND state IN ('created','running','awaiting_approval','cancelling') AND (? IS NULL OR id<>?) LIMIT 1").get(workspaceId, excludedRunId ?? null, excludedRunId ?? null) !== undefined;
+    return this.db.prepare(`SELECT 1 FROM runs WHERE workspace_id=? AND state IN (${ACTIVE_STATES}) AND (? IS NULL OR id<>?) LIMIT 1`).get(workspaceId, excludedRunId ?? null, excludedRunId ?? null) !== undefined;
   }
   hasRunRequest(sessionId: string, requestId: string): boolean {
     const session = this.getSession(sessionId);
@@ -924,7 +915,7 @@ export class SqliteStore implements SessionEngineStore {
       this.writeApproval(run, expired);
       this.append(run, 'approval.expired', {
         approvalId: approval.id, toolCallId: approval.toolCallId, toolName: approval.toolName,
-        status: 'expired', reason, approval: JSON.parse(encode(expired)),
+        status: 'expired', reason, approval: storedJson(expired),
       });
     }
   }
@@ -963,19 +954,22 @@ export class SqliteStore implements SessionEngineStore {
   }
 
   /** CAS plus the owning Run state are checked inside one primary write transaction. */
-  putActiveRunDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
+  private activeRunWrite(runId: string, stoppedMessage: string, allowCancelling: boolean, write: (run: Run) => SessionDocument): SessionDocument {
     return this.transaction(() => {
       const run = this.getRun(runId);
-      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot accept verification publication');
-      return this.executionRecords.putSessionDocument(run.sessionId, kind, expectedRevision, data);
+      if (isTerminal(run.state) || !allowCancelling && run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', stoppedMessage);
+      return write(run);
     });
+  }
+  putActiveRunDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
+    return this.activeRunWrite(runId, 'Stopped Runs cannot accept verification publication', false,
+      run => this.executionRecords.putSessionDocument(run.sessionId, kind, expectedRevision, data));
   }
 
   /** One existing dispatched receipt can settle while its real native tool still owns cleanup. */
   putConsumedVerificationSettlement(identity: { runId: string; toolCallId: string; turnId: string; attemptId: string }, kind: string, expectedRevision: number, data: JsonObject): SessionDocument {
-    return this.transaction(() => {
-      const run = this.getRun(identity.runId), sessionId = run.sessionId;
-      if (isTerminal(run.state)) throw new EngineError('RUN_TERMINAL', 'Terminal Runs cannot accept consumed settlement');
+    return this.activeRunWrite(identity.runId, 'Terminal Runs cannot accept consumed settlement', true, run => {
+      const sessionId = run.sessionId;
       const tool = this.getToolCall(identity.toolCallId), turn = this.getTurn(identity.turnId), attempt = this.getAttempt(identity.attemptId);
       const part = this.listParts(turn.id).find(value => value.type === 'tool' && value.toolCallId === tool.id);
       if (tool.runId !== run.id || tool.sessionId !== sessionId || tool.name !== 'verify_changes' || tool.state !== 'running' || turn.runId !== run.id || turn.sessionId !== sessionId || turn.state !== 'awaiting_tools' || attempt.runId !== run.id || attempt.sessionId !== sessionId || attempt.turnId !== turn.id || attempt.state !== 'completed' || !part || part.type !== 'tool' || part.name !== tool.name || part.runId !== run.id || part.sessionId !== sessionId || part.state !== 'open') throw new EngineError('VERIFICATION_SETTLEMENT_OWNER_INVALID', 'Consumed settlement does not match the still executing native tool, Turn, Attempt and Part');
@@ -990,9 +984,8 @@ export class SqliteStore implements SessionEngineStore {
 
   /** Verification receipt revision and controller publication are one primary CAS transaction. */
   putActiveVerificationControllerDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject, expectedVerificationRevision: number): SessionDocument {
-    return this.transaction(() => {
-      const run = this.getRun(runId), sessionId = run.sessionId;
-      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot publish task completion or repair stages');
+    return this.activeRunWrite(runId, 'Stopped Runs cannot publish task completion or repair stages', false, run => {
+      const sessionId = run.sessionId;
       if (kind !== verificationControllerDocumentKind(runId) || data.runId !== run.id || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId) throw new EngineError('VERIFICATION_SCOPE_MISMATCH', 'Controller publication must match its exact Run document');
       const observed = this.getSessionDocument(sessionId, verificationDocumentKind(runId));
       if ((observed?.revision ?? 0) !== expectedVerificationRevision) throw new EngineError('VERIFICATION_CONTROLLER_SOURCE_STALE', 'Verification receipt revision changed before controller CAS');
@@ -1002,9 +995,8 @@ export class SqliteStore implements SessionEngineStore {
   /** Native continuation admission pins both actual verification ledgers in one CAS. */
   putActiveLifecycleContinuationDocument(runId: string, kind: string, expectedRevision: number, data: JsonObject,
     expected: { controllerRevision: number; verificationRevision: number; controllerSha256: string }): SessionDocument {
-    return this.transaction(() => {
-      const run = this.getRun(runId), sessionId = run.sessionId;
-      if (isTerminal(run.state) || run.state === 'cancelling') throw new EngineError('RUN_TERMINAL', 'Stopped Runs cannot admit lifecycle continuation');
+    return this.activeRunWrite(runId, 'Stopped Runs cannot admit lifecycle continuation', false, run => {
+      const sessionId = run.sessionId;
       if (this.getSessionControl(sessionId).paused) throw new EngineError('LIFECYCLE_CONTINUATION_STALE', 'Paused sessions cannot admit lifecycle continuation');
       if (expectedRevision !== 0 || this.getSessionDocument(sessionId, kind)) throw new EngineError('LIFECYCLE_CONTINUATION_LIMIT', 'The original Run may consume only one continuation document');
       if (kind !== lifecycleContinuationDocumentKind(runId) || data.runId !== runId || data.sessionId !== sessionId || data.workspaceId !== run.workspaceId)
@@ -1319,7 +1311,7 @@ export class SqliteStore implements SessionEngineStore {
         for (const tool of tools) {
           const interrupted: ToolCallRecord = { ...tool, state: 'interrupted', error: 'Engine process ended before the tool outcome was recorded' };
           this.writeTool(run, interrupted);
-          this.append(run, 'tool.interrupted', { toolCallId: tool.id, tool: JSON.parse(encode(interrupted)) });
+          this.append(run, 'tool.interrupted', { toolCallId: tool.id, tool: storedJson(interrupted) });
         }
         this.expirePendingApprovals(run, 'recovery');
         if (!isTerminal(run.state)) {
