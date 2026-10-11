@@ -76,7 +76,8 @@ export function validateProposalApplyGuard(
     "marker",
     "sha256",
   ]);
-  if (checks.id(r.id) !== checks.id(r.ownerId)) checks.fail();
+  if (r.id !== r.ownerId) checks.fail();
+  checks.id(r.id);
   checks.id(r.workspaceId);
   if (validateBinding(r.binding).workspaceId !== r.workspaceId) checks.fail();
   const lock = checks.exact(r.lock, ["path", "device", "inode"]),

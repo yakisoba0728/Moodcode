@@ -59,6 +59,7 @@ test("the guard validator applies the whole rule set with the guard code by defa
     guard({ path: "/lock", device: "1".repeat(33), inode: "2" }),
     guard({ path: "/lo\0ck", device: "1", inode: "2" }),
     guard({ path: 1, device: "1", inode: "2" }),
+    { ...guard(), ownerId: "" },
     { ...guard(), sha256: "b".repeat(64) },
   ])
     assert.throws(
