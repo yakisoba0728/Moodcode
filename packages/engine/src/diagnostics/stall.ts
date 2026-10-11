@@ -1,5 +1,6 @@
 import { types } from 'node:util';
 import { EngineError } from '@moodcode/contracts';
+import { TOOL_EFFECT_CLASSES, type ToolEffectClass } from '../permission/policy.js';
 import { isBoundedId, isSha256, plainRecord } from '../shared/data.js';
 import type { JournalProjection } from './trajectory.js';
 import type { DiagnosticExecutionObservation } from './execution-observation-types.js';
@@ -10,7 +11,7 @@ export interface StallSample {
   inputSha256: string | null; resultSha256: string | null;
   /** These identities must describe source/effects at this sample's execution boundary. */
   sourceSha256: string | null; effectEpoch: number | null;
-  effectClass: 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';
+  effectClass: ToolEffectClass;
   outcome: 'completed' | 'failed' | 'interrupted' | 'unknown';
   resultComplete: boolean;
   legitimateRepeat?: boolean;
@@ -42,7 +43,7 @@ function plain(value: unknown, keys: string[]): void {
 function digest(value: unknown): boolean { return value === null || isSha256(value); }
 function validSample(value: StallSample): void {
   plain(value, ['runId', 'toolCallId', 'seq', 'inputSha256', 'resultSha256', 'sourceSha256', 'effectEpoch', 'effectClass', 'outcome', 'resultComplete', 'legitimateRepeat']);
-  if (!isBoundedId(value.runId) || !isBoundedId(value.toolCallId) || !Number.isSafeInteger(value.seq) || value.seq < 1 || ![value.inputSha256, value.resultSha256, value.sourceSha256].every(digest) || value.effectEpoch !== null && (!Number.isSafeInteger(value.effectEpoch) || value.effectEpoch < 0) || !['read', 'state', 'write', 'execute', 'network', 'unknown'].includes(value.effectClass) || !['completed', 'failed', 'interrupted', 'unknown'].includes(value.outcome) || typeof value.resultComplete !== 'boolean' || value.legitimateRepeat !== undefined && typeof value.legitimateRepeat !== 'boolean') invalid('Stall sample is invalid');
+  if (!isBoundedId(value.runId) || !isBoundedId(value.toolCallId) || !Number.isSafeInteger(value.seq) || value.seq < 1 || ![value.inputSha256, value.resultSha256, value.sourceSha256].every(digest) || value.effectEpoch !== null && (!Number.isSafeInteger(value.effectEpoch) || value.effectEpoch < 0) || !TOOL_EFFECT_CLASSES.includes(value.effectClass) || !['completed', 'failed', 'interrupted', 'unknown'].includes(value.outcome) || typeof value.resultComplete !== 'boolean' || value.legitimateRepeat !== undefined && typeof value.legitimateRepeat !== 'boolean') invalid('Stall sample is invalid');
 }
 
 /** A repeated read can be valid. This observation never denies tools, replays effects or cancels a Run. */

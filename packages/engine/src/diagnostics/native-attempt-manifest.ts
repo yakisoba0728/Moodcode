@@ -14,6 +14,7 @@ import {
 } from "./trajectory.js";
 import {
   validateDiagnosticExecutionObservationArchiveRow,
+  DIAGNOSTIC_EXECUTION_OBSERVATION_FIELDS,
   DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS,
 } from "./execution-observation-store.js";
 import type {
@@ -24,8 +25,8 @@ import type {
 
 export const NATIVE_CODING_EVIDENCE_LIMITS = Object.freeze({
   outputBytes: 65536,
-  observationRows: 100,
-  observationBytes: 1048576,
+  observationRows: DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageRows,
+  observationBytes: DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageBytes,
 });
 export type NativeCodingEvidenceOptions = Omit<
   TrajectoryOptions,
@@ -238,7 +239,8 @@ function checkedPage(
   if (
     !Array.isArray(page.items) ||
     types.isProxy(page.items) ||
-    page.items.length > (options.limit ?? 100)
+    page.items.length >
+      (options.limit ?? NATIVE_CODING_EVIDENCE_LIMITS.observationRows)
   )
     fail("Native observation reader exceeded its selected count");
   const properties = Object.getOwnPropertyDescriptors(page.items);
@@ -257,37 +259,7 @@ function checkedPage(
     if (!property?.enumerable || !Object.hasOwn(property, "value"))
       fail("Native observation page rejects accessors");
     const input = property.value;
-    plain(input, [
-      "workspaceId",
-      "sessionId",
-      "runId",
-      "toolCallId",
-      "turnId",
-      "attemptId",
-      "schemaVersion",
-      "id",
-      "ordinal",
-      "runtimeEpoch",
-      "revision",
-      "state",
-      "toolName",
-      "effectClass",
-      "inputSha256",
-      "effectiveInputSha256",
-      "dispatchToolSha256",
-      "settledToolSha256",
-      "resultSha256",
-      "resultComplete",
-      "outcome",
-      "sourceBefore",
-      "sourceAfter",
-      "effectEpochBefore",
-      "effectEpochDispatch",
-      "effectEpochAfter",
-      "dispatchedAt",
-      "settledAt",
-      "sha256",
-    ]);
+    plain(input, DIAGNOSTIC_EXECUTION_OBSERVATION_FIELDS);
     const record = validateDiagnosticExecutionObservationArchiveRow({
       table: "diagnostic_execution_observations",
       key: input.id as string,
@@ -329,8 +301,7 @@ export function readNativeCodingEvidence(
   identifier(runId);
   validateNativeCodingEvidenceOptions(options);
   const { execution = {}, includeSummary = false, ...journal } = options,
-    selected = { ...execution },
-    bounds = { ...journal };
+    selected = { ...execution };
   let called = false,
     result: NativeCodingEvidenceManifest | undefined;
   const returned = reader.readCoherentSnapshot(() => {
@@ -339,7 +310,7 @@ export function readNativeCodingEvidence(
     const run = reader.getRun(runId);
     if (run.id !== runId) fail("Native reader returned another Run");
     const trajectory = exportTrajectory(reader, {
-        ...bounds,
+        ...journal,
         sessionId: run.sessionId,
         runId,
       }),
@@ -356,7 +327,6 @@ export function readNativeCodingEvidence(
       coverage: {
         ...original.coverage,
         sourceClock: "coherent-primary-read-transaction",
-        mutableRunStateMayBeNewerThanJournal: true,
       },
     };
     const items = [...page.items];

@@ -2,7 +2,8 @@ import { EngineError } from '@moodcode/contracts';
 import { jsonTextSha256 } from '../shared/canonical.js';
 import { isBoundedText } from '../shared/data.js';
 import { POLICY_DECISIONS, TOOL_EFFECTS } from './validation.js';
-export type ToolEffectClass = 'read' | 'state' | 'write' | 'execute' | 'network' | 'unknown';
+export const TOOL_EFFECT_CLASSES = Object.freeze(['read', 'state', 'write', 'execute', 'network', 'unknown'] as const);
+export type ToolEffectClass = (typeof TOOL_EFFECT_CLASSES)[number];
 export type PolicyDecision = 'allow' | 'ask' | 'deny';
 export interface ToolPolicyRule { tool?: string; effect?: ToolEffectClass; resource?: string; decision: PolicyDecision }
 export interface ToolPolicyInput { toolName: string; effect: ToolEffectClass; mode: 'plan' | 'build'; requiresApproval: boolean; resources?: readonly string[] }

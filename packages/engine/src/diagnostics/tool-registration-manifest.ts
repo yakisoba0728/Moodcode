@@ -1,5 +1,8 @@
 import { EngineError } from "@moodcode/contracts";
-import type { ToolEffectClass } from "../permission/policy.js";
+import {
+  TOOL_EFFECT_CLASSES,
+  type ToolEffectClass,
+} from "../permission/policy.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
 import { isSha256, plainRecord } from "../shared/data.js";
 
@@ -71,9 +74,7 @@ export function createToolRegistrationManifest(
   for (const key of ["registrationSha256", "schemaSha256", "descriptionSha256"])
     if (!isSha256(data[key])) fail();
   if (
-    !["read", "state", "write", "execute", "network", "unknown"].includes(
-      data.effectClass as string,
-    ) ||
+    !TOOL_EFFECT_CLASSES.includes(data.effectClass as ToolEffectClass) ||
     typeof data.exactApproval !== "boolean"
   )
     fail();

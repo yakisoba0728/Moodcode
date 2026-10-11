@@ -6,6 +6,10 @@ import {
   immutableKnowledgeJson,
   knowledgeHash,
 } from "../knowledge/validation.js";
+import {
+  TOOL_EFFECT_CLASSES,
+  type ToolEffectClass,
+} from "../permission/policy.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
 import { recordGuards, type RecordFault } from "../shared/data.js";
 import { guardedWrite } from "../storage/transaction.js";
@@ -102,6 +106,46 @@ const IDENTITY_FIELDS = [
   "turnId",
   "attemptId",
 ] as const;
+export const DIAGNOSTIC_EXECUTION_OBSERVATION_FIELDS = Object.freeze([
+  ...IDENTITY_FIELDS,
+  "schemaVersion",
+  "id",
+  "ordinal",
+  "runtimeEpoch",
+  "revision",
+  "state",
+  "toolName",
+  "effectClass",
+  "inputSha256",
+  "effectiveInputSha256",
+  "dispatchToolSha256",
+  "settledToolSha256",
+  "resultSha256",
+  "resultComplete",
+  "outcome",
+  "sourceBefore",
+  "sourceAfter",
+  "effectEpochBefore",
+  "effectEpochDispatch",
+  "effectEpochAfter",
+  "dispatchedAt",
+  "settledAt",
+  "sha256",
+] as const);
+const bumpsEffectEpoch = (effectClass: unknown) =>
+  ["write", "execute", "network", "unknown"].includes(String(effectClass));
+function settledResultSha256(
+  tool: Record<string, unknown>,
+  outcome: unknown,
+): string | null {
+  return typeof tool.output === "string"
+    ? jsonTextSha256({
+        outcome,
+        output: tool.output,
+        error: tool.error ?? null,
+      })
+    : null;
+}
 function identity(value: unknown): DiagnosticExecutionIdentity {
   const v = json(value);
   fields(v, IDENTITY_FIELDS);
@@ -127,8 +171,8 @@ function validateExecutionSourceSnapshot(
       "INVALID_EXECUTION_OBSERVATION",
       "Source snapshot requires explicit observed coverage",
     );
-  integer(v.fileCount, 4096);
-  integer(v.bytes, 67108864);
+  integer(v.fileCount, DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.maxSources);
+  integer(v.bytes, DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.maxSourceBytes);
   if (v.completeness === "full") digest(v.sha256);
   else if (v.sha256 !== null)
     fail(
@@ -145,11 +189,7 @@ function metadata(input: unknown): DiagnosticExecutionRuntimeMetadata {
     ["resultComplete"],
   );
   IDENTITY_FIELDS.forEach((k) => identifier(v[k]));
-  if (
-    !["read", "state", "write", "execute", "network", "unknown"].includes(
-      String(v.effectClass),
-    )
-  )
+  if (!TOOL_EFFECT_CLASSES.includes(String(v.effectClass) as ToolEffectClass))
     fail("INVALID_EXECUTION_OBSERVATION", "Invalid host effect class");
   digest(v.effectiveInputSha256);
   validateExecutionSourceSnapshot(v.source);
@@ -192,35 +232,13 @@ export function validateDiagnosticExecutionObservationArchiveRow(
         "Effect epoch requires its workspace owner",
       );
     timestamp(v.updatedAt);
-    if (Buffer.byteLength(JSON.stringify(v)) > 4096)
+    if (
+      Buffer.byteLength(JSON.stringify(v)) >
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes
+    )
       fail("EXECUTION_OBSERVATION_LIMIT", "Epoch row exceeds its bound");
   } else {
-    fields(v, [
-      ...IDENTITY_FIELDS,
-      "schemaVersion",
-      "id",
-      "ordinal",
-      "runtimeEpoch",
-      "revision",
-      "state",
-      "toolName",
-      "effectClass",
-      "inputSha256",
-      "effectiveInputSha256",
-      "dispatchToolSha256",
-      "settledToolSha256",
-      "resultSha256",
-      "resultComplete",
-      "outcome",
-      "sourceBefore",
-      "sourceAfter",
-      "effectEpochBefore",
-      "effectEpochDispatch",
-      "effectEpochAfter",
-      "dispatchedAt",
-      "settledAt",
-      "sha256",
-    ]);
+    fields(v, DIAGNOSTIC_EXECUTION_OBSERVATION_FIELDS);
     IDENTITY_FIELDS.forEach((k) => identifier(v[k]));
     identifier(v.id);
     identifier(v.runtimeEpoch);
@@ -234,9 +252,7 @@ export function validateDiagnosticExecutionObservationArchiveRow(
       !["completed", "failed", "interrupted", "unknown"].includes(
         String(v.outcome),
       ) ||
-      !["read", "state", "write", "execute", "network", "unknown"].includes(
-        String(v.effectClass),
-      )
+      !TOOL_EFFECT_CLASSES.includes(String(v.effectClass) as ToolEffectClass)
     )
       fail(
         "INVALID_EXECUTION_OBSERVATION",
@@ -255,13 +271,10 @@ export function validateDiagnosticExecutionObservationArchiveRow(
     integer(v.effectEpochBefore);
     integer(v.effectEpochDispatch);
     if (v.effectEpochAfter !== null) integer(v.effectEpochAfter);
-    const bump = ["write", "execute", "network", "unknown"].includes(
-      String(v.effectClass),
-    )
-      ? 1
-      : 0;
     if (
-      v.effectEpochDispatch !== Number(v.effectEpochBefore) + bump ||
+      v.effectEpochDispatch !==
+        Number(v.effectEpochBefore) +
+          (bumpsEffectEpoch(v.effectClass) ? 1 : 0) ||
       (v.effectEpochAfter !== null &&
         Number(v.effectEpochAfter) < Number(v.effectEpochDispatch)) ||
       typeof v.resultComplete !== "boolean"
@@ -294,7 +307,10 @@ export function validateDiagnosticExecutionObservationArchiveRow(
         "INVALID_EXECUTION_OBSERVATION",
         "Observation cannot claim unavailable terminal evidence",
       );
-    if (Buffer.byteLength(JSON.stringify(v)) > 16384)
+    if (
+      Buffer.byteLength(JSON.stringify(v)) >
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes
+    )
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Execution observation row exceeds its native cap",
@@ -398,7 +414,13 @@ function nativeTool(
     session = db
       .prepare("SELECT id,workspace_id FROM sessions WHERE id=?")
       .get(owner.sessionId),
-    tool = rawRow(db, "tools", "id=?", [owner.toolCallId], 1048576),
+    tool = rawRow(
+      db,
+      "tools",
+      "id=?",
+      [owner.toolCallId],
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.nativeRowBytes,
+    ),
     turn = db
       .prepare(
         "SELECT id,session_id,run_id,state FROM session_turns WHERE id=?",
@@ -470,7 +492,7 @@ function nativeTool(
       "message_parts",
       "id=?",
       [String(part[0]!.id)],
-      1048576,
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.nativeRowBytes,
     )!,
     parsedPart = parsed(raw);
   if (
@@ -554,7 +576,7 @@ export class DiagnosticExecutionObservationStorage {
       "diagnostic_effect_epochs",
       "workspace_id=?",
       [workspaceId],
-      4096,
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
     );
     return row
       ? (decoded(row, "diagnostic_effect_epochs") as DiagnosticEffectEpoch)
@@ -571,7 +593,7 @@ export class DiagnosticExecutionObservationStorage {
       "diagnostic_execution_observations",
       "workspace_id=? AND tool_call_id=?",
       [workspaceId, toolCallId],
-      16384,
+      DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
     );
     return row
       ? (decoded(
@@ -629,7 +651,9 @@ export class DiagnosticExecutionObservationStorage {
         "EXECUTION_OBSERVATION_SOURCE_INVALID",
         "Dispatch needs an original trusted source handle",
       );
-    if (this.#live.size >= 128)
+    if (
+      this.#live.size >= DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.activeCaptures
+    )
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Original active observation captures exceed the host cap",
@@ -658,9 +682,7 @@ export class DiagnosticExecutionObservationStorage {
       const before = this.getEpoch(owner.workspaceId)?.epoch ?? 0,
         epoch = this.setEpoch(
           owner.workspaceId,
-          ["write", "execute", "network", "unknown"].includes(
-            observed.effectClass,
-          ),
+          bumpsEffectEpoch(observed.effectClass),
         ),
         ordinal = integer(
           Number(
@@ -835,13 +857,7 @@ export class DiagnosticExecutionObservationStorage {
         );
       const outcome = tool.state as "completed" | "failed" | "interrupted",
         outputObserved = typeof tool.output === "string",
-        resultSha256 = outputObserved
-          ? jsonTextSha256({
-              outcome,
-              output: tool.output,
-              error: tool.error ?? null,
-            })
-          : null,
+        resultSha256 = settledResultSha256(tool, outcome),
         { sha256: ignored, ...base } = previous,
         next: DiagnosticExecutionObservation = signed({
           ...base,
@@ -954,8 +970,14 @@ export class DiagnosticExecutionObservationStorage {
       ["afterOrdinal", "throughOrdinal", "limit", "maxBytes"],
     );
     const after = integer(options.afterOrdinal ?? 0),
-      limit = integer(options.limit ?? 100, 100),
-      cap = integer(options.maxBytes ?? 1048576, 1048576);
+      limit = integer(
+        options.limit ?? DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageRows,
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageRows,
+      ),
+      cap = integer(
+        options.maxBytes ?? DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageBytes,
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.pageBytes,
+      );
     if (limit < 1 || cap < 256)
       fail(
         "INVALID_EXECUTION_OBSERVATION",
@@ -992,7 +1014,10 @@ export class DiagnosticExecutionObservationStorage {
     const items: DiagnosticExecutionObservation[] = [];
     let bytes = 0;
     for (const h of headers.slice(0, limit)) {
-      const size = integer(Number(h.bytes), 16384);
+      const size = integer(
+        Number(h.bytes),
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
+      );
       if (bytes + size + items.length + 256 > cap) {
         if (!items.length)
           fail(
@@ -1013,6 +1038,7 @@ export class DiagnosticExecutionObservationStorage {
       bytes: 0,
     };
     result.bytes = Buffer.byteLength(JSON.stringify(result));
+    // Second pass includes the serialized width of bytes itself.
     result.bytes = Buffer.byteLength(JSON.stringify(result));
     if (result.bytes > cap)
       fail(
@@ -1030,13 +1056,20 @@ export function validateDiagnosticExecutionObservationDatabase(
 ): void {
   let rows = 0,
     bytes = 0;
+  const epochs = new Map<string, DiagnosticEffectEpoch>();
   for (const h of db
     .prepare(
-      "SELECT workspace_id,length(CAST(data AS BLOB)) AS bytes FROM diagnostic_effect_epochs ORDER BY workspace_id",
+      "SELECT e.workspace_id,length(CAST(e.data AS BLOB)) AS bytes,count(o.ordinal) AS count FROM diagnostic_effect_epochs e LEFT JOIN diagnostic_execution_observations o ON o.workspace_id=e.workspace_id GROUP BY e.workspace_id ORDER BY e.workspace_id",
     )
     .iterate()) {
     check();
-    if (++rows > 65536 || (bytes += integer(Number(h.bytes), 4096)) > 67108864)
+    if (
+      ++rows > 65536 ||
+      (bytes += integer(
+        Number(h.bytes),
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
+      )) > 67108864
+    )
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Native diagnostic validation exceeds bounded rows/bytes",
@@ -1046,19 +1079,15 @@ export function validateDiagnosticExecutionObservationDatabase(
         "diagnostic_effect_epochs",
         "workspace_id=?",
         [String(h.workspace_id)],
-        4096,
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.epochBytes,
       )!,
       epoch = decoded(raw, "diagnostic_effect_epochs") as DiagnosticEffectEpoch;
-    const count = db
-      .prepare(
-        "SELECT count(*) AS count FROM diagnostic_execution_observations WHERE workspace_id=?",
-      )
-      .get(epoch.workspaceId)!.count;
-    if (count !== epoch.revision)
+    if (h.count !== epoch.revision)
       fail(
         "EXECUTION_OBSERVATION_CORRUPT",
         "Workspace effect counter lacks its exact actual dispatch frontier",
       );
+    epochs.set(epoch.workspaceId, epoch);
   }
   const workspaceEpochs = new Map<string, number>();
   for (const h of db
@@ -1067,7 +1096,13 @@ export function validateDiagnosticExecutionObservationDatabase(
     )
     .iterate()) {
     check();
-    if (++rows > 65536 || (bytes += integer(Number(h.bytes), 16384)) > 67108864)
+    if (
+      ++rows > 65536 ||
+      (bytes += integer(
+        Number(h.bytes),
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
+      )) > 67108864
+    )
       fail(
         "EXECUTION_OBSERVATION_LIMIT",
         "Native execution validation exceeds bounded rows/bytes",
@@ -1077,7 +1112,7 @@ export function validateDiagnosticExecutionObservationDatabase(
         "diagnostic_execution_observations",
         "id=?",
         [String(h.id)],
-        16384,
+        DIAGNOSTIC_EXECUTION_OBSERVATION_LIMITS.rowBytes,
       )!,
       record = decoded(
         row,
@@ -1104,22 +1139,12 @@ export function validateDiagnosticExecutionObservationDatabase(
         "EXECUTION_OBSERVATION_LIMIT",
         "Diagnostic workspace frontier exceeds its bounded count",
       );
-    const epochRaw = rawRow(
-      db,
-      "diagnostic_effect_epochs",
-      "workspace_id=?",
-      [record.workspaceId],
-      4096,
-    );
-    if (!epochRaw)
+    const epoch = epochs.get(record.workspaceId);
+    if (!epoch)
       fail(
         "EXECUTION_OBSERVATION_CORRUPT",
         "Actual execution observation has no effect epoch frontier",
       );
-    const epoch = decoded(
-      epochRaw,
-      "diagnostic_effect_epochs",
-    ) as DiagnosticEffectEpoch;
     if (
       record.effectEpochDispatch > epoch.epoch ||
       (record.effectEpochAfter !== null &&
@@ -1133,14 +1158,7 @@ export function validateDiagnosticExecutionObservationDatabase(
       record.state === "settled" &&
       (record.outcome !== tool.state ||
         record.settledToolSha256 !== jsonTextSha256(tool) ||
-        record.resultSha256 !==
-          (typeof tool.output === "string"
-            ? jsonTextSha256({
-                outcome: tool.state,
-                output: tool.output,
-                error: tool.error ?? null,
-              })
-            : null) ||
+        record.resultSha256 !== settledResultSha256(tool, tool.state) ||
         (record.resultComplete &&
           (tool.state !== "completed" || tool.error !== undefined)))
     )
@@ -1158,21 +1176,10 @@ export function validateDiagnosticExecutionObservationDatabase(
         "Active native tool changed its original dispatch identity",
       );
   }
-  for (const [workspaceId, expected] of workspaceEpochs) {
-    const row = rawRow(
-      db,
-      "diagnostic_effect_epochs",
-      "workspace_id=?",
-      [workspaceId],
-      4096,
-    )!;
-    if (
-      (decoded(row, "diagnostic_effect_epochs") as DiagnosticEffectEpoch)
-        .epoch !== expected
-    )
+  for (const [workspaceId, expected] of workspaceEpochs)
+    if (epochs.get(workspaceId)!.epoch !== expected)
       fail(
         "EXECUTION_OBSERVATION_CORRUPT",
         "Current effect epoch differs from its exact committed dispatches",
       );
-  }
 }

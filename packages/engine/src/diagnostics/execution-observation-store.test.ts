@@ -697,6 +697,29 @@ test("archive semantic validator rejects forged epoch bounds without original pr
     code("EXECUTION_OBSERVATION_CORRUPT"),
   );
 });
+test("archive semantic validator binds each workspace dispatch count and epoch frontier", (t) => {
+  const f = fixture(t),
+    read = f.tool("read"),
+    write = f.tool("write"),
+    corrupt = (message: RegExp) => (e: unknown) =>
+      code("EXECUTION_OBSERVATION_CORRUPT")(e) &&
+      message.test((e as Error).message);
+  f.native.dispatch(read.owner, read.handle);
+  const dispatched = f.native.dispatch(write.owner, write.handle);
+  validateDiagnosticExecutionObservationDatabase(f.db);
+  f.db
+    .prepare("DELETE FROM diagnostic_execution_observations WHERE id=?")
+    .run(dispatched.record.id);
+  assert.throws(
+    () => validateDiagnosticExecutionObservationDatabase(f.db),
+    corrupt(/lacks its exact actual dispatch frontier/),
+  );
+  f.db.prepare("DELETE FROM diagnostic_effect_epochs").run();
+  assert.throws(
+    () => validateDiagnosticExecutionObservationDatabase(f.db),
+    corrupt(/has no effect epoch frontier/),
+  );
+});
 test("same primary outer transaction rollback cannot leave a new observation or effect epoch", (t) => {
   const f = fixture(t),
     tool = f.tool("network");
