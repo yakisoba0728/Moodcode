@@ -9,7 +9,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { commitFixture, gitFixture } from "./fixtures/commit.js";
 import { groupExists } from "../tools/command/process-control.js";
 import { knowledgeHash } from "../knowledge/validation.js";

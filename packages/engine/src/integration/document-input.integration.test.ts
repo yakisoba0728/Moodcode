@@ -13,7 +13,7 @@ import { DOCUMENT_HISTORY_NOTICE_PREFIX } from '../context/document-history.js';
 import { ResponsesProvider, type ResponsesProviderOptions } from '../provider/responses.js';
 import { png } from '../media/fixtures.js';
 import { wav } from '../media/segment-fixtures.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 
 const MODEL = 'document-fixture-model';
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');

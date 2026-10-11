@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 import { DB_VERSION } from '../storage/migrations.js';
 import { acquireExecutionLock } from '../tools/command/execution-lock.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';

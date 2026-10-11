@@ -12,7 +12,7 @@ import {
   importEngineArchive,
   validateEngineArchive,
   type EngineArchiveResult,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import type {
   ProposalApplyCheckpoint,

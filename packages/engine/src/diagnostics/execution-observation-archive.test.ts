@@ -13,7 +13,7 @@ import {
   importEngineArchive,
   validateEngineArchive,
   type EngineArchiveResult,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { DIAGNOSTIC_EXECUTION_OBSERVATION_TABLES } from "./execution-observation-store.js";

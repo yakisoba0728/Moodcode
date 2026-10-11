@@ -7,7 +7,7 @@ import test from "node:test";
 import {
   exportEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { backendFixture, backendUntil } from "./fixtures/backend.js";
 import { validateAgentBackendSpec } from "./validation.js";
 import {

@@ -21,7 +21,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { createEngine } from "../engine.js";
 import { jobFixture, jobInvoke } from "./fixtures/job.js";
 import type { CommandJob, JobRequestResult } from "./store.js";

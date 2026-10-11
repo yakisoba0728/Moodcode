@@ -23,7 +23,7 @@ import { decodePcmWave } from "./segments.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 export const spec = {
   providerId: "audio-fixture",
   modelId: "explicit-fixture-model",

@@ -46,11 +46,11 @@ import { readChildStorageSelection, type ChildStorageSelectionOptions, type Chil
 import type { ChildDocumentReadFrame } from './child-document-reader.js';
 import { readActivePrefixSourceDatabase, validateActivePrefixPublication } from './active-prefix.js';
 import { SummaryAttemptStorage, type SummaryAttemptIdentity, type SummaryAttemptRecord, type SummaryAttemptListOptions, type SummaryAttemptPage, type SummaryObservation, type SummarySettlement, type SummaryUsageRecord } from './summary-attempts.js';
-import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from '../recovery/summary.js';
+import { SummaryRecoveryStorage, captureSummaryRecoveryHighWater, type SummaryRecoveryRequest } from './summary-recovery.js';
 import { AttemptCleanupStorage, type AttemptCleanupIdentity, type AttemptCleanupRecord, type AttemptCleanupSettlement } from './attempt-cleanup.js';
 import { McpExecutionStorage, hasMcpExecutionUncertainty, type McpExecutionIdentity, type McpExecutionRecord, type McpExecutionSettlement, type McpDispatchBoundary } from './mcp-executions.js';
 import { hasExecutionUncertainty, summaryOverflowDependency } from './execution-uncertainty.js';
-import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from '../recovery/provider.js';
+import { ProviderRecoveryStorage, captureProviderRecoveryHighWater, type ProviderRecoveryRequest } from './provider-recovery.js';
 import { hasEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 import { captureToolRecoveryFrontiers } from './tool-recovery-frontier.js';
 import type { ActivePrefixSource, ActivePrefixSourceOptions, PreparedActivePrefix, ActivePrefixContextPublication } from '../context/active-prefix.js';

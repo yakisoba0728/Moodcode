@@ -11,7 +11,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import { readDatabase } from "../workflows/fixtures/archive-workflow.js";
 import type {

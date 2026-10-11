@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type JsonObject } from '@moodcode/contracts';
 import { SqliteStore } from '../storage/index.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 import { ReviewJournal } from '../review/audit.js';
 import { VerificationCheckRegistry, VerificationPlanService, verificationDocumentKind } from './plans.js';
 import { VerificationReceiptService } from './receipts.js';

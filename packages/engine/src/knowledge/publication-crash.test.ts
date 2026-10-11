@@ -14,7 +14,7 @@ import type { ProviderAdapter } from '../ports.js';
 import type { KnowledgePublicationRecord, KnowledgePublicationReceipt, WorkspaceDocumentHead, WorkspaceDocumentRevision } from './publication-types.js';
 import type { KnowledgeGenerationRecord } from './generation-types.js';
 import type { KnowledgeCandidate } from './types.js';
-import { exportEngineArchive, validateEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, validateEngineArchive } from '../recovery/archive.js';
 import { sha256 } from './validation.js';
 
 type Phase = 'prepared' | 'before-commit' | 'after-commit';

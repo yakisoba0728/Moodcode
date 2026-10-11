@@ -20,7 +20,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import { validateKnowledgePublicationDatabase } from "./publication-archive-relations.js";
 import { knowledgeHash } from "./validation.js";

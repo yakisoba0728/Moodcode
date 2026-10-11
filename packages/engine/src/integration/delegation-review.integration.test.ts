@@ -11,7 +11,7 @@ import type { ChildTaskHost, ChildTaskOptions } from '../child-tasks/index.js';
 import { createChildMergeTool } from '../child-tasks/merge.js';
 import { inspectExecutionLock } from '../tools/command/execution-lock.js';
 import { SqliteStore } from '../storage/index.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 
 // Independently authored behavior fixtures. No account traffic, external provider or automatic merge.
 const input = () => ({ requestId: 'review-observation', prompt: 'child-review', tools: ['read_file'], allocation: { turns: 2, toolCalls: 1, outputBytes: 4096, durationMs: 6000 } });

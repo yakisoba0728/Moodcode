@@ -6,10 +6,12 @@ import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
 import { backupDatabase } from '../storage/maintenance.js';
 import { databaseVersion, primaryFeaturesFor, primaryTablesFor } from '../storage/migrations.js';
+import { canonical } from '../shared/canonical.js';
+import { sameIdentity } from '../shared/fs.js';
 import { pidPresence, type PidPresence } from '../shared/runtime.js';
 import { acknowledgment, initializeLedger, isRestoreAcknowledged, matchingAcknowledgments, readAudits, readOperations, reviewOperationBound, scope,
   type RecoveryAcknowledgment, type RecoveryAudit } from './ledger.js';
-import { canonical, checkDatabase, fail, hash, preparePrivateDirectory, readEffectMarker, recoveryPaths, regular, safeError, sameIdentity, takeSnapshot,
+import { checkDatabase, fail, hash, preparePrivateDirectory, readEffectMarker, recoveryPaths, regular, safeError, takeSnapshot,
   verifiedFileDigest, RECOVERY_LIMITS, type EffectMarker, type RecoveryPaths, type Snapshot } from './snapshot.js';
 
 export { isRestoreAcknowledged, RECOVERY_LIMITS };

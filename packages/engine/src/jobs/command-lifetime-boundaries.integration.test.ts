@@ -11,7 +11,7 @@ import { preserveOwnedDeliveryEvidence as preserveCommandEvidence } from "./fixt
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 const posix = {
   skip: !["darwin", "linux", "freebsd"].includes(process.platform),
   timeout: 20000,

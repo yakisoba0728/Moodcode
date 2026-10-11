@@ -10,12 +10,12 @@ import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { EngineError, type ArtifactReference, type RunConfig } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 import { SqliteStore } from '../storage/index.js';
 import { DB_VERSION } from '../storage/migrations.js';
 import { acquireExecutionLock } from '../tools/command/execution-lock.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
-import type { ProviderRecoveryRequest } from '../recovery/provider-contract.js';
+import type { ProviderRecoveryRequest } from '../storage/provider-recovery-contract.js';
 
 // Authored synthetic iterators and private temporary storage exercise the real
 // engine. No account, GUI, command tool, remote transport or existing data is used.

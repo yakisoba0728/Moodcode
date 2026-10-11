@@ -6,7 +6,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 test(
   "genuine complete code-mode archive pauses immutable history and grants no runtime or automatic provider replay",
   { skip: process.platform !== "darwin", timeout: 45000 },

@@ -1,16 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
-import type { SqliteStore } from '../storage/index.js';
-import type { NativeSessionStorage } from '../storage/native.js';
+import type { SqliteStore } from './index.js';
+import type { NativeSessionStorage } from './native.js';
 import { isBoundedId, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
-import { captureHighWater, digest, isHighWater, isIsoTimestamp, readRecoveryTransaction } from './acknowledgment.js';
+import { captureHighWater, digest, isHighWater, isIsoTimestamp, readRecoveryTransaction } from './recovery-acknowledgment.js';
 import { PROVIDER_RECOVERY_LIMITS, type ProviderRecoveryBudget, type ProviderRecoveryEvidence, type ProviderRecoveryPin,
-  type ProviderRecoveryPreview, type ProviderRecoveryReceipt, type ProviderRecoveryRequest } from './provider-contract.js';
-import { fail, readProviderRecoveryBaseline, readProviderRecoveryEvidence, providerRecoveryPinsValid } from './provider-evidence.js';
-import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
+  type ProviderRecoveryPreview, type ProviderRecoveryReceipt, type ProviderRecoveryRequest } from './provider-recovery-contract.js';
+import { fail, readProviderRecoveryBaseline, readProviderRecoveryEvidence, providerRecoveryPinsValid } from './provider-recovery-evidence.js';
+import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 
-export * from './provider-contract.js';
+export * from './provider-recovery-contract.js';
 export const PROVIDER_RECOVERY_TABLES = ['provider_recovery_acknowledgments'] as const;
 export const PROVIDER_RECOVERY_SCHEMA = `CREATE TABLE provider_recovery_acknowledgments (
   id TEXT PRIMARY KEY, attempt_id TEXT NOT NULL REFERENCES provider_attempts(id),

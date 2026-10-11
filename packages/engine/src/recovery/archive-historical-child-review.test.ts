@@ -10,11 +10,11 @@ import test, { type TestContext } from 'node:test';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
-import { ChildDocumentReadFrame } from './child-document-reader.js';
-import { SqliteStore } from './index.js';
+import { ChildDocumentReadFrame } from '../storage/child-document-reader.js';
+import { SqliteStore } from '../storage/index.js';
 import { exportEngineArchive, inspectArchivedChildDocumentStorage, validateEngineArchive } from './archive.js';
-import { restoreV1Fixture } from './fixtures/v1-fixture.js';
-import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
+import { restoreV1Fixture } from '../storage/fixtures/v1-fixture.js';
+import { V1_DATABASE_FIXTURE } from '../storage/fixtures/v1-database.js';
 
 const errorCode = (...codes: string[]) => (error: unknown) => error instanceof EngineError && codes.includes(error.code);
 const sha = (value: Uint8Array) => createHash('sha256').update(value).digest('hex');

@@ -7,7 +7,7 @@ import { DEFAULT_LIMITS, EngineError, type RunReceipt, type Session, type Worksp
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter, ProviderEvent } from '../ports.js';
 import type { EngineChildRequest } from '../child-tasks/engine-host.js';
-import type { ProviderRecoveryRequest } from '../recovery/provider-contract.js';
+import type { ProviderRecoveryRequest } from '../storage/provider-recovery-contract.js';
 import { CHILD_STORAGE_CRASH_PHASES, fixtureDatabase, fixtureSnapshot, stoppedFixtureSnapshot, type ChildStorageCrashPhase, type ChildStorageCrashReady } from './child-storage-crash.fixture.js';
 
 // A private process runs actual SQLite/engine/Git code and authored local

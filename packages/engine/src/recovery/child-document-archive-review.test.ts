@@ -13,9 +13,9 @@ import fs from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { createEngine } from '../engine.js';
 import type { ProviderAdapter, ProviderEvent } from '../ports.js';
-import { acquireRecoveryLease } from '../recovery/index.js';
-import { inspectInputDocumentIndex } from './input-index.js';
-import { SqliteStore } from './index.js';
+import { acquireRecoveryLease } from './index.js';
+import { inspectInputDocumentIndex } from '../storage/input-index.js';
+import { SqliteStore } from '../storage/index.js';
 import { exportEngineArchive, importEngineArchive, validateEngineArchive } from './archive.js';
 
 const exec=promisify(execFile);

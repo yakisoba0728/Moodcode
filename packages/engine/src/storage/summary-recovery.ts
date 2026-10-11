@@ -2,13 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, isTerminal, type EngineEvent, type JsonObject, type Run } from '@moodcode/contracts';
 import { validateContextRevision } from '@moodcode/contracts/validation';
-import type { NativeSessionStorage } from '../storage/native.js';
-import type { SummaryAttemptRecord, SummaryAttemptStorage } from '../storage/summary-attempts.js';
-import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
-import { sha256Hex } from '../shared/canonical.js';
+import type { NativeSessionStorage } from './native.js';
+import type { SummaryAttemptRecord, SummaryAttemptStorage } from './summary-attempts.js';
+import { invalidateEvidenceRead, readEvidenceBody, withEvidenceRead } from './evidence-read.js';
+import { canonical, sha256Hex } from '../shared/canonical.js';
 import { isBoundedId, isSha256, parseJsonOr, plainRecord } from '../shared/data.js';
-import { captureHighWater, CONTEXT_BASELINE_KINDS, digest, isHighWater, isIsoTimestamp, parseContextSourceReference, readRecoveryTransaction } from './acknowledgment.js';
-import { canonical } from './snapshot.js';
+import { captureHighWater, CONTEXT_BASELINE_KINDS, digest, isHighWater, isIsoTimestamp, parseContextSourceReference, readRecoveryTransaction } from './recovery-acknowledgment.js';
 
 export const SUMMARY_RECOVERY_TABLES = ['summary_recovery_acknowledgments'] as const;
 export const SUMMARY_RECOVERY_SCHEMA = `CREATE TABLE summary_recovery_acknowledgments (

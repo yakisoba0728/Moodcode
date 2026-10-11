@@ -23,7 +23,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import {
   acquireExecutionLock,
   inspectExecutionLock,

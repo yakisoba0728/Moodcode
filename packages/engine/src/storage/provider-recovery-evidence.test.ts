@@ -10,11 +10,11 @@ import { createEngine, type MoodcodeEngine } from '../engine.js';
 import { avi, wav } from '../media/segment-fixtures.js';
 import { spec as mediaSpec } from '../media/segment-engine-fixture.js';
 import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
-import { SqliteStore } from '../storage/index.js';
-import type { NativeSessionStorage } from '../storage/native.js';
-import { captureProviderRecoveryHighWater, ProviderRecoveryStorage } from './provider.js';
-import { PROVIDER_RECOVERY_LIMITS, type ProviderRecoveryBudget } from './provider-contract.js';
-import { providerRecoveryPinsValid, readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-evidence.js';
+import { SqliteStore } from './index.js';
+import type { NativeSessionStorage } from './native.js';
+import { captureProviderRecoveryHighWater, ProviderRecoveryStorage } from './provider-recovery.js';
+import { PROVIDER_RECOVERY_LIMITS, type ProviderRecoveryBudget } from './provider-recovery-contract.js';
+import { providerRecoveryPinsValid, readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-recovery-evidence.js';
 
 const digest = (text: string) => createHash('sha256').update(text).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;

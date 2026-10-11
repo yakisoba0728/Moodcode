@@ -62,6 +62,8 @@ function statField(info: FileStats, field: StableField): number | bigint {
   if (field === 'ctime') return 'ctimeNs' in info ? info.ctimeNs : info.ctimeMs;
   return info[field];
 }
+export interface Identity { dev: number; ino: number }
+export function sameIdentity(a: Identity, b: Identity | undefined): boolean { return Boolean(b && a.dev === b.dev && a.ino === b.ino); }
 /** Same device and inode, and the same value for each listed field; times compare at the precision of the stats given. */
 export function stableStat<T extends FileStats>(a: T, b: T | undefined, fields: readonly StableField[] = []): boolean {
   return b !== undefined && a.dev === b.dev && a.ino === b.ino && fields.every(field => statField(a, field) === statField(b, field));

@@ -9,13 +9,13 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { getRecoveryStatus, readRecoveryAcknowledgments, recoverEngine } from '../recovery/index.js';
+import { getRecoveryStatus, readRecoveryAcknowledgments, recoverEngine } from './index.js';
 import { ReviewJournal } from '../review/audit.js';
-import { SqliteStore } from './index.js';
-import { DB_VERSION } from './migrations.js';
+import { SqliteStore } from '../storage/index.js';
+import { DB_VERSION } from '../storage/migrations.js';
 import { exportEngineArchive, importEngineArchive, validateEngineArchive } from './archive.js';
-import { restoreV1Fixture } from './fixtures/v1-fixture.js';
-import { V1_DATABASE_FIXTURE } from './fixtures/v1-database.js';
+import { restoreV1Fixture } from '../storage/fixtures/v1-fixture.js';
+import { V1_DATABASE_FIXTURE } from '../storage/fixtures/v1-database.js';
 import { ImageAttachmentStore } from '../media/store.js';
 import { png } from '../media/fixtures.js';
 
@@ -47,7 +47,7 @@ test('input image bytes and owner metadata survive offline archive without rebin
 async function killAtBoundary(t: TestContext, f: ReturnType<typeof fixture>, mode: 'export' | 'import', source: string, destination: string, phase: 'staging' | 'publish'): Promise<void> {
   const scratch = join(f.directory, `scratch-${mode}`); mkdirSync(scratch);
   const sourceMode = import.meta.url.endsWith('.ts');
-  const childPath = fileURLToPath(new URL(`./fixtures/archive-child.${sourceMode ? 'ts' : 'js'}`, import.meta.url));
+  const childPath = fileURLToPath(new URL(`../storage/fixtures/archive-child.${sourceMode ? 'ts' : 'js'}`, import.meta.url));
   const child = spawn(process.execPath, [...(sourceMode ? ['--import', 'tsx'] : []), childPath, mode, source, destination, phase], { stdio: ['ignore', 'ignore', 'pipe', 'ipc'], env: { ...process.env, TMPDIR: scratch } });
   t.after(() => { if (child.exitCode === null) child.kill('SIGKILL'); });
   let errors = ''; child.stderr?.on('data', value => { errors = (errors + String(value)).slice(-4096); });

@@ -10,7 +10,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import {
   KNOWLEDGE_FILE_EXECUTION_GUARD_TABLE,

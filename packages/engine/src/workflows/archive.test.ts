@@ -12,7 +12,7 @@ import {
   importEngineArchive,
   validateEngineArchive,
   type EngineArchiveResult,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import { checkDatabase } from "../recovery/snapshot.js";
 import { knowledgeHash } from "../knowledge/validation.js";

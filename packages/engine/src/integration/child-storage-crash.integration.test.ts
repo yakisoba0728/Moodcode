@@ -12,7 +12,7 @@ import { createEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
 import type { ChildTaskRecord } from '../child-tasks/index.js';
 import { childStorageKind, type ChildStorageRecord } from '../child-tasks/storage-binding.js';
-import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../recovery/archive.js';
 import { SqliteStore } from '../storage/index.js';
 import type { AttemptCleanupRecord } from '../storage/attempt-cleanup.js';
 import { CHILD_STORAGE_CRASH_PHASES, fixtureDatabase, fixtureSnapshot, rowData, stoppedFixtureSnapshot,

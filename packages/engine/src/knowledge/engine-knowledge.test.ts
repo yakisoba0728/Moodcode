@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { JsonObject, Session, Workspace } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
-import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../recovery/archive.js';
 import { DB_VERSION } from '../storage/migrations.js';
 
 function stored<T>(dbPath: string, read: (db: DatabaseSync) => T): T { const db = new DatabaseSync(dbPath, { readOnly: true }); try { return read(db); } finally { db.close(); } }

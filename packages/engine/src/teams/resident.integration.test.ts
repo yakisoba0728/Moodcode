@@ -6,7 +6,7 @@ import type { Session } from "@moodcode/contracts";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { createEngine } from "../engine.js";
 import { teamBoardKind } from "./workflow-board.js";
 import { validateResidentTeamDatabase } from "./resident-validation.js";

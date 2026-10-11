@@ -20,6 +20,6 @@ fs.renameSync = ((from, to) => {
   return originalRename(from, to);
 }) as typeof fs.renameSync;
 syncBuiltinESMExports();
-const archive = await import('../archive.js');
+const archive = await import('../../recovery/archive.js');
 if (mode === 'export') await archive.exportEngineArchive({ dbPath: join(source, 'engine.sqlite'), artifactDir: join(source, 'artifacts'), destination });
 else await archive.importEngineArchive({ directory: source, destination });

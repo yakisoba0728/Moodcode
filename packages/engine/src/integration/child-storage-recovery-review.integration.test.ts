@@ -10,7 +10,7 @@ import { EngineError, type JsonObject } from '@moodcode/contracts';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
 import { CHILD_STORAGE_MIRROR_KIND, childStorageKind, validateChildStorageRecord } from '../child-tasks/storage-binding.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 
 type FailureBoundary = 'root-prepared' | 'mirror-prepared' | 'root-admitted' | 'mirror-admitted';
 function gate() { let resolve!: () => void; const promise = new Promise<void>(yes => { resolve = yes; }); return { promise, resolve }; }

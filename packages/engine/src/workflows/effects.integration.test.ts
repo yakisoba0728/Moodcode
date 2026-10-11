@@ -10,7 +10,7 @@ import { effectKind, signEffect } from "./effects-records.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import {
   EFFECT_BEFORE,
   EFFECT_AFTER,

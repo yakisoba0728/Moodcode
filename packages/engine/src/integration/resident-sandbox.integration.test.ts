@@ -11,7 +11,7 @@ import { residentUntil } from "../teams/fixtures/resident.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { createEngine } from "../engine.js";
 import type { ProviderEvent } from "../ports.js";
 

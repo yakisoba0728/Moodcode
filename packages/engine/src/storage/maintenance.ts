@@ -6,8 +6,7 @@ import {
 import { basename, dirname, isAbsolute, join, parse, resolve, sep } from 'node:path';
 import { backup as sqliteBackup, DatabaseSync } from 'node:sqlite';
 import { EngineError, type JsonObject } from '@moodcode/contracts';
-import { sameIdentity } from '../recovery/snapshot.js';
-import { errnoCode, symlinkFreeDirectorySync, syncDirectory } from '../shared/fs.js';
+import { errnoCode, sameIdentity, symlinkFreeDirectorySync, syncDirectory } from '../shared/fs.js';
 
 export interface IntegrityCheckResult {
   ok: boolean;

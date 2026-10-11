@@ -8,7 +8,7 @@ import type { InputImageAttachment, JsonObject } from '@moodcode/contracts';
 import { createEngine, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter, TurnRequest } from '../ports.js';
 import { png } from '../media/fixtures.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 
 async function fixture(t: test.TestContext, provider?: ProviderAdapter) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-input-media-'))), workspace = join(root, 'repo'); await mkdir(workspace);

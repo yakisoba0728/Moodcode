@@ -20,7 +20,7 @@ import { signJobData } from "./validation.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { jobCommand, jobFixture, jobUntil } from "./fixtures/job.js";
 import {
   validateHostCommandDatabase,

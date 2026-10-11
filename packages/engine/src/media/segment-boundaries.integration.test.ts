@@ -14,7 +14,7 @@ import {
 } from "./segment-engine-fixture.js";
 import { wav, avi } from "./segment-fixtures.js";
 import { createEngine } from "../engine.js";
-import { exportEngineArchive } from "../storage/archive.js";
+import { exportEngineArchive } from "../recovery/archive.js";
 import { LifecycleHookRegistry } from "../lifecycle/index.js";
 import { ResponsesProvider } from "../provider/responses.js";
 import { providerSegments } from "./segment-provider.js";

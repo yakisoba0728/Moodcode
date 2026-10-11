@@ -8,7 +8,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { assertExecutionLockAvailable } from "../tools/command/execution-lock.js";
 import { groupExists } from "../tools/command/process-control.js";
 import { backendUntil, retainBackendFixture } from "./fixtures/backend.js";

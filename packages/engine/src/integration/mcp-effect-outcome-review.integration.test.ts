@@ -15,7 +15,7 @@ import { CredentialBroker } from '../credentials/index.js';
 import { createEngine, type EngineOptions, type MoodcodeEngine } from '../engine.js';
 import { HttpMcpTransport, McpClient } from '../mcp/index.js';
 import type { ProviderAdapter, TurnRequest } from '../ports.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 import { SqliteStore } from '../storage/index.js';
 
 // These peers, databases and effects are authored private loopback fixtures. The

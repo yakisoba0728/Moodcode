@@ -10,7 +10,7 @@ import { validateResidentTeamDatabase } from "./resident-validation.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { createEngine } from "../engine.js";
 import type { ProviderEvent } from "../ports.js";
 async function approvalIdle(

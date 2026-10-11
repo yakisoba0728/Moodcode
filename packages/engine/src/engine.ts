@@ -122,8 +122,8 @@ import { FormatterRegistry, createFormatTool, createLspFormatTool } from './form
 import { WorkspaceChangeHub, type WorkspaceChangeWatch } from './workspace/changes.js';
 import { inspectExecutionLock } from './tools/command/execution-lock.js';
 import { RecoveryGate } from './recovery/gate.js';
-import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './recovery/summary.js';
-import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type ProviderRecoveryReceipt } from './recovery/provider.js';
+import { validateSummaryRecoveryRequest, type SummaryRecoveryRequest, type SummaryRecoveryReceipt } from './storage/summary-recovery.js';
+import { validateProviderRecoveryRequest, type ProviderRecoveryRequest, type ProviderRecoveryReceipt } from './storage/provider-recovery.js';
 import { ReviewJournal } from './review/audit.js';
 import { createDelegateTaskTool } from './child-tasks/delegation.js';
 import { inspectEngineStorage, type StorageUsageReport, type StorageUsageLimits } from './diagnostics/storage-usage.js';

@@ -4,7 +4,8 @@ import { basename, dirname, isAbsolute, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
-import { errnoCode, streamStableFile, symlinkFreeDirectorySync } from '../shared/fs.js';
+import { canonical } from '../shared/canonical.js';
+import { errnoCode, sameIdentity, streamStableFile, symlinkFreeDirectorySync, type Identity } from '../shared/fs.js';
 
 export const RECOVERY_LIMITS = Object.freeze({
   maxFileBytes: 256 * 1024 * 1024,
@@ -16,7 +17,6 @@ export const RECOVERY_LIMITS = Object.freeze({
   maxSchemaEntries: 160,
 });
 export interface RecoveryPaths { db: string; review: string; effect: string; ledger: string; artifacts: string }
-export interface Identity { dev: number; ino: number }
 interface FileSignature extends Identity { size: number; mtime: number; ctime: number; hash: string }
 export interface Snapshot {
   directory: string;
@@ -49,7 +49,6 @@ export function safeError(error: unknown): EngineError {
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') return new EngineError('RECOVERY_PERMISSION_DENIED', messages.RECOVERY_PERMISSION_DENIED!);
   return new EngineError('RECOVERY_DATABASE_INVALID', messages.RECOVERY_DATABASE_INVALID!);
 }
-export function sameIdentity(a: Identity, b: Identity | undefined): boolean { return Boolean(b && a.dev === b.dev && a.ino === b.ino); }
 export function regular(file: string): Stats | undefined {
   const info = lstatSync(file, { throwIfNoEntry: false });
   if (info && (!info.isFile() || info.isSymbolicLink() || info.nlink !== 1)) fail('RECOVERY_PATH_UNSUPPORTED');
@@ -68,13 +67,6 @@ export function recoveryPaths(input: { dbPath: string; artifactDir: string }): R
   return { db, review: db + '.review.sqlite', effect: db + '.effects.sqlite', ledger: db + '.recovery.sqlite', artifacts };
 }
 export function hash(value: string | Buffer): string { return createHash('sha256').update(value).digest('hex'); }
-export function canonical(value: unknown): string {
-  if (value instanceof Uint8Array) return JSON.stringify(Buffer.from(value).toString('base64'));
-  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
-  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical((value as Record<string, unknown>)[key])).join(',') + '}';
-  if (typeof value === 'bigint') return JSON.stringify(value.toString());
-  return JSON.stringify(value) ?? 'null';
-}
 function signature(file: string, check: () => void, copyTo?: string): FileSignature | undefined {
   check();
   const before = regular(file);

@@ -13,7 +13,7 @@ import { createEngine, type MoodcodeEngine } from '../engine.js';
 import type { ProviderAdapter } from '../ports.js';
 import { childStorageBindingSha256, childStorageKind, validateChildStorageRecord } from '../child-tasks/storage-binding.js';
 import { SqliteStore } from '../storage/index.js';
-import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../recovery/archive.js';
 
 function gate() { let resolve!: () => void; const promise = new Promise<void>(yes => { resolve = yes; }); return { promise, resolve }; }
 async function hold(promise: Promise<void>, signal: AbortSignal) { let abort!: () => void; try { await Promise.race([promise,new Promise<void>(yes=>{abort=yes;signal.addEventListener('abort',abort,{once:true});if(signal.aborted)abort();})]); } finally {signal.removeEventListener('abort',abort);} }

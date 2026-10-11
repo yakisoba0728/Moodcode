@@ -33,8 +33,8 @@ import {
   createArchiveDocumentReadFrame,
   createChildDocumentReadFrame,
   MAX_ARCHIVE_DOCUMENT_BUDGET_MS,
-} from "./child-document-reader.js";
-import { SqliteStore } from "./index.js";
+} from "../storage/child-document-reader.js";
+import { SqliteStore } from "../storage/index.js";
 
 const code = (expected: string) => (error: unknown) =>
   error instanceof EngineError && error.code === expected;

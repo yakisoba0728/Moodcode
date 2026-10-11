@@ -8,7 +8,7 @@ import { knowledgeHash } from "../knowledge/validation.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import {
   validateAgentBackendDatabase,
   type AgentBackendStorage,

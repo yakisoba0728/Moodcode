@@ -10,7 +10,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { join } from "node:path";
 const posix = {
   timeout: 25000,

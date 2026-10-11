@@ -13,7 +13,7 @@ import type { ProviderAdapter, ProviderEvent, TurnRequest } from '../ports.js';
 import type { KnowledgeContextPolicy, PreparedKnowledgeContribution } from '../knowledge/context-types.js';
 import type { KnowledgeCandidate } from '../knowledge/types.js';
 import type { LifecycleHookRegistration } from '../lifecycle/index.js';
-import { exportEngineArchive, importEngineArchive } from '../storage/archive.js';
+import { exportEngineArchive, importEngineArchive } from '../recovery/archive.js';
 import { sha256 } from '../knowledge/validation.js';
 
 type Engine = ReturnType<typeof createEngine>;

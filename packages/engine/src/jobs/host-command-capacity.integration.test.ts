@@ -8,7 +8,7 @@ import { join } from "node:path";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { jobFixture } from "./fixtures/job.js";
 import {
   HOST_COMMAND_LIMITS,

@@ -2,14 +2,13 @@ import type { DatabaseSync } from 'node:sqlite';
 import { types } from 'node:util';
 import { EngineError, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
 import { normalizeSubmitInput, validateContextRevision, validateInputRecord, validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
-import type { SqliteStore } from '../storage/index.js';
-import { canonicalAttemptCleanupSha256 } from '../storage/attempt-cleanup.js';
-import { readEvidenceBody } from '../storage/evidence-read.js';
-import { sha256Hex } from '../shared/canonical.js';
+import type { SqliteStore } from './index.js';
+import { canonicalAttemptCleanupSha256 } from './attempt-cleanup.js';
+import { readEvidenceBody } from './evidence-read.js';
+import { canonical, sha256Hex } from '../shared/canonical.js';
 import { isBoundedId, isSha256, parseJsonOr } from '../shared/data.js';
-import { CONTEXT_BASELINE_KINDS, digest, parseContextSourceReference } from './acknowledgment.js';
-import { canonical } from './snapshot.js';
-import { PROVIDER_RECOVERY_LIMITS as limits, type ProviderRecoveryBudget, type ProviderRecoveryEvidence, type ProviderRecoveryPin } from './provider-contract.js';
+import { CONTEXT_BASELINE_KINDS, digest, parseContextSourceReference } from './recovery-acknowledgment.js';
+import { PROVIDER_RECOVERY_LIMITS as limits, type ProviderRecoveryBudget, type ProviderRecoveryEvidence, type ProviderRecoveryPin } from './provider-recovery-contract.js';
 
 type Row = Record<string, unknown>;
 interface Selected { table: Table; row: Row; data: JsonObject; sha256: string }

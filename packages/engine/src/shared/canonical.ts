@@ -10,6 +10,14 @@ export function canonicalJson(value: unknown, onUndefined?: () => never): string
   if (text === undefined) onUndefined?.();
   return text;
 }
+/** Sorted-key JSON of recovery digests: bytes as base64, bigint as a decimal string, other non-JSON values as null. */
+export function canonical(value: unknown): string {
+  if (value instanceof Uint8Array) return JSON.stringify(Buffer.from(value).toString('base64'));
+  if (Array.isArray(value)) return '[' + value.map(canonical).join(',') + ']';
+  if (value && typeof value === 'object') return '{' + Object.keys(value).sort().map(key => JSON.stringify(key) + ':' + canonical((value as Record<string, unknown>)[key])).join(',') + '}';
+  if (typeof value === 'bigint') return JSON.stringify(value.toString());
+  return JSON.stringify(value) ?? 'null';
+}
 export function sha256Hex(value: string | Uint8Array): string { return createHash('sha256').update(value).digest('hex'); }
 export function canonicalSha256(value: unknown): string { return sha256Hex(canonicalJson(value)); }
 /** Depends on key order: only for digests already persisted over JSON.stringify output. */

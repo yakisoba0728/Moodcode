@@ -9,7 +9,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { jobCommand, jobFixture, jobInvoke } from "./fixtures/job.js";
 import type {
   CommandJob,

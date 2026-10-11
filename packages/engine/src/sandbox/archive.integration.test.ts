@@ -6,7 +6,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { fixture } from "./fixtures/engine.js";
 const darwin = { skip: process.platform !== "darwin", timeout: 45000 };
 test(

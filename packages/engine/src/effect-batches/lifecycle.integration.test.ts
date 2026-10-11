@@ -8,7 +8,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { batchFixture, until } from "./fixtures/batch.js";
 import { EFFECT_BATCH_LIMITS, validateEffectBatch } from "./storage.js";

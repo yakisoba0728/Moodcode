@@ -13,7 +13,7 @@ import type { ProviderAdapter } from "../ports.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { prFixture } from "./fixtures/pr.js";
 import {

@@ -8,7 +8,7 @@ import { createEngine } from "../engine.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { DB_VERSION } from "../storage/migrations.js";
 import { groupExists } from "../tools/command/process-control.js";
 import { backendFixture, backendUntil } from "./fixtures/backend.js";

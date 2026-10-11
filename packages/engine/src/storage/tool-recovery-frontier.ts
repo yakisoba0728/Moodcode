@@ -1,8 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { EngineError, type EngineEvent, type JsonObject, type Run, type ToolCallRecord } from '@moodcode/contracts';
 import { validateMessagePart, validateProviderAttempt, validateTurnRecord } from '@moodcode/contracts/validation';
-import { canonical } from '../recovery/snapshot.js';
-import { sha256Hex } from '../shared/canonical.js';
+import { canonical, sha256Hex } from '../shared/canonical.js';
 import { isBoundedId, parseJsonOr } from '../shared/data.js';
 import { assertContextRevisionOwner, readEvidenceBody, readRunOwnerHeader, sameRunOwner, withEvidenceRead, type EvidenceTable, type RunOwnerHeader } from './evidence-read.js';
 import { toolProposalSha256, type McpExecutionRecord } from './mcp-executions.js';

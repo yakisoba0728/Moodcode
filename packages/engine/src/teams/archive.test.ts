@@ -13,7 +13,7 @@ import {
   importEngineArchive,
   validateEngineArchive,
   type EngineArchiveResult,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { nativeTeam } from "./fixtures/native-team.js";
 import { failure, readDatabase } from "./fixtures/engine-team.js";

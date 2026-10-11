@@ -12,7 +12,7 @@ import {
   exportEngineArchive,
   importEngineArchive,
   validateEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { jobInvoke, jobUntil } from "./fixtures/job.js";
 import {
   ownedLifecycleFixture,

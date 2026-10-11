@@ -5,7 +5,7 @@ import { residentFixture, residentUntil } from "./fixtures/resident.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { createEngine } from "../engine.js";
 import { failure } from "./fixtures/engine-team.js";
 test("actual resident multi-Run child/ACK history archives with authentic child SQL and imports paused without live actor or wake", async (t) => {

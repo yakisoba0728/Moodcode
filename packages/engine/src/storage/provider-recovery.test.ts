@@ -6,11 +6,11 @@ import { join } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
-import { SqliteStore } from '../storage/index.js';
-import type { NativeSessionStorage } from '../storage/native.js';
-import { captureProviderRecoveryHighWater, PROVIDER_RECOVERY_LIMITS, PROVIDER_RECOVERY_SCHEMA, ProviderRecoveryStorage, validateProviderRecoveryRequest, type ProviderRecoveryRequest } from './provider.js';
-import { readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-evidence.js';
-import { canonical } from './snapshot.js';
+import { SqliteStore } from './index.js';
+import type { NativeSessionStorage } from './native.js';
+import { captureProviderRecoveryHighWater, PROVIDER_RECOVERY_LIMITS, PROVIDER_RECOVERY_SCHEMA, ProviderRecoveryStorage, validateProviderRecoveryRequest, type ProviderRecoveryRequest } from './provider-recovery.js';
+import { readProviderRecoveryBaseline, readProviderRecoveryEvidence } from './provider-recovery-evidence.js';
+import { canonical } from '../shared/canonical.js';
 
 const hash = (text: string) => createHash('sha256').update(text).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;

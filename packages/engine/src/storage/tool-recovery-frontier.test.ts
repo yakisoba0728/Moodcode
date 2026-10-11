@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import type { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type MessagePart, type ProviderAttempt, type ToolCallRecord, type TurnRecord } from '@moodcode/contracts';
-import { canonical } from '../recovery/snapshot.js';
+import { canonical } from '../shared/canonical.js';
 import { SqliteStore } from './index.js';
 import { TOOL_RECOVERY_FRONTIER_LIMITS } from './tool-recovery-frontier.js';
 

@@ -1,5 +1,5 @@
 import type { ProviderAttempt, Run, TurnRecord } from '@moodcode/contracts';
-import type { AttemptCleanupRecord } from '../storage/attempt-cleanup.js';
+import type { AttemptCleanupRecord } from './attempt-cleanup.js';
 
 export const PROVIDER_RECOVERY_LIMITS = Object.freeze({ maxCandidates: 64, maxMessages: 512, maxParts: 128, maxTools: 256,
   maxOwnerBytes: 1_048_576, maxEvidenceBytes: 8_388_608, maxLedgerBytes: 65_536, maxContextDocumentBytes: 262_144 });

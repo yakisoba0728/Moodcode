@@ -1,7 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 import { DB_VERSION } from '../storage/migrations.js';
 import type { RestoreOperation } from '../review/audit.js';
-import { canonical, checkDatabase, fail, hash, RECOVERY_LIMITS, type Snapshot } from './snapshot.js';
+import { canonical } from '../shared/canonical.js';
+import { checkDatabase, fail, hash, RECOVERY_LIMITS, type Snapshot } from './snapshot.js';
 
 export interface RecoveryAcknowledgment {
   id: string;

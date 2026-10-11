@@ -22,7 +22,7 @@ import { SqliteStore } from "../storage/index.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import {
   assertPhysicalKnowledgeRoot,
   assertWorkspaceTrustSourcesCurrent,

@@ -2,7 +2,7 @@ import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import type { EngineChildRequest } from '../child-tasks/engine-host.js';
-import type { ProviderRecoveryRequest } from '../recovery/provider-contract.js';
+import type { ProviderRecoveryRequest } from '../storage/provider-recovery-contract.js';
 import type { SqliteStore } from '../storage/index.js';
 
 // These are deliberately authored fixture observations, not engine/public APIs.

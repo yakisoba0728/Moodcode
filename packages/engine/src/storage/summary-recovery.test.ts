@@ -6,12 +6,12 @@ import { join } from 'node:path';
 import { DatabaseSync, type SQLInputValue } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { DEFAULT_LIMITS, EngineError, type EngineEvent, type JsonObject, type MessagePart, type ProviderAttempt, type Run, type TurnRecord } from '@moodcode/contracts';
-import { SqliteStore } from '../storage/index.js';
-import type { NativeSessionStorage } from '../storage/native.js';
-import type { SummaryAttemptStorage } from '../storage/summary-attempts.js';
-import { captureSummaryRecoveryHighWater, SUMMARY_RECOVERY_PROOF_SCHEMA, SUMMARY_RECOVERY_SCHEMA, SummaryRecoveryStorage, validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary.js';
-import { canonical } from './snapshot.js';
-import { readEvidenceBody, withEvidenceRead } from '../storage/evidence-read.js';
+import { SqliteStore } from './index.js';
+import type { NativeSessionStorage } from './native.js';
+import type { SummaryAttemptStorage } from './summary-attempts.js';
+import { captureSummaryRecoveryHighWater, SUMMARY_RECOVERY_PROOF_SCHEMA, SUMMARY_RECOVERY_SCHEMA, SummaryRecoveryStorage, validateSummaryRecoveryRequest, type SummaryRecoveryRequest } from './summary-recovery.js';
+import { canonical } from '../shared/canonical.js';
+import { readEvidenceBody, withEvidenceRead } from './evidence-read.js';
 
 const hash = (value: string) => createHash('sha256').update(value).digest('hex');
 const code = (expected: string) => (error: unknown) => error instanceof EngineError && error.code === expected;

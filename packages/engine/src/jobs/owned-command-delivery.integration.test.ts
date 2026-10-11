@@ -11,7 +11,7 @@ import { knowledgeHash } from "../knowledge/validation.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { jobInvoke, jobUntil } from "./fixtures/job.js";
 import {
   ownedDeliveryFixture,

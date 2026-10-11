@@ -5,7 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { DEFAULT_LIMITS, EngineError, type ApprovalRecord, type MessagePart, type ProviderAttempt, type ToolCallRecord, type TurnRecord } from '@moodcode/contracts';
 import { SqliteStore } from './index.js';
 import type { McpExecutionIdentity, McpExecutionSettlement } from './mcp-executions.js';
-import { canonical } from '../recovery/snapshot.js';
+import { canonical } from '../shared/canonical.js';
 
 // Authored local storage observations only. These fixtures do not execute a tool,
 // contact a provider/peer, or claim that a running intent proves an external effect.

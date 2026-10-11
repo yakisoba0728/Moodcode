@@ -1,9 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite';
-import type { NativeSessionStorage } from '../storage/native.js';
-import { withEvidenceRead } from '../storage/evidence-read.js';
-import { sha256Hex } from '../shared/canonical.js';
+import type { NativeSessionStorage } from './native.js';
+import { withEvidenceRead } from './evidence-read.js';
+import { canonical, sha256Hex } from '../shared/canonical.js';
 import { isBoundedId, isSha256 } from '../shared/data.js';
-import { canonical } from './snapshot.js';
 
 export const CONTEXT_BASELINE_KINDS = ['context.memory', 'context.active_memory', 'context.head'] as const;
 export const digest = (value: unknown): string => sha256Hex(canonical(value));

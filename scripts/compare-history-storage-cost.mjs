@@ -153,7 +153,7 @@ async function worker(runtime, root, output) {
   deterministicFixtureIdentity();
   const { createEngine } = await import(pathToFileURL(join(runtime, 'engine.js')).href);
   const { ScriptedProvider } = await import(pathToFileURL(join(runtime, 'provider/scripted.js')).href);
-  const { exportEngineArchive, validateEngineArchive } = await import(pathToFileURL(join(runtime, 'storage/archive.js')).href);
+  const { exportEngineArchive, validateEngineArchive } = await import(pathToFileURL(join(runtime, 'index.js')).href);
   mkdirSync(root, { mode: 0o700 });
   const repository = join(root, 'repository'), dbPath = join(root, 'engine.sqlite'), artifactDir = join(root, 'artifacts');
   mkdirSync(repository); mkdirSync(artifactDir, { mode: 0o700 });

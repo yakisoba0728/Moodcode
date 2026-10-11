@@ -10,7 +10,7 @@ import type { ToolDefinition } from "../ports.js";
 import {
   exportEngineArchive,
   importEngineArchive,
-} from "../storage/archive.js";
+} from "../recovery/archive.js";
 import { groupExists } from "../tools/command/process-control.js";
 import { backendFixture } from "./fixtures/backend.js";
 import { decideEffect, effectPeerFile } from "./fixtures/effects.js";

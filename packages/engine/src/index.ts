@@ -93,8 +93,8 @@ export type { InputImageIndexOptions, InputImageIndexReport, InputDocumentIndexO
 export type { ChildDocumentStorageRequest, ChildDocumentStorageReport, ChildDocumentStorageItem, ChildDocumentStorageLimits } from './diagnostics/child-document-storage.js';
 export { SemanticMemoryService, SEMANTIC_MEMORY_PREFIX } from './context/semantic-memory.js';
 export type { SemanticCheckpoint } from './context/semantic-memory.js';
-export type { ProviderRecoveryRequest, ProviderRecoveryReceipt, ProviderRecoveryPreview } from './recovery/provider-contract.js';
-export { PROVIDER_RECOVERY_LIMITS } from './recovery/provider-contract.js';
+export type { ProviderRecoveryRequest, ProviderRecoveryReceipt, ProviderRecoveryPreview } from './storage/provider-recovery-contract.js';
+export { PROVIDER_RECOVERY_LIMITS } from './storage/provider-recovery-contract.js';
 export { ActivePrefixMemoryService, validateActivePrefixPolicy, ACTIVE_PREFIX_MEMORY_PREFIX, ACTIVE_PREFIX_DOCUMENT, ACTIVE_PREFIX_PROJECTION } from './context/active-prefix.js';
 export type { ActivePrefixPolicy, ActivePrefixCheckpoint, ActivePrefixStage, PreparedActivePrefix } from './context/active-prefix.js';
 export { InputScheduler } from './runner/input-scheduler.js';
@@ -119,8 +119,8 @@ export * from './credentials/index.js';
 export { LocalReferenceService, createLocalReferenceTools } from './tools/session/skills.js';
 export { AgentProfiles } from './agents/index.js';
 export type { AgentProfile, AgentProfileSpec } from './agents/index.js';
-export { exportEngineArchive, validateEngineArchive, inspectArchivedChildDocumentStorage, importEngineArchive } from './storage/archive.js';
-export type { EngineArchiveManifest, EngineArchiveResult, ImportedEngineArchive, ArchiveDocumentAudit, ArchiveDocumentBudgetOptions, ExportEngineArchiveOptions, ValidateEngineArchiveOptions, ImportEngineArchiveOptions } from './storage/archive.js';
+export { exportEngineArchive, validateEngineArchive, inspectArchivedChildDocumentStorage, importEngineArchive } from './recovery/archive.js';
+export type { EngineArchiveManifest, EngineArchiveResult, ImportedEngineArchive, ArchiveDocumentAudit, ArchiveDocumentBudgetOptions, ExportEngineArchiveOptions, ValidateEngineArchiveOptions, ImportEngineArchiveOptions } from './recovery/archive.js';
 export { DEFAULT_ARCHIVED_CHILD_DOCUMENT_STORAGE_LIMITS } from './diagnostics/archive-child-documents.js';
 export type { ArchivedChildDocumentStorageRequest, ArchivedChildDocumentStorageLimits, ArchivedChildDocumentStorageReport, ArchivedChildDocumentStorageItem, ArchivedChildDocumentLineage } from './diagnostics/archive-child-documents.js';
 export * from './terminals/index.js';
@@ -153,8 +153,8 @@ export { getWorkspaceStatus, listWorkspaceFiles, readWorkspaceFile } from './wor
 
 export { getRecoveryStatus, recoverEngine, readRecoveryAcknowledgments, isRestoreAcknowledged, RECOVERY_LIMITS } from './recovery/index.js';
 export type { RecoveryStatus, RecoveryResult, RecoveryAcknowledgment, RecoveryOptions, RecoverEngineOptions } from './recovery/index.js';
-export type { SummaryRecoveryRequest, SummaryRecoveryPreview, SummaryRecoveryReceipt } from './recovery/summary.js';
-export { SUMMARY_RECOVERY_LIMITS } from './recovery/summary.js';
+export type { SummaryRecoveryRequest, SummaryRecoveryPreview, SummaryRecoveryReceipt } from './storage/summary-recovery.js';
+export { SUMMARY_RECOVERY_LIMITS } from './storage/summary-recovery.js';
 export type { AttemptCleanupIdentity, AttemptCleanupRecord, AttemptCleanupSettlement, AttemptCleanupState, AttemptCleanupMethod, AttemptCleanupReason } from './storage/attempt-cleanup.js';
 export { ATTEMPT_CLEANUP_LIMITS } from './storage/attempt-cleanup.js';
 export type { McpExecutionIdentity, McpExecutionRecord, McpExecutionSettlement, McpExecutionState } from './storage/mcp-executions.js';
