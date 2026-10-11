@@ -159,7 +159,7 @@ export class ResponsesProvider implements ProviderAdapter {
       if (hasDocumentInputs(request) && !this.allowUnknownDocumentTokenCost) throw new EngineError('DOCUMENT_TOKEN_COST_UNKNOWN', 'PDF input token cost is unknown and requires explicit host opt-in.');
       const images = providerImages(request, true, signal);
       const segments=providerSegments(request,kind=>!generation&&this.supportsInputMedia(request.modelId,kind),signal);
-      const documents = providerDocuments(request, this.supportsInputFile(request.modelId, 'application/pdf'), signal, images);
+      const documents = providerDocuments(request, this.supportsInputFile(request.modelId, 'application/pdf'), signal, true);
       const input: Record<string, unknown>[] = [];
       let inputBytes = 2;
       for (const message of request.messages) {

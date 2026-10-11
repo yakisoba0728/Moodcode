@@ -1,11 +1,11 @@
 import { types } from 'node:util';
 import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
-import type { ProviderMessage, ResolvedInputDocument, ResolvedInputImage } from '../ports.js';
+import type { ProviderMessage, ResolvedInputDocument } from '../ports.js';
 import type { ProviderTransportRequest } from '../provider/generation.js';
 import { providerImages } from '../media/provider.js';
 import { attachments as imageAttachments, DEFAULT_IMAGE_LIMITS } from '../media/validation.js';
 import { isPlainArray } from '../shared/data.js';
-import { attachments as documentAttachments, DEFAULT_DOCUMENT_LIMITS, digest, sameAttachment, validateDocumentBytes } from './validation.js';
+import { attachment, attachments as documentAttachments, DEFAULT_DOCUMENT_LIMITS, digest, sameAttachment, validateDocumentBytes } from './validation.js';
 
 const MAX_DOCUMENT_BYTES = DEFAULT_DOCUMENT_LIMITS.maxDocumentBytes;
 const MAX_DOCUMENT_OCCURRENCES = DEFAULT_DOCUMENT_LIMITS.maxInputDocuments;
@@ -37,7 +37,7 @@ export function hasDocumentInputs(request: ProviderTransportRequest): boolean {
 
 /** Transport projection only. Session/workspace ownership must be checked by the host resolver. */
 export function providerDocuments(request: ProviderTransportRequest, supported: boolean, signal?: AbortSignal,
-  validatedImages?: ReadonlyMap<string, ResolvedInputImage>): ReadonlyMap<string, ResolvedInputDocument> {
+  imagesValidated = false): ReadonlyMap<string, ResolvedInputDocument> {
   cancelled(signal);
   try {
     const wanted = new Map<string, InputDocumentAttachment>();
@@ -71,7 +71,7 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
     }
     // Images are decoded once by adapters that already validated them. Direct
     // callers still receive the same image boundary before sharing the byte cap.
-    if (!validatedImages) providerImages(request, true, signal);
+    if (!imagesValidated) providerImages(request, true, signal);
     for (const message of request.messages) for (const image of imageAttachments(message.attachments ?? [])) {
       total += image.bytes;
       if (total > DEFAULT_IMAGE_LIMITS.maxInputBytes) limited();
@@ -86,8 +86,7 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
         || Reflect.ownKeys(item).length !== 2) invalid();
       const rawRef = ownValue(item, 'attachment');
       if (!rawRef || typeof rawRef !== 'object' || types.isProxy(rawRef)) invalid();
-      const refs = documentAttachments([rawRef]);
-      const ref = refs[0]!;
+      const ref = attachment(rawRef);
       const data = ownValue(item, 'data'), expected = wanted.get(ref.id);
       if (!expected || !sameAttachment(ref, expected) || result.has(ref.id) || typeof data !== 'string'
         || data.length !== Math.ceil(ref.bytes / 3) * 4
@@ -99,7 +98,7 @@ export function providerDocuments(request: ProviderTransportRequest, supported: 
     }
     return result;
   } catch (error) {
-    if (signal?.aborted) cancelled(signal);
+    cancelled(signal);
     if (error instanceof EngineError && ['PROVIDER_LIMIT_EXCEEDED', 'PROVIDER_UNSUPPORTED_INPUT', 'PROVIDER_CANCELLED'].includes(error.code)) throw error;
     if (error instanceof EngineError && ['DOCUMENT_LIMIT_EXCEEDED', 'IMAGE_LIMIT_EXCEEDED'].includes(error.code)) limited();
     invalid();

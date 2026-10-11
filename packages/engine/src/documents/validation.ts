@@ -1,12 +1,14 @@
 import { types } from 'node:util';
-import { createHash } from 'node:crypto';
-import { EngineError, type InputDocumentAttachment } from '@moodcode/contracts';
+import { EngineError, INPUT_DOCUMENT_LIMITS, type InputDocumentAttachment } from '@moodcode/contracts';
 import { isPlainArray, plainRecord } from '../shared/data.js';
+
+export { digest } from '../media/validation.js';
 
 const INPUT_DOCUMENT_ID = /^doc_[a-f0-9]{32}$/u;
 export interface DocumentLimits { maxDocumentBytes: number; maxInputDocuments: number; maxInputBytes: number; maxSessionDocuments: number; maxSessionBytes: number }
-/** Local storage budgets, independent of provider limits or document token estimates. */
-export const DEFAULT_DOCUMENT_LIMITS: Readonly<DocumentLimits> = Object.freeze({ maxDocumentBytes: 524_288, maxInputDocuments: 1, maxInputBytes: 1_048_576, maxSessionDocuments: 32, maxSessionBytes: 16_777_216 });
+/** Input budgets follow the contract limits; session budgets are local. Neither tracks provider limits or document token estimates. */
+export const DEFAULT_DOCUMENT_LIMITS: Readonly<DocumentLimits> = Object.freeze({ maxDocumentBytes: INPUT_DOCUMENT_LIMITS.maxDocumentBytes, maxInputDocuments: INPUT_DOCUMENT_LIMITS.maxCount,
+  maxInputBytes: INPUT_DOCUMENT_LIMITS.maxTotalBytes, maxSessionDocuments: 32, maxSessionBytes: 16_777_216 });
 export function fail(code: string): never { throw new EngineError(code, 'Document input validation failed.'); }
 export function documentLimits(input: Partial<DocumentLimits> = {}): Readonly<DocumentLimits> {
   plainRecord(input, [], Object.keys(DEFAULT_DOCUMENT_LIMITS), () => fail('DOCUMENT_INVALID_CONFIG'));
@@ -18,7 +20,6 @@ export function cancelled(signal?: AbortSignal): void {
   if (types.isProxy(signal) || signal !== undefined && !(signal instanceof AbortSignal)) fail('DOCUMENT_INVALID_CONFIG');
   if (signal?.aborted) fail('DOCUMENT_CANCELLED');
 }
-export function digest(bytes: Uint8Array): string { return createHash('sha256').update(bytes).digest('hex'); }
 export function attachment(input: unknown, limits: Readonly<DocumentLimits> = DEFAULT_DOCUMENT_LIMITS): InputDocumentAttachment {
   const value = plainRecord(input, ['id', 'kind', 'mimeType', 'bytes', 'sha256'], [], () => fail('DOCUMENT_INVALID_REFERENCE'));
   if (typeof value.id !== 'string' || !INPUT_DOCUMENT_ID.test(value.id) || value.kind !== 'document' || value.mimeType !== 'application/pdf'
