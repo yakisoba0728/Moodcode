@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import {
   windowsOwnedDeliverySqlFixture,
   preserveOwnedDeliveryEvidence,
@@ -13,6 +14,7 @@ import type { EngineOwnedCommandDeliveryProducer } from "./owned-command-produce
 import {
   ownedCommandJobKind,
   pauseImportedOwnedCommandJobs,
+  readOwnedCommandJob,
   type OwnedCommandJobRecord,
 } from "./owned-command-records.js";
 import { signJobData } from "./validation.js";
@@ -749,3 +751,73 @@ test("owned delivery records reject non-date times with the delivery code", () =
       error.code === "OWNED_COMMAND_DELIVERY_INVALID",
   );
 });
+
+test(
+  "current and settled completions apply the same terminal Part and tool event row checks",
+  posix,
+  async (t) => {
+    const f = await fixture(t),
+      r = f.deliver().record,
+      toolCallId = r.settled.source.toolCallId;
+    const coded = (code: string) => (error: unknown) =>
+      error instanceof EngineError && error.code === code;
+    f.probe(() => {
+      const e = f.db
+        .prepare(
+          "SELECT seq,data FROM events WHERE session_id=? AND type='tool.completed' AND instr(data,?)>0",
+        )
+        .get(f.session.id, toolCallId)!;
+      const forged = String(e.data).replace(
+        `"seq":${e.seq}`,
+        `"seq":${Number(e.seq) + 1000}`,
+      );
+      assert.notEqual(forged, e.data);
+      f.db
+        .prepare("UPDATE events SET data=? WHERE session_id=? AND seq=?")
+        .run(forged, f.session.id, e.seq!);
+      assert.throws(
+        () => readOwnedCommandJob(f.db, f.workspace.id, r.jobId),
+        coded("OWNED_COMMAND_COMPLETION_INVALID"),
+      );
+    });
+    f.tx(() => {
+      pauseImportedOwnedCommandJobs(f.db, f.workspace.id, "a".repeat(64), {
+        writeDocument: f.ports.writeDocument,
+      });
+      pauseImportedOwnedCommandDeliveries(
+        f.db,
+        f.workspace.id,
+        "a".repeat(64),
+        { writeDocument: f.ports.writeDocument },
+      );
+    });
+    assert.equal(
+      readOwnedCommandDelivery(f.db, f.workspace.id, r.id)!.state,
+      "paused-import",
+    );
+    f.probe(() => {
+      const part = f.db
+        .prepare(
+          "SELECT id,data FROM message_parts WHERE session_id=? AND instr(data,?)>0 AND instr(data,?)>0",
+        )
+        .get(f.session.id, toolCallId, '"type":"tool"')!;
+      const forged = String(part.data).replace(
+        `"id":"${part.id}"`,
+        `"id":"${randomUUID()}"`,
+      );
+      assert.notEqual(forged, part.data);
+      f.db
+        .prepare("UPDATE message_parts SET data=? WHERE id=?")
+        .run(forged, part.id!);
+      assert.equal(
+        readOwnedCommandJob(f.db, f.workspace.id, r.jobId)!.state,
+        "paused-import",
+      );
+      assert.throws(
+        () => readOwnedCommandDelivery(f.db, f.workspace.id, r.id),
+        coded("OWNED_COMMAND_DELIVERY_SOURCE_INVALID"),
+      );
+    });
+    validateOwnedCommandDeliveryDatabase(f.db);
+  },
+);

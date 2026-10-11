@@ -4,6 +4,7 @@ import {
   validateQueueTarget,
   type QueueTargetPin,
 } from "../runner/queue-target.js";
+import type { CommandResultProfile } from "./command-delivery-records.js";
 import {
   validateOwnedCommandJob,
   type OwnedCommandJobRecord,
@@ -160,3 +161,21 @@ export function formatOwnedCommandJobResult(
     invalid("OWNED_COMMAND_RESULT_LIMIT");
   return result;
 }
+/** Run-owned command results as one kind of settled command delivery. */
+export const OWNED_COMMAND_RESULT_PROFILE: CommandResultProfile<
+  OwnedCommandJobRecord,
+  OwnedCommandDeliveryTargetProof
+> = Object.freeze({
+  label: "Owned command",
+  inputPrefix: "owned-command-result",
+  placeholder: "owned-command-target",
+  proofBytes: OWNED_COMMAND_RESULT_LIMITS.proofBytes,
+  validateSettled: validateOwnedCommandJob,
+  validateTarget: validateOwnedCommandDeliveryTargetProof,
+  formatResult: formatOwnedCommandJobResult,
+  digests: (settled: OwnedCommandJobRecord) => ({
+    jobSha256: settled.sha256,
+    sourceSha256: settled.source.sha256,
+  }),
+  sessionOf: (settled: OwnedCommandJobRecord) => settled.source.sessionId,
+});

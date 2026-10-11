@@ -4,6 +4,7 @@ import {
   validateQueueTarget,
   type QueueTargetPin,
 } from "../runner/queue-target.js";
+import type { CommandResultProfile } from "./command-delivery-records.js";
 import {
   validateHostCommandRecord,
   type HostCommandRecord,
@@ -37,6 +38,12 @@ export interface HostCommandDeliveryTargetProof {
   readonly target: QueueTargetPin;
   readonly sha256: string;
 }
+export const HOST_COMMAND_RESULT_LIMITS = Object.freeze({
+  pinBytes: 32_768,
+  observationBytes: 24_576,
+  proofBytes: 131_072,
+  promptBytes: 32_768,
+});
 function fail(): never {
   throw new EngineError(
     "HOST_COMMAND_DELIVERY_SOURCE_INVALID",
@@ -105,7 +112,7 @@ export function hostCommandSettlement(
         sealedStreams: { stdout: stream(c.stdout), stderr: stream(c.stderr) },
       },
     },
-    32768,
+    HOST_COMMAND_RESULT_LIMITS.pinBytes,
   );
 }
 export function validateHostCommandSettlement(
@@ -126,7 +133,7 @@ export function validateHostCommandSettlement(
       "sha256",
     ],
     [],
-    32768,
+    HOST_COMMAND_RESULT_LIMITS.pinBytes,
   );
   for (const k of ["id", "jobId", "workspaceId", "sessionId"])
     jobIdentifier(p[k]);
@@ -144,7 +151,7 @@ export function validateHostCommandSettlement(
       "sealedStreams",
     ],
     [],
-    24576,
+    HOST_COMMAND_RESULT_LIMITS.observationBytes,
   );
   const outcome = jobObject(
     o.outcome,
@@ -233,7 +240,7 @@ export function validateHostCommandDeliveryTargetProof(
       "sha256",
     ],
     [],
-    131072,
+    HOST_COMMAND_RESULT_LIMITS.proofBytes,
   );
   const settled = validateHostCommandSettlement(p.settled),
     target = validateQueueTarget(p.target);
@@ -251,7 +258,7 @@ export function validateHostCommandDeliveryTargetProof(
     fail();
   return jobJson(
     { ...p, settled, target },
-    131072,
+    HOST_COMMAND_RESULT_LIMITS.proofBytes,
   ) as unknown as HostCommandDeliveryTargetProof;
 }
 export function formatHostCommandJobResult(
@@ -271,6 +278,25 @@ export function formatHostCommandJobResult(
       source: { workspaceId: job.workspaceId, sessionId: job.sessionId },
       ...job.observation,
     });
-  if (Buffer.byteLength(result) > 32768) fail();
+  if (Buffer.byteLength(result) > HOST_COMMAND_RESULT_LIMITS.promptBytes)
+    fail();
   return result;
 }
+/** Independent host command results as one kind of settled command delivery. */
+export const HOST_COMMAND_RESULT_PROFILE: CommandResultProfile<
+  HostCommandSettlementPin,
+  HostCommandDeliveryTargetProof
+> = Object.freeze({
+  label: "Independent host command",
+  inputPrefix: "host-command-result",
+  placeholder: "host-command-target",
+  proofBytes: HOST_COMMAND_RESULT_LIMITS.proofBytes,
+  validateSettled: validateHostCommandSettlement,
+  validateTarget: validateHostCommandDeliveryTargetProof,
+  formatResult: formatHostCommandJobResult,
+  digests: (settled: HostCommandSettlementPin) => ({
+    jobSha256: settled.jobSha256,
+    sourceSha256: settled.sourceSha256,
+  }),
+  sessionOf: (settled: HostCommandSettlementPin) => settled.sessionId,
+});

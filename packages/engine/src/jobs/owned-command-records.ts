@@ -100,13 +100,16 @@ function fail(code = "OWNED_COMMAND_JOB_INVALID"): never {
     "Owned command job does not match its bounded native execution evidence",
   );
 }
-function parsed(raw: unknown): Record<string, unknown> {
+function parsed(
+  raw: unknown,
+  invalid: () => never = fail,
+): Record<string, unknown> {
   try {
     const value = JSON.parse(String(raw));
-    if (!value || typeof value !== "object" || Array.isArray(value)) fail();
+    if (!value || typeof value !== "object" || Array.isArray(value)) invalid();
     return value as Record<string, unknown>;
   } catch {
-    fail();
+    invalid();
   }
 }
 const stamp = (value: unknown): string => {
@@ -366,14 +369,13 @@ function nativeBody(
 }
 function events(
   db: DatabaseSync,
-  table: "events" | "session_events",
   sessionId: string,
   type: string,
   discriminator: string,
 ): Record<string, unknown>[] {
   const hs = db
     .prepare(
-      `SELECT seq,length(CAST(data AS BLOB)) bytes FROM ${table} WHERE session_id=? AND type=? AND instr(data,?)>0 LIMIT 130`,
+      "SELECT seq,length(CAST(data AS BLOB)) bytes FROM session_events WHERE session_id=? AND type=? AND instr(data,?)>0 LIMIT 130",
     )
     .all(sessionId, type, discriminator);
   if (hs.length > 128) fail("OWNED_COMMAND_JOB_LIMIT");
@@ -390,7 +392,7 @@ function events(
       fail("OWNED_COMMAND_JOB_LIMIT");
     const r = db
       .prepare(
-        `SELECT data FROM ${table} WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?`,
+        "SELECT data FROM session_events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
       )
       .get(sessionId, h.seq!, h.bytes!);
     if (!r) fail();
@@ -484,7 +486,6 @@ function sourceSql(
     fail("OWNED_COMMAND_SOURCE_INVALID");
   const admitted = events(
     db,
-    "session_events",
     s.sessionId,
     "command.job.source_admitted",
     s.sha256,
@@ -501,7 +502,6 @@ function sourceSql(
   if (!admission) fail("OWNED_COMMAND_SOURCE_INVALID");
   const processes = events(
     db,
-    "session_events",
     s.sessionId,
     "command.job.process_admitted",
     s.sha256,
@@ -599,7 +599,6 @@ function completionSql(
   if (!c) return;
   const closed = events(
     db,
-    "session_events",
     r.source.sessionId,
     "command.job.closed_observed",
     knowledgeHash(c),
@@ -635,45 +634,64 @@ function completionSql(
   )
     fail("OWNED_COMMAND_COMPLETION_INVALID");
   if (!["completed", "failed", "cancelled"].includes(r.state)) return;
+  verifyOwnedCommandToolClose(
+    db,
+    r,
+    tool,
+    {
+      mismatch: () => fail("OWNED_COMMAND_COMPLETION_INVALID"),
+      limit: () => fail("OWNED_COMMAND_JOB_LIMIT"),
+      invalid: () => fail(),
+    },
+    { exactlyOne: false },
+  );
+}
+export interface OwnedCommandToolCloseErrors {
+  /** The Tool, its terminal Part or its tool event contradicts the job. */
+  readonly mismatch: () => never;
+  readonly limit: () => never;
+  /** A row vanished, changed size or is not a JSON object. */
+  readonly invalid: () => never;
+}
+/** The original Tool closed in the settled job's state with exactly one terminal Part and a matching tool event. */
+export function verifyOwnedCommandToolClose(
+  db: DatabaseSync,
+  r: OwnedCommandJobRecord,
+  tool: Record<string, unknown>,
+  errors: OwnedCommandToolCloseErrors,
+  options: { readonly exactlyOne: boolean },
+): void {
+  const s = r.source,
+    max = OWNED_COMMAND_JOB_LIMITS.nativeBytes;
   if (
     (r.state === "completed" && tool.state !== "completed") ||
     (r.state === "failed" && tool.state !== "failed") ||
     (r.state === "cancelled" &&
       !["failed", "interrupted"].includes(tool.state as string))
   )
-    fail("OWNED_COMMAND_COMPLETION_INVALID");
+    errors.mismatch();
   const hs = db
     .prepare(
       "SELECT id,state,length(CAST(data AS BLOB)) bytes FROM message_parts WHERE session_id=? AND run_id=? AND turn_id=? AND instr(data,?)>0 LIMIT 65",
     )
-    .all(
-      r.source.sessionId,
-      r.source.runId,
-      r.source.turnId,
-      r.source.toolCallId,
-    );
-  if (hs.length > 64) fail("OWNED_COMMAND_JOB_LIMIT");
-  if (
-    hs.reduce((sum, h) => sum + Number(h.bytes), 0) >
-    OWNED_COMMAND_JOB_LIMITS.nativeBytes
-  )
-    fail("OWNED_COMMAND_JOB_LIMIT");
+    .all(s.sessionId, s.runId, s.turnId, s.toolCallId);
+  if (hs.length > 64 || hs.reduce((sum, h) => sum + Number(h.bytes), 0) > max)
+    errors.limit();
   let matched = 0;
   for (const h of hs) {
-    if (Number(h.bytes) > OWNED_COMMAND_JOB_LIMITS.nativeBytes)
-      fail("OWNED_COMMAND_JOB_LIMIT");
+    if (Number(h.bytes) > max) errors.limit();
     const row = db
       .prepare(
         "SELECT data FROM message_parts WHERE id=? AND length(CAST(data AS BLOB))=?",
       )
       .get(h.id!, h.bytes!);
-    if (!row) fail();
-    const p = parsed(row.data);
-    if (p.type !== "tool" || p.toolCallId !== r.source.toolCallId) continue;
+    if (!row) errors.invalid();
+    const p = parsed(row.data, errors.invalid);
+    if (p.type !== "tool" || p.toolCallId !== s.toolCallId) continue;
     if (
-      p.runId !== r.source.runId ||
-      p.turnId !== r.source.turnId ||
-      p.sessionId !== r.source.sessionId ||
+      p.runId !== s.runId ||
+      p.turnId !== s.turnId ||
+      p.sessionId !== s.sessionId ||
       p.name !== "run_command" ||
       p.id !== h.id ||
       knowledgeHash(p.input) !== knowledgeHash(tool.input) ||
@@ -682,28 +700,41 @@ function completionSql(
       (r.state === "completed" && p.state !== "completed") ||
       (p.result as Record<string, unknown>)?.output !== tool.output
     )
-      fail("OWNED_COMMAND_COMPLETION_INVALID");
+      errors.mismatch();
     matched++;
   }
-  if (matched !== 1) fail("OWNED_COMMAND_COMPLETION_INVALID");
-  const observed = events(
-    db,
-    "events",
-    r.source.sessionId,
-    `tool.${tool.state}`,
-    r.source.toolCallId,
-  );
-  if (
-    !observed.some(
-      (e) => {
-        const payload = e.payload as Record<string, unknown>;
-        return e.runId === r.source.runId &&
-          payload?.toolCallId === r.source.toolCallId &&
-          matchesOwnedCommandToolOutcome(db, r, tool, payload);
-      },
+  if (matched !== 1) errors.mismatch();
+  const closed = db
+    .prepare(
+      "SELECT seq,run_id,length(CAST(data AS BLOB)) bytes FROM events WHERE session_id=? AND type=? AND instr(data,?)>0 LIMIT 130",
     )
+    .all(s.sessionId, `tool.${tool.state}`, s.toolCallId);
+  if (
+    closed.length > 128 ||
+    closed.reduce((sum, h) => sum + Number(h.bytes), 0) > max
   )
-    fail("OWNED_COMMAND_COMPLETION_INVALID");
+    errors.limit();
+  let observed = 0;
+  for (const h of closed) {
+    if (Number(h.bytes) < 1 || Number(h.bytes) > max) errors.limit();
+    const row = db
+      .prepare(
+        "SELECT data FROM events WHERE session_id=? AND seq=? AND length(CAST(data AS BLOB))=?",
+      )
+      .get(s.sessionId, h.seq!, h.bytes!);
+    if (!row) errors.invalid();
+    const e = parsed(row.data, errors.invalid),
+      payload = e.payload as Record<string, unknown> | undefined;
+    if (e.sessionId !== s.sessionId || e.seq !== h.seq || e.runId !== h.run_id)
+      errors.mismatch();
+    if (
+      e.runId === s.runId &&
+      payload?.toolCallId === s.toolCallId &&
+      matchesOwnedCommandToolOutcome(db, r, tool, payload)
+    )
+      observed++;
+  }
+  if (options.exactlyOne ? observed !== 1 : observed < 1) errors.mismatch();
 }
 interface DocumentHeader {
   session_id: string;
@@ -758,7 +789,6 @@ function read(db: DatabaseSync, h: DocumentHeader): OwnedCommandJobRecord {
   const sha = sha256(raw);
   const anchors = events(
     db,
-    "session_events",
     h.session_id,
     "session.document.updated",
     sha,
