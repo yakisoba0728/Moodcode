@@ -110,6 +110,18 @@ export function plainJson<T>(input: T, options: PlainJsonOptions): T {
   return visit(input, 0) as T;
 }
 
+/** Freezes a data tree in place, children first. */
+export function deepFreeze<T>(value: T): T {
+  if (value && typeof value === 'object') {
+    for (const child of Object.values(value)) deepFreeze(child);
+    Object.freeze(value);
+  }
+  return value;
+}
+export function parseJsonOr(text: string, onFail: () => never): unknown {
+  try { return JSON.parse(text); } catch { return onFail(); }
+}
+
 export type PlainRecordFault = 'shape' | 'fields' | 'descriptor';
 /** Hostile tier: a plain non-proxy object whose own properties are exactly the required and allowed optional enumerable data fields. */
 export function plainRecord(value: unknown, required: readonly string[], optional: readonly string[], fail: (fault: PlainRecordFault) => never): Record<string, unknown> {

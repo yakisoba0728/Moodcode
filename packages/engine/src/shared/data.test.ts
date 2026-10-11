@@ -5,7 +5,7 @@ import { boundedJson, JsonBudgetError, textPrefix } from '../artifacts/validatio
 import { jobJson, jobObject } from '../jobs/validation.js';
 import { immutableKnowledgeJson } from '../knowledge/validation.js';
 import { canonicalSha256 } from './canonical.js';
-import { assertNativeSignal, exactKeys, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
+import { assertNativeSignal, deepFreeze, exactKeys, parseJsonOr, plainJson, plainRecord, recordGuards, utf8Prefix } from './data.js';
 
 const hasCode = (code: string, message?: string) => (error: unknown) => error instanceof EngineError && error.code === code && (message === undefined || error.message === message);
 const reported = (fault: string) => (error: unknown) => error instanceof Error && error.message === fault;
@@ -133,4 +133,12 @@ test('UTF-8 prefixes keep whole scalars and replace unpaired surrogates', () => 
   assert.equal(utf8Prefix('aé日😀', 0), ''); assert.equal(utf8Prefix('aé日😀', 2), 'a'); assert.equal(utf8Prefix('aé日😀', 3), 'aé');
   assert.equal(utf8Prefix('aé日😀', 5), 'aé'); assert.equal(utf8Prefix('aé日😀', 6), 'aé日'); assert.equal(utf8Prefix('aé日😀', 10), 'aé日😀');
   assert.equal(utf8Prefix('a\ud800b', 4), 'a�'); assert.equal(utf8Prefix('a\ud800b', 5), 'a�b');
+});
+
+test('deepFreeze freezes every nested container and parseJsonOr maps malformed text to the caller failure', () => {
+  const value = deepFreeze({ list: [{ leaf: 1 }], nested: { empty: {} } });
+  for (const part of [value, value.list, value.list[0], value.nested, value.nested.empty]) assert.ok(Object.isFrozen(part));
+  assert.equal(deepFreeze('text'), 'text');
+  assert.deepEqual(parseJsonOr('{"a":[1]}', () => fault('json')), { a: [1] });
+  assert.throws(() => parseJsonOr('{"a":', () => fault('json')), reported('json'));
 });

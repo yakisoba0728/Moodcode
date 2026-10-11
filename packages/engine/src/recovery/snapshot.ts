@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { closeSync, constants, fstatSync, lstatSync, mkdirSync, mkdtempSync, openSync, readSync, realpathSync, rmSync, writeSync, type Stats } from 'node:fs';
-import { basename, dirname, isAbsolute, join, parse, resolve, sep } from 'node:path';
+import { lstatSync, mkdirSync, mkdtempSync, realpathSync, rmSync, type Stats } from 'node:fs';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DatabaseSync } from 'node:sqlite';
 import { EngineError } from '@moodcode/contracts';
+import { errnoCode, streamStableFile, symlinkFreeDirectorySync } from '../shared/fs.js';
 
 export const RECOVERY_LIMITS = Object.freeze({
   maxFileBytes: 256 * 1024 * 1024,
@@ -44,7 +45,7 @@ const messages: Record<string, string> = {
 };
 export function safeError(error: unknown): EngineError {
   if (error instanceof EngineError && error.code.startsWith('RECOVERY_')) return error;
-  const code = (error as NodeJS.ErrnoException)?.code;
+  const code = errnoCode(error);
   if (code === 'EACCES' || code === 'EPERM' || code === 'EROFS') return new EngineError('RECOVERY_PERMISSION_DENIED', messages.RECOVERY_PERMISSION_DENIED!);
   return new EngineError('RECOVERY_DATABASE_INVALID', messages.RECOVERY_DATABASE_INVALID!);
 }
@@ -56,16 +57,7 @@ export function regular(file: string): Stats | undefined {
 }
 function directoryPath(input: string): string {
   if (typeof input !== 'string' || !input || input.includes('\0') || !isAbsolute(input)) fail('RECOVERY_PATH_UNSUPPORTED');
-  // Inspect components before resolve() can erase a symlink followed by '..'.
-  let current = parse(input).root;
-  for (const component of input.slice(current.length).split(sep).filter(Boolean)) {
-    if (component === '.') continue;
-    if (component === '..') { current = dirname(current); continue; }
-    current = join(current, component);
-    const info = lstatSync(current);
-    if (!info.isDirectory() || info.isSymbolicLink()) fail('RECOVERY_PATH_UNSUPPORTED');
-  }
-  return realpathSync(resolve(input));
+  return realpathSync(symlinkFreeDirectorySync(input, { onUnsafe: () => fail('RECOVERY_PATH_UNSUPPORTED') }));
 }
 export function recoveryPaths(input: { dbPath: string; artifactDir: string }): RecoveryPaths {
   if (!input || typeof input.dbPath !== 'string' || !isAbsolute(input.dbPath) || input.dbPath.includes('\0') || input.dbPath === ':memory:') fail('RECOVERY_PATH_UNSUPPORTED');
@@ -83,37 +75,15 @@ export function canonical(value: unknown): string {
   if (typeof value === 'bigint') return JSON.stringify(value.toString());
   return JSON.stringify(value) ?? 'null';
 }
-function signature(file: string, check: () => void, destination?: string): FileSignature | undefined {
+function signature(file: string, check: () => void, copyTo?: string): FileSignature | undefined {
   check();
   const before = regular(file);
   if (!before) return undefined;
-  if (before.size > RECOVERY_LIMITS.maxFileBytes) fail('RECOVERY_LIMIT_EXCEEDED');
-  const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-  let output: number | undefined;
-  try {
-    const opened = fstatSync(fd);
-    if (!sameIdentity(before, opened) || !opened.isFile() || opened.nlink !== 1) fail('RECOVERY_SOURCE_CHANGED');
-    if (destination) output = openSync(destination, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
-    const digest = createHash('sha256');
-    const buffer = Buffer.allocUnsafe(1024 * 1024);
-    let offset = 0;
-    for (;;) {
-      check();
-      const bytes = readSync(fd, buffer, 0, buffer.length, offset);
-      if (!bytes) break;
-      offset += bytes;
-      if (offset > RECOVERY_LIMITS.maxFileBytes) fail('RECOVERY_LIMIT_EXCEEDED');
-      digest.update(buffer.subarray(0, bytes));
-      if (output !== undefined) {
-        let written = 0;
-        while (written < bytes) written += writeSync(output, buffer, written, bytes - written);
-      }
-    }
-    const after = fstatSync(fd);
-    const current = regular(file);
-    if (!sameIdentity(before, after) || !sameIdentity(before, current) || before.size !== offset || before.size !== after.size || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs) fail('RECOVERY_SOURCE_CHANGED');
-    return { dev: before.dev, ino: before.ino, size: before.size, mtime: before.mtimeMs, ctime: before.ctimeMs, hash: digest.digest('hex') };
-  } finally { if (output !== undefined) closeSync(output); closeSync(fd); }
+  const { sha256 } = streamStableFile(file, before, {
+    maxBytes: RECOVERY_LIMITS.maxFileBytes, stable: ['size', 'mtime', 'ctime'], check, requireSingleLink: true, copyTo,
+    onChanged: () => fail('RECOVERY_SOURCE_CHANGED'), onLimit: () => fail('RECOVERY_LIMIT_EXCEEDED'),
+  });
+  return { dev: before.dev, ino: before.ino, size: before.size, mtime: before.mtimeMs, ctime: before.ctimeMs, hash: sha256 };
 }
 export function verifiedFileDigest(file: string, check: () => void): { dev: number; ino: number; bytes: number; sha256: string } {
   const result = signature(file, check);
