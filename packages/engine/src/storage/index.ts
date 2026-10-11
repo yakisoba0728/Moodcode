@@ -160,6 +160,7 @@ export class SqliteStore implements SessionEngineStore {
   private knowledgeFilePublicationRecords?: KnowledgeFilePublicationStorage;
   private knowledgeImportRecoveryRecords?: KnowledgeImportRecoveryStorage;
   private proposalRecords?: ProposalStorage;
+  private proposalBlobRecords?: ProposalBlobStorage;
   private proposalApplyRecords?: ProposalApplyStorage;
   private teamRecords?: TeamStorage;
   private workflowRecords?: WorkflowStorage;
@@ -303,7 +304,7 @@ export class SqliteStore implements SessionEngineStore {
   }
   readProposalBlobText(reference: ProposalBlobReference): string {
     this.assertOpen();
-    return this.evidenceRead(() => new ProposalBlobStorage(this.db).readText(reference));
+    return this.evidenceRead(() => (this.proposalBlobRecords ??= new ProposalBlobStorage(this.db)).readText(reference));
   }
   private notify(sessionId: string): void {
     const pending = this.db.isTransaction ? this.pendingWakes : undefined;
@@ -659,7 +660,7 @@ export class SqliteStore implements SessionEngineStore {
   }
   createProposalStorage(ports: Omit<ProposalStoragePorts, 'writeTx' | 'getWorkspace' | 'blobs'>): ProposalStorage {
     return this.proposalRecords = this.once(this.proposalRecords, 'PROPOSALS_ALREADY_CONFIGURED', 'Native proposals already have an original host owner',
-      () => new ProposalStorage(this.db, { ...ports, blobs: new ProposalBlobStorage(this.db),
+      () => new ProposalStorage(this.db, { ...ports, blobs: this.proposalBlobRecords ??= new ProposalBlobStorage(this.db),
         getWorkspace: id => this.getWorkspace(id), writeTx: this.nestedTx }));
   }
   createProposalApplyStorage(ports: Omit<ProposalApplyStoragePorts, 'writeTx'>): ProposalApplyStorage {

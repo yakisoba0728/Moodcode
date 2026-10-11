@@ -254,3 +254,30 @@ test("self-consistent valid blob header cannot replace a different actual indexe
     code("PROPOSAL_SCOPE_MISMATCH"),
   );
 });
+test("a changed owner revision row is validated again after an earlier read accepted it", async (t) => {
+  const f = await fixture(t),
+    revisionId = f.result.revision.id,
+    original = String(
+      f.db
+        .prepare("SELECT data FROM proposal_revisions WHERE id=?")
+        .get(revisionId)!.data,
+    ),
+    changed = JSON.stringify({
+      ...JSON.parse(original),
+      createdAt: new Date(0).toISOString(),
+    });
+  f.tx(() => assert.equal(f.blobs.readText(f.ref), f.before));
+  f.db
+    .prepare("UPDATE proposal_revisions SET data=? WHERE id=?")
+    .run(changed, revisionId);
+  f.tx(() =>
+    assert.throws(
+      () => f.blobs.readText(f.ref),
+      code("PROPOSAL_HASH_MISMATCH"),
+    ),
+  );
+  f.db
+    .prepare("UPDATE proposal_revisions SET data=? WHERE id=?")
+    .run(original, revisionId);
+  f.tx(() => assert.equal(f.blobs.readText(f.ref), f.before));
+});

@@ -316,50 +316,66 @@ export function validateProposalSourceManifest(
     fail("PROPOSAL_HASH_MISMATCH");
   return r as unknown as ProposalSourceManifest;
 }
-export function validateProposalBlobHeader(value: unknown): ProposalBlobHeader {
-  const r = exact(json(value, PROPOSAL_LIMITS.headerBytes), [
-    "id",
-    "workspaceId",
-    "proposalId",
-    "revisionId",
-    "operationIndex",
-    "role",
-    "sha256",
-    "bytes",
-    "headerSha256",
+/** The caller's checks and codes, so the store and blob storage each keep their own errors. */
+export interface ProposalBlobChecks {
+  readonly fail: (code?: string) => never;
+  readonly id: (value: unknown) => string;
+  readonly integer: (value: unknown, maximum: number) => number;
+  readonly sha: (value: unknown) => string;
+  readonly stamp: (value: unknown) => string;
+  readonly exact: (
+    value: unknown,
+    names: readonly string[],
+  ) => Record<string, unknown>;
+  readonly json: <T>(value: T, maxBytes?: number) => T;
+  readonly decoded: (data: unknown, maxBytes: number) => unknown;
+  readonly hashCode: string;
+  readonly scopeCode: string;
+}
+const proposalBlobChecks: ProposalBlobChecks = Object.freeze({
+  ...proposalStoreChecks,
+  hashCode: "PROPOSAL_HASH_MISMATCH",
+  scopeCode: "PROPOSAL_SCOPE_MISMATCH",
+});
+const BLOB_REFERENCE = [
+  "id",
+  "workspaceId",
+  "proposalId",
+  "revisionId",
+  "operationIndex",
+  "role",
+  "sha256",
+  "bytes",
+  "headerSha256",
+] as const;
+export function validateProposalBlobReference(
+  value: unknown,
+  checks: ProposalBlobChecks = proposalBlobChecks,
+): ProposalBlobReference {
+  const r = checks.exact(value, BLOB_REFERENCE);
+  for (const key of ["id", "workspaceId", "proposalId", "revisionId"])
+    checks.id(r[key]);
+  checks.integer(r.operationIndex, PROPOSAL_LIMITS.files - 1);
+  if (r.role !== "before" && r.role !== "after") checks.fail();
+  checks.sha(r.sha256);
+  checks.sha(r.headerSha256);
+  checks.integer(r.bytes, PROPOSAL_LIMITS.fileBytes);
+  return r as unknown as ProposalBlobReference;
+}
+export function validateProposalBlobHeader(
+  value: unknown,
+  checks: ProposalBlobChecks = proposalBlobChecks,
+): ProposalBlobHeader {
+  const r = checks.exact(checks.json(value, PROPOSAL_LIMITS.headerBytes), [
+    ...BLOB_REFERENCE,
     "createdAt",
   ]);
-  for (const key of ["id", "workspaceId", "proposalId", "revisionId"])
-    id(r[key]);
-  number(r.operationIndex, PROPOSAL_LIMITS.files - 1);
-  if (r.role !== "before" && r.role !== "after") fail();
-  hash(r.sha256);
-  number(r.bytes, PROPOSAL_LIMITS.fileBytes);
-  stamp(r.createdAt);
-  const { headerSha256: expected, ...body } = r;
-  if (hash(expected) !== knowledgeHash(body)) fail("PROPOSAL_HASH_MISMATCH");
+  const { createdAt, ...reference } = r;
+  validateProposalBlobReference(reference, checks);
+  checks.stamp(createdAt);
+  const { headerSha256, ...body } = r;
+  if (headerSha256 !== knowledgeHash(body)) checks.fail(checks.hashCode);
   return r as unknown as ProposalBlobHeader;
-}
-function reference(value: unknown): ProposalBlobReference {
-  const r = exact(value, [
-    "id",
-    "workspaceId",
-    "proposalId",
-    "revisionId",
-    "operationIndex",
-    "role",
-    "sha256",
-    "bytes",
-    "headerSha256",
-  ]);
-  for (const key of ["id", "workspaceId", "proposalId", "revisionId"])
-    id(r[key]);
-  number(r.operationIndex, PROPOSAL_LIMITS.files - 1);
-  if (r.role !== "before" && r.role !== "after") fail();
-  hash(r.sha256);
-  hash(r.headerSha256);
-  number(r.bytes, PROPOSAL_LIMITS.fileBytes);
-  return r as unknown as ProposalBlobReference;
 }
 export function validateProposalRevision(value: unknown): ProposalRevision {
   const r = exact(json(value), [
@@ -434,7 +450,7 @@ export function validateProposalRevision(value: unknown): ProposalRevision {
         if (sha !== null || bytes !== 0) fail();
         continue;
       }
-      const ref = reference(blob);
+      const ref = validateProposalBlobReference(blob);
       if (
         ref.workspaceId !== r.workspaceId ||
         ref.proposalId !== r.proposalId ||
@@ -1041,67 +1057,102 @@ export function pauseImportedProposals(
   }
 }
 
+/** The bounded header of a blob row whose columns match it, read before any content. */
+export function readProposalBlobRow(
+  db: DatabaseSync,
+  ws: string,
+  blobId: string,
+  checks: ProposalBlobChecks = proposalBlobChecks,
+): ProposalBlobHeader | undefined {
+  const row = db
+    .prepare(
+      "SELECT id,workspace_id,proposal_id,revision_id,operation_index,role,sha256,bytes,header_sha256,length(CAST(data AS BLOB)) AS data_bytes,length(content) AS content_bytes FROM proposal_blobs WHERE workspace_id=? AND id=?",
+    )
+    .get(ws, blobId);
+  if (!row) return undefined;
+  const dataBytes = checks.integer(row.data_bytes, PROPOSAL_LIMITS.headerBytes),
+    bodyBytes = checks.integer(row.content_bytes, PROPOSAL_LIMITS.fileBytes);
+  if (
+    dataBytes < 1 ||
+    bodyBytes !== checks.integer(row.bytes, PROPOSAL_LIMITS.fileBytes)
+  )
+    checks.fail();
+  const body = db
+    .prepare(
+      "SELECT data FROM proposal_blobs WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))=? AND length(content)=?",
+    )
+    .get(ws, blobId, dataBytes, bodyBytes);
+  if (
+    typeof body?.data !== "string" ||
+    Buffer.byteLength(body.data) !== dataBytes
+  )
+    checks.fail();
+  const header = validateProposalBlobHeader(
+    checks.decoded(body.data, PROPOSAL_LIMITS.headerBytes),
+    checks,
+  );
+  if (
+    header.id !== row.id ||
+    header.workspaceId !== row.workspace_id ||
+    header.proposalId !== row.proposal_id ||
+    header.revisionId !== row.revision_id ||
+    header.operationIndex !== row.operation_index ||
+    header.role !== row.role ||
+    header.sha256 !== row.sha256 ||
+    header.bytes !== row.bytes ||
+    header.headerSha256 !== row.header_sha256
+  )
+    checks.fail(checks.scopeCode);
+  return header;
+}
+/** Complete NUL-free UTF-8 content with the reference's size and digest. */
+export function proposalBlobContent(
+  value: unknown,
+  ref: ProposalBlobReference,
+  mismatch: () => never,
+): Buffer {
+  if (
+    !(value instanceof Uint8Array) ||
+    value.byteLength !== ref.bytes ||
+    value.byteLength > PROPOSAL_LIMITS.fileBytes
+  )
+    mismatch();
+  const buffer = Buffer.from(value);
+  if (
+    sha256Hex(buffer) !== ref.sha256 ||
+    !Buffer.from(buffer.toString("utf8")).equals(buffer) ||
+    buffer.includes(0)
+  )
+    mismatch();
+  return buffer;
+}
+export function readProposalBlobContent(
+  db: DatabaseSync,
+  ref: ProposalBlobReference,
+  mismatch: () => never,
+): Buffer {
+  const row = db
+    .prepare(
+      "SELECT content FROM proposal_blobs WHERE workspace_id=? AND id=? AND length(content)=?",
+    )
+    .get(ref.workspaceId, ref.id, ref.bytes);
+  return proposalBlobContent(row?.content, ref, mismatch);
+}
 export function readProposalBlob(
   db: DatabaseSync,
   ref: ProposalBlobReference,
   createdAt: string,
 ): string {
-  const row = db
-    .prepare(
-      "SELECT id,workspace_id,proposal_id,revision_id,operation_index,role,sha256,bytes,header_sha256,length(CAST(data AS BLOB)) AS data_bytes,length(content) AS content_bytes FROM proposal_blobs WHERE workspace_id=? AND id=?",
-    )
-    .get(ref.workspaceId, ref.id) as Record<string, unknown> | undefined;
-  if (!row) fail("PROPOSAL_BLOB_MISSING");
-  number(row.data_bytes, PROPOSAL_LIMITS.headerBytes);
-  number(row.content_bytes, PROPOSAL_LIMITS.fileBytes);
-  if (
-    row.id !== ref.id ||
-    row.workspace_id !== ref.workspaceId ||
-    row.proposal_id !== ref.proposalId ||
-    row.revision_id !== ref.revisionId ||
-    row.operation_index !== ref.operationIndex ||
-    row.role !== ref.role ||
-    row.sha256 !== ref.sha256 ||
-    row.bytes !== ref.bytes ||
-    row.header_sha256 !== ref.headerSha256 ||
-    row.content_bytes !== ref.bytes
-  )
-    fail("PROPOSAL_SCOPE_MISMATCH");
-  const raw = db
-    .prepare(
-      "SELECT data FROM proposal_blobs WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=?",
-    )
-    .get(ref.workspaceId, ref.id, PROPOSAL_LIMITS.headerBytes) as
-    { data: string } | undefined;
-  if (!raw) fail("PROPOSAL_STALE");
-  const header = validateProposalBlobHeader(
-    decoded(raw.data, PROPOSAL_LIMITS.headerBytes),
-  );
+  const header =
+    readProposalBlobRow(db, ref.workspaceId, ref.id) ??
+    fail("PROPOSAL_BLOB_MISSING");
   const { createdAt: actualCreatedAt, ...reference } = header;
   if (
     actualCreatedAt !== createdAt ||
     knowledgeHash(reference) !== knowledgeHash(ref)
   )
     fail("PROPOSAL_SCOPE_MISMATCH");
-  const loaded = db
-    .prepare(
-      "SELECT content FROM proposal_blobs WHERE workspace_id=? AND id=? AND length(content)=? AND length(content)<=?",
-    )
-    .get(ref.workspaceId, ref.id, ref.bytes, PROPOSAL_LIMITS.fileBytes) as
-    { content: Uint8Array } | undefined;
-  if (
-    !loaded ||
-    !(loaded.content instanceof Uint8Array) ||
-    loaded.content.byteLength !== ref.bytes
-  )
-    fail("PROPOSAL_BLOB_MISMATCH");
-  const bytes = Buffer.from(loaded.content),
-    text = bytes.toString("utf8");
-  if (
-    bytes.includes(0) ||
-    !Buffer.from(text).equals(bytes) ||
-    sha256Hex(text) !== ref.sha256
-  )
-    fail("PROPOSAL_BLOB_MISMATCH");
-  return text;
+  return readProposalBlobContent(db, ref, () =>
+    fail("PROPOSAL_BLOB_MISMATCH"),
+  ).toString("utf8");
 }
