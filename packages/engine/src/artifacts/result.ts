@@ -1,6 +1,7 @@
 import { type ArtifactCheckpointBinding, type ArtifactIdentity, type ArtifactReference, type Checkpoint, type JsonObject, type JsonValue, type ToolResultEnvelope } from '@moodcode/contracts';
-import type { ToolResult } from '../ports.js';
+import type { ToolContext, ToolResult } from '../ports.js';
 import { artifactLimits, type ArtifactLimits } from './limits.js';
+import type { ArtifactStore } from './store.js';
 import { boundedJson, fail, identity, JsonBudgetError, reference, sameIdentity, textPrefix } from './validation.js';
 
 export interface ToolResultProjection {
@@ -69,6 +70,56 @@ export function enrichLegacyToolResult(result: ToolResult, input: Omit<ToolResul
     modelContent: input.modelContent ?? result.content, ...(result.data === undefined ? {} : { structuredData: result.data }),
     outcome: result.isError ? 'failed' : 'completed', ...input }, options);
   return { ...result, structuredResult };
+}
+
+export interface ToolResultSettlement {
+  toolName: string;
+  context: ToolContext;
+  artifactsUnavailable?: Readonly<{ code: string; reason: string }>;
+  /** Omitted when no artifact store is configured. */
+  store?: () => Promise<ArtifactStore>;
+  onStoreFailure?: () => void;
+}
+
+/** Keeps a split final scalar's U+FFFD when it still fits; textPrefix would drop it. */
+function utf8BytePrefix(text: string, maximum: number): string {
+  let bytes = Buffer.from(text).subarray(0, maximum);
+  while (bytes.length && Buffer.from(bytes.toString('utf8')).length > maximum) bytes = bytes.subarray(0, bytes.length - 1);
+  return bytes.toString('utf8');
+}
+
+/** Projects a producer's returned result and persists its content; never re-runs the producer. */
+export async function settleToolResult(result: ToolResult, settlement: ToolResultSettlement): Promise<ToolResult> {
+  const { toolName, context, artifactsUnavailable, store } = settlement;
+  if (!result || typeof result.content !== 'string' || result.isError !== undefined && typeof result.isError !== 'boolean') fail('INVALID_TOOL_RESULT', 'Tool returned invalid content or outcome');
+  const limits = { maxModelBytes: Math.min(context.limits.maxOutputBytes, 32 * 1024), maxDisplayBytes: Math.min(context.limits.maxOutputBytes, 64 * 1024) };
+  const outcome = context.signal.aborted ? 'interrupted' : result.isError ? 'failed' : 'completed';
+  let enriched: ToolResult;
+  try { enriched = result.structuredResult ? { ...result, structuredResult: createToolResultEnvelope({ ...result.structuredResult, outcome }, limits) } : enrichLegacyToolResult(result, { outcome }, limits); }
+  catch { enriched = { content: result.content, isError: true, ...(result.artifacts ? { artifacts: result.artifacts } : {}), structuredResult: createToolResultEnvelope({ displayContent: result.content, metadata: { resultProjectionFailed: true, producerOutcome: outcome, effectsMayBePresent: true }, warnings: ['Producer returned content, but its structured projection was invalid; recorded checkpoints and returned content remain reviewable.'], outcome: 'failed' }, limits) }; }
+  if (artifactsUnavailable) return { ...enriched, structuredResult: createToolResultEnvelope({
+    ...enriched.structuredResult!,
+    metadata: { ...enriched.structuredResult!.metadata, artifactPersistenceUnavailable: true, artifactPersistenceCode: artifactsUnavailable.code },
+    warnings: [...enriched.structuredResult!.warnings, artifactsUnavailable.reason],
+  }, limits) };
+  if (!store) return enriched;
+  // Only this producer's returned bytes can be observed; legacy truncation must remain explicit.
+  try {
+    const artifacts = await store();
+    const settlementOutcome = enriched.structuredResult!.outcome;
+    let artifactContent = result.content, batchTruncated = false;
+    if (context.effectBatchArtifactLimit !== undefined) {
+      const maximum = context.effectBatchArtifactLimit;
+      if (!Number.isSafeInteger(maximum) || maximum < 1 || maximum > (context.budgets?.maxArtifactBytes ?? 0)) fail('EFFECT_BATCH_BUDGET_STALE', 'Original effect artifact allocation changed');
+      if (Buffer.byteLength(artifactContent) > maximum) { artifactContent = utf8BytePrefix(artifactContent, maximum); batchTruncated = true; }
+    }
+    const artifact = await artifacts.put({ identity: { sessionId: context.sessionId, runId: context.runId, toolCallId: context.toolCallId, ...(context.turnId ? { turnId: context.turnId } : {}), ...(context.attemptId ? { attemptId: context.attemptId } : {}) }, content: artifactContent, outcome: batchTruncated ? 'failed' : settlementOutcome, sourceComplete: !batchTruncated && !(result.artifacts?.some(item => item.truncated)), metadata: { toolName, ...(batchTruncated ? { batchOriginalBytes: Buffer.byteLength(result.content), batchArtifactBytes: Buffer.byteLength(artifactContent) } : {}) } });
+    return { ...enriched, ...(batchTruncated ? { isError: true } : {}), structuredResult: createToolResultEnvelope({ ...enriched.structuredResult!, ...(batchTruncated ? { outcome: 'failed' as const } : {}), artifactRefs: [...(enriched.structuredResult?.artifactRefs ?? []), artifact.reference], warnings: [...(enriched.structuredResult?.warnings ?? []), ...artifact.warnings, ...(batchTruncated ? ['Effect artifact bytes exceeded the original fixed member allocation. Full effects and checkpoints remain reviewable.'] : [])], outcome: batchTruncated ? 'failed' : settlementOutcome }, limits) };
+  } catch {
+    settlement.onStoreFailure?.();
+    // The producer may already have effects/checkpoints. Preserve that result and expose a partial settlement.
+    return { ...enriched, isError: true, structuredResult: createToolResultEnvelope({ displayContent: enriched.structuredResult!.displayContent, modelContent: enriched.structuredResult!.modelContent, structuredData: enriched.structuredResult!.structuredData, metadata: { artifactPersistenceFailed: true, producerOutcome: outcome, effectsMayBePresent: true }, warnings: [...enriched.structuredResult!.warnings, 'Producer returned a result, but its artifact settlement failed; recorded checkpoints and returned content remain reviewable.'], outcome: 'failed' }, limits) };
+  }
 }
 
 /** Binds the existing review checkpoint to a new turn without rewriting its pre/post images. */

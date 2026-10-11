@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdir, mkdtemp, realpath, rename, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { DEFAULT_LIMITS, EngineError, type ApprovalRecord } from '@moodcode/contracts';
+import { DEFAULT_ENGINE_BUDGETS, DEFAULT_LIMITS, EngineError, type ApprovalRecord } from '@moodcode/contracts';
 import type { ApprovalPort, ToolContext, ToolDefinition } from '../../ports.js';
 import { ArtifactStore, createToolResultEnvelope } from '../../artifacts/index.js';
 import { ScopedToolRuntime } from './index.js';
@@ -133,6 +133,19 @@ test('a real supported artifact store identity failure still fails settlement af
   assert.equal(result.structuredResult?.metadata?.artifactPersistenceFailed, true);
   assert.equal(result.structuredResult?.metadata?.artifactPersistenceUnavailable, undefined);
   assert.equal(result.structuredResult?.metadata?.effectsMayBePresent, true); assert.deepEqual(result.structuredResult?.artifactRefs, []);
+});
+test('effect batch artifact truncation keeps a split final scalar replacement that fits the member allocation', async t => {
+  const directory = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-runtime-batch-prefix-')));
+  t.after(() => rm(directory, { force: true, recursive: true }));
+  const store = await ArtifactStore.open({ directory }), runtime = new ScopedToolRuntime({ artifacts: store }), source = tool('read_file');
+  source.execute = async () => { source.calls++; return { content: 'a🙂' }; };
+  runtime.register('scope', source);
+  const ctx: ToolContext = { ...context(), effectBatchArtifactLimit: 4, budgets: { ...DEFAULT_ENGINE_BUDGETS } };
+  const result = await runtime.delegate('scope', source.name).execute(await runtime.delegate('scope', source.name).prepare({}, ctx), ctx);
+  assert.equal(source.calls, 1); assert.equal(result.content, 'a🙂'); assert.equal(result.isError, true); assert.equal(result.structuredResult?.outcome, 'failed');
+  const [ref] = result.structuredResult!.artifactRefs;
+  assert.deepEqual(Buffer.from((await store.read(ref!.id, { identity: ref!.identity })).bytes), Buffer.from('a\uFFFD'));
+  assert.ok(result.structuredResult?.warnings.some(warning => warning.includes('fixed member allocation')));
 });
 test('initial policy version identifies rule configuration across restart', () => { const first = new ToolPolicy([{ tool: 'edit_file', resource: 'path:src/**', decision: 'ask' }]); const same = new ToolPolicy([{ tool: 'edit_file', resource: 'path:src/**', decision: 'ask' }]); const different = new ToolPolicy([{ tool: 'edit_file', resource: 'path:private/**', decision: 'deny' }]); assert.equal(first.version, same.version); assert.notEqual(first.version, different.version); const old = first.version; first.replace([{ tool: '*', decision: 'deny' }]); assert.notEqual(first.version, old); });
 test('catalogue allowlist narrows both provider advertisement and captured resolution', () => { const runtime = new ScopedToolRuntime(); runtime.register('engine', tool('read_file')); runtime.register('engine', tool('run_command')); const allowed = ['read_file']; const catalogue = runtime.catalogue('engine', 'build', allowed); allowed.push('run_command'); assert.deepEqual(catalogue.tools.map(t => t.name), ['read_file']); assert.throws(() => runtime.resolve(catalogue, 'run_command'), code('TOOL_NOT_FOUND')); assert.equal(runtime.catalogue('engine', 'build', []).tools.length, 0); assert.throws(() => runtime.catalogue('engine', 'build', ['*']), code('INVALID_TOOL_ALLOWLIST')); });
