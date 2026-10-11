@@ -1,4 +1,7 @@
-import { readOwnedCommandJob } from "../jobs/owned-command-records.js";
+import {
+  ownedCommandJobId,
+  readOwnedCommandJob,
+} from "../jobs/owned-command-records.js";
 import type { DatabaseSync, SQLInputValue, SQLOutputValue } from "node:sqlite";
 import {
   EngineError,
@@ -2174,7 +2177,10 @@ function validateTerminalOutputSql(
     data.exitCode === null &&
     data.signal === null;
   if (noProcess) {
-    const jobId = `command-${knowledgeHash({ runId: completion.runId, toolCallId: completion.toolCallId }).slice(0, 32)}`;
+    const jobId = ownedCommandJobId({
+      runId: completion.runId,
+      toolCallId: completion.toolCallId,
+    });
     if (
       result.exitStatus !== undefined ||
       readOwnedCommandJob(db, completion.workspaceId, jobId) ||
@@ -2576,7 +2582,7 @@ function validateClientEffectSql(
       const job = readOwnedCommandJob(
         db,
         p.workspaceId,
-        `command-${knowledgeHash({ runId: p.runId, toolCallId: p.toolCallId }).slice(0, 32)}`,
+        ownedCommandJobId({ runId: p.runId, toolCallId: p.toolCallId }),
       );
       if (
         !job?.completion ||

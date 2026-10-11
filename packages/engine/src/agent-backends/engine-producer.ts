@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { lstatSync, realpathSync, type BigIntStats } from "node:fs";
 import { types } from "node:util";
-import type { RunConfig, JsonObject } from "@moodcode/contracts";
+import type { RunConfig, JsonObject, JsonValue } from "@moodcode/contracts";
 import { EngineError } from "@moodcode/contracts";
 import {
   normalizeAcceptInput,
@@ -14,6 +14,7 @@ import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { knowledgeHash } from "../knowledge/validation.js";
 import { assertPhysicalKnowledgeRoot } from "../workspace/trust.js";
 import { readStableFile } from "../shared/fs.js";
+import { ownedCommandJobId } from "../jobs/owned-command-records.js";
 import type { ToolCatalogue } from "../tools/runtime/index.js";
 import type {
   AgentBackendCredentialReference,
@@ -124,6 +125,11 @@ function captureFile(path: string, cap: number): FilePin {
     sha256,
   };
 }
+function utf8Tail(bytes: Buffer, limit: number): Buffer {
+  let start = Math.max(0, bytes.length - limit);
+  while (start < bytes.length && (bytes[start]! & 0xc0) === 0x80) start++;
+  return bytes.subarray(start);
+}
 
 type BackendRuntime = Pick<
   EngineRuntime,
@@ -216,9 +222,6 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     )
       fail("BACKEND_ROOT_STALE");
   }
-  private capabilities(providerId: string): string {
-    return knowledgeHash(this.capabilitiesManifest(providerId));
-  }
   private capabilitiesManifest(providerId: string): JsonObject {
     const capabilities = this.engine.getCapabilities();
     return agentBackendJson({
@@ -271,7 +274,9 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       workspaceId,
       sessionId,
       workspaceBindingSha256: knowledgeHash(binding),
-      capabilitiesSha256: this.capabilities(config.providerId),
+      capabilitiesSha256: knowledgeHash(
+        this.capabilitiesManifest(config.providerId),
+      ),
       catalogueSha256: knowledgeHash(catalogue),
       profile: profilePin,
       config,
@@ -482,8 +487,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     readonly prompt: string;
     readonly instructions: readonly string[];
   } {
-    const owner = this.readOwner(original);
-    this.assertOwnerCurrent(original, owner, "dispatch");
+    const owner = this.currentOwner(original);
     const run = this.engine.store.getRun(owner.runId);
     if (
       run.workspaceId !== owner.workspaceId ||
@@ -529,14 +533,21 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
         fail("BACKEND_OWNER_STALE");
     }
   }
+  private currentOwner(
+    original: object,
+    phase: "dispatch" | "observe" = "dispatch",
+  ): BackendTurnProof {
+    const owner = this.readOwner(original);
+    this.assertOwnerCurrent(original, owner, phase);
+    return owner;
+  }
   captureLaunch(
     request: TurnRequest,
     spec: AgentBackendSpec,
     backendRevisionId: string,
   ): object {
     this.enabled();
-    const owner = this.readOwner(request);
-    this.assertOwnerCurrent(request, owner, "dispatch");
+    const owner = this.currentOwner(request);
     const registration = this.registrations.get(spec.id)!;
     if (
       spec.sessionLoad &&
@@ -638,8 +649,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     const launch = this.launchOwners.get(proof.ownerSha256),
       request = launch?.request.deref();
     if (!launch || !request) fail("BACKEND_ORIGINAL_REQUIRED");
-    const owner = this.readOwner(request);
-    this.assertOwnerCurrent(request, owner, "observe");
+    const owner = this.currentOwner(request, "observe");
     if (
       proof.ownerSha256 !== owner.sha256 ||
       proof.workspaceId !== launch.proof.workspaceId ||
@@ -679,8 +689,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
   }
   assertLaunchCurrent(original: object): void {
     const launch = this.original(this.launches, original),
-      owner = this.readOwner(launch.request);
-    this.assertOwnerCurrent(launch.request, owner, "dispatch");
+      owner = this.currentOwner(launch.request);
     const current = this.native().getBackend(owner.workspaceId, launch.spec.id);
     if (
       current?.id !== launch.revisionId ||
@@ -689,9 +698,8 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       fail("BACKEND_LAUNCH_STALE");
   }
   assertLaunchObserving(original: object): void {
-    const launch = this.original(this.launches, original),
-      owner = this.readOwner(launch.request);
-    this.assertOwnerCurrent(launch.request, owner, "observe");
+    const launch = this.original(this.launches, original);
+    this.currentOwner(launch.request, "observe");
   }
   releaseLaunch(original: object): void {
     const launch = this.launches.get(original);
@@ -703,89 +711,86 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
     this.targets.delete(original);
     this.retained.delete(original);
   }
+  private terminalOutput(original: object): JsonValue {
+    const { permission, input, noProcessCompletionSha256 } =
+      this.engine.coordinator.readProviderClientEffectScope(original);
+    const jobId = ownedCommandJobId({
+      runId: permission.runId,
+      toolCallId: permission.toolCallId,
+    });
+    if (
+      noProcessCompletionSha256 &&
+      (this.engine.store.getOwnedCommandJob(permission.workspaceId, jobId) ||
+        this.engine.store
+          .listCheckpoints(permission.runId)
+          .some(
+            (checkpoint) => checkpoint.toolCallId === permission.toolCallId,
+          ))
+    )
+      fail("BACKEND_EFFECT_COMPLETION_INVALID");
+    const captured = noProcessCompletionSha256
+      ? null
+      : this.engine.captureOwnedCommandJobOutput({
+          workspaceId: permission.workspaceId,
+          jobId,
+        });
+    let output = "",
+      observedBytes = 0,
+      retainedBytes = 0;
+    try {
+      let afterSeq = 0;
+      for (let pages = 0; captured && pages < 16; pages++) {
+        const page = this.engine.readOwnedCommandJobOutput(captured, {
+          afterSeq,
+          maxBytes: 65536,
+        });
+        output += page.output.map((item) => item.data).join("");
+        observedBytes = page.observedBytes;
+        retainedBytes = page.retainedBytes;
+        if (!page.hasMore) break;
+        if (page.nextAfterSeq <= afterSeq)
+          fail("BACKEND_TERMINAL_OUTPUT_LIMIT");
+        afterSeq = page.nextAfterSeq;
+      }
+    } finally {
+      if (captured) this.engine.releaseOwnedCommandJobHandle(captured);
+    }
+    const bytes = Buffer.from(output),
+      tail = utf8Tail(bytes, input.outputByteLimit);
+    const result = {
+      output: tail.toString("utf8"),
+      truncated: tail.length < bytes.length || observedBytes > retainedBytes,
+    };
+    this.engine.store.commitRunObservation(
+      permission.runId,
+      "backend.terminal_output_observed",
+      {
+        toolCallId: permission.toolCallId,
+        providerToolCallId: permission.providerToolCallId,
+        output: result,
+        ...(noProcessCompletionSha256 ? { noProcessCompletionSha256 } : {}),
+      },
+      { turnId: permission.turnId, attemptId: permission.attemptId },
+    );
+    return result;
+  }
   clientReadPort(): BackendNativeClientEffectPort {
     return {
       prepareEffect: (request, input, signal) => {
-        const owner = this.readOwner(request);
-        this.assertOwnerCurrent(request, owner, "dispatch");
+        this.currentOwner(request);
         return this.engine.coordinator.prepareProviderClientEffect(
           request,
           input,
           signal,
         );
       },
-      readTerminalOutput: (original) => {
-        const { permission, input, noProcessCompletionSha256 } =
-          this.engine.coordinator.readProviderClientEffectScope(original);
-        const jobId = `command-${knowledgeHash({ runId: permission.runId, toolCallId: permission.toolCallId }).slice(0, 32)}`;
-        if (
-          noProcessCompletionSha256 &&
-          (this.engine.store.getOwnedCommandJob(
-            permission.workspaceId,
-            jobId,
-          ) ||
-            this.engine.store
-              .listCheckpoints(permission.runId)
-              .some(
-                (checkpoint) => checkpoint.toolCallId === permission.toolCallId,
-              ))
-        )
-          fail("BACKEND_EFFECT_COMPLETION_INVALID");
-        const captured = noProcessCompletionSha256
-          ? null
-          : this.engine.captureOwnedCommandJobOutput({
-              workspaceId: permission.workspaceId,
-              jobId,
-            });
-        let output = "",
-          observedBytes = 0,
-          retainedBytes = 0;
-        try {
-          let afterSeq = 0;
-          for (let pages = 0; captured && pages < 16; pages++) {
-            const page = this.engine.readOwnedCommandJobOutput(captured, {
-              afterSeq,
-              maxBytes: 65536,
-            });
-            output += page.output.map((item) => item.data).join("");
-            observedBytes = page.observedBytes;
-            retainedBytes = page.retainedBytes;
-            if (!page.hasMore) break;
-            if (page.nextAfterSeq <= afterSeq)
-              fail("BACKEND_TERMINAL_OUTPUT_LIMIT");
-            afterSeq = page.nextAfterSeq;
-          }
-        } finally {
-          if (captured) this.engine.releaseOwnedCommandJobHandle(captured);
-        }
-        const bytes = Buffer.from(output),
-          limit = input.outputByteLimit;
-        let start = Math.max(0, bytes.length - limit);
-        while (start < bytes.length && (bytes[start]! & 0xc0) === 0x80) start++;
-        const result = {
-          output: bytes.subarray(start).toString("utf8"),
-          truncated: start > 0 || observedBytes > retainedBytes,
-        };
-        this.engine.store.commitRunObservation(
-          permission.runId,
-          "backend.terminal_output_observed",
-          {
-            toolCallId: permission.toolCallId,
-            providerToolCallId: permission.providerToolCallId,
-            output: result,
-            ...(noProcessCompletionSha256 ? { noProcessCompletionSha256 } : {}),
-          },
-          { turnId: permission.turnId, attemptId: permission.attemptId },
-        );
-        return result;
-      },
+      readTerminalOutput: (original) => this.terminalOutput(original),
       readPermission: (original) =>
         this.engine.coordinator.readProviderClientEffectPermission(original),
       dispatchEffect: (original) => {
         const request =
           this.engine.coordinator.readProviderClientEffectRequest(original);
-        const owner = this.readOwner(request);
-        this.assertOwnerCurrent(request, owner, "dispatch");
+        this.currentOwner(request);
         return this.engine.coordinator.dispatchProviderClientEffect(original);
       },
       waitEffect: (original) =>
@@ -795,8 +800,7 @@ export class EngineAgentBackendProducer implements BackendLaunchPort {
       releaseEffect: (original) =>
         this.engine.coordinator.releaseProviderClientEffect(original),
       executeRead: async (request, input, signal) => {
-        const owner = this.readOwner(request);
-        this.assertOwnerCurrent(request, owner, "dispatch");
+        this.currentOwner(request);
         return this.engine.coordinator.executeProviderClientRead(
           request,
           input,
