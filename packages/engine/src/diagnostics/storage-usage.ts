@@ -30,6 +30,12 @@ export interface StorageGroupUsage {
   entries: number; directories: number; regularFiles: number; stableFiles: number; logicalPathBytes: number;
   symlinks: number; hardlinkedFiles: number; specialFiles: number; changedEntries: number; errors: number;
 }
+interface OrphanCandidateReport<Coverage extends string> {
+  indexStatus: 'absent' | 'incomplete' | 'invalid' | 'complete'; indexObservedAt: string | null; indexedIds: number;
+  coverage: Coverage; complete: boolean; candidateFiles: number; candidateBytes: number;
+  candidates: { path: string; pathTruncated: boolean; id: string; bytes: number }[]; candidatesOmitted: number;
+  assessment: 'unreferenced-in-primary-index-snapshot-only'; deletionPerformed: false;
+}
 export interface StorageUsageSample {
   root: 'artifacts' | 'database'; path: string; pathTruncated: boolean; group: StorageUsageGroup;
   kind: 'file' | 'directory' | 'symlink' | 'special' | 'changed' | 'error'; bytes?: number; hardlinked?: boolean;
@@ -42,17 +48,8 @@ export interface StorageUsageReport {
   skippedDepthDirectories: number; unvisitedEntries: number | null;
   roots: { artifacts: 'observed' | 'missing' | 'unsafe' | 'not_visited'; database: 'not_requested' | 'observed' | 'missing' | 'unsafe' | 'not_visited' };
   groups: Record<StorageUsageGroup, StorageGroupUsage>; samples: StorageUsageSample[]; samplesOmitted: number; reportTruncated: boolean;
-  images: {
-    indexStatus: 'absent' | 'incomplete' | 'invalid' | 'complete'; indexObservedAt: string | null; indexedIds: number;
-    coverage: 'root-input-media-only'; complete: boolean; candidateFiles: number; candidateBytes: number;
-    candidates: { path: string; pathTruncated: boolean; id: string; bytes: number }[]; candidatesOmitted: number;
-    assessment: 'unreferenced-in-primary-index-snapshot-only'; deletionPerformed: false;
-  };  documents: {
-    indexStatus: 'absent' | 'incomplete' | 'invalid' | 'complete'; indexObservedAt: string | null; indexedIds: number;
-    coverage: 'root-input-documents-only'; complete: boolean; candidateFiles: number; candidateBytes: number;
-    candidates: { path: string; pathTruncated: boolean; id: string; bytes: number }[]; candidatesOmitted: number;
-    assessment: 'unreferenced-in-primary-index-snapshot-only'; deletionPerformed: false;
-  };
+  images: OrphanCandidateReport<'root-input-media-only'>;
+  documents: OrphanCandidateReport<'root-input-documents-only'>;
   coverage: {
     accounting: 'regular-file-logical-size'; physicalAllocatedBytes: null; contentsRead: false; databaseOpened: false;
     symlinkTargets: 'not-scanned'; specialFileContents: 'not-read'; hardlinks: 'path-bytes-and-observed-inode-dedup';
@@ -89,6 +86,9 @@ function validate(input: StorageUsageOptions): StorageUsageOptions & { limits: S
   }
   return { ...input, limits };
 }
+function blankOrphans<Coverage extends string>(coverage: Coverage): OrphanCandidateReport<Coverage> {
+  return { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage, complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false };
+}
 function blankGroup(): StorageGroupUsage { return { entries: 0, directories: 0, regularFiles: 0, stableFiles: 0, logicalPathBytes: 0, symlinks: 0, hardlinkedFiles: 0, specialFiles: 0, changedEntries: 0, errors: 0 }; }
 function safeSample(value: string, maxBytes: number): { path: string; pathTruncated: boolean } {
   if (Buffer.byteLength(value) <= maxBytes) return { path: value, pathTruncated: false };
@@ -110,7 +110,7 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     logicalPathBytes: 0, uniqueObservedInodeBytes: 0, duplicateInodePaths: 0, observedEntries: 0, observedDirectories: 0, observedRegularFiles: 0, stableFiles: 0, operations: 0,
     skippedDepthDirectories: 0, unvisitedEntries: 0, roots: { artifacts: 'not_visited', database: selected.dbPath === undefined ? 'not_requested' : 'not_visited' },
     groups: Object.fromEntries(groups.map(group => [group, blankGroup()])) as Record<StorageUsageGroup, StorageGroupUsage>, samples: [], samplesOmitted: 0, reportTruncated: false,
-    images: { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage: 'root-input-media-only', complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false },    documents: { indexStatus: 'absent', indexObservedAt: null, indexedIds: 0, coverage: 'root-input-documents-only', complete: false, candidateFiles: 0, candidateBytes: 0, candidates: [], candidatesOmitted: 0, assessment: 'unreferenced-in-primary-index-snapshot-only', deletionPerformed: false },
+    images: blankOrphans('root-input-media-only'), documents: blankOrphans('root-input-documents-only'),
     coverage: { accounting: 'regular-file-logical-size', physicalAllocatedBytes: null, contentsRead: false, databaseOpened: false, symlinkTargets: 'not-scanned', specialFileContents: 'not-read', hardlinks: 'path-bytes-and-observed-inode-dedup', snapshot: 'non-atomic-with-identity-and-size-rechecks', pathRaceIsolation: 'not-a-filesystem-sandbox', deadline: 'cooperative-between-filesystem-operations', databaseScope: 'explicit-main-wal-shm-only', externalStorage: 'not-discovered', childImageIndexes: 'not-read', childDocumentIndexes: 'not-read', cleanup: 'not-performed' },
   };
   const fail = (reason: StorageStopReason): void => {
@@ -132,24 +132,18 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     if (report.samples.length >= limits.maxSamples) { report.samplesOmitted++; report.reportTruncated = true; return; }
     report.samples.push({ root, ...safeSample(path, limits.maxSamplePathBytes), group, kind, ...extra });
   };
-  const imageIds = new Set<string>(), index = selected.imageIndex;
-  if (index !== undefined) {
-    if (!index || typeof index !== 'object' || index.scope !== 'primary-database-only' || typeof index.complete !== 'boolean' || !Array.isArray(index.imageIds)
-      || index.imageIds.length > limits.maxImageIds || typeof index.observedAt !== 'string' || index.observedAt.length > 32 || !Number.isFinite(Date.parse(index.observedAt))
-      || index.imageIds.some(id => typeof id !== 'string' || !/^img_[0-9a-f]{32}$/u.test(id)) || new Set(index.imageIds).size !== index.imageIds.length) report.images.indexStatus = 'invalid';
+  const orphanIndexes = [
+    { orphans: report.images, index: selected.imageIndex, ids: () => selected.imageIndex!.imageIds, idPattern: /^img_[0-9a-f]{32}$/u, blob: /^input-media\/(img_[0-9a-f]{32})\.blob$/u, max: limits.maxImageIds, indexed: new Set<string>() },
+    { orphans: report.documents, index: selected.documentIndex, ids: () => selected.documentIndex!.documentIds, idPattern: /^doc_[0-9a-f]{32}$/u, blob: /^input-documents\/(doc_[0-9a-f]{32})\.blob$/u, max: limits.maxDocumentIds, indexed: new Set<string>() },
+  ];
+  for (const { orphans, index, ids, idPattern, max, indexed } of orphanIndexes) {
+    if (index === undefined) continue;
+    if (!index || typeof index !== 'object' || index.scope !== 'primary-database-only' || typeof index.complete !== 'boolean' || !Array.isArray(ids())
+      || ids().length > max || typeof index.observedAt !== 'string' || index.observedAt.length > 32 || !Number.isFinite(Date.parse(index.observedAt))
+      || ids().some(id => typeof id !== 'string' || !idPattern.test(id)) || new Set(ids()).size !== ids().length) orphans.indexStatus = 'invalid';
     else {
-      report.images.indexStatus = index.complete ? 'complete' : 'incomplete'; report.images.indexObservedAt = index.observedAt; report.images.indexedIds = index.imageIds.length;
-      if (index.complete) for (const id of index.imageIds) imageIds.add(id);
-    }
-  }
-  const documentIds = new Set<string>(), docIndex = selected.documentIndex;
-  if (docIndex !== undefined) {
-    if (!docIndex || typeof docIndex !== 'object' || docIndex.scope !== 'primary-database-only' || typeof docIndex.complete !== 'boolean' || !Array.isArray(docIndex.documentIds)
-      || docIndex.documentIds.length > limits.maxDocumentIds || typeof docIndex.observedAt !== 'string' || docIndex.observedAt.length > 32 || !Number.isFinite(Date.parse(docIndex.observedAt))
-      || docIndex.documentIds.some(id => typeof id !== 'string' || !/^doc_[0-9a-f]{32}$/u.test(id)) || new Set(docIndex.documentIds).size !== docIndex.documentIds.length) report.documents.indexStatus = 'invalid';
-    else {
-      report.documents.indexStatus = docIndex.complete ? 'complete' : 'incomplete'; report.documents.indexObservedAt = docIndex.observedAt; report.documents.indexedIds = docIndex.documentIds.length;
-      if (docIndex.complete) for (const id of docIndex.documentIds) documentIds.add(id);
+      orphans.indexStatus = index.complete ? 'complete' : 'incomplete'; orphans.indexObservedAt = index.observedAt; orphans.indexedIds = ids().length;
+      if (index.complete) for (const id of ids()) indexed.add(id);
     }
   }
   const dbPaths = selected.dbPath === undefined ? [] : [selected.dbPath, selected.dbPath + '-wal', selected.dbPath + '-shm'];
@@ -199,16 +193,13 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     else { observedInodes.set(identity, bytes); report.uniqueObservedInodeBytes += bytes; }
     sample(root, relativePath, group, 'file', { bytes, ...(info.nlink > 1n ? { hardlinked: true } : {}) });
     // A published blob can precede the index CAS; this is an observation, never permission to delete.
-    const generated = root === 'artifacts' ? /^input-media\/(img_[0-9a-f]{32})\.blob$/u.exec(relativePath) : null;
-    if (generated && info.nlink === 1n && report.images.indexStatus === 'complete' && !imageIds.has(generated[1]!)) {
-      report.images.candidateFiles++; report.images.candidateBytes += bytes;
-      if (report.images.candidates.length < limits.maxSamples) report.images.candidates.push({ ...safeSample(relativePath, limits.maxSamplePathBytes), id: generated[1]!, bytes });
-      else { report.images.candidatesOmitted++; report.reportTruncated = true; }
-    }    const generatedDocument = root === 'artifacts' ? /^input-documents\/(doc_[0-9a-f]{32})\.blob$/u.exec(relativePath) : null;
-    if (generatedDocument && info.nlink === 1n && report.documents.indexStatus === 'complete' && !documentIds.has(generatedDocument[1]!)) {
-      report.documents.candidateFiles++; report.documents.candidateBytes += bytes;
-      if (report.documents.candidates.length < limits.maxSamples) report.documents.candidates.push({ ...safeSample(relativePath, limits.maxSamplePathBytes), id: generatedDocument[1]!, bytes });
-      else { report.documents.candidatesOmitted++; report.reportTruncated = true; }
+    for (const { orphans, blob, indexed } of orphanIndexes) {
+      const generated = root === 'artifacts' ? blob.exec(relativePath) : null;
+      if (generated && info.nlink === 1n && orphans.indexStatus === 'complete' && !indexed.has(generated[1]!)) {
+        orphans.candidateFiles++; orphans.candidateBytes += bytes;
+        if (orphans.candidates.length < limits.maxSamples) orphans.candidates.push({ ...safeSample(relativePath, limits.maxSamplePathBytes), id: generated[1]!, bytes });
+        else { orphans.candidatesOmitted++; report.reportTruncated = true; }
+      }
     }
   };
   const visit = async (path: string, relativePath: string, root: StorageUsageSample['root'], depth: number, chain: readonly PinnedDirectory[], known?: BigIntStats): Promise<void> => {
@@ -287,13 +278,13 @@ async function inspect(options: StorageUsageOptions, hooks: StorageUsageTestHook
     }
   } catch (error) { if (!(error instanceof StopScan)) throw error; }
   try { check(); } catch (error) { if (!(error instanceof StopScan)) throw error; }
-  report.images.complete = report.complete && report.images.indexStatus === 'complete';
-  report.documents.complete = report.complete && report.documents.indexStatus === 'complete';
+  for (const { orphans } of orphanIndexes) orphans.complete = report.complete && orphans.indexStatus === 'complete';
   report.observedAt = new Date().toISOString(); report.elapsedMs = Math.max(0, Math.ceil(now() - start));
   const fits = (): boolean => Buffer.byteLength(JSON.stringify(report)) <= limits.maxReportBytes;
   while (!fits() && report.samples.length) { report.samples.pop(); report.samplesOmitted++; report.reportTruncated = true; }
-  while (!fits() && report.images.candidates.length) { report.images.candidates.pop(); report.images.candidatesOmitted++; report.reportTruncated = true; }
-  while (!fits() && report.documents.candidates.length) { report.documents.candidates.pop(); report.documents.candidatesOmitted++; report.reportTruncated = true; }
+  for (const { orphans } of orphanIndexes) {
+    while (!fits() && orphans.candidates.length) { orphans.candidates.pop(); orphans.candidatesOmitted++; report.reportTruncated = true; }
+  }
   if (!fits()) throw new EngineError('STORAGE_USAGE_REPORT_LIMIT', 'Storage metadata exceeds the report byte budget.');
   return report;
 }

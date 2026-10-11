@@ -159,11 +159,16 @@ function projectEvent(event: SessionEventV2): TrajectoryEvent {
   return result;
 }
 
+/** Page defaults; read only after plainRecord has rejected accessors. */
+function pageBounds(options: TrajectoryOptions) {
+  return { afterSeq: options.afterSeq ?? 0, throughSeq: options.throughSeq, limit: options.limit ?? TRAJECTORY_LIMITS.defaultEvents, maxBytes: options.maxBytes ?? TRAJECTORY_LIMITS.defaultBytes };
+}
+
 /** Host wrappers call this before reading any selection property. */
 export function validateTrajectoryOptions(options: TrajectoryOptions): void {
   plainRecord(options, [], ['sessionId', 'afterSeq', 'throughSeq', 'limit', 'maxBytes', 'runId'], fault => invalid(fault === 'shape' ? 'Trajectory options must be plain data' : 'Trajectory options reject unknown fields and accessors'));
   if (!id(ownData(options, 'sessionId')) || options.runId !== undefined && !id(options.runId)) return invalid('Session and Run identities must be bounded strings');
-  const afterSeq = options.afterSeq ?? 0, throughSeq = options.throughSeq, limit = options.limit ?? TRAJECTORY_LIMITS.defaultEvents, maxBytes = options.maxBytes ?? TRAJECTORY_LIMITS.defaultBytes;
+  const { afterSeq, throughSeq, limit, maxBytes } = pageBounds(options);
   if (number(afterSeq) === null || throughSeq !== undefined && (number(throughSeq) === null || throughSeq < afterSeq)) return invalid('Journal boundaries must be ordered nonnegative safe integers');
   if (!Number.isSafeInteger(limit) || limit < 1 || limit > TRAJECTORY_LIMITS.maxEvents || !Number.isSafeInteger(maxBytes) || maxBytes < TRAJECTORY_LIMITS.minBytes || maxBytes > TRAJECTORY_LIMITS.maxBytes) return invalid('Event count or export byte budget is invalid');
 }
@@ -171,12 +176,12 @@ export function validateTrajectoryOptions(options: TrajectoryOptions): void {
 /** One bounded immutable journal page. It never invokes providers, tools, recovery or current-record replay. */
 export function exportTrajectory(reader: TrajectoryReader, options: TrajectoryOptions): JournalProjection {
   validateTrajectoryOptions(options);
-  const afterSeq = options.afterSeq ?? 0, throughSeq = options.throughSeq, limit = options.limit ?? TRAJECTORY_LIMITS.defaultEvents, maxBytes = options.maxBytes ?? TRAJECTORY_LIMITS.defaultBytes;
+  const { afterSeq, throughSeq, limit, maxBytes } = pageBounds(options);
   const session = reader.getSession(options.sessionId);
   if (session.id !== options.sessionId || !id(session.workspaceId)) throw new EngineError('TRAJECTORY_SCOPE_MISMATCH', 'Trajectory session owner is invalid');
   // An extra row provides a bounded continuation observation. A short native
   // page may result from its own source byte cap and is never treated as EOF.
-  const readLimit = Math.min(limit + 1, 100, throughSeq === undefined ? 100 : throughSeq - afterSeq);
+  const readLimit = Math.min(limit + 1, TRAJECTORY_LIMITS.maxEvents, throughSeq === undefined ? TRAJECTORY_LIMITS.maxEvents : throughSeq - afterSeq);
   const raw = readLimit === 0 ? [] : reader.readSessionEvents(options.sessionId, afterSeq, readLimit);
   if (!Array.isArray(raw) || raw.length > readLimit) throw new EngineError('TRAJECTORY_SOURCE_INVALID', 'Journal reader exceeded its bounded contract');
   let previous = afterSeq;
