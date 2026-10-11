@@ -8,6 +8,7 @@ import { casReplace, guardedWrite } from "../storage/transaction.js";
 import { workspaceWritePath } from "../workspace/index.js";
 import {
   addDisjointPath,
+  ancestorPaths,
   assertNotThenable,
   proposalChecks,
   selfMeasuredBytes,
@@ -16,6 +17,7 @@ import type {
   PreparedProposalSourceSnapshot,
   ProposalSourceManifest,
 } from "./source-capture.js";
+import { PROPOSAL_SET_STATUSES } from "./types.js";
 import type {
   AppendProposalRevisionResult,
   BeginProposalCaptureResult,
@@ -180,6 +182,10 @@ function physical(value: unknown): string {
   if (typeof value !== "string" || !/^\d{1,32}$/u.test(value)) fail();
   return value;
 }
+function physicalFields(r: Record<string, unknown>): void {
+  for (const key of ["device", "inode", "mtimeNs", "ctimeNs"]) physical(r[key]);
+  number(r.mode, 0o777);
+}
 function pin(value: unknown): void {
   const r = exact(value, [
     "path",
@@ -190,11 +196,7 @@ function pin(value: unknown): void {
     "ctimeNs",
   ]);
   if (r.path !== ".") relative(r.path);
-  physical(r.device);
-  physical(r.inode);
-  physical(r.mtimeNs);
-  physical(r.ctimeNs);
-  number(r.mode, 0o777);
+  physicalFields(r);
 }
 /** The manifest hashes physical metadata and before/after digests, never raw bodies. */
 export function validateProposalSourceManifest(
@@ -254,13 +256,7 @@ export function validateProposalSourceManifest(
         )
       )
         fail();
-    } else {
-      physical(f.device);
-      physical(f.inode);
-      physical(f.mtimeNs);
-      physical(f.ctimeNs);
-      number(f.mode, 0o777);
-    }
+    } else physicalFields(f);
     if (
       (f.afterSha256 === null && f.afterBytes !== 0) ||
       (f.beforeSha256 === null && f.afterSha256 === null)
@@ -274,16 +270,7 @@ export function validateProposalSourceManifest(
       f.missingParents.length > 64
     )
       fail("PROPOSAL_LIMIT");
-    const ancestors = selected
-      .split("/")
-      .slice(0, -1)
-      .map((_, i) =>
-        selected
-          .split("/")
-          .slice(0, i + 1)
-          .join("/"),
-      );
-    const expected = [".", ...ancestors];
+    const expected = [".", ...ancestorPaths(selected)];
     const seen: string[] = [];
     for (const p of f.parentPins) {
       pin(p);
@@ -483,14 +470,7 @@ export function validateProposalSet(value: unknown): ProposalSet {
   hash(r.revisionSha256);
   stamp(r.updatedAt);
   if (
-    ![
-      "pending",
-      "cancelled",
-      "paused-import",
-      "applied",
-      "partial",
-      "uncertain",
-    ].includes(r.status as string) ||
+    !PROPOSAL_SET_STATUSES.includes(r.status as ProposalSet["status"]) ||
     (r.status === "paused-import") !== (r.archiveSha256 !== null)
   )
     fail();
@@ -498,14 +478,13 @@ export function validateProposalSet(value: unknown): ProposalSet {
   const terminal = ["applied", "partial", "uncertain"].includes(
     r.status as string,
   );
+  const settled = Object.hasOwn(r, "applySettlement");
   if (
-    (terminal !== Object.hasOwn(r, "applySettlement") &&
-      r.status !== "paused-import") ||
-    (Object.hasOwn(r, "applySettlement") &&
-      ["pending", "cancelled"].includes(r.status as string))
+    (terminal !== settled && r.status !== "paused-import") ||
+    (settled && ["pending", "cancelled"].includes(r.status as string))
   )
     fail();
-  if (Object.hasOwn(r, "applySettlement")) {
+  if (settled) {
     const p = exact(r.applySettlement, [
       "ownerId",
       "ownerSha256",
@@ -936,10 +915,7 @@ export class ProposalStorage {
     });
   }
   release(capture: PreparedProposalCapture): void {
-    if (this.#owned.has(capture)) {
-      this.#owned.delete(capture);
-      this.#live.delete(capture);
-    }
+    if (this.#owned.delete(capture)) this.#live.delete(capture);
   }
   getSet(ws: string, key: string): ProposalSet | undefined {
     return readProposalHead(this.db, id(ws), id(key));

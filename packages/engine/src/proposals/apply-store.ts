@@ -130,9 +130,7 @@ const inputFields = [
   "requestId",
   "requestSha256",
 ] as const;
-function validatePrepareProposalApply(
-  value: unknown,
-): PrepareProposalApply {
+function validatePrepareProposalApply(value: unknown): PrepareProposalApply {
   const r = fields(immutable(value), inputFields);
   for (const k of ["workspaceId", "proposalId", "revisionId", "requestId"])
     id(r[k]);
@@ -341,8 +339,7 @@ function validateProposalApplyCheckpoint(
         const ref = f[key] as Record<string, unknown>;
         id(ref.id);
         id(ref.workspaceId);
-        if (ref.workspaceId !== r.workspaceId)
-          fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+        if (ref.workspaceId !== r.workspaceId) scopeMismatch();
         digest(ref.sha256);
         count(ref.bytes, PROPOSAL_APPLY_LIMITS.fileBytes);
         digest(ref.headerSha256);
@@ -374,12 +371,10 @@ export function assertAttemptedPrefix(
   let unattempted = false;
   for (const file of files) {
     if (!file.attempted) unattempted = true;
-    else if (unattempted) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    else if (unattempted) scopeMismatch();
   }
 }
-function validateProposalApplyReceipt(
-  value: unknown,
-): ProposalApplyReceipt {
+function validateProposalApplyReceipt(value: unknown): ProposalApplyReceipt {
   const r = fields(immutable(value), [
     "id",
     "workspaceId",
@@ -425,7 +420,7 @@ function validateProposalApplyReceipt(
     proof.checkpointSha256 !== r.checkpointSha256 ||
     proof.cleanupConfirmed !== r.cleanupConfirmed
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   checkHash(r);
   return r as unknown as ProposalApplyReceipt;
 }
@@ -452,7 +447,7 @@ export function readApplyOwner(
     owner.state !== meta.state ||
     owner.revision !== meta.revision
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   return owner;
 }
 export function readApplyCheckpoint(
@@ -474,7 +469,7 @@ export function readApplyCheckpoint(
     value.workspaceId !== ws ||
     meta?.owner_id !== value.ownerId
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   return value;
 }
 export function readApplyReceipt(
@@ -498,7 +493,7 @@ export function readApplyReceipt(
     meta.request_id !== value.requestId ||
     meta.request_sha256 !== value.requestSha256
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   return value;
 }
 export function readApplyHistory(
@@ -514,7 +509,7 @@ export function readApplyHistory(
     (owner.checkpointId !== null) !== (checkpoint !== null) ||
     (["completed", "partial"].includes(owner.state) && receipt === null)
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   if (
     (checkpoint &&
       (checkpoint.sha256 !== owner.checkpointSha256 ||
@@ -530,26 +525,21 @@ export function readApplyHistory(
         receipt.afterHead.applySettlement?.ownerSha256 !== owner.sha256 ||
         receipt.state !== owner.state))
   )
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   const head =
     readProposalHead(db, ws, owner.proposalId, scopeMismatch) ??
     scopeMismatch();
-  if (receipt && head.applySettlement?.ownerId !== owner.id)
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-  if (head.applySettlement?.ownerId === owner.id) {
-    if (
-      !receipt ||
+  if (receipt && head.applySettlement?.ownerId !== owner.id) scopeMismatch();
+  if (
+    head.applySettlement?.ownerId === owner.id &&
+    (!receipt ||
       knowledgeHash(head.applySettlement) !==
-        knowledgeHash(receipt.afterHead.applySettlement)
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    if (
-      head.status === "paused-import"
+        knowledgeHash(receipt.afterHead.applySettlement) ||
+      (head.status === "paused-import"
         ? head.headRevision <= receipt.afterHead.headRevision
-        : head.sha256 !== receipt.afterHead.sha256
-    )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-  }
+        : head.sha256 !== receipt.afterHead.sha256))
+  )
+    scopeMismatch();
   return Object.freeze({ owner, checkpoint, receipt });
 }
 interface Owned {
@@ -576,8 +566,7 @@ export class ProposalApplyStorage {
     });
   }
   #now(): number {
-    const now = this.ports.now?.() ?? Date.now();
-    return count(now, 8_640_000_000_000_000);
+    return count(this.ports.now?.() ?? Date.now(), 8_640_000_000_000_000);
   }
   #owner(capture: ProposalApplyCapture): {
     record: ProposalApplyOwner;
@@ -858,7 +847,7 @@ export class ProposalApplyStorage {
       r.files.length !== revision.files.length ||
       validateProposalRevision(revision).sha256 !== record.revisionSha256
     )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+      scopeMismatch();
     let total = 0;
     const effectBodies: { ref: ProposalEffectBlobReference; body: string }[] =
       [];
@@ -882,7 +871,7 @@ export class ProposalApplyStorage {
         typeof f.observationComplete !== "boolean" ||
         (!f.attempted && f.mayHaveChanged)
       )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+        scopeMismatch();
       const before = image(f.before),
         after = image(f.after);
       if (
@@ -1023,7 +1012,7 @@ export class ProposalApplyStorage {
         record.checkpointId,
       );
       if (!checkpoint || checkpoint.sha256 !== record.checkpointSha256)
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+        scopeMismatch();
       const cleanup = fields(
         immutable(this.ports.assertCleanup(capture, originalCleanup)),
         ["confirmed", "guardSha256"],
@@ -1418,7 +1407,7 @@ function latestDecision(
   if (!key) return undefined;
   const value = readApplyDecision(db, ws, id(key.id));
   if (value.revision !== key.revision || value.operation !== key.operation)
-    fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    scopeMismatch();
   return value;
 }
 type ResumePin = {

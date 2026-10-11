@@ -64,6 +64,14 @@ export interface ProposalRevision {
   readonly createdAt: string;
   readonly sha256: string;
 }
+export const PROPOSAL_SET_STATUSES = Object.freeze([
+  "pending",
+  "cancelled",
+  "paused-import",
+  "applied",
+  "partial",
+  "uncertain",
+] as const);
 /** Current pointer only; append history never changes when import pauses this head. */
 export interface ProposalSet {
   readonly schemaVersion: 1;
@@ -72,13 +80,7 @@ export interface ProposalSet {
   readonly revisionId: string;
   readonly revisionSha256: string;
   readonly headRevision: number;
-  readonly status:
-    | "pending"
-    | "cancelled"
-    | "paused-import"
-    | "applied"
-    | "partial"
-    | "uncertain";
+  readonly status: (typeof PROPOSAL_SET_STATUSES)[number];
   readonly applySettlement?: {
     readonly ownerId: string;
     readonly ownerSha256: string;

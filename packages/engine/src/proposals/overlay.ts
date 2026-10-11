@@ -16,6 +16,7 @@ import {
 } from "../shared/data.js";
 import { validateProposalRevision, validateProposalSet } from "./store.js";
 import { selfMeasuredBytes, trackPending } from "./validation.js";
+import { PROPOSAL_SET_STATUSES } from "./types.js";
 import type {
   ProposalBlobReference,
   ProposalFileEntry,
@@ -551,32 +552,21 @@ export class ProposalOverlayContextSource implements ProposalContextSourcePort {
             knowledgeHash(current.revision.binding) !== knowledgeHash(binding)
           )
             return "stale" as const;
-          const mock = payload(
-            current.revision,
-            this.#ports.readBlobText,
-            true,
-          );
-          if (
+          const size = (next: PayloadProposal): number =>
             entryBytes(
               message(request.workspace.id, policySha256, [
                 ...selected.map((s) => s.data),
-                mock,
+                next,
               ]),
-            ) +
+            );
+          if (
+            size(payload(current.revision, this.#ports.readBlobText, true)) +
               current.revision.totalBytes >
             availableBytes
           )
             return "context-budget" as const;
           const data = payload(current.revision, this.#ports.readBlobText);
-          if (
-            entryBytes(
-              message(request.workspace.id, policySha256, [
-                ...selected.map((s) => s.data),
-                data,
-              ]),
-            ) > availableBytes
-          )
-            return "context-budget" as const;
+          if (size(data) > availableBytes) return "context-budget" as const;
           return Object.freeze({ selection: current, data });
         });
         if (typeof candidate === "string") {
@@ -768,15 +758,7 @@ export function buildProposalDiff(
     !limit ||
     maxBytes < PROPOSAL_DIFF_LIMITS.minBytes ||
     !["current", "stale", "unknown"].includes(sourceFreshness) ||
-    ![
-      "pending",
-      "cancelled",
-      "paused-import",
-      "applied",
-      "partial",
-      "uncertain",
-      "unknown",
-    ].includes(proposalStatus)
+    ![...PROPOSAL_SET_STATUSES, "unknown"].includes(proposalStatus)
   )
     fail();
   const files: PayloadFile[] = [],
@@ -794,66 +776,40 @@ export function buildProposalDiff(
     sourceManifestSha256: revision.sourceManifestSha256,
     sourceFreshness,
   };
-  // A non-empty page ends before an omission it cannot fit; an empty page still advances.
-  const omit = (path: string): boolean => {
-    const omission = { path, reason: "page-budget" as const };
-    if (
-      files.length + omissions.length > 0 &&
-      Buffer.byteLength(
-        JSON.stringify({
-          ...base,
-          files,
-          omissions: [...omissions, omission],
-          next: cursor + 1,
-          bytes: 0,
-        }),
-      ) +
-        64 >
-        maxBytes
-    )
-      return false;
-    omissions.push(omission);
-    return true;
-  };
+  const size = (
+    pageFiles: readonly PayloadFile[],
+    pageOmissions: readonly { path: string; reason: "page-budget" }[],
+  ): number =>
+    Buffer.byteLength(
+      JSON.stringify({
+        ...base,
+        files: pageFiles,
+        omissions: pageOmissions,
+        next: cursor + 1,
+        bytes: 0,
+      }),
+    ) + 64;
   for (; cursor < revision.files.length && cursor < after + limit; cursor++) {
     const file = revision.files[cursor]!,
-      mock = payloadFile(file, readBlobText, true);
-    if (
-      Buffer.byteLength(
-        JSON.stringify({
-          ...base,
-          files: [...files, mock],
-          omissions,
-          next: cursor + 1,
-          bytes: 0,
-        }),
-      ) +
-        (file.before?.bytes ?? 0) +
-        (file.after?.bytes ?? 0) +
-        64 >
-      maxBytes
-    ) {
-      if (!omit(file.path)) break;
+      value =
+        size([...files, payloadFile(file, readBlobText, true)], omissions) +
+          (file.before?.bytes ?? 0) +
+          (file.after?.bytes ?? 0) >
+        maxBytes
+          ? undefined
+          : payloadFile(file, readBlobText);
+    if (value && size([...files, value], omissions) <= maxBytes) {
+      files.push(value);
       continue;
     }
-    const value = payloadFile(file, readBlobText);
+    // A non-empty page ends before an omission it cannot fit; an empty page still advances.
+    const omission = { path: file.path, reason: "page-budget" as const };
     if (
-      Buffer.byteLength(
-        JSON.stringify({
-          ...base,
-          files: [...files, value],
-          omissions,
-          next: cursor + 1,
-          bytes: 0,
-        }),
-      ) +
-        64 >
-      maxBytes
-    ) {
-      if (!omit(file.path)) break;
-      continue;
-    }
-    files.push(value);
+      files.length + omissions.length > 0 &&
+      size(files, [...omissions, omission]) > maxBytes
+    )
+      break;
+    omissions.push(omission);
   }
   const unsigned = {
     ...base,

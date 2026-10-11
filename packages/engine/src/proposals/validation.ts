@@ -46,6 +46,12 @@ export function addDisjointPath(folded: string[], path: string, fail: () => neve
   folded.push(lower);
 }
 
+/** Each proper ancestor of a relative path, outermost first. */
+export function ancestorPaths(relative: string): string[] {
+  const components = relative.split('/');
+  return components.slice(1).map((_, i) => components.slice(0, i + 1).join('/'));
+}
+
 /** UTF-8 size of body serialized with this size as its trailing bytes field. */
 export function selfMeasuredBytes(body: object): number {
   let bytes = 0;

@@ -22,7 +22,7 @@ import {
 import { sha256Hex } from "../shared/canonical.js";
 import { assertNativeSignal, plainRecord } from "../shared/data.js";
 import { PROPOSAL_LIMITS, validateProposalSourceManifest } from "./store.js";
-import { addDisjointPath, trackPending } from "./validation.js";
+import { addDisjointPath, ancestorPaths, trackPending } from "./validation.js";
 
 const PROPOSAL_SOURCE_LIMITS = Object.freeze({
   files: PROPOSAL_LIMITS.files,
@@ -128,13 +128,6 @@ function stable(a: BigIntStats, b: BigIntStats): boolean {
     a.mtimeNs === b.mtimeNs &&
     a.ctimeNs === b.ctimeNs
   );
-}
-/** Each proper ancestor of a relative path, outermost first. */
-function ancestorPaths(relative: string): string[] {
-  const components = relative.split("/");
-  return components
-    .slice(1)
-    .map((_, i) => components.slice(0, i + 1).join("/"));
 }
 /** canonical runs only after the stat checks pass. */
 function rootPin(

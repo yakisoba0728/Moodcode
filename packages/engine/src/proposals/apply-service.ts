@@ -285,7 +285,7 @@ export class ProposalApplyService {
         const before = revision.files.map((file) =>
           file.before ? this.ports.readBlobText(file.before) : null,
         );
-        const changes = revision.files.map((file, index) => ({
+        const changes = revision.files.map((file) => ({
           path: file.path,
           expectedHash: file.before?.sha256 ?? null,
           content: file.after ? this.ports.readBlobText(file.after) : null,
@@ -305,7 +305,7 @@ export class ProposalApplyService {
       );
       this.open(signal);
       const observed = this.ports.physical.read(physical);
-      const body = {
+      const preview = seal({
         projection: "host-proposal-apply-preview-v1" as const,
         authority: "explicit-host-approval" as const,
         workspaceId,
@@ -320,8 +320,7 @@ export class ProposalApplyService {
         preview: observed.preview,
         createdAt: new Date(now).toISOString(),
         expiresAt,
-      };
-      const preview = seal(body);
+      });
       const state: PreviewState = {
         preview,
         selection: selected.selection,
@@ -506,7 +505,7 @@ export class ProposalApplyService {
     if (state.released) fail("PROPOSAL_APPLY_PREVIEW_INVALID");
     if (this.now() >= Date.parse(state.preview.expiresAt))
       fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
-    const check = () => {
+    this.ports.readTx(() => {
       this.ports.assertUnpaused(state.preview.workspaceId);
       const binding = validateBinding(
         this.ports.checkBinding(state.preview.workspaceId),
@@ -539,8 +538,7 @@ export class ProposalApplyService {
         fail("PROPOSAL_APPLY_STALE");
       if (this.now() >= Date.parse(state.preview.expiresAt))
         fail("PROPOSAL_APPLY_PREVIEW_EXPIRED");
-    };
-    this.ports.readTx(check);
+    });
   }
   readApprovedCapture(
     original: object,

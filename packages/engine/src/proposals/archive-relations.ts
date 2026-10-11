@@ -150,7 +150,6 @@ export function validateProposalDatabase(
     readProposalBlob(db, ref, r.createdAt);
   }
 }
-/** Metadata-first native cross-row graph validation. */
 export function validateProposalApplyDatabase(
   db: DatabaseSync,
   check: () => void = () => {},
@@ -176,7 +175,7 @@ export function validateProposalApplyDatabase(
       revision.files.length > PROPOSAL_APPLY_LIMITS.files ||
       revision.totalBytes > PROPOSAL_APPLY_LIMITS.totalBytes
     )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+      scopeMismatch();
     const guard = readProposalApplyGuard(
       db,
       owner.workspaceId,
@@ -187,8 +186,7 @@ export function validateProposalApplyDatabase(
       fail("PROPOSAL_APPLY_GUARD_INVALID");
     const checkpoint = history.checkpoint;
     if (checkpoint) {
-      if (checkpoint.files.length !== revision.files.length)
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+      if (checkpoint.files.length !== revision.files.length) scopeMismatch();
       const { complete, partial } = checkpointShape(
         checkpoint.files,
         revision.files,
@@ -203,14 +201,14 @@ export function validateProposalApplyDatabase(
         (owner.state === "partial" &&
           (!partial || !complete || !checkpoint.producerCleanupConfirmed))
       )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+        scopeMismatch();
       for (const [fileIndex, file] of checkpoint.files.entries()) {
         const original = revision.files[fileIndex]!;
         if (
           file.path !== original.path ||
           knowledgeHash(file.before) !== knowledgeHash(original.before)
         )
-          fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+          scopeMismatch();
         if (file.after && "ownerId" in file.after) {
           const ref = file.after;
           if (
@@ -218,7 +216,7 @@ export function validateProposalApplyDatabase(
             ref.checkpointId !== checkpoint.id ||
             ref.fileIndex !== fileIndex
           )
-            fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+            scopeMismatch();
           const meta = db
             .prepare(
               "SELECT workspace_id,owner_id,checkpoint_id,file_index,sha256,bytes,header_sha256,length(CAST(data AS BLOB)) AS data_bytes,length(content) AS content_bytes FROM proposal_effect_blobs WHERE id=?",
@@ -237,7 +235,7 @@ export function validateProposalApplyDatabase(
             meta.header_sha256 !== ref.headerSha256 ||
             meta.content_bytes !== ref.bytes
           )
-            fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+            scopeMismatch();
           const raw = db
             .prepare(
               "SELECT data,content FROM proposal_effect_blobs WHERE id=? AND length(CAST(data AS BLOB))<=? AND length(content)<=?",
@@ -277,7 +275,7 @@ export function validateProposalApplyDatabase(
           knowledgeHash(file.after) !== knowledgeHash(original.before) &&
           knowledgeHash(file.after) !== knowledgeHash(original.after)
         )
-          fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+          scopeMismatch();
       }
     }
   }
@@ -314,16 +312,14 @@ export function validateProposalApplyDatabase(
     )
     .iterate()) {
     check();
-    if (!readApplyOwner(db, id(row.workspace_id), id(row.id)))
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    if (!readApplyOwner(db, id(row.workspace_id), id(row.id))) scopeMismatch();
     readApplyCheckpoint(db, id(row.workspace_id), id(row.id));
   }
   for (const row of db
     .prepare("SELECT id,workspace_id FROM proposal_apply_receipts ORDER BY id")
     .iterate()) {
     check();
-    if (!readApplyOwner(db, id(row.workspace_id), id(row.id)))
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    if (!readApplyOwner(db, id(row.workspace_id), id(row.id))) scopeMismatch();
     readApplyReceipt(db, id(row.workspace_id), id(row.id));
   }
   for (const row of db
@@ -346,7 +342,7 @@ export function validateProposalApplyDatabase(
         history.receipt.afterHead.applySettlement?.ownerId !==
           head.applySettlement.ownerId
       )
-        fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+        scopeMismatch();
     }
   }
   for (const row of db
@@ -360,7 +356,7 @@ export function validateProposalApplyDatabase(
       decision.revision !== row.revision ||
       decision.operation !== row.operation
     )
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+      scopeMismatch();
     for (const pin of decision.owners) {
       const owner = readApplyOwner(db, decision.workspaceId, pin.id);
       if (
