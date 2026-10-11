@@ -11,12 +11,24 @@ export interface TextEdit {
   range: TextRange;
   newText: string;
 }
-export function endPosition(text: string): { line: number; character: number } {
-  const lines = text.split(/\r\n|\r|\n/);
-  return { line: lines.length - 1, character: lines.at(-1)!.length };
+export function lineStarts(text: string): number[] {
+  const starts = [0];
+  for (const match of text.matchAll(/\r\n|\r|\n/g))
+    starts.push(match.index + match[0].length);
+  return starts;
+}
+export function endPosition(
+  text: string,
+  starts: readonly number[] = lineStarts(text),
+): { line: number; character: number } {
+  return { line: starts.length - 1, character: text.length - starts.at(-1)! };
 }
 /** UTF-16 positions with strict range bounds; never split a surrogate pair or a CRLF terminator. */
-export function positionOffset(text: string, position: TextPosition): number {
+export function positionOffset(
+  text: string,
+  position: TextPosition,
+  starts?: readonly number[],
+): number {
   if (
     !position ||
     !Number.isSafeInteger(position.line) ||
@@ -28,18 +40,18 @@ export function positionOffset(text: string, position: TextPosition): number {
       "INVALID_FORMAT_RANGE",
       "Formatter positions must be nonnegative UTF-16 offsets",
     );
-  const matches = [...text.matchAll(/\r\n|\r|\n/g)];
-  if (position.line > matches.length)
+  starts ??= lineStarts(text);
+  if (position.line >= starts.length)
     throw new EngineError(
       "INVALID_FORMAT_RANGE",
       "Formatter line is outside the observed document",
     );
-  const start =
-    position.line === 0
-      ? 0
-      : matches[position.line - 1]!.index! +
-        matches[position.line - 1]![0].length;
-  const end = matches[position.line]?.index ?? text.length;
+  const start = starts[position.line]!;
+  const next = starts[position.line + 1];
+  const end =
+    next === undefined
+      ? text.length
+      : next - (text[next - 1] === "\n" && text[next - 2] === "\r" ? 2 : 1);
   if (position.character > end - start)
     throw new EngineError(
       "INVALID_FORMAT_RANGE",
@@ -65,6 +77,7 @@ export function applyTextEdits(content: string, value: unknown): string {
       "FORMAT_EDIT_LIMIT",
       "Formatting needs at most 128 text edits",
     );
+  const starts = lineStarts(content);
   const edits = value
     .map((edit: TextEdit) => {
       if (
@@ -80,8 +93,8 @@ export function applyTextEdits(content: string, value: unknown): string {
           "INVALID_FORMAT_EDIT",
           "Formatting edits must be bounded UTF-8 text",
         );
-      const start = positionOffset(content, edit.range.start);
-      const end = positionOffset(content, edit.range.end);
+      const start = positionOffset(content, edit.range.start, starts);
+      const end = positionOffset(content, edit.range.end, starts);
       if (end < start)
         throw new EngineError(
           "INVALID_FORMAT_RANGE",

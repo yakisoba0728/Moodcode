@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { JsonValue, Workspace } from '@moodcode/contracts';
 import { applyTextEdits } from '../formatters/edits.js';
-import { installNativeBOMProjection, projectNativeBOMRange, usesNativeBOMProjection } from './native-bom.js';
+import { installNativeBOMProjection, nativeBOMRangeProjection, usesNativeBOMProjection } from './native-bom.js';
 import { navigationCandidates, projectNavigation } from './navigation.js';
 import type { LspConnection } from './stdio.js';
 
@@ -74,11 +74,11 @@ test('native formatting and versioned diagnostics project exact raw ranges witho
 });
 
 test('only a leading BOM shifts validated first-line ranges and invalid surrogate/line positions remain rejected', () => {
-  assert.deepEqual(projectNativeBOMRange(raw, range(6, 11)), range(7, 12));
-  assert.deepEqual(projectNativeBOMRange(raw, range(0, 5, 1)), range(0, 5, 1));
-  assert.deepEqual(projectNativeBOMRange(raw.slice(1), range(6, 11)), range(6, 11));
-  assert.throws(() => projectNativeBOMRange('\uFEFF😀x', range(1, 2)), { code: 'INVALID_FORMAT_RANGE' });
-  assert.throws(() => projectNativeBOMRange(raw, range(0, 1, 99)), { code: 'INVALID_FORMAT_RANGE' });
+  assert.deepEqual(nativeBOMRangeProjection(raw)(range(6, 11)), range(7, 12));
+  assert.deepEqual(nativeBOMRangeProjection(raw)(range(0, 5, 1)), range(0, 5, 1));
+  assert.deepEqual(nativeBOMRangeProjection(raw.slice(1))(range(6, 11)), range(6, 11));
+  assert.throws(() => nativeBOMRangeProjection('\uFEFF😀x')(range(1, 2)), { code: 'INVALID_FORMAT_RANGE' });
+  assert.throws(() => nativeBOMRangeProjection(raw)(range(0, 1, 99)), { code: 'INVALID_FORMAT_RANGE' });
   const generic = fixture(); assert.equal(usesNativeBOMProjection(generic.connection), false);
 });
 

@@ -14,6 +14,7 @@ import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import {
   applyTextEdits,
   endPosition,
+  lineStarts,
   positionOffset,
   type TextRange,
 } from "../formatters/edits.js";
@@ -603,14 +604,15 @@ export class LspManager {
         params.diagnostics,
         64 * 1024,
       ) as unknown as LspDiagnostic[];
+      const starts = lineStarts(doc.content);
       for (const item of diagnostics) {
         if (
           !item ||
           typeof item.message !== "string" ||
           Buffer.byteLength(item.message) > 4096 ||
           !item.range ||
-          positionOffset(doc.content, item.range.end) <
-            positionOffset(doc.content, item.range.start) ||
+          positionOffset(doc.content, item.range.end, starts) <
+            positionOffset(doc.content, item.range.start, starts) ||
           (item.severity !== undefined && ![1, 2, 3, 4].includes(item.severity))
         )
           return;

@@ -1,7 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
-import { positionOffset, type TextRange } from '../formatters/edits.js';
+import { lineStarts, positionOffset, type TextRange } from '../formatters/edits.js';
 import { HOST_ID, LANGUAGE_ID } from '../lsp/stdio.js';
 import { entriesBytes, entryBytes } from './memory.js';
 import { repositoryQuery, REPOSITORY_CONTEXT_LIMITS, type RepositoryIndexPort, type RepositoryQuery, type RepositorySnapshot, type RepositorySourceManifest } from '../repository/index.js';
@@ -291,7 +291,7 @@ export class RepositoryContextSource implements ContextSourcePort {
           selectionReason: 'observed-lsp-range' as const, lsp: { serverId: observation.serverId, queryPath: observation.path,
             documentVersion: observation.documentVersion, documentHash: observation.documentHash, kind: observation.kind, ...(item.name === undefined ? {} : { name: item.name }) } })));
       }
-      const files = new Map<string, { content: string; hash: string }>();
+      const files = new Map<string, { content: string; hash: string; starts: number[] }>();
       const snippets: RepositorySnippet[] = [];
       const seen = new Set<string>();
       let sourceBytes = 0;
@@ -304,13 +304,14 @@ export class RepositoryContextSource implements ContextSourcePort {
         if (!file) {
           const excluded = await excludedWorkspacePaths(frozen.workspace, [candidate.path], signal); check(signal);
           if (excluded.size) fail('REPOSITORY_CONTEXT_STALE', 'A selected repository source is excluded');
-          file = await readExactText(frozen.workspace, candidate.path, signal); check(signal);
-          sourceBytes += Buffer.byteLength(file.content);
+          const { content, hash } = await readExactText(frozen.workspace, candidate.path, signal); check(signal);
+          sourceBytes += Buffer.byteLength(content);
           if (sourceBytes > REPOSITORY_CONTRIBUTION_LIMITS.sourceBytes) fail('REPOSITORY_CONTEXT_SOURCE_LIMIT', 'Selected repository files exceed the bounded read budget');
+          file = { content, hash, starts: lineStarts(content) };
           files.set(candidate.path, file);
         }
         if (file.hash !== candidate.sourceHash) fail('REPOSITORY_CONTEXT_STALE', 'Selected snippet hash differs from the observed source');
-        const start = positionOffset(file.content, candidate.range.start), end = positionOffset(file.content, candidate.range.end);
+        const start = positionOffset(file.content, candidate.range.start, file.starts), end = positionOffset(file.content, candidate.range.end, file.starts);
         if (end < start) fail('INVALID_REPOSITORY_CONTEXT_RANGE', 'Repository snippet range end precedes its start');
         const text = file.content.slice(start, end);
         if (!text.length) { omissions.emptyRanges++; continue; }

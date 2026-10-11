@@ -7,12 +7,13 @@ import {
 } from "@moodcode/contracts";
 import { boundedJson } from "../artifacts/validation.js";
 import {
+  lineStarts,
   positionOffset,
   type TextPosition,
   type TextRange,
 } from "../formatters/edits.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
-import { projectNativeBOMRange } from "./native-bom.js";
+import { nativeBOMRangeProjection } from "./native-bom.js";
 import { excludedWorkspacePaths } from "../workspace/ignore.js";
 
 export const LSP_NAVIGATION_LIMITS = Object.freeze({
@@ -70,12 +71,17 @@ function object(value: unknown): Record<string, unknown> {
     return fail();
   return value as Record<string, unknown>;
 }
-export function navigationRange(text: string, value: unknown): TextRange {
+export function navigationRange(
+  text: string,
+  value: unknown,
+  starts?: readonly number[],
+): TextRange {
   const range = object(value);
   const start = object(range.start) as unknown as TextPosition;
   const end = object(range.end) as unknown as TextPosition;
   try {
-    if (positionOffset(text, end) < positionOffset(text, start)) return fail();
+    if (positionOffset(text, end, starts) < positionOffset(text, start, starts))
+      return fail();
   } catch {
     return fail();
   }
@@ -195,7 +201,16 @@ export async function projectNavigation(
   signal: AbortSignal,
   nativeBOMProjection = false,
 ): Promise<LspNavigationSnapshot> {
-  const observed = new Map([[base.path, source]]);
+  const observe = (file: { content: string; hash: string }) => ({
+    content: file.content,
+    hash: file.hash,
+    starts: lineStarts(file.content),
+    project: nativeBOMProjection
+      ? nativeBOMRangeProjection(file.content)
+      : (value: unknown) => value,
+  });
+  const origin = observe(source);
+  const observed = new Map([[base.path, origin]]);
   const result: LspNavigationSnapshot = {
     ...base,
     items: [],
@@ -238,28 +253,30 @@ export async function projectNavigation(
         result.omitted.limits++;
         continue;
       }
+      let read: { content: string; hash: string };
       try {
-        file = await readExactText(workspace, path, signal);
+        read = await readExactText(workspace, path, signal);
       } catch {
         if (signal.aborted)
           throw new EngineError("CANCELLED", "Navigation cancelled");
         result.omitted.unavailable++;
         continue;
       }
-      fileBytes += Buffer.byteLength(file.content);
+      fileBytes += Buffer.byteLength(read.content);
       if (fileBytes > LSP_NAVIGATION_LIMITS.fileBytes) {
         result.omitted.limits++;
         continue;
       }
+      file = observe(read);
       observed.set(path, file);
     }
-    const projected = (text: string, value: unknown) => nativeBOMProjection ? projectNativeBOMRange(text, value) : value;
-    const selectedRange = navigationRange(file.content, projected(file.content, candidate.range));
+    const { content, starts } = file;
+    const selectedRange = navigationRange(content, file.project(candidate.range), starts);
     if (candidate.enclosingRange !== undefined) {
-      const enclosing = navigationRange(file.content, projected(file.content, candidate.enclosingRange));
-      if (positionOffset(file.content, selectedRange.start) < positionOffset(file.content, enclosing.start) || positionOffset(file.content, selectedRange.end) > positionOffset(file.content, enclosing.end)) return fail();
+      const enclosing = navigationRange(content, file.project(candidate.enclosingRange), starts);
+      if (positionOffset(content, selectedRange.start, starts) < positionOffset(content, enclosing.start, starts) || positionOffset(content, selectedRange.end, starts) > positionOffset(content, enclosing.end, starts)) return fail();
     }
-    if (candidate.originRange !== undefined) navigationRange(source.content, projected(source.content, candidate.originRange));
+    if (candidate.originRange !== undefined) navigationRange(origin.content, origin.project(candidate.originRange), origin.starts);
     const item: LspNavigationItem = {
       path,
       hash: file.hash,

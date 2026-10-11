@@ -1,25 +1,26 @@
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
-import { endPosition, positionOffset, type TextPosition, type TextRange } from '../formatters/edits.js';
+import { endPosition, lineStarts, positionOffset, type TextPosition, type TextRange } from '../formatters/edits.js';
 import type { LspConnection } from './stdio.js';
 
 const nativeConnections = new WeakSet<LspConnection>();
 const bom = (text: string) => text.startsWith('\uFEFF');
 const object = (value: JsonValue | undefined): JsonObject | undefined => value && typeof value === 'object' && !Array.isArray(value) ? value : undefined;
-function position(text: string, value: TextPosition, direction: -1 | 1): TextPosition {
-  positionOffset(direction === 1 ? text.slice(1) : text, value);
+function position(basis: string, value: TextPosition, direction: -1 | 1, starts?: readonly number[]): TextPosition {
+  positionOffset(basis, value, starts);
   return { line: value.line, character: value.line === 0 ? Math.max(0, value.character + direction) : value.character };
 }
-function range(text: string, value: unknown, direction: -1 | 1): TextRange {
+function range(basis: string, starts: readonly number[], value: unknown, direction: -1 | 1): TextRange {
   const input = value as TextRange;
   if (!input || !input.start || !input.end) throw new EngineError('INVALID_LSP_NAVIGATION_RESULT', 'Native range needs two valid UTF-16 positions');
-  const basis = direction === 1 ? text.slice(1) : text;
-  if (positionOffset(basis, input.end) < positionOffset(basis, input.start)) throw new EngineError('INVALID_LSP_NAVIGATION_RESULT', 'Native range ends before it starts');
-  return { start: position(text, input.start, direction), end: position(text, input.end, direction) };
+  if (positionOffset(basis, input.end, starts) < positionOffset(basis, input.start, starts)) throw new EngineError('INVALID_LSP_NAVIGATION_RESULT', 'Native range ends before it starts');
+  return { start: position(basis, input.start, direction, starts), end: position(basis, input.end, direction, starts) };
 }
 export const usesNativeBOMProjection = (connection: LspConnection): boolean => nativeConnections.has(connection);
-export function projectNativeBOMRange(text: string, value: unknown): unknown {
-  return bom(text) ? range(text, value, 1) : value;
+export function nativeBOMRangeProjection(text: string): (value: unknown) => unknown {
+  if (!bom(text)) return value => value;
+  const basis = text.slice(1), starts = lineStarts(basis);
+  return value => range(basis, starts, value, 1);
 }
 
 /** TS7 disk reads strip a UTF-8 BOM; keep its overlays on that same text basis. */
@@ -39,14 +40,14 @@ export function installNativeBOMProjection(connection: LspConnection): void {
     } else if (method === 'textDocument/didChange' && uri && Array.isArray(params?.contentChanges)) {
       const prior = documents.get(uri), change = object(params.contentChanges[0]);
       if (prior === undefined || params.contentChanges.length !== 1 || typeof change?.text !== 'string') throw new EngineError('INVALID_LSP_NATIVE_TEXT', 'Native synchronization requires one complete observed document');
-      const end = endPosition(prior);
+      const starts = lineStarts(prior), end = endPosition(prior, starts);
       if (change.range !== undefined) {
         const selected = change.range as unknown as TextRange;
         if (!selected?.start || !selected.end || selected.start.line !== 0 || selected.start.character !== 0 || selected.end.line !== end.line || selected.end.character !== end.character) throw new EngineError('INVALID_LSP_NATIVE_TEXT', 'Native synchronization only replaces the complete observed text');
       }
       const text = change.text;
       documents.set(uri, text);
-      await notify(method, { ...params, contentChanges: [{ ...change, ...(change.range !== undefined && bom(prior) ? { range: range(prior, change.range, -1) as unknown as JsonValue } : {}), text: bom(text) ? text.slice(1) : text,
+      await notify(method, { ...params, contentChanges: [{ ...change, ...(change.range !== undefined && bom(prior) ? { range: range(prior, starts, change.range, -1) as unknown as JsonValue } : {}), text: bom(text) ? text.slice(1) : text,
         ...(change.rangeLength !== undefined && bom(prior) ? { rangeLength: prior.length - 1 } : {}) }] });
     } else {
       await notify(method, input);
@@ -59,20 +60,22 @@ export function installNativeBOMProjection(connection: LspConnection): void {
     const navigation = method === 'textDocument/definition' || method === 'textDocument/references';
     const output = await request(method, navigation && text !== undefined && bom(text) && params?.position ? { ...params, position: position(text, params.position as unknown as TextPosition, -1) as unknown as JsonValue } : input, signal, timeout);
     if (method !== 'textDocument/formatting' || text === undefined || !bom(text) || !Array.isArray(output)) return output;
+    const project = nativeBOMRangeProjection(text);
     return output.map(value => {
       const edit = object(value);
       if (!edit) throw new EngineError('INVALID_FORMAT_EDIT', 'Native formatting needs valid text edits');
-      return { ...edit, range: range(text, edit.range, 1) as unknown as JsonValue };
+      return { ...edit, range: project(edit.range) as JsonValue };
     });
   };
   connection.onNotification = listener => listen((method, input) => {
     const params = object(input), text = typeof params?.uri === 'string' ? documents.get(params.uri) : undefined;
     if (method !== 'textDocument/publishDiagnostics' || text === undefined || !bom(text) || !Array.isArray(params?.diagnostics)) { listener(method, input); return; }
     try {
+      const project = nativeBOMRangeProjection(text);
       listener(method, { ...params, diagnostics: params.diagnostics.map(value => {
         const diagnostic = object(value);
         if (!diagnostic) throw new EngineError('INVALID_LSP_DIAGNOSTIC', 'Native diagnostic needs a valid range');
-        return { ...diagnostic, range: range(text, diagnostic.range, 1) as unknown as JsonValue };
+        return { ...diagnostic, range: project(diagnostic.range) as JsonValue };
       }) });
     } catch { /* Malformed diagnostics remain unavailable, as in the manager. */ }
   });

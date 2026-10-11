@@ -9,7 +9,9 @@ import {
   FormatterRegistry,
   createFormatTool,
   applyTextEdits,
+  positionOffset,
 } from "./index.js";
+import { endPosition, lineStarts } from "./edits.js";
 const code = (expected: string) => (e: unknown) => {
   assert.equal((e as { code: string }).code, expected);
   return true;
@@ -63,6 +65,25 @@ test("text edits respect UTF16, BOM and CRLF and reject invalid/overlapping/ambi
     code("INVALID_FORMAT_EDIT"),
   );
   assert.equal(applyTextEdits(source, null), source);
+});
+test("positions resolve LF, CR and CRLF lines with or without a precomputed line table", () => {
+  const source = "a\r\nbc\rd\n\r\n";
+  const starts = lineStarts(source);
+  assert.deepEqual(starts, [0, 3, 6, 8, 10]);
+  assert.deepEqual(endPosition(source, starts), { line: 4, character: 0 });
+  for (const table of [undefined, starts]) {
+    assert.equal(positionOffset(source, { line: 1, character: 2 }, table), 5);
+    assert.equal(positionOffset(source, { line: 4, character: 0 }, table), 10);
+    for (const position of [
+      { line: 0, character: 2 },
+      { line: 3, character: 1 },
+      { line: 5, character: 0 },
+    ])
+      assert.throws(
+        () => positionOffset(source, position, table),
+        code("INVALID_FORMAT_RANGE"),
+      );
+  }
 });
 async function fixture(t: test.TestContext) {
   const root = await realpath(

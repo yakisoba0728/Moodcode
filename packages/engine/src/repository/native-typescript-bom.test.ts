@@ -10,7 +10,7 @@ import { LspManager } from '../lsp/index.js';
 import { createTypeScriptNativeLspFactory } from '../lsp/typescript-native.js';
 import { authoredRange } from './fixtures/semantic-corpus.js';
 import { applyTextEdits } from '../formatters/edits.js';
-import { projectNativeBOMRange } from '../lsp/native-bom.js';
+import { nativeBOMRangeProjection } from '../lsp/native-bom.js';
 import { nativeAvailable, nativeExecutable } from './fixtures/native-semantic-benchmark.js';
 
 test('actual native TS7 preserves raw BOM UTF16 locations for disk targets, opened documents and source updates', { timeout: 30_000 }, async t => {
@@ -59,7 +59,7 @@ test('actual native TS7 accepts identical full text versions and BOM removal wit
   await connection.notify('textDocument/didOpen', { textDocument: { uri, version: 1, languageId: 'typescript', text } });
   const query = async (current: string) => {
     const response = await connection.request('textDocument/definition', { textDocument: { uri }, position: { ...authoredRange(current, 'όνομα').start } }, signal, 10_000) as { range: unknown }[];
-    assert.equal(response.length, 1); assert.deepEqual(projectNativeBOMRange(current, response[0]!.range), authoredRange(current, 'όνομα'));
+    assert.equal(response.length, 1); assert.deepEqual(nativeBOMRangeProjection(current)(response[0]!.range), authoredRange(current, 'όνομα'));
   };
   await query(text);
   await connection.notify('textDocument/didChange', { textDocument: { uri, version: 2 }, contentChanges: [{ range: { start: { line: 0, character: 0 }, end: { line: 2, character: 0 } }, text }] });
