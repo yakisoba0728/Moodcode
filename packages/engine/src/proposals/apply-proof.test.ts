@@ -208,3 +208,18 @@ test("current terminal head must resolve its exact actual settlement owner, not 
   assert.throws(() => validateProposalApplyDatabase(db));
   f.assertNoCoding();
 });
+
+test("apply validation rejects a current head whose revision column disagrees with its sealed body", async (t) => {
+  const f = await applyFixture(t);
+  await f.stage();
+  const result = await f.apply(await f.preview(), "head-column-mismatch"),
+    db = actualDb(f.engine);
+  assert.doesNotThrow(() => validateProposalApplyDatabase(db));
+  db.prepare("UPDATE proposal_heads SET revision=revision+1 WHERE id=?").run(
+    result.owner.proposalId,
+  );
+  assert.throws(() => validateProposalApplyDatabase(db), {
+    code: "PROPOSAL_APPLY_SCOPE_MISMATCH",
+  });
+  f.assertNoCoding();
+});

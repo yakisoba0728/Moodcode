@@ -174,8 +174,8 @@ test("actual native observations survive current-schema archive/import exactly a
     );
     assert.equal(current.store.getSessionControl(f.session.id).paused, true);
     assert.equal(
-      current.workspaceKnowledge.getImportPause(f.workspace.id)?.state,
-      "paused",
+      current.workspaceKnowledge.isImportPaused(f.workspace.id),
+      true,
     );
     assert.equal(producers, 0);
     assert.deepEqual(rows(imported.dbPath), original);

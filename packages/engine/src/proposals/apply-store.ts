@@ -4,7 +4,12 @@ import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
 import { sealRecord, sha256Hex } from "../shared/canonical.js";
 import { guardedWrite } from "../storage/transaction.js";
-import { validateProposalRevision, validateProposalSet } from "./store.js";
+import {
+  advanceProposalHead,
+  readProposalHead,
+  validateProposalRevision,
+  validateProposalSet,
+} from "./store.js";
 import { assertNotThenable, proposalChecks } from "./validation.js";
 
 import type {
@@ -77,6 +82,9 @@ function fail(
 }
 function transactionRequired(): never {
   return fail("PROPOSAL_APPLY_TRANSACTION_REQUIRED");
+}
+function scopeMismatch(): never {
+  return fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
 }
 const {
   id,
@@ -603,13 +611,9 @@ export class ProposalApplyStorage {
           receipt.state !== owner.state))
     )
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const rawHead = this.db
-      .prepare(
-        "SELECT data FROM proposal_heads WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=65536",
-      )
-      .get(ws, owner.proposalId);
-    if (!rawHead) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const head = validateProposalSet(decoded(rawHead.data, 65536));
+    const head =
+      readProposalHead(this.db, ws, owner.proposalId, scopeMismatch) ??
+      scopeMismatch();
     if (receipt && head.applySettlement?.ownerId !== owner.id)
       fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
     if (head.applySettlement?.ownerId === owner.id) {
@@ -1092,19 +1096,9 @@ export class ProposalApplyStorage {
           receipt.requestSha256,
           JSON.stringify(receipt),
         );
-      const changed = this.db
-        .prepare(
-          "UPDATE proposal_heads SET revision=?,data=? WHERE workspace_id=? AND id=? AND revision=? AND data=?",
-        )
-        .run(
-          afterHead.headRevision,
-          JSON.stringify(afterHead),
-          owner.workspaceId,
-          owner.proposalId,
-          actualHead.headRevision,
-          JSON.stringify(actualHead),
-        );
-      if (changed.changes !== 1) fail("PROPOSAL_APPLY_STALE");
+      advanceProposalHead(this.db, actualHead, afterHead, () =>
+        fail("PROPOSAL_APPLY_STALE"),
+      );
       return Object.freeze({ owner, checkpoint, receipt });
     });
   }
@@ -1463,14 +1457,13 @@ function resolved(
 ): boolean {
   let open = resumable.get(owner.proposalId);
   if (open === undefined) {
-    const head = db
-      .prepare(
-        "SELECT data,length(CAST(data AS BLOB)) AS bytes FROM proposal_heads WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=65536",
-      )
-      .get(owner.workspaceId, owner.proposalId);
-    open =
-      !!head &&
-      validateProposalSet(decoded(head.data, 65536)).status !== "paused-import";
+    const head = readProposalHead(
+      db,
+      owner.workspaceId,
+      owner.proposalId,
+      scopeMismatch,
+    );
+    open = !!head && head.status !== "paused-import";
     resumable.set(owner.proposalId, open);
   }
   if (!open) return false;
@@ -1551,13 +1544,9 @@ export function pauseImportedProposalApplies(
     const owner = validateProposalApplyOwner(
       readRow(db, "proposal_apply_owners", workspaceId, id(row.id)),
     );
-    const head = db
-      .prepare(
-        "SELECT data FROM proposal_heads WHERE workspace_id=? AND id=? AND length(CAST(data AS BLOB))<=65536",
-      )
-      .get(workspaceId, owner.proposalId);
-    if (!head) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const paused = validateProposalSet(decoded(head.data, 65536));
+    const paused =
+      readProposalHead(db, workspaceId, owner.proposalId, scopeMismatch) ??
+      scopeMismatch();
     if (
       paused.status !== "paused-import" ||
       paused.archiveSha256 !== archiveSha256
@@ -1770,21 +1759,12 @@ export function validateProposalApplyDatabase(
     storage.getReceipt(id(row.workspace_id), id(row.id));
   }
   for (const row of db
-    .prepare(
-      "SELECT id,workspace_id,length(CAST(data AS BLOB)) AS bytes FROM proposal_heads ORDER BY id",
-    )
+    .prepare("SELECT id,workspace_id FROM proposal_heads ORDER BY id")
     .iterate()) {
     check();
-    count(row.bytes, 65536);
-    const raw = db
-      .prepare(
-        "SELECT data FROM proposal_heads WHERE id=? AND length(CAST(data AS BLOB))<=65536",
-      )
-      .get(id(row.id));
-    if (!raw) fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
-    const head = validateProposalSet(decoded(raw.data, 65536));
-    if (head.id !== row.id || head.workspaceId !== row.workspace_id)
-      fail("PROPOSAL_APPLY_SCOPE_MISMATCH");
+    const head =
+      readProposalHead(db, id(row.workspace_id), id(row.id), scopeMismatch) ??
+      scopeMismatch();
     if (head.applySettlement) {
       const history = storage.getHistory(
         head.workspaceId,

@@ -5,11 +5,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import type { JsonObject, Session, Workspace } from '@moodcode/contracts';
 import { createEngine } from '../engine.js';
 import { exportEngineArchive, importEngineArchive, validateEngineArchive } from '../storage/archive.js';
 import { DB_VERSION } from '../storage/migrations.js';
 
+function stored<T>(dbPath: string, read: (db: DatabaseSync) => T): T { const db = new DatabaseSync(dbPath, { readOnly: true }); try { return read(db); } finally { db.close(); } }
 async function fixture(t: test.TestContext) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'moodcode-native-knowledge-'))), root = join(base, 'repo'), dbPath = join(base, 'engine.sqlite'), artifactDir = join(base, 'artifacts');
   mkdirSync(root); execFileSync('git', ['init', '--quiet', '--template=', root]);
@@ -34,7 +36,7 @@ test('actual engine stores trusted pending knowledge without manufacturing execu
   assert.equal(plan.target.kind, 'workspace-file'); assert.equal(f.engine.workspaceKnowledge.getGenerationPlan(f.workspace.id, plan.id)!.id, plan.id);
   assert.equal(f.engine.store.getSnapshot(f.session.id).runs.length, 0); assert.equal(f.engine.store.listInputs(f.session.id).inputs.length, 0);
   assert.throws(() => f.engine.workspaceKnowledge.attachGenerationOwner(f.workspace.id, plan.id, 'invented-owner'));
-  assert.equal(f.engine.workspaceKnowledge.listCandidates(f.workspace.id).items.length, 0); assert.equal(existsSync(join(f.root, 'MOODCODE_MEMORY.md')), false);
+  assert.equal(stored(f.dbPath, db => db.prepare('SELECT count(*) AS n FROM knowledge_candidates').get()!.n), 0); assert.equal(existsSync(join(f.root, 'MOODCODE_MEMORY.md')), false);
   assert.throws(() => f.engine.captureWorkspaceKnowledgeTarget(f.workspace.id, 'a.ts'), { code: 'KNOWLEDGE_TARGET_REVISION_UNAVAILABLE' });
   f.engine.releaseWorkspaceKnowledgeSources(prepared.projection);
   await assert.rejects(f.engine.prepareWorkspaceKnowledgeGeneration({ ...prepared.input, requestId: 'released-source' }));
@@ -64,7 +66,8 @@ test('current archive preserves trust/plans and pauses workspace knowledge after
     assert.equal(imported.executionResumed, false); assert.equal(imported.sessionsPaused, 1);
     assert.equal(restored.workspaceKnowledge.getGenerationPlan(f.workspace.id, plan.id)!.sha256, plan.sha256);
     assert.equal(restored.workspaceKnowledge.getTrust(f.workspace.id)!.sha256, f.trust.sha256);
-    const marker = restored.workspaceKnowledge.getImportPause(f.workspace.id)!; assert.equal(marker.state, 'paused'); assert.equal(marker.archiveSha256, archived.manifestSha256);
+    assert.equal(restored.workspaceKnowledge.isImportPaused(f.workspace.id), true);
+    const marker = JSON.parse(String(stored(imported.dbPath, db => db.prepare('SELECT data FROM knowledge_import_pauses WHERE id=?').get(f.workspace.id)!.data))); assert.equal(marker.state, 'paused'); assert.equal(marker.archiveSha256, archived.manifestSha256);
     assert.throws(() => restored.workspaceKnowledge.assertTrusted(f.workspace.id, 1), { code: 'KNOWLEDGE_IMPORT_PAUSED' });
     assert.equal(restored.store.getSnapshot(f.session.id).runs.length, 0); assert.equal(readFileSync(join(f.root, 'a.ts'), 'utf8'), targetBefore); assert.equal(existsSync(join(f.root, 'MOODCODE_MEMORY.md')), false);
   } finally { await restored.close(); }

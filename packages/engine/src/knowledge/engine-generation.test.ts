@@ -178,7 +178,7 @@ for (const mode of ['source', 'target', 'trust-source', 'trust-revoked'] as cons
   });
   const result = await f.api.generateWorkspaceKnowledge(f.input);
   assert.equal(result.generation.state, 'completed'); assert.ok(result.attempt); assert.equal(result.attempt.state, 'completed'); assert.equal(result.attempt.output, 'Actual completed proposed text.'); assert.equal(result.attempt.cleanup!.confirmed, true);
-  assert.equal(result.generation.candidate.state, 'withheld'); assert.ok(result.generation.candidate.reason); assert.equal(result.candidate, null); assert.equal(f.engine.workspaceKnowledge.listCandidates(f.workspace.id).items.length, 0);
+  assert.equal(result.generation.candidate.state, 'withheld'); assert.ok(result.generation.candidate.reason); assert.equal(result.candidate, null); assert.equal(counts(f.dbPath, ['knowledge_candidates']).knowledge_candidates, 0);
   assert.deepEqual(result.attempt.usage, { inputTokens: 4, outputTokens: 2, cachedInputTokens: null, reasoningTokens: null });
   const duplicate = await f.api.generateWorkspaceKnowledge(f.input); assert.equal(duplicate.generation.id, result.generation.id); assert.equal(duplicate.generation.state, 'completed'); assert.equal(duplicate.candidate, null); assert.equal(f.generations.length, 1);
   assert.deepEqual(counts(f.dbPath, CODING_TABLES), f.codingBefore);
@@ -191,7 +191,7 @@ test('native finish event alone cannot create a candidate before actual iterator
   const f = await fixture(t, { behavior: () => ({ [Symbol.asyncIterator]() { return iterator; } }) }), operation = f.api.generateWorkspaceKnowledge(f.input);
   await atEnd.promise; const owner = f.generations[0]!.owner, observed = f.api.getWorkspaceKnowledgeGeneration(f.workspace.id, owner.generationId);
   assert.equal(observed.generation.state, 'output-finished'); assert.equal(observed.candidate, null); assert.ok(observed.attempt); assert.equal(observed.attempt.finishReason, 'stop'); assert.equal(observed.attempt.streamDone, false);
-  assert.equal(f.engine.workspaceKnowledge.listCandidates(f.workspace.id).items.length, 0);
+  assert.equal(counts(f.dbPath, ['knowledge_candidates']).knowledge_candidates, 0);
   completion.resolve({ done: true, value: undefined }); const result = await operation;
   assert.equal(result.generation.state, 'completed'); assert.equal(result.attempt!.streamDone, true); assert.ok(result.candidate); assert.equal(returns, 0); f.assertNoCodingEffects();
 });
@@ -209,7 +209,7 @@ for (const mode of ['empty', 'overflow', 'tool', 'length', 'after-finish'] as co
   assert.ok(result.generation.errorCode); assert.deepEqual(result.attempt.usage, { inputTokens: 4, outputTokens: 2, cachedInputTokens: null, reasoningTokens: null });
   if (mode === 'overflow') { assert.ok(result.attempt.outputBytes <= 8); assert.equal(result.attempt.observedTextBytes, 10); assert.equal(result.attempt.outputTruncated, true); }
   else assert.equal(result.attempt.output, mode === 'empty' ? '' : 'Partial observed text.');
-  assert.equal(f.generations.length, 1); assert.equal(f.engine.workspaceKnowledge.listCandidates(f.workspace.id).items.length, 0); f.assertNoCodingEffects();
+  assert.equal(f.generations.length, 1); assert.equal(counts(f.dbPath, ['knowledge_candidates']).knowledge_candidates, 0); f.assertNoCodingEffects();
 });
 
 test('actual caller cancellation preserves partial output/usage with authenticated iterator return and no candidate', async t => {

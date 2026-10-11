@@ -6,7 +6,7 @@ import { DatabaseSync } from 'node:sqlite';
 import test, { type TestContext } from 'node:test';
 import { EngineError } from '@moodcode/contracts';
 import { assertWorkspaceTrustSourcesCurrent, captureWorkspaceTrustSources } from '../workspace/trust.js';
-import { KnowledgeStorage, KNOWLEDGE_SCHEMA_SQL } from './store.js';
+import { KnowledgeStorage, KNOWLEDGE_SCHEMA_SQL, writeKnowledgeImportPause } from './store.js';
 import { KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, knowledgeHash, sha256, validateKnowledgeArchiveRow } from './validation.js';
 import type { KnowledgeCandidate, KnowledgeGenerationEvidence, KnowledgeGenerationPlan, KnowledgeHostBinding, KnowledgeSourceManifest, KnowledgeStoragePorts, KnowledgeTarget, PrepareKnowledgeGeneration, SetWorkspaceTrust } from './types.js';
 
@@ -150,7 +150,6 @@ test('candidate is immutable pending data; unknown usage stays null and exact re
   assert.throws(() => f.store.appendCandidate(handle, { requestId: 'candidate', body: candidate.body + 'changed' }), hasCode('KNOWLEDGE_REQUEST_CONFLICT'));
   assert.throws(() => f.store.appendCandidate(handle, { requestId: 'different-request', body: candidate.body }), hasCode('KNOWLEDGE_RECORD_CONFLICT'));
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM knowledge_candidates').get()!.n, 1); assert.equal('publicationId' in candidate, false);
-  assert.deepEqual(f.store.assertCandidateCurrent('workspace', candidate.id), candidate);
 });
 
 test('body replacement, caller-supplied provenance and changed native owner observations cannot append', t => {
@@ -163,14 +162,8 @@ test('body replacement, caller-supplied provenance and changed native owner obse
 
 test('trust revoke and physical storage binding changes invalidate old handles without deleting evidence', t => {
   const f = fixture(t), { candidate, handle } = f.append(); f.store.setTrust(f.trustRequest({ requestId: 'revoke', expectedRevision: 1, decision: 'deny', sources: [] }));
-  assert.throws(() => f.store.assertCandidateCurrent('workspace', candidate.id), hasCode('WORKSPACE_UNTRUSTED')); assert.equal(f.store.getCandidate('workspace', candidate.id)!.body, candidate.body);
+  assert.equal(f.store.getCandidate('workspace', candidate.id)!.body, candidate.body);
   f.state.bindingSuffix = 'replacement-storage'; assert.throws(() => f.store.appendCandidate(handle, { requestId: 'candidate', body: candidate.body }), hasCode('KNOWLEDGE_BINDING_MISMATCH'));
-});
-
-test('candidate expiry and changed approved instruction files block future freshness', t => {
-  const f = fixture(t), { candidate } = f.append(); writeFileSync(join(f.root, 'AGENTS.md'), 'Unapproved new instruction bytes\n');
-  assert.throws(() => f.store.assertCandidateCurrent('workspace', candidate.id), hasCode('KNOWLEDGE_SOURCE_CHANGED'));
-  f.state.now += 60_000; assert.throws(() => f.store.assertCandidateCurrent('workspace', candidate.id), hasCode('KNOWLEDGE_EXPIRED'));
 });
 
 test('plan expiry crossed inside a host freshness callback cannot create a late plan', t => {
@@ -202,21 +195,8 @@ test('candidate receipt failure rolls back the candidate and remains retryable u
   assert.equal(f.db.prepare('SELECT count(*) AS n FROM knowledge_candidates').get()!.n, 0); f.db.exec('DROP TRIGGER reject_candidate_receipt'); assert.equal(f.store.appendCandidate(handle, input).state, 'pending');
 });
 
-test('bounded candidate pages omit body; export uses exact workspace/table cursors and validated hashes', t => {
-  const f = fixture(t); f.store.setTrust(f.trustRequest()); const ids: string[] = [];
-  for (let index = 0; index < 35; index++) {
-    const plan = f.store.prepareGeneration(f.planRequest({ requestId: `plan-${index}` })), body = `Authored host output ${index}`, owner = f.recordOwner(plan, body, `owner-${index}`), handle = f.store.attachGenerationOwner('workspace', plan.id, owner.ownerId), candidate = f.store.appendCandidate(handle, { requestId: `candidate-${index}`, body }); ids.push(candidate.id); f.store.releaseGenerationOwner(handle);
-  }
-  const first = f.store.listCandidates('workspace'); assert.equal(first.items.length, 32); assert.ok(first.next); assert.equal('body' in first.items[0]!, false); assert.ok(first.bytes <= KNOWLEDGE_LIMITS.pageBytes);
-  const second = f.store.listCandidates('workspace', { after: first.next! }); assert.equal(second.items.length, 3); assert.equal(second.next, null); assert.deepEqual([...first.items, ...second.items].map(item => item.id).sort(), ids.sort());
-  assert.throws(() => f.store.listCandidates('other', { after: first.next! }), hasCode('INVALID_KNOWLEDGE_CURSOR')); assert.throws(() => f.store.exportRows('knowledge_generation_plans', 'workspace', { after: first.next! }), hasCode('INVALID_KNOWLEDGE_CURSOR'));
-  assert.throws(() => f.store.listCandidates('workspace', { limit: 33 }), hasCode('INVALID_KNOWLEDGE')); assert.throws(() => f.store.listCandidates('workspace', { maxBytes: 64 }), hasCode('INVALID_KNOWLEDGE'));
-  const exported = f.store.exportRows('knowledge_candidates', 'workspace', { limit: 2 }); assert.equal(exported.items.length, 2); assert.equal(exported.bytes, Buffer.byteLength(JSON.stringify(exported.items)));
-  for (const row of exported.items) assert.deepEqual(validateKnowledgeArchiveRow(row), row);
-});
-
 test('archive row validation detects mutated hashes, scopes and active state without granting import authority', t => {
-  const f = fixture(t); f.append(); const row = f.store.exportRows('knowledge_candidates', 'workspace').items[0]!;
+  const f = fixture(t), { candidate } = f.append(), row = validateKnowledgeArchiveRow({ table: 'knowledge_candidates', key: candidate.id, workspaceId: 'workspace', data: candidate });
   assert.throws(() => validateKnowledgeArchiveRow({ ...row, workspaceId: 'other' }), hasCode('KNOWLEDGE_SCOPE_MISMATCH'));
   assert.throws(() => validateKnowledgeArchiveRow({ ...row, data: { ...row.data, body: 'Modified imported text' } }), hasCode('KNOWLEDGE_HASH_MISMATCH'));
   assert.throws(() => validateKnowledgeArchiveRow({ ...row, data: { ...row.data, state: 'active' } }), hasCode('INVALID_KNOWLEDGE'));
@@ -224,14 +204,16 @@ test('archive row validation detects mutated hashes, scopes and active state wit
 });
 
 test('import pause survives restart; records remain inspectable and new plans/owner captures are blocked', t => {
-  const f = fixture(t), { candidate, plan } = f.append(); f.store.markImportPaused('workspace', sha256('authored archive'));
-  const replacement = f.reopen(); assert.equal(replacement.getImportPause('workspace')!.state, 'paused'); assert.deepEqual(replacement.getCandidate('workspace', candidate.id), candidate);
-  assert.throws(() => replacement.assertCandidateCurrent('workspace', candidate.id), hasCode('KNOWLEDGE_IMPORT_PAUSED')); assert.throws(() => replacement.attachGenerationOwner('workspace', plan.id, 'host-owner'), hasCode('KNOWLEDGE_IMPORT_PAUSED'));
+  const f = fixture(t), { candidate, plan } = f.append(), pause = writeKnowledgeImportPause(f.db, 'workspace', sha256('authored archive'), new Date(f.state.now).toISOString());
+  assert.equal(f.db.prepare('SELECT data FROM knowledge_import_pauses WHERE id=?').get('workspace')!.data, JSON.stringify(pause)); assert.equal(pause.state, 'paused');
+  const replacement = f.reopen(); assert.equal(replacement.isImportPaused('workspace'), true); assert.deepEqual(replacement.getCandidate('workspace', candidate.id), candidate);
+  assert.throws(() => replacement.attachGenerationOwner('workspace', plan.id, 'host-owner'), hasCode('KNOWLEDGE_IMPORT_PAUSED'));
   assert.throws(() => replacement.prepareGeneration(f.planRequest({ requestId: 'after-import' })), hasCode('KNOWLEDGE_IMPORT_PAUSED'));
 });
 
 test('import pause participates in an existing import owner transaction without nested BEGIN or rebinding', t => {
-  const f = fixture(t); f.prepare(); f.db.exec('BEGIN IMMEDIATE'); f.store.markImportPaused('workspace', sha256('archive')); f.db.exec('ROLLBACK'); assert.equal(f.store.getImportPause('workspace'), undefined);
+  const f = fixture(t); f.prepare(); f.db.exec('BEGIN IMMEDIATE'); writeKnowledgeImportPause(f.db, 'workspace', sha256('archive'), new Date(f.state.now).toISOString()); assert.equal(f.store.isImportPaused('workspace'), true);
+  f.db.exec('ROLLBACK'); assert.equal(f.store.isImportPaused('workspace'), false);
   assert.equal(f.store.getTrust('workspace')!.binding.storageBindingSha256, f.binding().storageBindingSha256);
 });
 
@@ -260,7 +242,6 @@ test('16KiB output cap accepts exact native bytes and rejects larger output with
   const handle = f.store.attachGenerationOwner('workspace', plan.id, 'host-owner'); assert.throws(() => f.store.appendCandidate(handle, { requestId: 'oversize', body: body + 'x' }), hasCode('KNOWLEDGE_LIMIT'));
   const candidate = f.store.appendCandidate(handle, { requestId: 'cap', body }); assert.equal(Buffer.byteLength(candidate.body), KNOWLEDGE_LIMITS.bodyBytes);
   assert.throws(() => f.store.prepareGeneration(f.planRequest({ requestId: 'invalid-output-cap', maxOutputBytes: KNOWLEDGE_LIMITS.bodyBytes + 1 })), hasCode('INVALID_KNOWLEDGE'));
-  const exported = f.store.exportRows('knowledge_candidates', 'workspace', { maxBytes: KNOWLEDGE_LIMITS.rowBytes + 4_096 }); assert.equal(exported.items.length, 1); assert.ok(exported.bytes <= KNOWLEDGE_LIMITS.rowBytes + 4_096);
 });
 
 test('target changes after owner attachment block append; another workspace cannot inspect or attach its records', t => {

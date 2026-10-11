@@ -217,8 +217,7 @@ async function fixture(
           "Fixture requires its actual runless session owner",
         );
     },
-    isPaused: (id) =>
-      engine.workspaceKnowledge.getImportPause(id) !== undefined,
+    isPaused: (id) => engine.workspaceKnowledge.isImportPaused(id),
     getDocumentHead(id, key) {
       const document = engine.getWorkspaceKnowledgeDocument(id, key);
       return document

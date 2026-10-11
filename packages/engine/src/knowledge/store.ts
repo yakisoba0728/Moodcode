@@ -3,13 +3,12 @@ import { isKnowledgeImportPaused } from './import-recovery-store.js';
 import type { DatabaseSync, SQLInputValue } from 'node:sqlite';
 import { guardedWrite, type GuardedWriteOptions } from '../storage/transaction.js';
 import type {
-  KnowledgeArchiveData, KnowledgeArchiveRow, KnowledgeCandidate, KnowledgeCandidateSummary,
-  KnowledgeGenerationEvidence, KnowledgeGenerationHandle, KnowledgeGenerationPlan, KnowledgeHostBinding,
-  KnowledgeImportPause, KnowledgeListOptions, KnowledgePage, KnowledgeRequestReceipt, KnowledgeStoragePorts,
+  KnowledgeArchiveData, KnowledgeCandidate, KnowledgeGenerationEvidence, KnowledgeGenerationHandle,
+  KnowledgeGenerationPlan, KnowledgeHostBinding, KnowledgeImportPause, KnowledgeRequestReceipt, KnowledgeStoragePorts,
   KnowledgeStorageTable, PrepareKnowledgeGeneration, SetWorkspaceTrust, TrustRevision,
 } from './types.js';
 import {
-  KNOWLEDGE_LIMITS, KNOWLEDGE_STORAGE_TABLES, identifier, immutableKnowledgeJson, integer, knowledgeError,
+  KNOWLEDGE_LIMITS, identifier, immutableKnowledgeJson, integer, knowledgeError,
   knowledgeHash, sameKnowledge, sha256, stamp, validateBinding, validateCandidate, validateGenerationEvidence,
   validateGenerationInput, validateGenerationPlan, validateKnowledgeArchiveRow, validateTrustInput, validateTrustRevision,
   withKnowledgeHash as hashed,
@@ -60,6 +59,12 @@ type DataRow = { id: string; workspace_id: string; data: string };
 type HandleState = { plan: KnowledgeGenerationPlan; evidence: KnowledgeGenerationEvidence };
 function encoded(value: unknown): string { return JSON.stringify(value); }
 function synchronous(value: unknown): void { if (value !== undefined) knowledgeError('KNOWLEDGE_ASYNC_PORT', 'Knowledge freshness ports must return void synchronously inside the owner transaction'); }
+/** Upserts the import pause marker on the caller's connection and transaction; it grants no resume or trust rebinding. */
+export function writeKnowledgeImportPause(db: DatabaseSync, workspaceId: string, archiveSha256: string, createdAt: string): KnowledgeImportPause {
+  const record = validateKnowledgeArchiveRow({ table: 'knowledge_import_pauses', key: workspaceId, workspaceId, data: { workspaceId, archiveSha256, createdAt, state: 'paused' } }).data as KnowledgeImportPause;
+  db.prepare('INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(workspaceId, workspaceId, encoded(record));
+  return record;
+}
 const WRITE: GuardedWriteOptions = {
   join: false, innerAsyncCheck: true,
   required: () => knowledgeError('KNOWLEDGE_TRANSACTION_REQUIRED', 'Knowledge writes must use one transaction on their own database'),
@@ -265,56 +270,4 @@ export class KnowledgeStorage {
     if (candidate.workspaceId !== workspaceId || candidate.generationOwnerId !== ownerId) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate columns do not match the exact native owner');
     return candidate;
   }
-  /** Freshness does not approve a candidate: every result remains pending host review. */
-  assertCandidateCurrent(workspaceId: string, candidateId: string): KnowledgeCandidate {
-    const candidate = this.getCandidate(workspaceId, candidateId) ?? knowledgeError('KNOWLEDGE_NOT_FOUND', 'Knowledge candidate does not exist in this workspace');
-    this.unexpired(candidate.expiresAt, this.now());
-    const plan = this.getGenerationPlan(workspaceId, candidate.planId) ?? knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate source plan is missing');
-    this.currentPlan(plan);
-    if (candidate.trustRevisionId !== plan.trustRevisionId || candidate.trustRevision !== plan.expectedTrustRevision || !sameKnowledge(candidate.binding, plan.binding) || !sameKnowledge(candidate.source, plan.source) || !sameKnowledge(candidate.target, plan.target) || candidate.requestSha256 !== plan.requestSha256 || candidate.providerId !== plan.providerId || candidate.modelId !== plan.modelId) knowledgeError('KNOWLEDGE_RECORD_CONFLICT', 'Candidate provenance does not match its durable plan');
-    return candidate;
-  }
-  getImportPause(workspaceId: string): KnowledgeImportPause | undefined {
-    identifier(workspaceId); const row = this.row('knowledge_import_pauses', workspaceId, workspaceId);
-    return row ? this.decode(row, 'knowledge_import_pauses') as KnowledgeImportPause : undefined;
-  }
-  /** Import owner calls this inside its transaction; it grants no resume or trust rebinding. */
-  markImportPaused(workspaceId: string, archiveSha256: string): KnowledgeImportPause {
-    const record = validateKnowledgeArchiveRow({ table: 'knowledge_import_pauses', key: workspaceId, workspaceId, data: { workspaceId, archiveSha256, createdAt: this.now(), state: 'paused' } }).data as KnowledgeImportPause;
-    const operation = () => {
-      this.readHostBinding(workspaceId);
-      this.#db.prepare('INSERT INTO knowledge_import_pauses(id,workspace_id,data) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data').run(workspaceId, workspaceId, encoded(record)); return record;
-    };
-    return this.#db.isTransaction ? operation() : this.write(operation);
-  }
-  private page<T>(table: KnowledgeStorageTable, workspaceId: string, options: KnowledgeListOptions, project: (row: DataRow) => T): KnowledgePage<T> {
-    identifier(workspaceId);
-    const normalized = immutableKnowledgeJson(options), limit = integer(normalized.limit ?? KNOWLEDGE_LIMITS.pageRows, KNOWLEDGE_LIMITS.pageRows), maxBytes = integer(normalized.maxBytes ?? KNOWLEDGE_LIMITS.pageBytes, KNOWLEDGE_LIMITS.pageBytes);
-    if (!limit || maxBytes < KNOWLEDGE_LIMITS.rowBytes + 4_096 || Object.keys(normalized).some(key => !['after', 'limit', 'maxBytes'].includes(key))) knowledgeError('INVALID_KNOWLEDGE', 'Knowledge pages require 1..32 rows and enough bytes for one bounded row');
-    if (normalized.after !== undefined) {
-      identifier(normalized.after);
-      if (!this.row(table, normalized.after, workspaceId)) knowledgeError('INVALID_KNOWLEDGE_CURSOR', 'Knowledge page cursor belongs to another table/workspace or a removed row');
-    }
-    const rows = this.#db.prepare(`SELECT id,workspace_id,data FROM ${table} WHERE workspace_id=? AND id>? ORDER BY id LIMIT ?`).all(workspaceId, normalized.after ?? '', limit + 1) as DataRow[];
-    const items: T[] = []; let selected = '', bytes = 2;
-    for (const row of rows) {
-      if (items.length === limit) break;
-      const item = project(row), size = Buffer.byteLength(encoded(item)) + (items.length ? 1 : 0);
-      if (bytes + size > maxBytes) break; items.push(item); bytes += size; selected = row.id;
-    }
-    if (rows.length && !items.length) knowledgeError('KNOWLEDGE_LIMIT', 'One bounded knowledge row exceeds the page envelope');
-    return immutableKnowledgeJsonPage({ items, next: rows.length > items.length ? selected : null, bytes });
-  }
-  listCandidates(workspaceId: string, options: KnowledgeListOptions = {}): KnowledgePage<KnowledgeCandidateSummary> {
-    return this.page('knowledge_candidates', workspaceId, options, row => { const { body: _body, ...summary } = this.decode(row, 'knowledge_candidates') as KnowledgeCandidate; return Object.freeze(summary); });
-  }
-  exportRows(table: KnowledgeStorageTable, workspaceId: string, options: KnowledgeListOptions = {}): KnowledgePage<KnowledgeArchiveRow> {
-    if (!KNOWLEDGE_STORAGE_TABLES.includes(table)) knowledgeError('INVALID_KNOWLEDGE', 'Unknown knowledge archive table');
-    return this.page(table, workspaceId, options, row => validateKnowledgeArchiveRow({ table, key: row.id, workspaceId: row.workspace_id, data: this.decode(row, table) }));
-  }
-}
-
-/** Each row is already validated at 64KiB; page envelopes have their separate 1MiB cap. */
-function immutableKnowledgeJsonPage<T>(page: KnowledgePage<T>): KnowledgePage<T> {
-  return Object.freeze({ items: Object.freeze(page.items), next: page.next, bytes: page.bytes });
 }

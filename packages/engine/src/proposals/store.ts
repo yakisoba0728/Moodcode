@@ -4,7 +4,7 @@ import { EngineError } from "@moodcode/contracts";
 import { knowledgeHash, validateBinding } from "../knowledge/validation.js";
 import type { KnowledgeHostBinding } from "../knowledge/types.js";
 import { sha256Hex } from "../shared/canonical.js";
-import { guardedWrite } from "../storage/transaction.js";
+import { casReplace, guardedWrite } from "../storage/transaction.js";
 import { workspaceWritePath } from "../workspace/index.js";
 import { assertNotThenable, proposalChecks } from "./validation.js";
 import type {
@@ -526,6 +526,7 @@ function load(
   table: "proposal_heads" | "proposal_revisions",
   ws: string,
   key: string,
+  mismatch: () => never = () => fail("PROPOSAL_SCOPE_MISMATCH"),
 ): Record<string, unknown> | undefined {
   const columns =
     table === "proposal_heads"
@@ -558,26 +559,47 @@ function load(
     ("headRevision" in data ? data.headRevision : data.revision) !==
       metadata.revision
   )
-    fail("PROPOSAL_SCOPE_MISMATCH");
+    mismatch();
   if ("headRevision" in data) {
-    if (data.revisionId !== metadata.revision_id)
-      fail("PROPOSAL_SCOPE_MISMATCH");
+    if (data.revisionId !== metadata.revision_id) mismatch();
   } else if (
     data.proposalId !== metadata.proposal_id ||
     data.previousId !== metadata.previous_id ||
     data.requestId !== metadata.request_id ||
     data.requestInputSha256 !== metadata.request_sha256
   )
-    fail("PROPOSAL_SCOPE_MISMATCH");
+    mismatch();
   return data as unknown as Record<string, unknown>;
 }
-function headAt(
+/** The bounded current head whose columns match its body; mismatch replaces the scope error. */
+export function readProposalHead(
   db: DatabaseSync,
   ws: string,
   key: string,
+  mismatch?: () => never,
 ): ProposalSet | undefined {
-  return load(db, "proposal_heads", ws, key) as unknown as
+  return load(db, "proposal_heads", ws, key, mismatch) as unknown as
     ProposalSet | undefined;
+}
+/** Replaces the head only while its row still holds exactly previous. */
+export function advanceProposalHead(
+  db: DatabaseSync,
+  previous: ProposalSet,
+  next: ProposalSet,
+  stale: () => never,
+): void {
+  casReplace(
+    db,
+    {
+      table: "proposal_heads",
+      key: { workspace_id: previous.workspaceId, id: previous.id },
+      set: { revision: next.headRevision, revision_id: next.revisionId },
+      fence: { revision: previous.headRevision },
+      previous,
+    },
+    next,
+    stale,
+  );
 }
 function revisionAt(
   db: DatabaseSync,
@@ -872,22 +894,9 @@ export class ProposalStorage {
           updatedAt: createdAt,
         }),
       );
-      if (before) {
-        const changed = this.db
-          .prepare(
-            "UPDATE proposal_heads SET revision=?,revision_id=?,data=? WHERE workspace_id=? AND id=? AND revision=? AND data=?",
-          )
-          .run(
-            set.headRevision,
-            set.revisionId,
-            JSON.stringify(set),
-            set.workspaceId,
-            set.id,
-            before.headRevision,
-            JSON.stringify(before),
-          );
-        if (changed.changes !== 1) fail("PROPOSAL_STALE");
-      } else
+      if (before)
+        advanceProposalHead(this.db, before, set, () => fail("PROPOSAL_STALE"));
+      else
         this.db
           .prepare(
             "INSERT INTO proposal_heads(id,workspace_id,revision,revision_id,data) VALUES(?,?,?,?,?)",
@@ -909,7 +918,7 @@ export class ProposalStorage {
     }
   }
   getSet(ws: string, key: string): ProposalSet | undefined {
-    return headAt(this.db, id(ws), id(key));
+    return readProposalHead(this.db, id(ws), id(key));
   }
   getRevision(ws: string, key: string): ProposalRevision | undefined {
     return revisionAt(this.db, id(ws), id(key));
@@ -1006,7 +1015,7 @@ export function pauseImportedProposals(
     .prepare("SELECT id FROM proposal_heads WHERE workspace_id=? ORDER BY id")
     .iterate(ws) as Iterable<{ id: string }>;
   for (const { id: key } of keys) {
-    const old = headAt(db, ws, key)!;
+    const old = readProposalHead(db, ws, key)!;
     const { sha256: _, ...body } = old;
     const current = validateProposalSet(
       signed({
@@ -1115,7 +1124,7 @@ export function validateProposalDatabase(
       )
         fail("PROPOSAL_SCOPE_MISMATCH");
     }
-    const set = headAt(db, r.workspaceId, r.proposalId);
+    const set = readProposalHead(db, r.workspaceId, r.proposalId);
     if (!set) fail("PROPOSAL_HEAD_MISSING");
     const operations: ProposalSourceOperation[] = [];
     for (const file of r.files) {
@@ -1145,7 +1154,7 @@ export function validateProposalDatabase(
     .prepare("SELECT id,workspace_id FROM proposal_heads ORDER BY id")
     .iterate() as Iterable<{ id: string; workspace_id: string }>) {
     check();
-    const h = headAt(db, id(row.workspace_id), id(row.id))!,
+    const h = readProposalHead(db, id(row.workspace_id), id(row.id))!,
       r = revisionAt(db, h.workspaceId, h.revisionId);
     const latest = db
       .prepare(

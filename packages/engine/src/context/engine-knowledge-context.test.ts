@@ -236,7 +236,7 @@ test('actual archive relocation preserves historical publication yet imported wo
   const f = await fixture(t); await f.engine.close(); const archive = await exportEngineArchive({ dbPath: f.dbPath, artifactDir: f.artifactDir, destination: join(f.base, 'archive') });
   const imported = await importEngineArchive({ directory: archive.directory, destination: join(f.base, 'imported') });
   const engine = f.reopen({ dbPath: imported.dbPath, artifactDir: imported.artifactDir }), before = hostRows(imported.dbPath);
-  assert.equal(engine.getWorkspaceKnowledgePublication(f.workspace.id, f.publication!.publication.id).document!.body, BODY); assert.equal(engine.workspaceKnowledge.getImportPause(f.workspace.id)!.state, 'paused');
+  assert.equal(engine.getWorkspaceKnowledgePublication(f.workspace.id, f.publication!.publication.id).document!.body, BODY); assert.equal(engine.workspaceKnowledge.isImportPaused(f.workspace.id), true);
   const result = await f.consume(engine); assert.equal(result.run.state, 'completed', JSON.stringify(result.run.error)); assert.ok(result.request); assert.equal(evidence(result.request).length, 0); assert.equal(diagnostics(engine, result.session.id).omissions[0]!.reason, 'paused');
   assert.deepEqual(hostRows(imported.dbPath), before); assert.equal(count(imported.dbPath, 'tools'), 0); assert.deepEqual(f.counts(), { seedCalls: 1, generationCalls: 1 });
 });

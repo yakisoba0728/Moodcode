@@ -573,8 +573,8 @@ test("actual archive/import preserves original generation/publication identities
   f.assertHistory();
   assert.equal(f.imported.executionResumed, false);
   assert.equal(
-    f.engine.workspaceKnowledge.getImportPause(f.workspace.id)!.state,
-    "paused",
+    f.engine.workspaceKnowledge.isImportPaused(f.workspace.id),
+    true,
   );
   assert.equal(
     f.engine.getWorkspaceKnowledgeDocument(f.workspace.id, KEY)!.body,
@@ -657,8 +657,8 @@ test("explicit original import acknowledgment and separate resume grant no activ
     true,
   );
   assert.equal(
-    f.engine.workspaceKnowledge.getImportPause(f.workspace.id)!.state,
-    "paused",
+    f.engine.workspaceKnowledge.isImportPaused(f.workspace.id),
+    true,
   );
   assert.deepEqual(f.counts(), counts);
   f.assertHistory();

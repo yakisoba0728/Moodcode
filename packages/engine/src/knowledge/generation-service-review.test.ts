@@ -24,12 +24,12 @@ async function fixture(t: TestContext, generationEvents?: ProviderEvent[]) {
   const projection = engine.captureWorkspaceKnowledgeSources(workspace.id, [{ kind: 'file', path: 'source.ts' }]), logical = buildKnowledgeGenerationRequest({ providerId: provider.id, modelId: 'fixture-model', source: projection });
   const target = { ...engine.captureWorkspaceKnowledgeTarget(workspace.id, 'ORIGINAL_MEMORY.md') };
   const input = { workspaceId: workspace.id, requestId: 'review-plan', expectedTrustRevision: trust.revision, projection, target, providerId: provider.id, modelId: 'fixture-model', requestSha256: logical.requestSha256, requestBytes: logical.requestBytes, maxOutputBytes: 1024, expiresAt: new Date(Date.now() + 60_000).toISOString() };
-  return { engine, root, provider, workspace, input, countPlans() { const db = new DatabaseSync(dbPath, { readOnly: true }); try { return Number(db.prepare('SELECT count(*) AS n FROM knowledge_generation_plans').get()!.n); } finally { db.close(); } }, assertNoExecution() { assert.equal(provider.generationCallCount, 0); assert.equal(provider.callCount, 0); assert.equal(engine.store.listSessions(workspace.id).length, 0); } };
+  return { engine, root, provider, workspace, input, countRows(table: string) { const db = new DatabaseSync(dbPath, { readOnly: true }); try { return Number(db.prepare(`SELECT count(*) AS n FROM ${table}`).get()!.n); } finally { db.close(); } }, assertNoExecution() { assert.equal(provider.generationCallCount, 0); assert.equal(provider.callCount, 0); assert.equal(engine.store.listSessions(workspace.id).length, 0); } };
 }
 
 test('actual host plan preparation captures nested target before the workspace lease microtask', async t => {
   const f = await fixture(t), original = { ...f.input.target }, pending = f.engine.prepareWorkspaceKnowledgeGeneration(f.input); f.input.target.path = 'MUTATED_AFTER_CALL.md';
-  const plan = await pending; assert.deepEqual(plan.target, original); assert.equal(f.countPlans(), 1); f.assertNoExecution();
+  const plan = await pending; assert.deepEqual(plan.target, original); assert.equal(f.countRows('knowledge_generation_plans'), 1); f.assertNoExecution();
 });
 
 test('host input/nested-target getters and proxies reject without trap effects or durable plans', async t => {
@@ -39,13 +39,13 @@ test('host input/nested-target getters and proxies reject without trap effects o
   const proxyInput = new Proxy(f.input, { ownKeys() { effects++; return []; }, getPrototypeOf() { effects++; return Object.prototype; } });
   const accessorInput = { ...f.input }; Object.defineProperty(accessorInput, 'target', { enumerable: true, get() { effects++; return f.input.target; } });
   for (const input of [{ ...f.input, target: accessorTarget }, { ...f.input, target: proxyTarget }, proxyInput, accessorInput]) await assert.rejects(f.engine.prepareWorkspaceKnowledgeGeneration(input), (error: unknown) => error instanceof EngineError);
-  assert.equal(effects, 0); assert.equal(f.countPlans(), 0); f.assertNoExecution();
+  assert.equal(effects, 0); assert.equal(f.countRows('knowledge_generation_plans'), 0); f.assertNoExecution();
 });
 
 test('nested target changed into a getter after admission cannot execute during lease or change exact target', async t => {
   const f = await fixture(t), original = { ...f.input.target }; let effects = 0;
   const pending = f.engine.prepareWorkspaceKnowledgeGeneration(f.input); Object.defineProperty(f.input.target, 'path', { enumerable: true, get() { effects++; return 'late-getter.md'; } });
-  const plan = await pending; assert.deepEqual(plan.target, original); assert.equal(effects, 0); assert.equal(f.countPlans(), 1); f.assertNoExecution();
+  const plan = await pending; assert.deepEqual(plan.target, original); assert.equal(effects, 0); assert.equal(f.countRows('knowledge_generation_plans'), 1); f.assertNoExecution();
 });
 
 for (const changed of ['source', 'target', 'released-projection'] as const) test(`actual pending lease ${changed} currentness rejects before durable plan or execution`, async t => {
@@ -54,13 +54,13 @@ for (const changed of ['source', 'target', 'released-projection'] as const) test
   else if (changed === 'target') writeFileSync(join(f.root, 'ORIGINAL_MEMORY.md'), 'Created after admission, before lease execution.\n');
   else f.engine.releaseWorkspaceKnowledgeSources(f.input.projection);
   const expected = changed === 'source' ? 'KNOWLEDGE_SOURCE_CHANGED' : changed === 'target' ? 'KNOWLEDGE_TARGET_CHANGED' : 'KNOWLEDGE_SOURCE_CAPTURE_INVALID';
-  await assert.rejects(pending, hasCode(expected)); assert.equal(f.countPlans(), 0); f.assertNoExecution();
+  await assert.rejects(pending, hasCode(expected)); assert.equal(f.countRows('knowledge_generation_plans'), 0); f.assertNoExecution();
 });
 
 for (const delta of ['invalid\ud800', 'invalid\0text']) test('actual native invalid text records full charge and discard without candidate authority', async t => {
   const prefix = 'Actual retained public prefix.', f = await fixture(t, [{ type: 'text.delta', delta: prefix }, { type: 'text.delta', delta }, { type: 'finish', reason: 'stop' }]), plan = await f.engine.prepareWorkspaceKnowledgeGeneration(f.input);
   const result = await f.engine.generateWorkspaceKnowledge({ workspaceId: f.workspace.id, planId: plan.id, requestId: 'invalid-native-output', projection: f.input.projection });
-  assert.equal(result.generation.state, 'failed'); assert.equal(result.generation.errorCode, 'KNOWLEDGE_GENERATION_PROTOCOL'); assert.equal(result.attempt!.output, prefix); assert.equal(result.attempt!.outputBytes, Buffer.byteLength(prefix)); assert.equal(result.attempt!.observedTextBytes, Buffer.byteLength(prefix) + Buffer.byteLength(delta)); assert.equal(result.attempt!.outputTruncated, true); assert.equal(result.attempt!.cleanup!.confirmed, true); assert.equal(result.candidate, null); assert.equal(f.provider.generationCallCount, 1); assert.equal(f.provider.callCount, 0); assert.equal(f.engine.workspaceKnowledge.listCandidates(f.workspace.id).items.length, 0);
+  assert.equal(result.generation.state, 'failed'); assert.equal(result.generation.errorCode, 'KNOWLEDGE_GENERATION_PROTOCOL'); assert.equal(result.attempt!.output, prefix); assert.equal(result.attempt!.outputBytes, Buffer.byteLength(prefix)); assert.equal(result.attempt!.observedTextBytes, Buffer.byteLength(prefix) + Buffer.byteLength(delta)); assert.equal(result.attempt!.outputTruncated, true); assert.equal(result.attempt!.cleanup!.confirmed, true); assert.equal(result.candidate, null); assert.equal(f.provider.generationCallCount, 1); assert.equal(f.provider.callCount, 0); assert.equal(f.countRows('knowledge_candidates'), 0);
 });
 
 test('actual same-tick 33-workspace burst caps reservations before dispatch and releases all 32 confirmed cancellations', { timeout: 20_000 }, async t => {

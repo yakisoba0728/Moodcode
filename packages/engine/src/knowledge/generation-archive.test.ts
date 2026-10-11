@@ -202,10 +202,7 @@ test('DB11 archive preserves actual native generation output/usage/candidate and
       .sha256,
     f.plan.sha256,
   );
-  assert.equal(
-    engine.workspaceKnowledge.getImportPause(f.workspace.id)!.state,
-    'paused',
-  );
+  assert.equal(engine.workspaceKnowledge.isImportPaused(f.workspace.id), true);
   assert.throws(() =>
     engine.workspaceKnowledge.attachGenerationOwner(
       f.workspace.id,
@@ -259,10 +256,7 @@ test('uncertain actual host stream survives archive with exact partial output an
   );
   assert.equal(f.calls(), 1);
   assert.equal(f.coding(), 0);
-  assert.equal(
-    engine.workspaceKnowledge.getImportPause(f.workspace.id)!.state,
-    'paused',
-  );
+  assert.equal(engine.workspaceKnowledge.isImportPaused(f.workspace.id), true);
   assert.equal(restored.candidate, null);
 });
 

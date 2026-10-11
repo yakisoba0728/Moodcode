@@ -148,7 +148,7 @@ function fixture(t: TestContext) {
     assertCommitCurrent: (record) => {
       state.currentChecks++;
       state.beforeCurrent?.(record);
-      if (knowledge.getImportPause(record.workspaceId))
+      if (knowledge.isImportPaused(record.workspaceId))
         throw new EngineError(
           "KNOWLEDGE_IMPORT_PAUSED",
           "Imported records are read only",

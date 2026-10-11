@@ -139,8 +139,8 @@ test("DB13 actual completed file archive retains historical evidence without pro
   try {
     assert.equal(imported.executionResumed, false);
     assert.equal(
-      current.workspaceKnowledge.getImportPause(f.workspace.id)?.state,
-      "paused",
+      current.workspaceKnowledge.isImportPaused(f.workspace.id),
+      true,
     );
     assert.deepEqual(
       current.getWorkspaceKnowledgeFilePublication(f.workspace.id, original.id),
@@ -262,8 +262,8 @@ test("DB13 actual file revoke archives a positive absent target and both exact h
       target,
     );
     assert.equal(
-      current.workspaceKnowledge.getImportPause(f.workspace.id)?.state,
-      "paused",
+      current.workspaceKnowledge.isImportPaused(f.workspace.id),
+      true,
     );
     assert.deepEqual(history(imported.dbPath), history(f.dbPath));
     assert.equal(existsSync(join(f.root, TARGET)), false);

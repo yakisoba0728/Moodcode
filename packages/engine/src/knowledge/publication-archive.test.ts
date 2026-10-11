@@ -215,10 +215,7 @@ test("DB12 archive preserves actual publication/update/revoke history and receip
     ).items.length,
     3,
   );
-  assert.equal(
-    current.workspaceKnowledge.getImportPause(f.workspace.id)!.state,
-    "paused",
-  );
+  assert.equal(current.workspaceKnowledge.isImportPaused(f.workspace.id), true);
   assert.throws(() =>
     current.previewWorkspaceKnowledgePublication({
       workspaceId: f.workspace.id,

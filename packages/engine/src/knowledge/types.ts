@@ -116,7 +116,6 @@ export interface KnowledgeCandidate {
   readonly expiresAt: string;
   readonly sha256: string;
 }
-export type KnowledgeCandidateSummary = Omit<KnowledgeCandidate, 'body'>;
 export interface KnowledgePage<T> {
   readonly items: readonly T[];
   readonly next: string | null;
