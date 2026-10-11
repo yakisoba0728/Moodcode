@@ -89,6 +89,10 @@ export class OwnedCodeModeProcess {
       this.pending.clear();
       this.wake?.();
     };
+    const fatal = (error: unknown) => {
+      failed(error);
+      void this.stop();
+    };
     child.stderr?.on("data", (bytes: Buffer) => {
       stderr = (stderr + bytes.toString()).slice(-4096);
     });
@@ -112,8 +116,7 @@ export class OwnedCodeModeProcess {
           this.wake?.();
         }
       } catch (error) {
-        failed(error);
-        void this.stop();
+        fatal(error);
       }
     });
     const finishStdout = () => {
@@ -123,18 +126,14 @@ export class OwnedCodeModeProcess {
         this.text += this.decoder.decode();
         if (this.text.length) codeModeError("CODE_MODE_PROTOCOL_INVALID");
       } catch (error) {
-        failed(error);
-        void this.stop();
+        fatal(error);
       } finally {
         this.stdoutFinished = true;
         this.wake?.();
       }
     };
     child.stdout?.once("end", finishStdout);
-    child.stdout?.once("error", (error) => {
-      failed(error);
-      void this.stop();
-    });
+    child.stdout?.once("error", fatal);
     // IPC cleanup and process exit can precede delivery of the final stdout frame.
     // Child close is the fallback only after its actual stdio streams have closed.
     child.once("close", finishStdout);

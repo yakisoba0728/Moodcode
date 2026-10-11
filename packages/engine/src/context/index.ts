@@ -295,9 +295,8 @@ export async function buildContext(request: ContextRequest, options: { requiredO
     if (!item) throw new EngineError('IMAGE_HISTORY_INVALID_ANCHOR', 'Required image history text or complete exchange is unavailable');
     selected.add(item);
   }
-  // A text projection cannot stand in for omitted pixels or document bytes, so every block that
-  // still carries image, media or document references stays whole. The host media and document
-  // history policies remove older references before planning.
+  // Text cannot stand in for omitted pixels or document bytes, so blocks still carrying image, media
+  // or document references stay whole; the host history policies remove older references first.
   const imageBlocks = blocks.filter(item => item.messages.some(message => message.attachments?.length || message.media?.length));
   for (const item of imageBlocks) selected.add(item);
   const documentBlocks = blocks.filter(item => item.messages.some(message => message.documents?.length));
@@ -347,15 +346,18 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   const memoryReserve = reserve >= MIN_MEMORY_BYTES ? reserve : 0;
   let nextOptional = options.requiredOnly ? -1 : blocks.length - 1;
   // The required anchors can precede the retained recent suffix. Groups remain indivisible.
-  for (; nextOptional >= 0; nextOptional -= 1) {
-    checkAbort(request.signal);
-    const item = blocks[nextOptional]!;
-    if (selected.has(item)) continue;
-    if (arrayBytes(cost + item.cost + memoryReserve, count + item.messages.length) > limit) break;
-    selected.add(item);
-    cost += item.cost;
-    count += item.messages.length;
-  }
+  const selectOptional = (reserve: number): void => {
+    for (; nextOptional >= 0; nextOptional -= 1) {
+      checkAbort(request.signal);
+      const item = blocks[nextOptional]!;
+      if (selected.has(item)) continue;
+      if (arrayBytes(cost + item.cost + reserve, count + item.messages.length) > limit) break;
+      selected.add(item);
+      cost += item.cost;
+      count += item.messages.length;
+    }
+  };
+  selectOptional(memoryReserve);
   checkAbort(request.signal);
   const omitted = blocks.filter(item => !selected.has(item));
   const memory = semantic ?? (!options.requiredOnly && omitted.length ? extractiveMemory(
@@ -364,17 +366,7 @@ export async function buildContext(request: ContextRequest, options: { requiredO
   ) : undefined);
   // Some omitted groups contain only opaque/native state and tool results. If
   // there is no useful excerpt, reclaim the unused reservation for whole groups.
-  if (!memory && memoryReserve) {
-    for (; nextOptional >= 0; nextOptional--) {
-      checkAbort(request.signal);
-      const item = blocks[nextOptional]!;
-      if (selected.has(item)) continue;
-      if (arrayBytes(cost + item.cost, count + item.messages.length) > limit) break;
-      selected.add(item);
-      cost += item.cost;
-      count += item.messages.length;
-    }
-  }
+  if (!memory && memoryReserve) selectOptional(0);
   checkAbort(request.signal);
   const messages = blocks.filter(item => selected.has(item)).flatMap((item) => item.messages);
   return [system, profile, includeDefaults ? defaults : undefined, memory, prefixMemory, mediaNotice, documentNotice, ...messages, verificationContinuation, lifecycleContinuation]

@@ -15,6 +15,16 @@ interface NativePorts {
   put(session: string, kind: string, rev: number, data: JsonObject): void;
   event(session: string, type: string, data: JsonObject): void;
 }
+const documentData = (db: DatabaseSync, session: string, kind: string) =>
+  JSON.parse(
+    String(
+      db
+        .prepare(
+          "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
+        )
+        .get(session, kind)!.data,
+    ),
+  );
 function body(
   db: DatabaseSync,
   session: string,
@@ -30,15 +40,7 @@ function body(
     batchFail("CODING_EVIDENCE_LIMIT");
   return {
     revision: Number(row.revision),
-    value: JSON.parse(
-      String(
-        db
-          .prepare(
-            "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
-          )
-          .get(session, kind)!.data,
-      ),
-    ),
+    value: documentData(db, session, kind),
   };
 }
 function signed<T>(value: unknown): T {
@@ -227,9 +229,9 @@ function readBatchGroup(
         "SELECT data FROM workflow_heads h JOIN workflow_revisions r ON r.id=h.revision_id WHERE h.workspace_id=? AND h.kind='instance' AND h.entity_id=?",
       )
       .get(r.workspaceId, c.instanceId);
-    if (!w || JSON.parse(String(w.data)).owner.runId !== r.parentRunId)
-      batchFail();
+    if (!w) batchFail();
     const workflow = JSON.parse(String(w.data));
+    if (workflow.owner.runId !== r.parentRunId) batchFail();
     if (
       ["pending", "skipped"].includes(c.state) &&
       workflow.stages.some(
@@ -288,15 +290,7 @@ export function validateCodingBatchDatabase(db: DatabaseSync): void {
   if (rows.length > 256) batchFail("CODING_BATCH_LIMIT");
   for (const row of rows) {
     if (Number(row.bytes) > NATIVE_RECORD_BYTES) batchFail();
-    const value = JSON.parse(
-      String(
-        db
-          .prepare(
-            "SELECT data FROM session_documents WHERE session_id=? AND kind=?",
-          )
-          .get(row.session_id!, row.kind!)!.data,
-      ),
-    );
+    const value = documentData(db, String(row.session_id), String(row.kind));
     if (String(row.kind).startsWith("coding.group."))
       readBatchGroup(db, String(row.session_id), String(value.groupId));
     else

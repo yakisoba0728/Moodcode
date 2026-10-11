@@ -11,6 +11,10 @@ const send = (value: object) => {
       process.send?.(value);
     } catch {}
 };
+const fail = () => {
+  send({ type: "failed" });
+  void stop();
+};
 function stop(): Promise<void> {
   return (finishing ??= (async () => {
     worker?.stdout.resume();
@@ -65,10 +69,7 @@ process.on("message", (packet: unknown) => {
       worker.stderr.on("data", (bytes: Buffer) => forward("stderr", bytes));
       worker.stdin.on("error", () => void stop());
       worker.once("spawn", () => send({ type: "started", pid: worker!.pid }));
-      worker.once("error", () => {
-        send({ type: "failed" });
-        void stop();
-      });
+      worker.once("error", fail);
       worker.once("close", (code, exitSignal) => {
         closed = true;
         exitCode = code;
@@ -76,8 +77,7 @@ process.on("message", (packet: unknown) => {
         void stop();
       });
     } catch {
-      send({ type: "failed" });
-      void stop();
+      fail();
     }
     return;
   }
@@ -88,10 +88,8 @@ process.on("message", (packet: unknown) => {
     Buffer.byteLength(value.text) <= 65536
   ) {
     worker.stdin.write(value.text, (error) => {
-      if (error) {
-        send({ type: "failed" });
-        void stop();
-      } else
+      if (error) fail();
+      else
         send({
           type: "written",
           id: value.id,

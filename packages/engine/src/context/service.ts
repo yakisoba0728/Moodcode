@@ -236,9 +236,8 @@ export class ContextService {
     catch (initialError) {
       if (prefixTried || !this.activePrefix || !request.run || !request.budget || !provider || !(initialError instanceof EngineError)
         || !['CONTEXT_LIMIT', 'ACTIVE_PREFIX_CONTEXT_LIMIT', 'IMAGE_CONTEXT_LIMIT', 'DOCUMENT_CONTEXT_LIMIT', 'CONTEXT_TOKEN_LIMIT'].includes(initialError.code)) throw initialError;
-      // The predecessor protects the recent suffix it observed. After another
-      // complete exchange, a new checkpoint may cover part of that old suffix
-      // and fit even when planning with the predecessor alone no longer fits.
+      // After another complete exchange, a new checkpoint may cover part of the suffix the
+      // predecessor protected and fit where planning with the predecessor alone does not.
       prefixTried = true;
       try {
         candidate = await this.activePrefix.prepare(request, provider, { model, ...(request.activePrefixStage ? { stage: request.activePrefixStage } : {}) });
@@ -345,10 +344,7 @@ export class ContextService {
     observation.warnings.push(...hints.warnings);
     return observation;
   }
-  /**
-   * Completed-history memory may predate the bounded SQL window that exposed the latest image,
-   * document or media input. Restore each such input's exact user text, references and Run owner.
-   */
+  /** Memory may predate the SQL window holding the latest image, document or media input; restore its exact text, references and Run owner. */
   private restoreRequiredInputs(request: ContextRequest, snapshot: SessionSnapshot): { snapshot: SessionSnapshot; inputIds: string[] } {
     const inputs = [request.snapshot.messages.findLast(message => message.role === 'user' && message.attachments?.length),
       request.snapshot.messages.findLast(message => message.role === 'user' && message.documents?.length),

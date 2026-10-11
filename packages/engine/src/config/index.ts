@@ -190,10 +190,7 @@ function configPath(value: unknown, field: 'userConfigPath' | 'workspaceConfigPa
   return resolve(value);
 }
 
-/**
- * Load defaults < user file < workspace file, without environment lookup or side effects.
- * A provider entry replaces the lower layer's entry whole, so a redirected baseURL never inherits apiKeyEnv.
- */
+/** Layers defaults < user < workspace without env lookup; a provider entry replaces the lower one whole, so a redirected baseURL never inherits apiKeyEnv. */
 export async function loadConfig(options: LoadConfigOptions = {}): Promise<ResolvedConfig> {
   const input = dataObject(options, 'options', 'options', ['userConfigPath', 'workspaceConfigPath', 'signal']);
   let signal: AbortSignal | undefined;

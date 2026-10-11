@@ -409,17 +409,16 @@ function validateNative(db: DatabaseSync, r: CodeModeRecord): void {
     anchors(db, s, "code.mode.closed", r.id).some((e) => e.payload?.id === r.id)
   )
     codeModeError("CODE_MODE_OUTCOME_INVALID");
-  if (r.process) {
-    if (
-      anchors(db, s, "code.mode.process_admitted", r.process.sha256).filter(
-        (e) =>
-          e.payload?.id === r.id &&
-          knowledgeHash(e.payload.process) === knowledgeHash(r.process) &&
-          sameRefs(e),
-      ).length !== 1
-    )
-      codeModeError("CODE_MODE_PROCESS_INVALID");
-  }
+  if (
+    r.process &&
+    anchors(db, s, "code.mode.process_admitted", r.process.sha256).filter(
+      (e) =>
+        e.payload?.id === r.id &&
+        knowledgeHash(e.payload.process) === knowledgeHash(r.process) &&
+        sameRefs(e),
+    ).length !== 1
+  )
+    codeModeError("CODE_MODE_PROCESS_INVALID");
   if (
     r.outcome &&
     anchors(db, s, "code.mode.closed", r.outcome.sha256).filter(
@@ -521,33 +520,19 @@ export class CodeModeStorage {
         turnId: r.source.turnId,
         attemptId: r.source.attemptId,
       };
-      if (!old)
+      const event = (type: string, payload: object) =>
         this.ports.appendEvent(
           r.source.sessionId,
-          "code.mode.source_admitted",
-          { id: r.id, source: r.source as unknown as JsonObject },
+          type,
+          { id: r.id, ...payload } as JsonObject,
           refs,
         );
+      if (!old) event("code.mode.source_admitted", { source: r.source });
       if (r.process && !old?.process)
-        this.ports.appendEvent(
-          r.source.sessionId,
-          "code.mode.process_admitted",
-          { id: r.id, process: r.process as unknown as JsonObject },
-          refs,
-        );
+        event("code.mode.process_admitted", { process: r.process });
       if (r.outcome && !old?.outcome)
-        this.ports.appendEvent(
-          r.source.sessionId,
-          "code.mode.closed",
-          { id: r.id, outcome: r.outcome as unknown as JsonObject },
-          refs,
-        );
-      this.ports.appendEvent(
-        r.source.sessionId,
-        "code.mode.record",
-        { id: r.id, record: r as unknown as JsonObject },
-        refs,
-      );
+        event("code.mode.closed", { outcome: r.outcome });
+      event("code.mode.record", { record: r });
       this.ports.writeDocument(
         r.source.sessionId,
         codeModeRecordKind(r.id),

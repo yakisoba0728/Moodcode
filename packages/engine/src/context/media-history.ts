@@ -102,10 +102,7 @@ function latestCompleteExchange(messages: Message[], activeRunId?: string): stri
   return [];
 }
 
-/**
- * Derive transport references only. Never mutate raw storage, trim messages,
- * summarize pixels, resolve bytes, or create an active-prefix/cutoff checkpoint.
- */
+/** Derives transport references only; never mutates storage, trims messages, summarizes pixels, resolves bytes or creates a cutoff checkpoint. */
 export function projectMediaHistory(source: SessionSnapshot, options: MediaHistoryOptions = {}, signal?: AbortSignal): MediaHistoryProjection {
   checkAbort(signal);
   const empty = (): MediaHistoryDiagnostics => ({ enabled: false, policySha256: null, sourceSha256: null, sourceImageOccurrences: 0,

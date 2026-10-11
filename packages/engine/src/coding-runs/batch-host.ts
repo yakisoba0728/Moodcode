@@ -118,11 +118,21 @@ export class CodingBatchHost {
   private current(ws: string, id: string): CodingAttemptGroup {
     return this.native.find(ws, id) ?? batchFail("CODING_BATCH_MISSING");
   }
-  private write(
-    prior: CodingAttemptGroup,
-    change: Partial<CodingAttemptGroup>,
+  private writeCase(
+    g: CodingAttemptGroup,
+    id: string,
+    patch: Partial<BatchMember["c"]>,
   ): CodingAttemptGroup {
-    return this.native.advance(prior, change);
+    return this.native.advance(g, {
+      cases: g.cases.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+    });
+  }
+  private effect(record: WorkflowInstanceRevision, stageId: string) {
+    return this.engine.inspectWorkflowEffect(
+      record.workspaceId,
+      record.instanceId,
+      stageId,
+    );
   }
   private assertLive(record: CodingAttemptGroup): LiveGroup {
     this.open();
@@ -409,7 +419,7 @@ export class CodingBatchHost {
     const limits = prior.preview.input.limits,
       cost = prior.usage.chargedCostMicros + limits.costPerRequestMicros;
     if (cost > limits.maxCostMicros) batchFail("CODING_BATCH_COST_LIMIT");
-    this.write(prior, {
+    this.native.advance(prior, {
       usage: {
         ...prior.usage,
         requests: prior.usage.requests + 1,
@@ -429,17 +439,14 @@ export class CodingBatchHost {
     if (stageId === "edit") this.assertEditManifest(record, member);
     const next = { ...member, g: this.recordMeasuredUsage(member.g, actual) };
     if (stageId === "review") this.recordReviewReceipt(record, next, original);
-    else this.advanceStage(next, stageId);
+    else
+      this.writeCase(next.g, next.c.id, { stage: stageId === "edit" ? 1 : 2 });
   }
   private assertEditManifest(
     record: WorkflowInstanceRevision,
     member: BatchMember,
   ): void {
-    const effect = this.engine.inspectWorkflowEffect(
-        record.workspaceId,
-        record.instanceId,
-        "edit",
-      ),
+    const effect = this.effect(record, "edit"),
       definition = member.g.preview.input.cases.find(
         (c) => c.id === member.c.id,
       )!;
@@ -474,7 +481,7 @@ export class CodingBatchHost {
         input += usage.inputTokens;
         output += usage.outputTokens;
       }
-    return this.write(g, {
+    return this.native.advance(g, {
       usage: {
         ...g.usage,
         measuredInputTokens: known
@@ -485,13 +492,6 @@ export class CodingBatchHost {
           : g.usage.measuredOutputTokens,
         unknownUsageRequests: Math.max(0, g.usage.unknownUsageRequests - known),
       },
-    });
-  }
-  private advanceStage(member: BatchMember, stageId: string): void {
-    this.write(member.g, {
-      cases: member.g.cases.map((c) =>
-        c.id === member.c.id ? { ...c, stage: stageId === "edit" ? 1 : 2 } : c,
-      ),
     });
   }
   private recordReviewReceipt(
@@ -507,16 +507,8 @@ export class CodingBatchHost {
     )
       batchFail("CODING_REVIEW_INCOMPLETE");
     const evidence = this.children.readExecution(original),
-      editor = this.engine.inspectWorkflowEffect(
-        record.workspaceId,
-        record.instanceId,
-        "edit",
-      )!,
-      validator = this.engine.inspectWorkflowEffect(
-        record.workspaceId,
-        record.instanceId,
-        "validate",
-      )!;
+      editor = this.effect(record, "edit")!,
+      validator = this.effect(record, "validate")!;
     const receipt = signBatch({
       version: 1 as const,
       workspaceId: record.workspaceId,
@@ -536,17 +528,10 @@ export class CodingBatchHost {
     )
       batchFail("CODING_EVIDENCE_LIMIT");
     this.native.putCase(receipt);
-    this.write(member.g, {
-      cases: member.g.cases.map((c) =>
-        c.id === member.c.id
-          ? {
-              ...c,
-              state: "verified" as const,
-              stage: 3,
-              receiptSha256: receipt.sha256,
-            }
-          : c,
-      ),
+    this.writeCase(member.g, member.c.id, {
+      state: "verified",
+      stage: 3,
+      receiptSha256: receipt.sha256,
     });
   }
   run(input: CodingGroupMutation): Promise<CodingAttemptGroup> {
@@ -603,11 +588,7 @@ export class CodingBatchHost {
         if (!id) return;
         let group = this.current(input.workspaceId, input.groupId);
         if (group.cases.find((c) => c.id === id)?.state !== "pending") continue;
-        this.write(group, {
-          cases: group.cases.map((c) =>
-            c.id === id ? { ...c, state: "running" as const } : c,
-          ),
-        });
+        this.writeCase(group, id, { state: "running" });
         const c = group.cases.find((c) => c.id === id)!;
         try {
           for (const stage of CODING_STAGES) {
@@ -649,23 +630,16 @@ export class CodingBatchHost {
             unknown = tasks.some(
               (t) => !["completed", "failed", "cancelled"].includes(t.state),
             );
-          this.write(group, {
-            cases: group.cases.map((c) =>
-              c.id === id
-                ? {
-                    ...c,
-                    state: unknown
-                      ? ("uncertain" as const)
-                      : signal.aborted
-                        ? ("cancelled" as const)
-                        : ("failed" as const),
-                    errorCode:
-                      e instanceof Error && "code" in e
-                        ? String(e.code)
-                        : "CODING_CASE_FAILED",
-                  }
-                : c,
-            ),
+          this.writeCase(group, id, {
+            state: unknown
+              ? "uncertain"
+              : signal.aborted
+                ? "cancelled"
+                : "failed",
+            errorCode:
+              e instanceof Error && "code" in e
+                ? String(e.code)
+                : "CODING_CASE_FAILED",
           });
         }
       }
@@ -682,7 +656,7 @@ export class CodingBatchHost {
       ),
     );
     const latest = this.current(input.workspaceId, input.groupId);
-    return this.write(latest, {
+    return this.native.advance(latest, {
       state: latest.cases.some((c) => c.state === "uncertain")
         ? "uncertain"
         : latest.cases.some((c) => c.state === "verified")
@@ -785,7 +759,7 @@ export class CodingBatchHost {
       state: "selected" as const,
       mergeSha256: null,
     });
-    return this.write(g, { selection });
+    return this.native.advance(g, { selection });
   }
   private mergeGuard(
     instance: WorkflowInstanceRevision,
@@ -821,7 +795,7 @@ export class CodingBatchHost {
         if (!c || !g.selection || g.selection.caseId !== c.id) continue;
         if (g.selection.state !== "selected")
           batchFail("CODING_SELECTION_STALE");
-        this.write(g, {
+        this.native.advance(g, {
           state: "completed",
           selection: signBatch({
             ...g.selection,
@@ -839,11 +813,7 @@ export class CodingBatchHost {
     if (g.revision !== input.expectedRevision) batchFail("CODING_BATCH_STALE");
     if (g.cases.find((c) => c.id === input.caseId)?.state !== "pending")
       batchFail("CODING_CASE_ALREADY_EFFECTED");
-    return this.write(g, {
-      cases: g.cases.map((c) =>
-        c.id === input.caseId ? { ...c, state: "skipped" as const } : c,
-      ),
-    });
+    return this.writeCase(g, input.caseId, { state: "skipped" });
   }
   async resume(input: CodingGroupMutation): Promise<CodingAttemptGroup> {
     workflowHostRecord(input, MUTATION_KEYS, ["signal"]);
@@ -870,7 +840,7 @@ export class CodingBatchHost {
     if (g.cases.some((c) => c.state === "running" || c.state === "uncertain"))
       batchFail("CODING_RESUME_UNCERTAIN");
     const next = g.cases.some((c) => c.state === "skipped")
-      ? this.write(g, {
+      ? this.native.advance(g, {
           cases: g.cases.map((c) =>
             c.state === "skipped" ? { ...c, state: "pending" as const } : c,
           ),
@@ -900,7 +870,7 @@ export class CodingBatchHost {
         .map(([, operation]) => operation),
     );
     const latest = this.current(input.workspaceId, input.groupId);
-    return this.write(latest, {
+    return this.native.advance(latest, {
       state: results.some(
         (r) => r.status === "rejected" || r.value.state === "uncertain",
       )

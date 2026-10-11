@@ -20,11 +20,16 @@ import {
   codeSign,
   type CodeModeRuntimeCapability,
 } from "./types.js";
-const codeModeWorkerPath = () => {
-  const compiled = new URL("./worker.mjs", import.meta.url),
-    source = new URL("../../src/code-mode/worker.mjs", import.meta.url);
-  return realpathSync(fileURLToPath(existsSync(compiled) ? compiled : source));
-};
+const runtimeFile = (compiled: string, source: string) =>
+  physicalPin(
+    realpathSync(
+      fileURLToPath(
+        existsSync(new URL(compiled, import.meta.url))
+          ? new URL(compiled, import.meta.url)
+          : new URL(source, import.meta.url),
+      ),
+    ),
+  );
 function codeModeProfile(node: string, worker: string): string {
   const q = JSON.stringify;
   return `(version 1)(deny default)(allow process-exec (literal ${q(node)}))(deny process-fork)(allow signal (target same-sandbox))(allow sysctl-read)(allow file-read-metadata)(allow file-read* file-map-executable (literal "/")(subpath "/System/Library")(subpath "/usr/lib")(literal ${q(node)})(literal ${q(worker)})(literal "/dev/urandom")(literal "/dev/random")(literal "/dev/null"))(allow file-write* (literal "/dev/null"))`;
@@ -44,16 +49,6 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
       ? null
       : fileURLToPath(import.meta.resolve("tsx")),
     loaderDirectory = loader && dirname(loader);
-  const runtimeFile = (js: string, ts: string) =>
-    physicalPin(
-      realpathSync(
-        fileURLToPath(
-          existsSync(new URL(js, import.meta.url))
-            ? new URL(js, import.meta.url)
-            : new URL(ts, import.meta.url),
-        ),
-      ),
-    );
   const supervisor = runtimeFile("./supervisor.js", "./supervisor.ts");
   const trustedFiles = [
     physicalPin(
@@ -73,7 +68,7 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
     runtimeFile("../shared/runtime.js", "../shared/runtime.ts"),
   ];
   const node = physicalPin(realpathSync(process.execPath)),
-    worker = physicalPin(codeModeWorkerPath());
+    worker = runtimeFile("./worker.mjs", "../../src/code-mode/worker.mjs");
   if (process.platform !== "darwin") codeModeError("CODE_MODE_OS_UNSUPPORTED");
   const sandbox = physicalPin("/usr/bin/sandbox-exec"),
     profile = codeModeProfile(node.path, worker.path),

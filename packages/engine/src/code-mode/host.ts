@@ -313,6 +313,14 @@ export class CodeModeHost {
       f.record.revision,
     );
   }
+  private journalUncertain(f: Flight) {
+    try {
+      this.update(f, {
+        state: "uncertain",
+        errorCode: "CODE_MODE_JOURNAL_UNCERTAIN",
+      });
+    } catch {}
+  }
   private async run(
     context: ToolContext,
     captured: Prepared,
@@ -485,12 +493,7 @@ export class CodeModeHost {
           });
         } catch (cause) {
           error = cause;
-          try {
-            this.update(f, {
-              state: "uncertain",
-              errorCode: "CODE_MODE_JOURNAL_UNCERTAIN",
-            });
-          } catch {}
+          this.journalUncertain(f);
         }
       }
     }
@@ -588,12 +591,7 @@ export class CodeModeHost {
           errorCode: "CODE_MODE_TOOL_UNCERTAIN",
         });
     } catch {
-      try {
-        this.update(f, {
-          state: "uncertain",
-          errorCode: "CODE_MODE_JOURNAL_UNCERTAIN",
-        });
-      } catch {}
+      this.journalUncertain(f);
       codeModeError("CLEANUP_UNCERTAIN");
     } finally {
       this.flights.delete(tool.id);

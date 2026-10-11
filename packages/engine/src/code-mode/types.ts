@@ -81,7 +81,7 @@ export function codeJson<T>(
   return sandboxJson(value, cap);
 }
 export const codeSign = sandboxSign;
-const field = (
+export const codeFields = (
   value: unknown,
   keys: readonly string[],
 ): Record<string, any> => {
@@ -96,14 +96,13 @@ const field = (
     codeModeError();
   return x;
 };
-export const codeFields = field;
 function codeIdentifier(value: unknown): string {
   if (typeof value !== "string" || !/^[-A-Za-z0-9_]{1,64}$/.test(value))
     codeModeError();
   return value;
 }
 export function validateCodeAllocation(value: unknown): CodeModeAllocation {
-  const x = field(codeJson(value), [
+  const x = codeFields(codeJson(value), [
     "maxSteps",
     "maxNestedCalls",
     "maxResultBytes",
@@ -240,14 +239,14 @@ export function parseCodeProgram(source: unknown): CodeProgram {
     const x = v as Record<string, any>;
     switch (x?.op) {
       case "literal":
-        field(x, ["op", "value"]);
+        codeFields(x, ["op", "value"]);
         break;
       case "var":
-        field(x, ["op", "name"]);
+        codeFields(x, ["op", "name"]);
         codeIdentifier(x.name);
         break;
       case "get":
-        field(x, ["op", "value", "key"]);
+        codeFields(x, ["op", "value", "key"]);
         expression(x.value, depth + 1);
         if (typeof x.key === "number") {
           if (!Number.isSafeInteger(x.key) || x.key < 0 || x.key > 1024)
@@ -259,13 +258,13 @@ export function parseCodeProgram(source: unknown): CodeProgram {
         }
         break;
       case "array":
-        field(x, ["op", "items"]);
+        codeFields(x, ["op", "items"]);
         if (!Array.isArray(x.items) || x.items.length > 64)
           codeModeError("CODE_MODE_LIMIT");
         x.items.forEach((v) => expression(v, depth + 1));
         break;
       case "object":
-        field(x, ["op", "properties"]);
+        codeFields(x, ["op", "properties"]);
         if (
           !x.properties ||
           typeof x.properties !== "object" ||
@@ -281,7 +280,7 @@ export function parseCodeProgram(source: unknown): CodeProgram {
       case "concat":
       case "add":
       case "equal":
-        field(x, ["op", "left", "right"]);
+        codeFields(x, ["op", "left", "right"]);
         expression(x.left, depth + 1);
         expression(x.right, depth + 1);
         break;
@@ -297,12 +296,12 @@ export function parseCodeProgram(source: unknown): CodeProgram {
       const x = v as Record<string, any>;
       switch (x?.op) {
         case "let":
-          field(x, ["op", "name", "value"]);
+          codeFields(x, ["op", "name", "value"]);
           codeIdentifier(x.name);
           expression(x.value, depth + 1);
           break;
         case "call":
-          field(x, ["op", "id", "tool", "input", "result"]);
+          codeFields(x, ["op", "id", "tool", "input", "result"]);
           codeIdentifier(x.id);
           codeIdentifier(x.tool);
           codeIdentifier(x.result);
@@ -311,20 +310,20 @@ export function parseCodeProgram(source: unknown): CodeProgram {
           expression(x.input, depth + 1);
           break;
         case "if":
-          field(x, ["op", "condition", "then", "else"]);
+          codeFields(x, ["op", "condition", "then", "else"]);
           expression(x.condition, depth + 1);
           statements(x.then, depth + 1);
           statements(x.else, depth + 1);
           break;
         case "repeat":
-          field(x, ["op", "count", "index", "body"]);
+          codeFields(x, ["op", "count", "index", "body"]);
           if (!Number.isSafeInteger(x.count) || x.count < 0 || x.count > 64)
             codeModeError("CODE_MODE_LIMIT");
           codeIdentifier(x.index);
           statements(x.body, depth + 1);
           break;
         case "return":
-          field(x, ["op", "value"]);
+          codeFields(x, ["op", "value"]);
           expression(x.value, depth + 1);
           break;
         default:
@@ -332,7 +331,7 @@ export function parseCodeProgram(source: unknown): CodeProgram {
       }
     }
   };
-  const root = field(program, ["version", "statements"]);
+  const root = codeFields(program, ["version", "statements"]);
   if (root.version !== 1) codeModeError("CODE_MODE_LANGUAGE_UNSUPPORTED");
   statements(root.statements, 0);
   return program as CodeProgram;
