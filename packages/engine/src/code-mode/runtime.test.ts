@@ -17,6 +17,9 @@ test(
     assert.equal(source.capability.networkIsolation, true);
     assert.equal(source.capability.processIsolation, true);
     assert.ok(source.capability.evidenceSha256);
+    assert.ok(
+      source.trustedFiles.some((pin) => pin.path === source.supervisor.file),
+    );
     const process = new OwnedCodeModeProcess(
         source,
         "actual-test-generation",

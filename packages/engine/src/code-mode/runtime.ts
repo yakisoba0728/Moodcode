@@ -3,12 +3,12 @@ import { execFileSync } from "node:child_process";
 import {
   existsSync,
   mkdtempSync,
+  readdirSync,
   realpathSync,
   writeFileSync,
   rmSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { readdirSync } from "node:fs";
 import { release, tmpdir } from "node:os";
 import { createServer } from "node:net";
 import { fileURLToPath } from "node:url";
@@ -34,16 +34,16 @@ export interface CodeModeRuntimeSource {
   node: SandboxPhysicalPin;
   worker: SandboxPhysicalPin;
   sandbox: SandboxPhysicalPin;
+  supervisor: { file: string; execArgv: string[] };
   trustedFiles: readonly SandboxPhysicalPin[];
   profile: string;
 }
 /** Actual probe; a capability DTO alone cannot authorize a runtime. */
 export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
-  const loaderDirectory = existsSync(
-    new URL("./supervisor.js", import.meta.url),
-  )
-    ? null
-    : dirname(fileURLToPath(import.meta.resolve("tsx")));
+  const loader = existsSync(new URL("./supervisor.js", import.meta.url))
+      ? null
+      : fileURLToPath(import.meta.resolve("tsx")),
+    loaderDirectory = loader && dirname(loader);
   const runtimeFile = (js: string, ts: string) =>
     physicalPin(
       realpathSync(
@@ -54,6 +54,7 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
         ),
       ),
     );
+  const supervisor = runtimeFile("./supervisor.js", "./supervisor.ts");
   const trustedFiles = [
     physicalPin(
       realpathSync(fileURLToPath(import.meta.resolve("@moodcode/contracts"))),
@@ -64,7 +65,7 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
           .sort()
           .map((f) => physicalPin(realpathSync(join(loaderDirectory, f))))
       : []),
-    runtimeFile("./supervisor.js", "./supervisor.ts"),
+    supervisor,
     runtimeFile(
       "../tools/command/process-control.js",
       "../tools/command/process-control.ts",
@@ -124,7 +125,7 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
       knowledgeHash(result.environment) !== knowledgeHash(["PATH"])
     )
       codeModeError("CODE_MODE_RUNTIME_UNAVAILABLE");
-  } catch (error) {
+  } catch {
     codeModeError("CODE_MODE_RUNTIME_UNAVAILABLE");
   } finally {
     await new Promise<void>((resolve) => server.close(() => resolve()));
@@ -151,16 +152,24 @@ export async function probeCodeModeRuntime(): Promise<CodeModeRuntimeSource> {
     evidenceSha256: knowledgeHash({ evidence, connections }),
     code: null,
   });
-  return { capability, node, worker, sandbox, profile, trustedFiles };
+  return {
+    capability,
+    node,
+    worker,
+    sandbox,
+    supervisor: {
+      file: supervisor.path,
+      execArgv: loader ? ["--import", loader] : [],
+    },
+    profile,
+    trustedFiles,
+  };
 }
 export function assertCodeModeRuntime(source: CodeModeRuntimeSource): void {
   if (
     process.platform !== source.capability.platform ||
     release() !== source.capability.osRelease ||
-    knowledgeHash(source.profile) !== source.capability.profileSha256
-  )
-    codeModeError("CODE_MODE_RUNTIME_STALE");
-  if (
+    knowledgeHash(source.profile) !== source.capability.profileSha256 ||
     knowledgeHash(source.trustedFiles) !== source.capability.trustedSourceSha256
   )
     codeModeError("CODE_MODE_RUNTIME_STALE");

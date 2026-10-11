@@ -1,7 +1,5 @@
 import { fork, type ChildProcess } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { TextDecoder } from "node:util";
 import { cleanupGroup, groupExists } from "../tools/command/process-control.js";
 import {
@@ -76,13 +74,8 @@ export class OwnedCodeModeProcess {
     if (this.child || signal.aborted) codeModeError("CODE_MODE_OWNER_STALE");
     this.assertDispatch();
     assertCodeModeRuntime(this.source);
-    const compiled = new URL("./supervisor.js", import.meta.url),
-      source = new URL("./supervisor.ts", import.meta.url),
-      useCompiled = existsSync(compiled);
-    this.child = fork(useCompiled ? compiled : source, [], {
-      execArgv: useCompiled
-        ? []
-        : ["--import", fileURLToPath(import.meta.resolve("tsx"))],
+    this.child = fork(this.source.supervisor.file, [], {
+      execArgv: this.source.supervisor.execArgv,
       env: { PATH: "/usr/bin:/bin" },
       stdio: ["ignore", "pipe", "pipe", "ipc"],
     });
