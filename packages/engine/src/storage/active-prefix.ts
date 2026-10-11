@@ -42,6 +42,7 @@ const MESSAGE_FACTS = `json_object('id',id,'sessionId',session_id,'runId',run_id
   'role',json_extract(data,'$.role'),'content',json_extract(data,'$.content'),
   'toolCalls',json_extract(data,'$.toolCalls'),'toolCallId',json_extract(data,'$.toolCallId'),
   'toolResult',json_extract(data,'$.toolResult'))`;
+const PART_FACTS = `json_object('toolCallId',json_extract(data,'$.toolCallId'),'providerCallId',json_extract(data,'$.providerCallId'),'name',json_extract(data,'$.name'),'input',json_extract(data,'$.input'),'result',json_extract(data,'$.result'))`;
 
 /** Call only inside a read or publication transaction. Results are exact facts, never context excerpts. */
 export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run, selection: ActivePrefixSourceOptions): ActivePrefixSource {
@@ -147,8 +148,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
       if (!facts.length) limit('One complete exchange exceeds the source count, coverage or byte budget');
       break;
     }
-    const partFacts = `json_object('toolCallId',json_extract(data,'$.toolCallId'),'providerCallId',json_extract(data,'$.providerCallId'),'name',json_extract(data,'$.name'),'input',json_extract(data,'$.input'),'result',json_extract(data,'$.result'))`;
-    const toolPartSizes = database.prepare(`SELECT count(*) AS count,coalesce(sum(length(CAST(${partFacts} AS BLOB))),0) AS bytes
+    const toolPartSizes = database.prepare(`SELECT count(*) AS count,coalesce(sum(length(CAST(${PART_FACTS} AS BLOB))),0) AS bytes
       FROM message_parts WHERE turn_id=? AND json_extract(data,'$.type')='tool'`).get(turn.id)!;
     if (Number(toolPartSizes.count) !== results.length) mismatch('Source tool proposal/result counts disagree');
     if (Number(toolPartSizes.count) > 128 || Number(toolPartSizes.bytes) > selection.maxSourceBytes) {
@@ -156,20 +156,18 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
       break;
     }
     const parts = database.prepare(`SELECT id,session_id,run_id,turn_id,message_id,state,
-      ${partFacts} AS facts
+      ${PART_FACTS} AS facts
       FROM message_parts WHERE turn_id=? AND json_extract(data,'$.type')='tool' ORDER BY part_index LIMIT 129`).all(turn.id);
     if (parts.length !== results.length || parts.some(part => Buffer.byteLength(String(part.facts)) > selection.maxSourceBytes)) mismatch('Source tool proposal and result count is inconsistent or exceeds the exact source bound');
     const a = projected(database, assistant, selection.maxSourceBytes); a.turnId = turn.id; a.attemptId = turn.attemptId;
     const calls = a.toolCalls;
     if (assistant.toolCalls && !Array.isArray(calls)) mismatch('Assistant tool calls are not complete JSON');
     const groupFacts: JsonObject[] = [a];
-    const used = new Set<string>();
+    const used = new Set<string>(), proposals = parts.map(part => ({ part, proposal: JSON.parse(String(part.facts)) as JsonObject }));
     for (const result of results) {
-      const fact = projected(database, result, selection.maxSourceBytes), matching = parts.filter(part => {
-        const proposal = JSON.parse(String(part.facts)) as JsonObject; return proposal.providerCallId === fact.toolCallId;
-      });
+      const fact = projected(database, result, selection.maxSourceBytes), matching = proposals.filter(({ proposal }) => proposal.providerCallId === fact.toolCallId);
       if (matching.length !== 1) mismatch('Tool result has no unique proposal in its own exchange');
-      const part = matching[0]!, proposal = JSON.parse(String(part.facts)) as JsonObject;
+      const { part, proposal } = matching[0]!;
       owner(part, run);
       if (part.turn_id !== turn.id || part.message_id !== assistant.id || !['completed', 'failed'].includes(String(part.state)) || !isBoundedId(proposal.toolCallId) || used.has(proposal.toolCallId)) mismatch('Tool result proposal belongs to another Turn or has not settled');
       used.add(proposal.toolCallId);
@@ -197,8 +195,7 @@ export function readActivePrefixSourceDatabase(database: DatabaseSync, run: Run,
     }
     facts.splice(0, facts.length, ...candidateFacts); sourceTurns.push(turn.id);
   }
-  if (!facts.length || !sourceTurns.length) throw new EngineError('ACTIVE_PREFIX_NOT_AVAILABLE', 'No complete text/tool exchange is available outside protected observations');
-  facts.sort((a, b) => Number(a.ordinal) - Number(b.ordinal));
+  if (!facts.length) throw new EngineError('ACTIVE_PREFIX_NOT_AVAILABLE', 'No complete text/tool exchange is available outside protected observations');
   const sourceJson = JSON.stringify({ version: 1, scope: 'active-run-prefix', projection: PROJECTION, messages: facts });
   if (Buffer.byteLength(sourceJson) > selection.maxSourceBytes) limit('Exact text/tool source JSON exceeds its byte budget');
   const sourceMessageIds = facts.map(fact => String(fact.id));

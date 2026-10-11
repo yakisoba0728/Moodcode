@@ -1,5 +1,5 @@
 import { assertMediaIndexCapacity, assertProviderMediaPartCapacity } from '../media/storage-capacity.js';
-import type { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync, SQLOutputValue } from 'node:sqlite';
 import {
   EngineError, isTerminal, type ContextRevision, type JsonObject, type MessagePart,
   type ProviderAttempt, type TurnRecord,
@@ -51,18 +51,17 @@ export class NativeExecutionStorage {
   private requireActive(sessionId: string, runId: string): void {
     if (isTerminal(this.native.scopeRun(sessionId, runId).state)) throw new EngineError('RUN_TERMINAL', 'Execution records cannot change a terminal Run');
   }
+  /** Outside an evidence read the body is read directly; inside one its header columns bound it and are returned. */
+  private body(table: 'session_turns' | 'provider_attempts' | 'context_revisions', id: string, headerColumns: string, notFound: () => never): { raw: string; row?: Record<string, SQLOutputValue> } {
+    if (!hasEvidenceRead(this.database)) return { raw: String((this.database.prepare(`SELECT data FROM ${table} WHERE id=?`).get(id) ?? notFound()).data) };
+    const row = this.database.prepare(`SELECT ${headerColumns},length(CAST(data AS BLOB)) AS bytes FROM ${table} WHERE id=?`).get(id) ?? notFound();
+    return { row, raw: String(readEvidenceBody(this.database, { table, key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 })) };
+  }
   getTurn(id: string): TurnRecord {
     this.native.hooks.assertOpen();
-    if (!hasEvidenceRead(this.database)) {
-      const row = this.database.prepare('SELECT data FROM session_turns WHERE id=?').get(id);
-      if (!row) throw new EngineError('TURN_NOT_FOUND', 'Turn was not found');
-      return validateTurnRecord(JSON.parse(String(row.data)));
-    }
-    const row = this.database.prepare('SELECT id,session_id,run_id,turn_index,state,length(CAST(data AS BLOB)) AS bytes FROM session_turns WHERE id=?').get(id);
-    if (!row) throw new EngineError('TURN_NOT_FOUND', 'Turn was not found');
-    const raw = readEvidenceBody(this.database, { table: 'session_turns', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
-    const turn = validateTurnRecord(JSON.parse(String(raw)));
-    if (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.index !== row.turn_index || turn.state !== row.state) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Turn payload disagrees with its SQL owner');
+    const { raw, row } = this.body('session_turns', id, 'id,session_id,run_id,turn_index,state', () => { throw new EngineError('TURN_NOT_FOUND', 'Turn was not found'); });
+    const turn = validateTurnRecord(JSON.parse(raw));
+    if (row && (turn.id !== row.id || turn.sessionId !== row.session_id || turn.runId !== row.run_id || turn.index !== row.turn_index || turn.state !== row.state)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Turn payload disagrees with its SQL owner');
     return turn;
   }
   listTurns(runId: string): TurnRecord[] {
@@ -144,16 +143,9 @@ export class NativeExecutionStorage {
   }
   getAttempt(id: string): ProviderAttempt {
     this.native.hooks.assertOpen();
-    if (!hasEvidenceRead(this.database)) {
-      const row = this.database.prepare('SELECT data FROM provider_attempts WHERE id=?').get(id);
-      if (!row) throw new EngineError('ATTEMPT_NOT_FOUND', 'Provider attempt was not found');
-      return validateProviderAttempt(JSON.parse(String(row.data)));
-    }
-    const row = this.database.prepare('SELECT id,session_id,run_id,turn_id,attempt_index,state,length(CAST(data AS BLOB)) AS bytes FROM provider_attempts WHERE id=?').get(id);
-    if (!row) throw new EngineError('ATTEMPT_NOT_FOUND', 'Provider attempt was not found');
-    const raw = readEvidenceBody(this.database, { table: 'provider_attempts', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
-    const attempt = validateProviderAttempt(JSON.parse(String(raw)));
-    if (attempt.id !== row.id || attempt.sessionId !== row.session_id || attempt.runId !== row.run_id || attempt.turnId !== row.turn_id || attempt.index !== row.attempt_index || attempt.state !== row.state) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Attempt payload disagrees with its SQL owner');
+    const { raw, row } = this.body('provider_attempts', id, 'id,session_id,run_id,turn_id,attempt_index,state', () => { throw new EngineError('ATTEMPT_NOT_FOUND', 'Provider attempt was not found'); });
+    const attempt = validateProviderAttempt(JSON.parse(raw));
+    if (row && (attempt.id !== row.id || attempt.sessionId !== row.session_id || attempt.runId !== row.run_id || attempt.turnId !== row.turn_id || attempt.index !== row.attempt_index || attempt.state !== row.state)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Attempt payload disagrees with its SQL owner');
     return attempt;
   }
   getLatestAttemptForTurn(turnId: string): ProviderAttempt | null {
@@ -276,16 +268,9 @@ export class NativeExecutionStorage {
   }
   getContextRevision(id: string): ContextRevision {
     this.native.hooks.assertOpen();
-    if (!hasEvidenceRead(this.database)) {
-      const row = this.database.prepare('SELECT data FROM context_revisions WHERE id=?').get(id);
-      if (!row) throw new EngineError('CONTEXT_REVISION_NOT_FOUND', 'Context revision was not found');
-      return validateContextRevision(JSON.parse(String(row.data)));
-    }
-    const row = this.database.prepare('SELECT id,session_id,run_id,turn_id,revision,supersedes_id,length(CAST(data AS BLOB)) AS bytes FROM context_revisions WHERE id=?').get(id);
-    if (!row) throw new EngineError('CONTEXT_REVISION_NOT_FOUND', 'Context revision was not found');
-    const raw = readEvidenceBody(this.database, { table: 'context_revisions', key: id }, { expectedBytes: Number(row.bytes), maxBytes: 8388608 });
-    const context = validateContextRevision(JSON.parse(String(raw)));
-    if (context.id !== row.id || context.sessionId !== row.session_id || (context.runId ?? null) !== row.run_id || (context.turnId ?? null) !== row.turn_id || context.revision !== row.revision || (context.supersedesId ?? null) !== row.supersedes_id) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context payload disagrees with its SQL owner');
+    const { raw, row } = this.body('context_revisions', id, 'id,session_id,run_id,turn_id,revision,supersedes_id', () => { throw new EngineError('CONTEXT_REVISION_NOT_FOUND', 'Context revision was not found'); });
+    const context = validateContextRevision(JSON.parse(raw));
+    if (row && (context.id !== row.id || context.sessionId !== row.session_id || (context.runId ?? null) !== row.run_id || (context.turnId ?? null) !== row.turn_id || context.revision !== row.revision || (context.supersedesId ?? null) !== row.supersedes_id)) throw new EngineError('RECORD_SCOPE_MISMATCH', 'Context payload disagrees with its SQL owner');
     return context;
   }
   putContextRevision(value: ContextRevision): ContextRevision {
@@ -329,7 +314,8 @@ export class NativeExecutionStorage {
     this.documentKind(kind);
     if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || expectedRevision >= Number.MAX_SAFE_INTEGER) throw new EngineError('REVISION_CONFLICT', 'Expected document revision must be a nonnegative safe integer');
     // Use the bounded JSON validator shared by native events, before entering SQL.
-    const event = this.nativeEventDocument(sessionId, data);
+    const event = requireDocumentJson(data);
+    this.native.hooks.session(sessionId);
     const encoded = JSON.stringify(event);
     if (Buffer.byteLength(encoded) > 262_144) throw new EngineError('SESSION_DOCUMENT_LIMIT', 'Session document exceeds 262144 bytes');
     return this.native.write(sessionId, () => {
@@ -343,12 +329,6 @@ export class NativeExecutionStorage {
       this.native.appendEvent(sessionId, 'session.document.updated', { kind, revision, sha256: sha256Hex(encoded) });
       return { revision, data: event };
     });
-  }
-  private nativeEventDocument(sessionId: string, value: JsonObject): JsonObject {
-    // Validation reuses a context-free native event solely to copy plain bounded JSON.
-    const validation = requireDocumentJson(value);
-    this.native.hooks.session(sessionId);
-    return validation;
   }
   /** Caller shares the v1 recovery transaction; no effect is retried or treated as completed. */
   recoverInTransaction(affectedSessions: Set<string>, toolFrontiers: ToolRecoveryFrontiers = new Map()): void {

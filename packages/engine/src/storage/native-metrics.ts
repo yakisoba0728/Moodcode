@@ -81,9 +81,9 @@ function usage(database: DatabaseSync, cte: string, relation: string, values: SQ
   })) as Pick<MetricUsage, typeof keys[number]>;
   return { samples: number(row, 'samples'), ...fields };
 }
-function duration(database: DatabaseSync, table: string, start: string, end: string, sessionId?: string): MetricDuration {
+function duration(database: DatabaseSync, table: string, start: string, end: { sql: string; values: SQLInputValue[] }, sessionId: string | undefined, filter = ''): MetricDuration {
   const where = scope(sessionId);
-  const row = one(database, `WITH records AS (SELECT json_extract(data,'$.${start}') AS startValue,json_extract(data,'$.${end}') AS endValue FROM ${table} WHERE ${where.clause}), samples AS (SELECT *,julianday(startValue) AS started,julianday(endValue) AS ended FROM records), intervals AS (SELECT CASE WHEN started IS NOT NULL AND ended>=started THEN round((ended-started)*86400000) END AS elapsed,CASE WHEN startValue IS NULL OR endValue IS NULL THEN 1 ELSE 0 END AS missing,CASE WHEN startValue IS NOT NULL AND endValue IS NOT NULL AND (started IS NULL OR ended IS NULL OR ended<started) THEN 1 ELSE 0 END AS invalid FROM samples) SELECT count(elapsed) AS samples,total(missing) AS missing,total(invalid) AS invalid,total(elapsed) AS total,min(elapsed) AS min,max(elapsed) AS max FROM intervals`, where.values);
+  const row = one(database, `WITH records AS (SELECT json_extract(data,'$.${start}') AS startValue,${end.sql} AS endValue FROM ${table} WHERE ${where.clause}${filter}), samples AS (SELECT *,julianday(startValue) AS started,julianday(endValue) AS ended FROM records), intervals AS (SELECT CASE WHEN started IS NOT NULL AND ended>=started THEN round((ended-started)*86400000) END AS elapsed,CASE WHEN startValue IS NULL OR endValue IS NULL THEN 1 ELSE 0 END AS missing,CASE WHEN startValue IS NOT NULL AND endValue IS NOT NULL AND (started IS NULL OR ended IS NULL OR ended<started) THEN 1 ELSE 0 END AS invalid FROM samples) SELECT count(elapsed) AS samples,total(missing) AS missing,total(invalid) AS invalid,total(elapsed) AS total,min(elapsed) AS min,max(elapsed) AS max FROM intervals`, [...end.values, ...where.values]);
   const samples = number(row, 'samples');
   return { samples, missing: number(row, 'missing'), invalid: number(row, 'invalid'), totalMs: samples ? safe(row.total) : null, minMs: safe(row.min), maxMs: safe(row.max), source: 'persisted-wall-clock-timestamps' };
 }
@@ -106,13 +106,7 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
   const where = scope(sessionId);
   const inputs = states(database, 'session_inputs', ['pending', 'promoted', 'cancelled'], sessionId);
   const inputRow = one(database, `SELECT count(CASE WHEN delivery='queue' THEN 1 END) AS queue,count(CASE WHEN delivery='steer' THEN 1 END) AS steer,count(CASE WHEN state='pending' AND delivery='queue' THEN 1 END) AS pendingQueue,count(CASE WHEN state='pending' AND delivery='steer' THEN 1 END) AS pendingSteer,total(CASE WHEN state='pending' THEN bytes END) AS pendingBytes FROM session_inputs WHERE ${where.clause}`, where.values);
-  // These views are connection-local CTEs, never persisted tables or extra reads of JSON in JS.
-  const pendingDuration = (pending: boolean): MetricDuration => {
-    const extra = pending ? "state='pending'" : "state='promoted'";
-    const result = one(database, `WITH records AS (SELECT json_extract(data,'$.createdAt') AS startValue,${pending ? '?' : "json_extract(data,'$.updatedAt')"} AS endValue FROM session_inputs WHERE ${where.clause} AND ${extra}), intervals AS (SELECT *,julianday(startValue) AS started,julianday(endValue) AS ended FROM records), samples AS (SELECT CASE WHEN started IS NOT NULL AND ended>=started THEN round((ended-started)*86400000) END AS ms,CASE WHEN startValue IS NULL OR endValue IS NULL THEN 1 ELSE 0 END AS missing,CASE WHEN startValue IS NOT NULL AND endValue IS NOT NULL AND (started IS NULL OR ended IS NULL OR ended<started) THEN 1 ELSE 0 END AS invalid FROM intervals) SELECT count(ms) AS samples,total(missing) AS missing,total(invalid) AS invalid,total(ms) AS total,min(ms) AS min,max(ms) AS max FROM samples`, pending ? [generatedAt, ...where.values] : where.values);
-    const samples = number(result, 'samples');
-    return { samples, missing: number(result, 'missing'), invalid: number(result, 'invalid'), totalMs: samples ? safe(result.total) : null, minMs: safe(result.min), maxMs: safe(result.max), source: 'persisted-wall-clock-timestamps' };
-  };
+  const completedAt = { sql: "json_extract(data,'$.completedAt')", values: [] };
   const sessionScope = sessionId === undefined ? { clause: '1', values: [] } : { clause: 's.id=?', values: [sessionId] };
   const sessionRow = one(database, `SELECT count(*) AS total,count(CASE WHEN c.paused=1 THEN 1 END) AS paused,count(CASE WHEN c.paused=1 AND json_extract(c.data,'$.reason')='recovery_required' THEN 1 END) AS recovery FROM sessions s LEFT JOIN session_controls c ON c.session_id=s.id WHERE ${sessionScope.clause}`, sessionScope.values);
   const attempts = states(database, 'provider_attempts', ['prepared', 'dispatched', 'streaming', 'completed', 'failed', 'interrupted', 'uncertain'], sessionId);
@@ -174,10 +168,11 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
   return {
     schemaVersion: 6, generatedAt, scope: { sessionId: sessionId ?? null },
     sessions: { total: number(sessionRow, 'total'), paused: number(sessionRow, 'paused'), recoveryRequired: number(sessionRow, 'recovery') },
-    inputs: { ...inputs, queue: number(inputRow, 'queue'), steer: number(inputRow, 'steer'), pendingQueue: number(inputRow, 'pendingQueue'), pendingSteer: number(inputRow, 'pendingSteer'), pendingRequestBytes: safe(inputRow.pendingBytes), pendingAge: pendingDuration(true), promotionWait: pendingDuration(false) },
+    inputs: { ...inputs, queue: number(inputRow, 'queue'), steer: number(inputRow, 'steer'), pendingQueue: number(inputRow, 'pendingQueue'), pendingSteer: number(inputRow, 'pendingSteer'), pendingRequestBytes: safe(inputRow.pendingBytes), pendingAge: duration(database, 'session_inputs', 'createdAt', { sql: '?', values: [generatedAt] }, sessionId, " AND state='pending'"),
+      promotionWait: duration(database, 'session_inputs', 'createdAt', { sql: "json_extract(data,'$.updatedAt')", values: [] }, sessionId, " AND state='promoted'") },
     runs: states(database, 'runs', ['created', 'running', 'awaiting_approval', 'cancelling', 'completed', 'cancelled', 'failed', 'interrupted'], sessionId),
-    turns: { ...turns, elapsed: duration(database, 'session_turns', 'createdAt', 'completedAt', sessionId) },
-    attempts: { ...attempts, retries: number(retryRow, 'retries'), turnsWithRetries: number(retryRow, 'turns'), retriesWithChangedContext: number(retryRow, 'changed'), overflowRecoveries: null, elapsed: duration(database, 'provider_attempts', 'createdAt', 'completedAt', sessionId), dispatchedElapsed: duration(database, 'provider_attempts', 'dispatchedAt', 'completedAt', sessionId) },
+    turns: { ...turns, elapsed: duration(database, 'session_turns', 'createdAt', completedAt, sessionId) },
+    attempts: { ...attempts, retries: number(retryRow, 'retries'), turnsWithRetries: number(retryRow, 'turns'), retriesWithChangedContext: number(retryRow, 'changed'), overflowRecoveries: null, elapsed: duration(database, 'provider_attempts', 'createdAt', completedAt, sessionId), dispatchedElapsed: duration(database, 'provider_attempts', 'dispatchedAt', completedAt, sessionId) },
     attemptCleanup: { ...attemptCleanup, attemptsWithoutObservation: number(noCleanup, 'count'), recordValidity: null, providerOutcomeConfirmed: null, source: 'all-typed-attempt-cleanup-records-in-scope' },
     parts: { ...parts, types: { text: number(partRow, 'text'), reasoning: number(partRow, 'reasoning'), tool: number(partRow, 'tool'), media: number(partRow, 'media') }, textUtf8Bytes: safe(partRow.textBytes), reasoningUtf8Bytes: safe(partRow.reasoningBytes) },
     providerUsage: { ...mainUsage, aggregation: 'observed-event-sum', inclusiveTotals: true, latestContext: contextValid ? { bytes: Number(contextRow.bytes), limit: Number(contextRow.budget), turnIndex: Number(contextRow.turnIndex), summaryIncluded: contextRow.summaryIncluded === 1 } : null },
@@ -186,7 +181,7 @@ export function readNativeMetrics(database: DatabaseSync, sessionId?: string, ge
       source: 'all-attempt_usage-records-in-scope', billedTokens: null },
     summary: { preparedEvents: number(summaryRow, 'prepared'), dispatchedEvents: number(summaryRow, 'dispatched'), completedEvents: number(summaryRow, 'completed'), failedEvents: number(summaryRow, 'failed'), revisions: number(revisionRow, 'count'), textUtf8Bytes: safe(revisionRow.bytes), usage: summaryUsage, observedAttempts: number(summaryRow, 'attempts'), usageEventsWithoutAttemptId: number(summaryRow, 'missingId'), aggregation: 'latest-snapshot-per-summaryAttemptId' },
     summaryAttempts: { ...summaryAttempts, scopes: { 'completed-history': number(summaryAttemptRow, 'history'), 'active-run-prefix': number(summaryAttemptRow, 'prefix') },
-      providerCompletedAwaitingPublication: number(summaryAttemptRow, 'awaiting'), elapsed: duration(database, 'summary_attempts', 'createdAt', 'completedAt', sessionId),
+      providerCompletedAwaitingPublication: number(summaryAttemptRow, 'awaiting'), elapsed: duration(database, 'summary_attempts', 'createdAt', completedAt, sessionId),
       observedOutputBytes: safe(summaryAttemptRow.observedBytes), retainedTextBytes: safe(summaryAttemptRow.retainedBytes), truncatedPartialTexts: number(summaryAttemptRow, 'truncated') },
     summaryAttemptUsage: { ...summaryAttemptUsage, aggregation: 'latest-snapshot-per-durable-summary-attempt', inclusiveTotals: true,
       attemptsWithUsage: summaryAttemptUsage.samples, attemptsWithoutUsage: summaryAttempts.total-summaryAttemptUsage.samples, source: 'all-summary_usage-records-in-scope', billedTokens: null },
