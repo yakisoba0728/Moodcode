@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import { verifySealed } from "../shared/canonical.js";
 import {
   guardedWrite,
   type GuardedWriteOptions,
@@ -8,12 +7,10 @@ import {
 import type { KnowledgeTarget } from "./types.js";
 import type {
   KnowledgePublicationArchiveData,
-  KnowledgePublicationArchiveRow,
   KnowledgePublicationCapture,
   KnowledgePublicationCommitResult,
   KnowledgePublicationListOptions,
   KnowledgePublicationPage,
-  KnowledgePublicationProvenance,
   KnowledgePublicationReceipt,
   KnowledgePublicationRecord,
   KnowledgePublicationStoragePorts,
@@ -24,15 +21,25 @@ import type {
   WorkspaceDocumentRevision,
 } from "./publication-types.js";
 import {
+  exact,
+  MAX_APPROVAL_MS,
+  validateDocument,
+  validateHead,
+  validateKnowledgePublicationArchiveRow,
+  validatePrepareKnowledgePublication,
+  validatePublication,
+  validateReceipt,
+  workspaceDocumentHeadFor,
+} from "./publication-validation.js";
+import {
   identifier,
   immutableKnowledgeJson,
   integer,
+  KNOWLEDGE_LIMITS,
   knowledgeError,
   knowledgeHash,
   resealKnowledge as modified,
   sameKnowledge,
-  sha256,
-  stamp,
   validateBinding,
   validateCandidate,
   withKnowledgeHash as hashed,
@@ -102,34 +109,6 @@ type Row = {
   status?: string;
   revision_id?: string;
 };
-const INPUT_FIELDS = [
-  "workspaceId",
-  "requestId",
-  "operation",
-  "binding",
-  "documentKey",
-  "expectedHeadRevision",
-  "expectedHeadSha256",
-  "expectedHeadRevisionId",
-  "provenance",
-  "existingPublicationId",
-  "existingPublicationSha256",
-  "bodySha256",
-  "expiresAt",
-] as const;
-const PROVENANCE_FIELDS = [
-  "candidateId",
-  "candidateSha256",
-  "generationId",
-  "generationSha256",
-  "attemptId",
-  "attemptSha256",
-  "planId",
-  "planSha256",
-  "trustRevisionId",
-  "trustRevisionSha256",
-] as const;
-const MAX_APPROVAL_MS = 300_000;
 const COLUMNS: Readonly<Record<KnowledgePublicationTable, readonly string[]>> =
   Object.freeze({
     knowledge_publications: [
@@ -171,14 +150,14 @@ function readRow(
 ): Row | undefined {
   const row = db
     .prepare(
-      `SELECT id,workspace_id,${COLUMNS[table].join(",")},length(CAST(data AS BLOB)) AS data_bytes,CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND 65536 THEN data END AS data FROM ${table} WHERE ${where}`,
+      `SELECT id,workspace_id,${COLUMNS[table].join(",")},length(CAST(data AS BLOB)) AS data_bytes,CASE WHEN length(CAST(data AS BLOB)) BETWEEN 1 AND ${KNOWLEDGE_LIMITS.rowBytes} THEN data END AS data FROM ${table} WHERE ${where}`,
     )
     .get(...parameters) as (Row & { data_bytes: number }) | undefined;
   if (
     row &&
     (!Number.isSafeInteger(row.data_bytes) ||
       row.data_bytes < 1 ||
-      row.data_bytes > 65536 ||
+      row.data_bytes > KNOWLEDGE_LIMITS.rowBytes ||
       typeof row.data !== "string")
   )
     knowledgeError(
@@ -187,380 +166,11 @@ function readRow(
     );
   return row;
 }
-function exact(
-  value: unknown,
-  required: readonly string[],
-  optional: readonly string[] = [],
-): asserts value is Record<string, unknown> {
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Expected a plain publication object",
-    );
-  const actual = Object.keys(value);
-  if (
-    required.some((key) => !Object.hasOwn(value, key)) ||
-    actual.some((key) => !required.includes(key) && !optional.includes(key))
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Publication fields do not match their exact bounded contract",
-    );
-}
-function digest(value: unknown): string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Publication hashes must be lowercase SHA-256",
-    );
-  return value as string;
-}
-function boundedText(value: unknown, maximum = 16384): string {
-  if (
-    typeof value !== "string" ||
-    Buffer.byteLength(value) > maximum ||
-    Buffer.from(value).toString("utf8") !== value ||
-    value.includes("\u0000")
-  )
-    knowledgeError(
-      "KNOWLEDGE_PUBLICATION_LIMIT",
-      "Publication text must be bounded valid UTF-8",
-    );
-  return value as string;
-}
-function hashValid(record: { sha256: string }): void {
-  digest(record.sha256);
-  verifySealed(record, () =>
-    knowledgeError(
-      "KNOWLEDGE_HASH_MISMATCH",
-      "Publication row differs from its immutable hash",
-    ),
-  );
-  if (Buffer.byteLength(JSON.stringify(record)) > 61440)
-    knowledgeError(
-      "KNOWLEDGE_PUBLICATION_LIMIT",
-      "Publication row must leave room for its archive envelope",
-    );
-}
-function provenance(value: unknown): KnowledgePublicationProvenance {
-  const p = immutableKnowledgeJson(value);
-  exact(p, PROVENANCE_FIELDS);
-  for (const key of PROVENANCE_FIELDS)
-    key.endsWith("Sha256") ? digest(p[key]) : identifier(p[key]);
-  return p as unknown as KnowledgePublicationProvenance;
-}
-function inputShape(value: Record<string, unknown>): void {
-  identifier(value.workspaceId);
-  identifier(value.requestId);
-  identifier(value.documentKey);
-  if (!["publish", "revoke"].includes(String(value.operation)))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Publication requires an explicit publish or revoke operation",
-    );
-  const b = validateBinding(value.binding);
-  if (b.workspaceId !== value.workspaceId)
-    knowledgeError(
-      "KNOWLEDGE_SCOPE_MISMATCH",
-      "Publication binding belongs to another workspace",
-    );
-  provenance(value.provenance);
-  const revision = integer(value.expectedHeadRevision);
-  if (value.expectedHeadSha256 !== null) digest(value.expectedHeadSha256);
-  if (value.expectedHeadRevisionId !== null)
-    identifier(value.expectedHeadRevisionId);
-  if (
-    (revision === 0) !== (value.expectedHeadSha256 === null) ||
-    (revision === 0) !== (value.expectedHeadRevisionId === null)
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Only a genuinely absent document may have revision zero",
-    );
-  digest(value.bodySha256);
-  stamp(value.expiresAt);
-  if (value.operation === "publish") {
-    if (
-      value.existingPublicationId !== null ||
-      value.existingPublicationSha256 !== null
-    )
-      knowledgeError(
-        "INVALID_KNOWLEDGE_PUBLICATION",
-        "Publish cannot claim an unrelated revoke owner",
-      );
-  } else {
-    identifier(value.existingPublicationId);
-    digest(value.existingPublicationSha256);
-    if (revision === 0 || value.bodySha256 !== sha256(""))
-      knowledgeError(
-        "INVALID_KNOWLEDGE_PUBLICATION",
-        "Revoke needs an actual existing revision and exact empty output",
-      );
-  }
-}
-export function validatePrepareKnowledgePublication(
-  value: unknown,
-): PrepareKnowledgePublication {
-  const r = immutableKnowledgeJson(value);
-  exact(r, INPUT_FIELDS);
-  inputShape(r);
-  return r as unknown as PrepareKnowledgePublication;
-}
-function validatePublication(value: unknown): KnowledgePublicationRecord {
-  const r = immutableKnowledgeJson(value);
-  exact(r, [
-    ...INPUT_FIELDS,
-    "id",
-    "requestSha256",
-    "runtimeEpoch",
-    "revision",
-    "state",
-    "body",
-    "documentRevisionId",
-    "createdAt",
-    "updatedAt",
-    "errorCode",
-    "sha256",
-  ]);
-  inputShape(r);
-  identifier(r.id);
-  identifier(r.runtimeEpoch);
-  digest(r.requestSha256);
-  if (
-    !integer(r.revision) ||
-    !["prepared", "completed", "cancelled"].includes(String(r.state))
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Unknown native publication state",
-    );
-  boundedText(r.body);
-  if (sha256(r.body as string) !== r.bodySha256)
-    knowledgeError(
-      "KNOWLEDGE_HASH_MISMATCH",
-      "Publication body does not describe its original approved output",
-    );
-  stamp(r.createdAt);
-  stamp(r.updatedAt);
-  if (
-    Date.parse(r.updatedAt as string) < Date.parse(r.createdAt as string) ||
-    Date.parse(r.expiresAt as string) <= Date.parse(r.createdAt as string) ||
-    Date.parse(r.expiresAt as string) >
-      Date.parse(r.createdAt as string) + MAX_APPROVAL_MS
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Original publication approval time frontier is invalid",
-    );
-  if (r.documentRevisionId !== null) identifier(r.documentRevisionId);
-  if (r.errorCode !== null) identifier(r.errorCode);
-  if (
-    (r.state === "completed") !== (r.documentRevisionId !== null) ||
-    (r.state === "completed" && r.errorCode !== null) ||
-    (r.state === "prepared" && r.errorCode !== null) ||
-    (r.state === "cancelled" && r.errorCode === null)
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Publication terminal state disagrees with its receipt authority",
-    );
-  if (
-    (r.operation === "publish" && !(r.body as string).trim()) ||
-    (r.operation === "revoke" && r.body !== "")
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Publish retains exact nonempty candidate text; revoke retains no active text",
-    );
-  const request: Record<string, unknown> = {};
-  for (const key of INPUT_FIELDS) request[key] = r[key];
-  if (knowledgeHash(request) !== r.requestSha256)
-    knowledgeError(
-      "KNOWLEDGE_HASH_MISMATCH",
-      "Publication approval fingerprint changed",
-    );
-  hashValid(r as unknown as KnowledgePublicationRecord);
-  return r as unknown as KnowledgePublicationRecord;
-}
-function validateDocument(value: unknown): WorkspaceDocumentRevision {
-  const r = immutableKnowledgeJson(value);
-  exact(r, [
-    "id",
-    "workspaceId",
-    "documentKey",
-    "revision",
-    "previousRevisionId",
-    "publicationId",
-    "status",
-    "binding",
-    "provenance",
-    "body",
-    "bodySha256",
-    "createdAt",
-    "sha256",
-  ]);
-  for (const key of ["id", "workspaceId", "documentKey", "publicationId"])
-    identifier(r[key]);
-  if (!integer(r.revision) || !["active", "revoked"].includes(String(r.status)))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Invalid document history status or revision",
-    );
-  if (r.previousRevisionId !== null) identifier(r.previousRevisionId);
-  if ((r.revision === 1) !== (r.previousRevisionId === null))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Document revision predecessor is inconsistent",
-    );
-  if (validateBinding(r.binding).workspaceId !== r.workspaceId)
-    knowledgeError(
-      "KNOWLEDGE_SCOPE_MISMATCH",
-      "Document binding belongs to another workspace",
-    );
-  provenance(r.provenance);
-  boundedText(r.body);
-  digest(r.bodySha256);
-  if (
-    sha256(r.body as string) !== r.bodySha256 ||
-    (r.status === "revoked" && r.body !== "") ||
-    (r.status === "active" && !(r.body as string).trim())
-  )
-    knowledgeError(
-      "KNOWLEDGE_HASH_MISMATCH",
-      "Document body differs from its active/revoked history",
-    );
-  stamp(r.createdAt);
-  hashValid(r as unknown as WorkspaceDocumentRevision);
-  return r as unknown as WorkspaceDocumentRevision;
-}
-export function workspaceDocumentHeadId(
-  workspaceId: string,
-  key: string,
-): string {
-  identifier(workspaceId);
-  identifier(key);
-  return knowledgeHash({ workspaceId, documentKey: key });
-}
-function headFor(document: WorkspaceDocumentRevision): WorkspaceDocumentHead {
-  return hashed({
-    id: workspaceDocumentHeadId(document.workspaceId, document.documentKey),
-    workspaceId: document.workspaceId,
-    documentKey: document.documentKey,
-    revision: document.revision,
-    revisionId: document.id,
-    publicationId: document.publicationId,
-    status: document.status,
-    bodySha256: document.bodySha256,
-    updatedAt: document.createdAt,
-  });
-}
-function validateHead(value: unknown): WorkspaceDocumentHead {
-  const r = immutableKnowledgeJson(value);
-  exact(r, [
-    "id",
-    "workspaceId",
-    "documentKey",
-    "revision",
-    "revisionId",
-    "publicationId",
-    "status",
-    "bodySha256",
-    "updatedAt",
-    "sha256",
-  ]);
-  for (const key of [
-    "id",
-    "workspaceId",
-    "documentKey",
-    "revisionId",
-    "publicationId",
-  ])
-    identifier(r[key]);
-  if (
-    !integer(r.revision) ||
-    !["active", "revoked"].includes(String(r.status)) ||
-    r.id !==
-      workspaceDocumentHeadId(r.workspaceId as string, r.documentKey as string)
-  )
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Document head must reference one positive historical revision",
-    );
-  digest(r.bodySha256);
-  stamp(r.updatedAt);
-  hashValid(r as unknown as WorkspaceDocumentHead);
-  return r as unknown as WorkspaceDocumentHead;
-}
-function validateReceipt(value: unknown): KnowledgePublicationReceipt {
-  const r = immutableKnowledgeJson(value);
-  exact(r, [
-    "id",
-    "workspaceId",
-    "requestId",
-    "requestSha256",
-    "publicationId",
-    "documentRevisionId",
-    "operation",
-    "createdAt",
-    "sha256",
-  ]);
-  for (const key of [
-    "id",
-    "workspaceId",
-    "requestId",
-    "publicationId",
-    "documentRevisionId",
-  ])
-    identifier(r[key]);
-  digest(r.requestSha256);
-  if (!["publish", "revoke"].includes(String(r.operation)))
-    knowledgeError(
-      "INVALID_KNOWLEDGE_PUBLICATION",
-      "Unknown publication receipt operation",
-    );
-  stamp(r.createdAt);
-  hashValid(r as unknown as KnowledgePublicationReceipt);
-  return r as unknown as KnowledgePublicationReceipt;
-}
-export function validateKnowledgePublicationArchiveRow(
-  value: unknown,
-): KnowledgePublicationArchiveRow {
-  const r = immutableKnowledgeJson(value);
-  exact(r, ["table", "key", "workspaceId", "data"]);
-  identifier(r.key);
-  identifier(r.workspaceId);
-  let body: KnowledgePublicationArchiveData;
-  switch (r.table) {
-    case "knowledge_publications":
-      body = validatePublication(r.data);
-      break;
-    case "workspace_document_revisions":
-      body = validateDocument(r.data);
-      break;
-    case "workspace_document_heads":
-      body = validateHead(r.data);
-      break;
-    case "knowledge_publication_receipts":
-      body = validateReceipt(r.data);
-      break;
-    default:
-      return knowledgeError(
-        "INVALID_KNOWLEDGE_PUBLICATION",
-        "Unknown native publication archive table",
-      );
-  }
-  if (body.id !== r.key || body.workspaceId !== r.workspaceId)
-    knowledgeError(
-      "KNOWLEDGE_SCOPE_MISMATCH",
-      "Publication archive key and workspace disagree",
-    );
-  return r as unknown as KnowledgePublicationArchiveRow;
-}
 function decode(
   row: Row,
   table: KnowledgePublicationTable,
 ): KnowledgePublicationArchiveData {
-  if (Buffer.byteLength(row.data) > 65536)
+  if (Buffer.byteLength(row.data) > KNOWLEDGE_LIMITS.rowBytes)
     knowledgeError(
       "KNOWLEDGE_PUBLICATION_LIMIT",
       "Stored publication row exceeds its byte bound",
@@ -661,7 +271,7 @@ export class KnowledgePublicationStorage {
   }
   private now(floor = 0): number {
     const value = this.#ports.now?.() ?? Date.now();
-    integer(value, 8640000000000000);
+    integer(value, 8_640_000_000_000_000);
     return Math.max(floor, value);
   }
   private binding(workspaceId: string): ReturnType<typeof validateBinding> {
@@ -751,7 +361,7 @@ export class KnowledgePublicationStorage {
         "KNOWLEDGE_RECORD_CONFLICT",
         "Current document head has no actual revision",
       );
-    if (!sameKnowledge(head, headFor(document)))
+    if (!sameKnowledge(head, workspaceDocumentHeadFor(document)))
       knowledgeError(
         "KNOWLEDGE_RECORD_CONFLICT",
         "Current document head differs from its exact revision",
@@ -837,7 +447,7 @@ export class KnowledgePublicationStorage {
     return Object.freeze({
       publication,
       document,
-      head: headFor(document),
+      head: workspaceDocumentHeadFor(document),
       receipt,
     });
   }
@@ -924,7 +534,7 @@ export class KnowledgePublicationStorage {
     const request = validatePrepareKnowledgePublication(input);
     const duplicate = this.findRequest(request);
     if (duplicate) return { kind: "duplicate", record: duplicate };
-    if (this.#live.size >= 128)
+    if (this.#live.size >= KNOWLEDGE_LIMITS.handles)
       knowledgeError(
         "KNOWLEDGE_PUBLICATION_LIMIT",
         "Release original approval captures before preparing more",
@@ -1183,7 +793,7 @@ export class KnowledgePublicationStorage {
             createdAt: time,
           }),
         ),
-        head = validateHead(headFor(document)),
+        head = validateHead(workspaceDocumentHeadFor(document)),
         publication = modified(record, {
           revision: record.revision + 1,
           state: "completed",
@@ -1383,8 +993,14 @@ export class KnowledgePublicationStorage {
     const value = immutableKnowledgeJson(options);
     exact(value, [], ["after", "limit", "maxBytes"]);
     if (value.after !== undefined) identifier(value.after);
-    const limit = integer(value.limit ?? 32, 32),
-      maxBytes = integer(value.maxBytes ?? 1048576, 1048576);
+    const limit = integer(
+        value.limit ?? KNOWLEDGE_LIMITS.pageRows,
+        KNOWLEDGE_LIMITS.pageRows,
+      ),
+      maxBytes = integer(
+        value.maxBytes ?? KNOWLEDGE_LIMITS.pageBytes,
+        KNOWLEDGE_LIMITS.pageBytes,
+      );
     if (!limit || !maxBytes)
       knowledgeError(
         "KNOWLEDGE_PUBLICATION_LIMIT",
@@ -1416,7 +1032,7 @@ export class KnowledgePublicationStorage {
       if (
         !Number.isSafeInteger(row.bytes) ||
         row.bytes < 1 ||
-        row.bytes > 65536
+        row.bytes > KNOWLEDGE_LIMITS.rowBytes
       )
         knowledgeError(
           "KNOWLEDGE_PUBLICATION_LIMIT",

@@ -27,7 +27,7 @@ import { readActiveKnowledgeImportActivation } from "./import-recovery-store.js"
 import {
   validateKnowledgePublicationArchiveRow,
   workspaceDocumentHeadId,
-} from "./publication-store.js";
+} from "./publication-validation.js";
 import type {
   KnowledgePublicationRecord,
   KnowledgePublicationReceipt,
@@ -39,6 +39,7 @@ import {
   identifier,
   immutableKnowledgeJson,
   integer,
+  KNOWLEDGE_LIMITS,
   knowledgeError as fail,
   knowledgeHash,
   knowledgeHostRecord,
@@ -56,7 +57,7 @@ export const KNOWLEDGE_CONTEXT_LIMITS = Object.freeze({
   profiles: 16,
   requestBytes: 16_384,
   handles: 256,
-  rowBytes: 65_536,
+  rowBytes: KNOWLEDGE_LIMITS.rowBytes,
   readBytes: 1_048_576,
 });
 const BUDGET_FIELDS = [

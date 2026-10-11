@@ -1,8 +1,6 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
-import {
-  KNOWLEDGE_PUBLICATION_TABLES,
-  validateKnowledgePublicationArchiveRow,
-} from "./publication-store.js";
+import { KNOWLEDGE_PUBLICATION_TABLES } from "./publication-store.js";
+import { validateKnowledgePublicationArchiveRow } from "./publication-validation.js";
 import {
   validateKnowledgeGenerationArchiveRow,
 } from "./generation-validation.js";
@@ -25,6 +23,7 @@ import type {
 } from "./types.js";
 import {
   identifier,
+  KNOWLEDGE_LIMITS,
   knowledgeError,
   sameKnowledge as same,
   validateKnowledgeArchiveRow,
@@ -43,7 +42,7 @@ type Header = {
   bytes: number;
   [key: string]: SQLInputValue;
 };
-const ROW_BYTES = 65_536;
+const ROW_BYTES = KNOWLEDGE_LIMITS.rowBytes;
 const COLUMNS: Readonly<Record<Table, Readonly<Record<string, string>>>> = {
   knowledge_publications: {
     request_id: "requestId",

@@ -27,6 +27,7 @@ import {
   identifier,
   immutableKnowledgeJson,
   integer,
+  KNOWLEDGE_LIMITS,
   knowledgeError,
   knowledgeHash,
   sameKnowledge,
@@ -39,9 +40,9 @@ import {
 export const KNOWLEDGE_HOST_LIMITS = Object.freeze({
   fileBytes: 131_072,
   messageBytes: 262_144,
-  sourceBytes: 262_144,
+  sourceBytes: KNOWLEDGE_LIMITS.sourceBytes,
   messageRecordBytes: 1_048_576,
-  sourcePins: 64,
+  sourcePins: KNOWLEDGE_LIMITS.sourcePins,
   projections: 128,
 });
 export type KnowledgeSourceSelection =

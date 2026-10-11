@@ -6,7 +6,10 @@ import {
   type KnowledgePublicationHistory,
   type KnowledgePublicationHistoryPorts,
 } from "./publication-history.js";
-import { validateKnowledgePublicationArchiveRow } from "./publication-store.js";
+import {
+  MAX_APPROVAL_MS,
+  validateKnowledgePublicationArchiveRow,
+} from "./publication-validation.js";
 import type {
   KnowledgePublicationCapture,
   KnowledgePublicationCommitResult,
@@ -147,8 +150,7 @@ type CommitState = {
 };
 const MAX_PREVIEWS = 128,
   MAX_OPERATIONS = 32,
-  MAX_PREVIEW_BYTES = 262_144,
-  MAX_PREVIEW_MS = 300_000;
+  MAX_PREVIEW_BYTES = 262_144;
 function sync(value: unknown): void {
   if (value !== undefined)
     fail(
@@ -301,7 +303,7 @@ export class KnowledgePublicationService {
       requestedExpiry === undefined
         ? now + 60_000
         : Date.parse(stamp(requestedExpiry));
-    if (requested <= now || requested > now + MAX_PREVIEW_MS)
+    if (requested <= now || requested > now + MAX_APPROVAL_MS)
       fail(
         "KNOWLEDGE_PUBLICATION_EXPIRED",
         "Publication preview expiry must be within its original bounded approval window",

@@ -15,7 +15,7 @@ import {
   knowledgePublicationProvenance,
   readKnowledgePublicationHistory,
 } from "./publication-history.js";
-import { validateKnowledgePublicationArchiveRow } from "./publication-store.js";
+import { validateKnowledgePublicationArchiveRow } from "./publication-validation.js";
 import type {
   KnowledgeHostBinding,
   KnowledgeSourceManifest,

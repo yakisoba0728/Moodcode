@@ -7,7 +7,7 @@ import {
 import {
   validateKnowledgePublicationArchiveRow,
   workspaceDocumentHeadId,
-} from "./publication-store.js";
+} from "./publication-validation.js";
 import {
   validateKnowledgeGenerationArchiveRow,
 } from "./generation-validation.js";

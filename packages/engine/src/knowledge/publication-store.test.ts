@@ -23,8 +23,8 @@ import {
   KnowledgePublicationStorage,
   KNOWLEDGE_PUBLICATION_SCHEMA_SQL,
   KNOWLEDGE_PUBLICATION_TABLES,
-  validateKnowledgePublicationArchiveRow,
 } from "./publication-store.js";
+import { validateKnowledgePublicationArchiveRow } from "./publication-validation.js";
 import { knowledgeHash, sha256 } from "./validation.js";
 import type {
   KnowledgeCandidate,
