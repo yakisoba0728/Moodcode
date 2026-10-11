@@ -21,14 +21,14 @@ import {
 } from "../knowledge/validation.js";
 import { sha256Hex } from "../shared/canonical.js";
 import { assertNativeSignal, plainRecord } from "../shared/data.js";
-import { validateProposalSourceManifest } from "./store.js";
-import { trackPending } from "./validation.js";
+import { PROPOSAL_LIMITS, validateProposalSourceManifest } from "./store.js";
+import { addDisjointPath, trackPending } from "./validation.js";
 
-export const PROPOSAL_SOURCE_LIMITS = Object.freeze({
-  files: 128,
-  fileBytes: 1_048_576,
-  totalBytes: 8_388_608,
-  manifestBytes: 262_144,
+const PROPOSAL_SOURCE_LIMITS = Object.freeze({
+  files: PROPOSAL_LIMITS.files,
+  fileBytes: PROPOSAL_LIMITS.fileBytes,
+  totalBytes: PROPOSAL_LIMITS.totalBytes,
+  manifestBytes: PROPOSAL_LIMITS.revisionBytes,
   depth: 64,
   handles: 256,
   durationMs: 5_000,
@@ -85,10 +85,6 @@ export interface PreparedProposalSourceCapture {
 export interface ProposalSourceCaptureHostPorts {
   readonly checkBinding: (workspaceId: string) => KnowledgeHostBinding;
 }
-interface Owned {
-  readonly snapshot: PreparedProposalSourceSnapshot;
-  readonly operations: readonly ProposalSourceOperation[];
-}
 interface Observed {
   readonly pin: Omit<ProposalSourceFilePin, "afterSha256" | "afterBytes">;
   readonly body: string | null;
@@ -131,6 +127,67 @@ function stable(a: BigIntStats, b: BigIntStats): boolean {
     a.nlink === b.nlink &&
     a.mtimeNs === b.mtimeNs &&
     a.ctimeNs === b.ctimeNs
+  );
+}
+/** Each proper ancestor of a relative path, outermost first. */
+function ancestorPaths(relative: string): string[] {
+  const components = relative.split("/");
+  return components
+    .slice(1)
+    .map((_, i) => components.slice(0, i + 1).join("/"));
+}
+/** canonical runs only after the stat checks pass. */
+function rootPin(
+  stat: BigIntStats,
+  binding: KnowledgeHostBinding,
+  canonical: () => string,
+): ProposalPhysicalPin {
+  if (
+    !stat.isDirectory() ||
+    stat.isSymbolicLink() ||
+    stat.dev.toString() !== binding.rootDevice ||
+    stat.ino.toString() !== binding.rootInode ||
+    canonical() !== binding.root
+  )
+    fail("PROPOSAL_SOURCE_BINDING_CHANGED");
+  return Object.freeze({ path: ".", ...metadata(stat) });
+}
+/** canonical runs only after the stat checks pass, so a dangling symlink is unsafe rather than absent. */
+function directoryPin(
+  stat: BigIntStats,
+  selected: string,
+  absolute: string,
+  canonical: () => string,
+): ProposalPhysicalPin {
+  if (!stat.isDirectory() || stat.isSymbolicLink() || canonical() !== absolute)
+    fail("PROPOSAL_SOURCE_UNSAFE");
+  return Object.freeze({ path: selected, ...metadata(stat) });
+}
+function assertStableRead(
+  bytes: number,
+  before: BigIntStats,
+  observed: BigIntStats,
+  current: BigIntStats,
+): void {
+  if (
+    bytes > PROPOSAL_SOURCE_LIMITS.fileBytes ||
+    BigInt(bytes) !== observed.size ||
+    !stable(before, observed) ||
+    !stable(observed, current) ||
+    current.isSymbolicLink()
+  )
+    fail("PROPOSAL_SOURCE_STALE");
+}
+function pinMatches(
+  pin: Observed["pin"],
+  original: ProposalSourceFilePin,
+): boolean {
+  return (
+    knowledgeHash({
+      ...pin,
+      afterSha256: original.afterSha256,
+      afterBytes: original.afterBytes,
+    }) === knowledgeHash(original)
   );
 }
 function absent(error: unknown): boolean {
@@ -190,17 +247,7 @@ function operationsSnapshot(
       (expected === null && after === null)
     )
       fail("INVALID_PROPOSAL_SOURCE");
-    const folded = selected.toLocaleLowerCase("en-US");
-    if (
-      paths.some(
-        (other) =>
-          folded === other ||
-          folded.startsWith(`${other}/`) ||
-          other.startsWith(`${folded}/`),
-      )
-    )
-      fail("INVALID_PROPOSAL_SOURCE");
-    paths.push(folded);
+    addDisjointPath(paths, selected, invalid);
     bytes += after === null ? 0 : Buffer.byteLength(after);
     if (bytes > PROPOSAL_SOURCE_LIMITS.totalBytes)
       fail("PROPOSAL_SOURCE_LIMIT");
@@ -261,7 +308,7 @@ function freezeObserved(
 /** Reads actual selected file descriptors. It creates no directories, files, tools, Runs, or approvals. */
 export class ProposalSourceCaptureHost {
   readonly #checkBinding: ProposalSourceCaptureHostPorts["checkBinding"];
-  readonly #captures = new WeakMap<object, Owned>();
+  readonly #captures = new WeakMap<object, PreparedProposalSourceSnapshot>();
   readonly #active = new Set<object>();
   readonly #pending = new Set<Promise<unknown>>();
   readonly #close = new AbortController();
@@ -282,16 +329,9 @@ export class ProposalSourceCaptureHost {
   }
   private rootSync(binding: KnowledgeHostBinding): ProposalPhysicalPin {
     this.current(binding);
-    const stat = lstatSync(binding.root, { bigint: true });
-    if (
-      !stat.isDirectory() ||
-      stat.isSymbolicLink() ||
-      stat.dev.toString() !== binding.rootDevice ||
-      stat.ino.toString() !== binding.rootInode ||
-      realpathSync(binding.root) !== binding.root
-    )
-      fail("PROPOSAL_SOURCE_BINDING_CHANGED");
-    return Object.freeze({ path: ".", ...metadata(stat) });
+    return rootPin(lstatSync(binding.root, { bigint: true }), binding, () =>
+      realpathSync(binding.root),
+    );
   }
   private async root(
     binding: KnowledgeHostBinding,
@@ -303,15 +343,7 @@ export class ProposalSourceCaptureHost {
     const stat = await lstat(binding.root, { bigint: true }),
       canonical = await realpath(binding.root);
     check(signal, this.#close.signal, deadline);
-    if (
-      !stat.isDirectory() ||
-      stat.isSymbolicLink() ||
-      stat.dev.toString() !== binding.rootDevice ||
-      stat.ino.toString() !== binding.rootInode ||
-      canonical !== binding.root
-    )
-      fail("PROPOSAL_SOURCE_BINDING_CHANGED");
-    return Object.freeze({ path: ".", ...metadata(stat) });
+    return rootPin(stat, binding, () => canonical);
   }
   private observeSync(
     binding: KnowledgeHostBinding,
@@ -322,26 +354,24 @@ export class ProposalSourceCaptureHost {
     check(signal, this.#close.signal, deadline);
     const root = this.rootSync(binding),
       parents: ProposalPhysicalPin[] = [],
-      missing: string[] = [],
-      components = relative.split("/");
+      missing: string[] = [];
     let absentParent = false;
-    for (let i = 1; i < components.length; i++) {
+    for (const selected of ancestorPaths(relative)) {
       check(signal, this.#close.signal, deadline);
-      const selected = components.slice(0, i).join("/"),
-        absolute = path.join(binding.root, selected);
+      const absolute = path.join(binding.root, selected);
       if (absentParent) {
         missing.push(selected);
         continue;
       }
       try {
-        const stat = lstatSync(absolute, { bigint: true });
-        if (
-          !stat.isDirectory() ||
-          stat.isSymbolicLink() ||
-          realpathSync(absolute) !== absolute
-        )
-          fail("PROPOSAL_SOURCE_UNSAFE");
-        parents.push(Object.freeze({ path: selected, ...metadata(stat) }));
+        parents.push(
+          directoryPin(
+            lstatSync(absolute, { bigint: true }),
+            selected,
+            absolute,
+            () => realpathSync(absolute),
+          ),
+        );
       } catch (error) {
         if (!absent(error)) throw error;
         absentParent = true;
@@ -382,15 +412,12 @@ export class ProposalSourceCaptureHost {
             if (!count) break;
           }
           observed = fstatSync(fd, { bigint: true });
-          const current = lstatSync(absolute, { bigint: true });
-          if (
-            bytes > PROPOSAL_SOURCE_LIMITS.fileBytes ||
-            BigInt(bytes) !== observed.size ||
-            !stable(before, observed) ||
-            !stable(observed, current) ||
-            current.isSymbolicLink()
-          )
-            fail("PROPOSAL_SOURCE_STALE");
+          assertStableRead(
+            bytes,
+            before,
+            observed,
+            lstatSync(absolute, { bigint: true }),
+          );
           body = decode(buffer.subarray(0, bytes));
         } finally {
           closeSync(fd);
@@ -430,13 +457,11 @@ export class ProposalSourceCaptureHost {
   ): Promise<Observed> {
     const root = await this.root(binding, signal, deadline),
       parents: ProposalPhysicalPin[] = [],
-      missing: string[] = [],
-      components = relative.split("/");
+      missing: string[] = [];
     let absentParent = false;
-    for (let i = 1; i < components.length; i++) {
+    for (const selected of ancestorPaths(relative)) {
       check(signal, this.#close.signal, deadline);
-      const selected = components.slice(0, i).join("/"),
-        absolute = path.join(binding.root, selected);
+      const absolute = path.join(binding.root, selected);
       if (absentParent) {
         missing.push(selected);
         continue;
@@ -444,13 +469,7 @@ export class ProposalSourceCaptureHost {
       try {
         const stat = await lstat(absolute, { bigint: true }),
           canonical = await realpath(absolute);
-        if (
-          !stat.isDirectory() ||
-          stat.isSymbolicLink() ||
-          canonical !== absolute
-        )
-          fail("PROPOSAL_SOURCE_UNSAFE");
-        parents.push(Object.freeze({ path: selected, ...metadata(stat) }));
+        parents.push(directoryPin(stat, selected, absolute, () => canonical));
       } catch (error) {
         if (!absent(error)) throw error;
         absentParent = true;
@@ -492,15 +511,12 @@ export class ProposalSourceCaptureHost {
             if (!read.bytesRead) break;
           }
           observed = await handle.stat({ bigint: true });
-          const current = await lstat(absolute, { bigint: true });
-          if (
-            bytes > PROPOSAL_SOURCE_LIMITS.fileBytes ||
-            BigInt(bytes) !== observed.size ||
-            !stable(before, observed) ||
-            !stable(observed, current) ||
-            current.isSymbolicLink()
-          )
-            fail("PROPOSAL_SOURCE_STALE");
+          assertStableRead(
+            bytes,
+            before,
+            observed,
+            await lstat(absolute, { bigint: true }),
+          );
           body = decode(buffer.subarray(0, bytes));
         } finally {
           await handle.close();
@@ -599,17 +615,16 @@ export class ProposalSourceCaptureHost {
           manifest,
           operations: Object.freeze(content),
         });
-      const owned = Object.freeze({ snapshot, operations });
-      this.checkOwnedFresh(owned, signal, deadline);
+      this.verifySync(binding, manifest, signal, deadline, content);
       const capture = Object.freeze({ id: randomUUID() });
-      this.#captures.set(capture, owned);
+      this.#captures.set(capture, snapshot);
       this.#active.add(capture);
       return capture;
     } finally {
       this.#reserved--;
     }
   }
-  private owned(capture: object): Owned {
+  private owned(capture: object): PreparedProposalSourceSnapshot {
     if (
       !capture ||
       typeof capture !== "object" ||
@@ -622,52 +637,49 @@ export class ProposalSourceCaptureHost {
     );
   }
   read(capture: object): PreparedProposalSourceSnapshot {
-    return this.owned(capture).snapshot;
+    return this.owned(capture);
   }
-  private checkOwnedFresh(
-    owned: Owned,
+  /** Re-observes every manifest file and, when given, its captured before body. */
+  private verifySync(
+    binding: KnowledgeHostBinding,
+    manifest: ProposalSourceManifest,
     signal: AbortSignal | undefined,
     deadline: number,
+    bodies?: readonly { readonly before: string | null }[],
   ): void {
     check(signal, this.#close.signal, deadline);
-    const { snapshot } = owned;
     if (
-      knowledgeHash(this.rootSync(snapshot.binding)) !==
-      knowledgeHash(snapshot.manifest.rootPin)
+      knowledgeHash(this.rootSync(binding)) !== knowledgeHash(manifest.rootPin)
     )
       fail("PROPOSAL_SOURCE_STALE");
-    for (let i = 0; i < owned.operations.length; i++) {
-      const operation = owned.operations[i]!,
-        observed = this.observeSync(
-          snapshot.binding,
-          operation.path,
-          signal,
-          deadline,
-        ),
-        original = snapshot.manifest.files[i]!;
-      const pin = {
-        ...observed.pin,
-        afterSha256: original.afterSha256,
-        afterBytes: original.afterBytes,
-      };
+    for (const [i, original] of manifest.files.entries()) {
+      const observed = this.observeSync(
+        binding,
+        original.path,
+        signal,
+        deadline,
+      );
       if (
-        knowledgeHash(pin) !== knowledgeHash(original) ||
-        observed.body !== snapshot.operations[i]!.before
+        !pinMatches(observed.pin, original) ||
+        (bodies && observed.body !== bodies[i]!.before)
       )
         fail("PROPOSAL_SOURCE_STALE");
     }
     check(signal, this.#close.signal, deadline);
-    this.current(snapshot.binding);
+    this.current(binding);
   }
   assertFreshSync(
     capture: PreparedProposalSourceCapture,
     signal?: AbortSignal,
   ): void {
     actualSignal(signal);
-    this.checkOwnedFresh(
-      this.owned(capture),
+    const snapshot = this.owned(capture);
+    this.verifySync(
+      snapshot.binding,
+      snapshot.manifest,
       signal,
       Date.now() + PROPOSAL_SOURCE_LIMITS.durationMs,
+      snapshot.operations,
     );
   }
   /** Physical observation only; callers (proposal apply preview and approval checks) must separately authenticate native revision/blob ownership. */
@@ -679,42 +691,12 @@ export class ProposalSourceCaptureHost {
     actualSignal(signal);
     const binding = validateBinding(inputBinding),
       manifest = validateProposalSourceManifest(inputManifest, binding);
-    this.checkStoredManifest(
+    this.verifySync(
       binding,
       manifest,
       signal,
       Date.now() + PROPOSAL_SOURCE_LIMITS.durationMs,
     );
-  }
-  private checkStoredManifest(
-    binding: KnowledgeHostBinding,
-    manifest: ProposalSourceManifest,
-    signal: AbortSignal | undefined,
-    deadline: number,
-  ): void {
-    check(signal, this.#close.signal, deadline);
-    if (
-      knowledgeHash(this.rootSync(binding)) !== knowledgeHash(manifest.rootPin)
-    )
-      fail("PROPOSAL_SOURCE_STALE");
-    for (const original of manifest.files) {
-      const observed = this.observeSync(
-        binding,
-        original.path,
-        signal,
-        deadline,
-      );
-      if (
-        knowledgeHash({
-          ...observed.pin,
-          afterSha256: original.afterSha256,
-          afterBytes: original.afterBytes,
-        }) !== knowledgeHash(original)
-      )
-        fail("PROPOSAL_SOURCE_STALE");
-    }
-    check(signal, this.#close.signal, deadline);
-    this.current(binding);
   }
   /** Rehydrates no producer/approval identity: it checks only the exact durable native selected-file metadata. */
   assertStoredManifestCurrent(
@@ -734,16 +716,9 @@ export class ProposalSourceCaptureHost {
           signal,
           deadline,
         );
-        if (
-          knowledgeHash({
-            ...observed.pin,
-            afterSha256: original.afterSha256,
-            afterBytes: original.afterBytes,
-          }) !== knowledgeHash(original)
-        )
-          fail("PROPOSAL_SOURCE_STALE");
+        if (!pinMatches(observed.pin, original)) fail("PROPOSAL_SOURCE_STALE");
       }
-      this.checkStoredManifest(binding, manifest, signal, deadline);
+      this.verifySync(binding, manifest, signal, deadline);
     })();
     return trackPending(this.#pending, task);
   }

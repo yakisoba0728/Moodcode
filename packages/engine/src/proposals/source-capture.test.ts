@@ -198,6 +198,33 @@ test("actual symlink, parent symlink, hardlink, binary and oversized preimages n
     code("PROPOSAL_SOURCE_UNSAFE"),
   );
 });
+test("a dangling parent symlink is unsafe, never an absent parent, in sync and async observations", async (t) => {
+  const f = fixture(t);
+  mkdirSync(join(f.root, "dir"));
+  const capture = await f.host.capture(f.binding, [
+      { path: "dir/absent/a", expectedSha256: null, after: "new" },
+    ]),
+    snapshot = f.host.read(capture);
+  await symlink("nowhere", join(f.root, "dir", "absent"));
+  assert.throws(
+    () => f.host.assertFreshSync(capture),
+    code("PROPOSAL_SOURCE_UNSAFE"),
+  );
+  assert.throws(
+    () => f.host.assertStoredManifestCurrentSync(f.binding, snapshot.manifest),
+    code("PROPOSAL_SOURCE_UNSAFE"),
+  );
+  await assert.rejects(
+    f.host.assertStoredManifestCurrent(f.binding, snapshot.manifest),
+    code("PROPOSAL_SOURCE_UNSAFE"),
+  );
+  await assert.rejects(
+    f.host.capture(f.binding, [
+      { path: "dir/absent/b", expectedSha256: null, after: "new" },
+    ]),
+    code("PROPOSAL_SOURCE_UNSAFE"),
+  );
+});
 test("hostile getters, proxies, sparse operations, path conflicts and malformed UTF-8 reject before observations", (t) => {
   const f = fixture(t);
   let calls = 0;

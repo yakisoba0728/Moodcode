@@ -39,6 +39,13 @@ export function assertNotThenable(value: unknown, fail: () => never): void {
   if (value && typeof value === 'object' && 'then' in value) fail();
 }
 
+/** Adds a path to the case-folded set unless it equals, contains or lies inside one already there. */
+export function addDisjointPath(folded: string[], path: string, fail: () => never): void {
+  const lower = path.toLowerCase();
+  if (folded.some(other => other === lower || other.startsWith(`${lower}/`) || lower.startsWith(`${other}/`))) fail();
+  folded.push(lower);
+}
+
 /** UTF-8 size of body serialized with this size as its trailing bytes field. */
 export function selfMeasuredBytes(body: object): number {
   let bytes = 0;

@@ -7,6 +7,7 @@ import { sha256Hex } from "../shared/canonical.js";
 import { casReplace, guardedWrite } from "../storage/transaction.js";
 import { workspaceWritePath } from "../workspace/index.js";
 import {
+  addDisjointPath,
   assertNotThenable,
   proposalChecks,
   selfMeasuredBytes,
@@ -81,6 +82,9 @@ function fail(
 function transactionRequired(): never {
   return fail("PROPOSAL_TRANSACTION_REQUIRED");
 }
+function pathConflict(): never {
+  return fail("PROPOSAL_PATH_CONFLICT");
+}
 export const proposalStoreChecks = Object.freeze({
   ...proposalChecks({
     fail,
@@ -151,16 +155,7 @@ export function normalizeProposalCaptureInput(
     if (op.expectedSha256 !== null) hash(op.expectedSha256);
     const after = content(op.after);
     if (op.expectedSha256 === null && after === null) fail();
-    if (
-      paths.some(
-        (p) =>
-          p === path.toLowerCase() ||
-          p.startsWith(path.toLowerCase() + "/") ||
-          path.toLowerCase().startsWith(p + "/"),
-      )
-    )
-      fail("PROPOSAL_PATH_CONFLICT");
-    paths.push(path.toLowerCase());
+    addDisjointPath(paths, path, pathConflict);
     bytes += after === null ? 0 : Buffer.byteLength(after);
   }
   if (bytes > PROPOSAL_LIMITS.totalBytes) fail("PROPOSAL_LIMIT");
@@ -246,16 +241,7 @@ export function validateProposalSourceManifest(
       "missingParents",
     ]);
     const selected = relative(f.path);
-    if (
-      paths.some(
-        (p) =>
-          p === selected.toLowerCase() ||
-          p.startsWith(selected.toLowerCase() + "/") ||
-          selected.toLowerCase().startsWith(p + "/"),
-      )
-    )
-      fail("PROPOSAL_PATH_CONFLICT");
-    paths.push(selected.toLowerCase());
+    addDisjointPath(paths, selected, pathConflict);
     for (const key of ["beforeSha256", "afterSha256"])
       if (f[key] !== null) hash(f[key]);
     number(f.beforeBytes, PROPOSAL_LIMITS.fileBytes);
