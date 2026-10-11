@@ -27,6 +27,16 @@ export interface StdioLspOptions {
   args?: readonly string[];
   env?: Readonly<Record<string, string>>;
 }
+export const HOST_ID = /^[A-Za-z0-9_.-]{1,64}$/;
+export const LANGUAGE_ID = /^[A-Za-z0-9+_.-]{1,64}$/;
+export function minimalChildEnv(): NodeJS.ProcessEnv {
+  return {
+    PATH: process.env.PATH,
+    ...(process.platform === "win32"
+      ? { SystemRoot: process.env.SystemRoot }
+      : {}),
+  };
+}
 const MAX = 1024 * 1024;
 interface Pending {
   resolve(value: JsonValue): void;
@@ -150,12 +160,7 @@ export class StdioLspConnection implements LspConnection {
         "INVALID_LSP_CONFIG",
         "LSP needs explicit absolute executable/cwd and bounded argv",
       );
-    const env: NodeJS.ProcessEnv = {
-      PATH: process.env.PATH,
-      ...(process.platform === "win32"
-        ? { SystemRoot: process.env.SystemRoot }
-        : {}),
-    };
+    const env = minimalChildEnv();
     for (const [key, value] of Object.entries(options.env ?? {})) {
       if (
         !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(key) ||

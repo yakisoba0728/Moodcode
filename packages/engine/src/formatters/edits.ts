@@ -11,6 +11,10 @@ export interface TextEdit {
   range: TextRange;
   newText: string;
 }
+export function endPosition(text: string): { line: number; character: number } {
+  const lines = text.split(/\r\n|\r|\n/);
+  return { line: lines.length - 1, character: lines.at(-1)!.length };
+}
 /** UTF-16 positions with strict range bounds; never split a surrogate pair or a CRLF terminator. */
 export function positionOffset(text: string, position: TextPosition): number {
   if (

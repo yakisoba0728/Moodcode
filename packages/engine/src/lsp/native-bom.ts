@@ -1,6 +1,6 @@
 import { EngineError, type JsonObject, type JsonValue } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
-import { positionOffset, type TextPosition, type TextRange } from '../formatters/edits.js';
+import { endPosition, positionOffset, type TextPosition, type TextRange } from '../formatters/edits.js';
 import type { LspConnection } from './stdio.js';
 
 const nativeConnections = new WeakSet<LspConnection>();
@@ -39,7 +39,7 @@ export function installNativeBOMProjection(connection: LspConnection): void {
     } else if (method === 'textDocument/didChange' && uri && Array.isArray(params?.contentChanges)) {
       const prior = documents.get(uri), change = object(params.contentChanges[0]);
       if (prior === undefined || params.contentChanges.length !== 1 || typeof change?.text !== 'string') throw new EngineError('INVALID_LSP_NATIVE_TEXT', 'Native synchronization requires one complete observed document');
-      const lines = prior.split(/\r\n|\r|\n/), end = { line: lines.length - 1, character: lines.at(-1)!.length };
+      const end = endPosition(prior);
       if (change.range !== undefined) {
         const selected = change.range as unknown as TextRange;
         if (!selected?.start || !selected.end || selected.start.line !== 0 || selected.start.character !== 0 || selected.end.line !== end.line || selected.end.character !== end.character) throw new EngineError('INVALID_LSP_NATIVE_TEXT', 'Native synchronization only replaces the complete observed text');

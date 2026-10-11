@@ -13,10 +13,11 @@ import { raceAbort, settleWithin } from "../shared/runtime.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import {
   applyTextEdits,
+  endPosition,
   positionOffset,
   type TextRange,
 } from "../formatters/edits.js";
-import type { LspConnection } from "./stdio.js";
+import { HOST_ID, LANGUAGE_ID, type LspConnection } from "./stdio.js";
 import {
   navigationCandidates,
   projectNavigation,
@@ -105,9 +106,13 @@ async function bounded<T>(
     );
   return promise;
 }
-function endPosition(text: string): { line: number; character: number } {
-  const lines = text.split(/\r\n|\r|\n/);
-  return { line: lines.length - 1, character: lines.at(-1)!.length };
+const NAVIGATION = {
+  symbols: ["documentSymbolProvider", "textDocument/documentSymbol"],
+  definition: ["definitionProvider", "textDocument/definition"],
+  references: ["referencesProvider", "textDocument/references"],
+} as const satisfies Record<LspNavigationKind, readonly [string, string]>;
+function entryKey(workspace: Workspace, serverId: string): string {
+  return JSON.stringify([workspace.id, workspace.root, serverId]);
 }
 /** Host factories are explicit. Model paths cannot install, discover or launch an LSP server. */
 export class LspManager {
@@ -231,7 +236,7 @@ export class LspManager {
   register(serverId: string, factory: LspFactory): void {
     if (
       this.closing ||
-      !/^[A-Za-z0-9_.-]{1,64}$/.test(serverId) ||
+      !HOST_ID.test(serverId) ||
       typeof factory !== "function" ||
       this.factories.has(serverId) ||
       this.factories.size >= 16
@@ -300,7 +305,7 @@ export class LspManager {
     signal: AbortSignal,
   ): Promise<void> {
     if (!this.factories.get(serverId)?.projectSources) return;
-    const key = JSON.stringify([workspace.id, workspace.root, serverId]);
+    const key = entryKey(workspace, serverId);
     const prior = this.projectQueues.get(key) ?? Promise.resolve();
     const operation = prior
       .catch(() => {})
@@ -345,7 +350,7 @@ export class LspManager {
         "LSP_SERVER_UNAVAILABLE",
         "LSP server is not explicitly registered",
       );
-    const key = JSON.stringify([workspace.id, workspace.root, serverId]);
+    const key = entryKey(workspace, serverId);
     let entry = this.entries.get(key);
     if (entry?.closed && Date.now() - entry.closedAt! >= this.cleanupTimeout) {
       // A failed server restarts after its cleanup deadline; close() drains it until teardown is confirmed.
@@ -475,32 +480,21 @@ export class LspManager {
     entry.capabilities = caps;
     await this.notify(entry, "initialized", {});
   }
-  private sync(entry: Entry): { kind: number; save: JsonValue | undefined } {
+  private syncKind(entry: Entry): 1 | 2 {
     const sync = entry.capabilities?.textDocumentSync;
-    const kind =
-      typeof sync === "number"
+    const options =
+      sync && typeof sync === "object" && !Array.isArray(sync)
         ? sync
-        : sync && typeof sync === "object" && !Array.isArray(sync)
-          ? sync.change
-          : undefined;
+        : undefined;
+    const kind = typeof sync === "number" ? sync : options?.change;
     const openClose =
-      typeof sync === "number"
-        ? sync !== 0
-        : sync && typeof sync === "object" && !Array.isArray(sync)
-          ? sync.openClose === true
-          : false;
+      typeof sync === "number" ? sync !== 0 : options?.openClose === true;
     if ((kind !== 1 && kind !== 2) || !openClose)
       throw new EngineError(
         "LSP_SYNC_UNSUPPORTED",
         "LSP server must support open/close and full or incremental document synchronization",
       );
-    return {
-      kind,
-      save:
-        typeof sync === "object" && sync && !Array.isArray(sync)
-          ? sync.save
-          : undefined,
-    };
+    return kind;
   }
   async updateFile(
     workspace: Workspace,
@@ -510,7 +504,7 @@ export class LspManager {
     signal: AbortSignal,
   ): Promise<{ version: number; hash: string }> {
     path = exactPath(path);
-    if (!/^[A-Za-z0-9+_.-]{1,64}$/.test(languageId))
+    if (!LANGUAGE_ID.test(languageId))
       throw new EngineError(
         "INVALID_LSP_LANGUAGE",
         "LSP language id must be bounded",
@@ -520,7 +514,7 @@ export class LspManager {
     const operation = entry.queue.then(async () => {
       if (entry.closed || signal.aborted)
         throw new EngineError("CANCELLED", "LSP update unavailable");
-      const sync = this.sync(entry);
+      const syncKind = this.syncKind(entry);
       const observed = await readExactText(entry.workspace, path, signal);
       const prior = entry.documents.get(path);
       if (prior?.hash === observed.hash && prior.languageId === languageId) {
@@ -569,7 +563,7 @@ export class LspManager {
         await this.notify(entry, "textDocument/didChange", {
           textDocument: { uri: doc.uri, version: doc.version },
           contentChanges: [
-            sync.kind === 2
+            syncKind === 2
               ? {
                   range: {
                     start: { line: 0, character: 0 },
@@ -648,9 +642,7 @@ export class LspManager {
     serverId: string,
     path: string,
   ): DiagnosticSnapshot | null {
-    const entry = this.entries.get(
-      JSON.stringify([workspace.id, workspace.root, serverId]),
-    );
+    const entry = this.entries.get(entryKey(workspace, serverId));
     return entry &&
       !entry.closed &&
       entry.documents.get(exactPath(path))?.diagnostics
@@ -718,7 +710,7 @@ export class LspManager {
   ): Promise<LspNavigationSnapshot> {
     path = exactPath(path);
     if (
-      !["symbols", "definition", "references"].includes(kind) ||
+      !Object.hasOwn(NAVIGATION, kind) ||
       (kind === "symbols" && position !== undefined) ||
       (kind !== "symbols" && !position)
     )
@@ -726,6 +718,7 @@ export class LspManager {
         "INVALID_LSP_NAVIGATION",
         "Navigation requires a known query and an exact UTF-16 position when applicable",
       );
+    const [provider, method] = NAVIGATION[kind];
     if (this.navigationQueries >= 16)
       throw new EngineError(
         "LSP_NAVIGATION_LIMIT",
@@ -752,14 +745,7 @@ export class LspManager {
         operationSignal,
       );
       const entry = await this.entry(workspace, serverId, operationSignal);
-      const capability =
-        entry.capabilities?.[
-          kind === "symbols"
-            ? "documentSymbolProvider"
-            : kind === "definition"
-              ? "definitionProvider"
-              : "referencesProvider"
-        ];
+      const capability = entry.capabilities?.[provider];
       if (
         capability !== true &&
         !(
@@ -788,11 +774,7 @@ export class LspManager {
       ]);
       const raw = await this.request(
         entry,
-        kind === "symbols"
-          ? "textDocument/documentSymbol"
-          : kind === "definition"
-            ? "textDocument/definition"
-            : "textDocument/references",
+        method,
         {
           textDocument: { uri: doc.uri },
           ...(position

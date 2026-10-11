@@ -11,6 +11,7 @@ import type {
   LspNavigationSnapshot,
   LspProjectSourceSnapshot,
 } from "../lsp/index.js";
+import { HOST_ID, LANGUAGE_ID } from "../lsp/stdio.js";
 import { jsonTextSha256 } from "../shared/canonical.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import { excludedWorkspacePaths } from "../workspace/ignore.js";
@@ -41,12 +42,7 @@ export interface RepositorySourceManifest {
   branch: string | null;
   effectiveIgnoreDigest: string;
   files: { path: string; hash: string }[];
-  bindings: {
-    path: string;
-    serverId: string;
-    languageId: string;
-    revision: string;
-  }[];
+  bindings: ({ path: string } & RepositoryLanguageBinding)[];
   /** Native semantic dependencies, observed without dispatching a language-server query. */
   projectSources?: ({ serverId: string } & LspProjectSourceSnapshot)[];
 }
@@ -210,9 +206,9 @@ export class RepositoryContextService implements RepositoryIndexPort {
       const binding = this.select(path);
       if (binding) {
         if (
-          !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.serverId) ||
-          !/^[A-Za-z0-9+_.-]{1,64}$/.test(binding.languageId) ||
-          !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.revision)
+          !HOST_ID.test(binding.serverId) ||
+          !LANGUAGE_ID.test(binding.languageId) ||
+          !HOST_ID.test(binding.revision)
         )
           throw new EngineError(
             "INVALID_REPOSITORY_BINDING",

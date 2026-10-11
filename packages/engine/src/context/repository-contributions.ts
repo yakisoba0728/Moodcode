@@ -2,6 +2,7 @@ import { isAbsolute } from 'node:path';
 import { EngineError, type Workspace } from '@moodcode/contracts';
 import { boundedJson } from '../artifacts/validation.js';
 import { positionOffset, type TextRange } from '../formatters/edits.js';
+import { HOST_ID, LANGUAGE_ID } from '../lsp/stdio.js';
 import { entriesBytes, entryBytes } from './memory.js';
 import { repositoryQuery, REPOSITORY_CONTEXT_LIMITS, type RepositoryIndexPort, type RepositoryQuery, type RepositorySnapshot, type RepositorySourceManifest } from '../repository/index.js';
 import { jsonTextSha256, sha256Hex } from '../shared/canonical.js';
@@ -47,15 +48,9 @@ export function repositoryContextPolicy(value: unknown): RepositoryContextPolicy
   if (!policy || Array.isArray(policy) || Object.keys(policy).some(key => !['query', 'slotBytes', 'exactRanges'].includes(key)))
     return fail('INVALID_REPOSITORY_CONTEXT', 'Repository context policy needs a fixed explicit query and slot budget');
   const query = repositoryQuery(policy.query), slotBytes = count(policy.slotBytes, REPOSITORY_CONTRIBUTION_LIMITS.messageBytes);
-  if (policy.exactRanges !== undefined && (!Array.isArray(policy.exactRanges) || policy.exactRanges.length > REPOSITORY_CONTRIBUTION_LIMITS.exactRanges))
-    return fail('INVALID_REPOSITORY_CONTEXT', 'Repository context policy has too many exact ranges');
-  const exactRanges = policy.exactRanges?.map(item => {
-    if (!item || Object.keys(item).sort().join(',') !== 'path,range') return fail('INVALID_REPOSITORY_CONTEXT', 'Policy ranges need only path and range');
-    const path = exactPath(item.path);
-    if (!query.paths.includes(path)) return fail('INVALID_REPOSITORY_CONTEXT', 'Policy ranges must belong to the explicit query');
-    return { path, range: range(item.range) };
-  });
-  const result = { query, slotBytes, ...(exactRanges === undefined ? {} : { exactRanges }) };
+  const ranges = exactRanges(policy.exactRanges, query, { count: 'Repository context policy has too many exact ranges',
+    keys: 'Policy ranges need only path and range', paths: 'Policy ranges must belong to the explicit query' });
+  const result = { query, slotBytes, ...(ranges === undefined ? {} : { exactRanges: ranges }) };
   freeze(result); return result;
 }
 export interface RepositoryContributionIndexPort extends RepositoryIndexPort {
@@ -136,6 +131,16 @@ function range(value: TextRange): TextRange {
   return { start: { line: count(value.start.line, 1_000_000), character: count(value.start.character, 1_000_000) },
     end: { line: count(value.end.line, 1_000_000), character: count(value.end.character, 1_000_000) } };
 }
+function exactRanges(value: unknown, query: RepositoryQuery, messages: { count: string; keys: string; paths: string }): { path: string; range: TextRange }[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value) || value.length > REPOSITORY_CONTRIBUTION_LIMITS.exactRanges) return fail('INVALID_REPOSITORY_CONTEXT', messages.count);
+  return value.map(item => {
+    if (!item || Object.keys(item).sort().join(',') !== 'path,range') return fail('INVALID_REPOSITORY_CONTEXT', messages.keys);
+    const path = exactPath(item.path);
+    if (!query.paths.includes(path)) return fail('INVALID_REPOSITORY_CONTEXT', messages.paths);
+    return { path, range: range(item.range) };
+  });
+}
 function requestSnapshot(request: RepositoryContributionRequest) {
   let data: Omit<RepositoryContributionRequest, 'signal'>;
   try { data = boundedJson({ workspace: request.workspace, query: request.query, budget: request.budget,
@@ -161,16 +166,10 @@ function requestSnapshot(request: RepositoryContributionRequest) {
   const remaining = Math.min(maxContextBytes - reservedBytes - requiredMessagesBytes,
     contextWindow === null ? Infinity : contextWindow - outputTokens - reservedBytes - requiredMessagesBytes);
   if (remaining < 0) return fail('REPOSITORY_CONTEXT_BUDGET', 'Required transcript, envelope and output reserve already exceed the shared context cap');
-  if (data.exactRanges !== undefined && (!Array.isArray(data.exactRanges) || data.exactRanges.length > REPOSITORY_CONTRIBUTION_LIMITS.exactRanges))
-    return fail('INVALID_REPOSITORY_CONTEXT', 'Too many host-selected repository ranges');
-  const exactRanges = (data.exactRanges ?? []).map(item => {
-    if (!item || Object.keys(item).sort().join(',') !== 'path,range') return fail('INVALID_REPOSITORY_CONTEXT', 'Host selections need only a path and range');
-    const path = exactPath(item.path);
-    if (!query.paths.includes(path)) return fail('INVALID_REPOSITORY_CONTEXT', 'Host-selected ranges must belong to the explicit query paths');
-    return { path, range: range(item.range) };
-  });
-  freeze(workspace); freeze(query); freeze(exactRanges);
-  return { workspace, query, exactRanges, budget: { slotBytes, maxContextBytes, reservedBytes, requiredMessagesBytes, contextWindow, outputTokens },
+  const ranges = exactRanges(data.exactRanges, query, { count: 'Too many host-selected repository ranges',
+    keys: 'Host selections need only a path and range', paths: 'Host-selected ranges must belong to the explicit query paths' }) ?? [];
+  freeze(workspace); freeze(query); freeze(ranges);
+  return { workspace, query, exactRanges: ranges, budget: { slotBytes, maxContextBytes, reservedBytes, requiredMessagesBytes, contextWindow, outputTokens },
     availableBytes: Math.min(slotBytes, remaining) };
 }
 function snapshot(value: RepositorySnapshot, workspace: Workspace, query: RepositoryQuery): RepositorySnapshot {
@@ -193,8 +192,8 @@ function snapshot(value: RepositorySnapshot, workspace: Workspace, query: Reposi
   for (const [index, file] of result.manifest.files.entries())
     if (!file || file.path !== query.paths[index] || !HASH.test(file.hash)) return invalid();
   for (const binding of result.manifest.bindings)
-    if (!binding || !query.paths.includes(binding.path) || !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.serverId)
-      || !/^[A-Za-z0-9+_.-]{1,64}$/.test(binding.languageId) || !/^[A-Za-z0-9_.-]{1,64}$/.test(binding.revision)) return invalid();
+    if (!binding || !query.paths.includes(binding.path) || !HOST_ID.test(binding.serverId)
+      || !LANGUAGE_ID.test(binding.languageId) || !HOST_ID.test(binding.revision)) return invalid();
   if (result.manifest.projectSources !== undefined) {
     if (!Array.isArray(result.manifest.projectSources) || result.manifest.projectSources.length > query.paths.length) return invalid();
     const servers = new Set<string>();

@@ -6,7 +6,7 @@ import { types } from "node:util";
 import { EngineError, type Workspace } from "@moodcode/contracts";
 import type { LspFactory } from "./index.js";
 import { captureTypeScriptProjectSources } from "./project-sources.js";
-import { StdioLspConnection } from "./stdio.js";
+import { minimalChildEnv, StdioLspConnection } from "./stdio.js";
 import { installNativeBOMProjection } from "./native-bom.js";
 
 export interface TypeScriptNativeLspOptions {
@@ -145,12 +145,7 @@ async function version(
         maxBuffer: 4096,
         encoding: "utf8",
         signal,
-        env: {
-          PATH: process.env.PATH,
-          ...(process.platform === "win32"
-            ? { SystemRoot: process.env.SystemRoot }
-            : {}),
-        },
+        env: minimalChildEnv(),
       },
       (error, stdout) => {
         if (signal.aborted)

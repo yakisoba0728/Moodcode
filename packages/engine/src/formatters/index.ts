@@ -3,6 +3,7 @@ import { createPatchAdapter } from "../tools/file-actions/adapter.js";
 import { exactPath, readExactText } from "../tools/file-actions/text.js";
 import type { ToolDefinition } from "../ports.js";
 import type { LspManager } from "../lsp/index.js";
+import { HOST_ID } from "../lsp/stdio.js";
 import { raceAbort, settleWithin } from "../shared/runtime.js";
 export { applyTextEdits, positionOffset } from "./edits.js";
 export type { TextEdit, TextRange, TextPosition } from "./edits.js";
@@ -17,7 +18,7 @@ export class FormatterRegistry {
   private formatters = new Map<string, FormatterPort>();
   register(id: string, formatter: FormatterPort): () => void {
     if (
-      !/^[A-Za-z0-9_.-]{1,64}$/.test(id) ||
+      !HOST_ID.test(id) ||
       this.formatters.has(id) ||
       this.formatters.size >= 16 ||
       typeof formatter !== "function"
