@@ -46,6 +46,20 @@ npm run harness -- --db /tmp/moodcode-local.sqlite
 
 인증이 없으면 화면에 표시된 로컬 테스트 모델로 시작한다. 설정에서 Codex나 API 공급자를 선택할 수 있다. Anthropic은 모델 ID·추론 강도·선택 Workspace ID를 지정하며 API 키를 입력하거나 host의 `ANTHROPIC_API_KEY`를 사용한다. 모델 목록은 계정 조회 또는 로컬 캐시의 메타데이터이며 실제 접근 권한은 요청 시 확인된다. 별도 API 키는 Electron safeStorage 암호화가 가능한 경우에만 저장한다.
 
+AI SDK 7로 Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter를 추가했다. 설정의 연결 방식에서 공급자를 선택하고 모델 ID와 API 키를 지정한다. 엔진 host는 `AiSdkProvider`를 기존 `providers`에 등록한다. 기존 Codex 로그인·Main 토큰 갱신과 OpenAI/Anthropic adapter는 유지한다. SDK는 한 turn의 통신만 담당하고 도구 실행·승인·재시도·취소·복구는 자체 엔진이 소유한다. 새 SDK 공급자는 텍스트·도구 호출을 지원하며 모델별 이미지/PDF/오디오/비디오 입력과 추론 강도 설정은 아직 지원하지 않는다.
+
+| SDK 공급자 ID | 기본 키 환경 변수 |
+|---|---|
+| `google` | `GOOGLE_GENERATIVE_AI_API_KEY` |
+| `groq` | `GROQ_API_KEY` |
+| `mistral` | `MISTRAL_API_KEY` |
+| `deepseek` | `DEEPSEEK_API_KEY` |
+| `xai` | `XAI_API_KEY` |
+| `openrouter` | `OPENROUTER_API_KEY` |
+
+Desktop은 `MOODCODE_API_KEY` → 선택 공급자의 환경 변수 → 해당 공급자에 묶인 암호화 키 순으로 읽는다. Harness는 명시한 `apiKeyEnv`를 우선하며, 없으면 `MOODCODE_API_KEY` → 선택 공급자의 환경 변수를 사용한다. 다른 공급자의 키나 Codex 로그인 credential을 자동 재사용하지 않는다. SDK 공급자의 기본 endpoint는 내장되어 있어 harness에서 `--provider google --model YOUR_MODEL_ID`처럼 지정할 수 있고, `--base-url` 또는 `providers[id].baseURL`로 덮어쓸 수 있다. 모델 ID는 사용자가 지정하며 SDK 지원이 실제 계정·모델 검증 완료를 뜻하지 않는다.
+
+
 `npm run package:desktop` 결과는 `release/mac-arm64/Moodcode.app`이다. 현재 서명·공증되지 않은 개발용 bundle이다. `npm run verify:codex`는 실제 계정 사용량을 소비하는 명시적 검증 명령이며, 기본 테스트에는 포함되지 않는다. 임시 저장소의 정확히 지정한 수정·명령만 자동 승인하고 fixture를 삭제한다.
 
 `demo`는 임시 Git 저장소와 scripted 모델에서 파일 읽기·patch 승인·적용·명령 승인·테스트 실행·결과 조회를 연결하는 로컬 검증이다. 임시 fixture에 대해서만 승인한다. 실제 공급자 성공 여부를 검증하는 호출은 아니다.
@@ -88,11 +102,11 @@ stdin에 command envelope를 한 줄씩 전달한다. 실행 중에도 승인과
 
 v2 command envelope는 `schemaVersion:2`를 사용하며 queue/steer inbox·pause/resume·독립 session events·Turns/Parts/artifact·tasks/questions/context/history/diagnostics 조회를 제공한다. event와 cursor의 `stream`은 `'session-v2'`이고 v1 seq와 v2 seq는 서로 다른 cursor다. [v2 계약](docs/moodcode/engine-contracts-v2.md)과 런타임 capabilities를 확인한다. `run.submit`은 기존 즉시 실행·busy·중복 접수 의미를 유지한다.
 
-모델 adapter는 `scripted`, `openai-compatible`(Chat Completions), `openai-responses`(Responses), `codex`(현재 Codex 로그인)다. 데스크톱은 네 종류를 선택할 수 있고 JSONL harness 설정은 기존 세 종류를 지원한다. Responses의 reasoning·phase·원본 도구 호출 항목은 SQLite에 보존하고 후속 turn에서 재생한다. HTTP adapter는 호출자가 지정한 endpoint·model·API key를 사용한다. 현재 Codex 계정의 `gpt-6.1-sol` 실제 응답과 read→patch 승인→명령 승인→완료를 검증했다. 다른 공급자·모델·계정 권한은 별도 검증 대상이다. Harness의 API key는 환경 변수로 주입한다.
+모델 adapter는 `scripted`, `openai-compatible`(Chat Completions), `openai-responses`(Responses), `anthropic`, `codex`(현재 Codex 로그인)와 위 AI SDK 공급자 여섯 종류다. Desktop은 모두 선택할 수 있고 JSONL harness는 기존 세 종류와 AI SDK 공급자를 지원한다. Responses의 reasoning·phase·원본 도구 호출 항목은 SQLite에 보존하고 후속 turn에서 재생한다. HTTP adapter는 호출자가 지정한 endpoint·model·API key를 사용한다. 현재 Codex 계정의 `gpt-6.1-sol` 실제 응답과 read→patch 승인→명령 승인→완료를 검증했다. 다른 공급자·모델·계정 권한은 별도 검증 대상이다. Harness의 API key는 환경 변수로 주입한다.
 
 ## 설정
 
-`--config`와 `--workspace-config`로 JSON 파일을 지정한다. 우선순위는 기본값 → 사용자 파일 → workspace 파일 → 명시적 CLI flag → `run.submit`의 명시적 config다. 지정하지 않은 요청 필드는 엔진 기본값을 따른다. JSONL 설정의 공급자 ID는 `scripted`, `openai-compatible`, `openai-responses`를 지원한다.
+`--config`와 `--workspace-config`로 JSON 파일을 지정한다. 우선순위는 기본값 → 사용자 파일 → workspace 파일 → 명시적 CLI flag → `run.submit`의 명시적 config다. 지정하지 않은 요청 필드는 엔진 기본값을 따른다. JSONL 설정의 공급자 ID는 `scripted`, `openai-compatible`, `openai-responses`, `google`, `groq`, `mistral`, `deepseek`, `xai`, `openrouter`를 지원한다.
 
 ```json
 {

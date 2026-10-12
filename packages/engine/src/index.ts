@@ -52,6 +52,7 @@ export * from './context/repository-contributions.js';
 export * from './permission/preflight.js';
 export * from './permission/decision-receipts.js';
 export { ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider } from './provider/index.js';
+export { AiSdkProvider, type AiSdkProviderOptions } from './provider/ai-sdk.js';
 export type { ScriptedTurn, OpenAICompatibleProviderOptions, ResponsesProviderOptions } from './provider/index.js';
 export { describeProviderCoverage, PROVIDER_COVERAGE_FEATURES } from './provider/coverage.js';
 export type { ProviderCoverageEvidence, ProviderCoverageQualification, ProviderCoverageOptions, ProviderCoverage, ProviderFeatureCoverage, ProviderCoverageVerification, ProviderCoverageFeature } from './provider/coverage.js';

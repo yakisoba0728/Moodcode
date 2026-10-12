@@ -37,6 +37,11 @@ jobs:
       - run: npm ci --include=optional
       - run: node scripts/prepare-pty.mjs
       - run: npm run build:desktop
+      - name: AI SDK protocols, worker config, approval, cancellation and recovery
+        run: >-
+          node --import ./node_modules/tsx/dist/loader.mjs --test
+          packages/engine/src/provider/ai-sdk.test.ts
+          apps/desktop/src/worker/ai-sdk-config.test.ts
       - name: Native account, update, MCP and evidence regression
         run: >-
           node --import ./node_modules/tsx/dist/loader.mjs --test
@@ -69,6 +74,9 @@ jobs:
       - name: macOS actual advanced GUI flows
         if: runner.os == 'macOS'
         run: node scripts/test-desktop-advanced.mjs
+      - name: macOS actual provider settings and encrypted keys
+        if: runner.os == 'macOS'
+        run: node scripts/test-desktop-settings.mjs
       - name: Linux original utility Codex credential refresh and cancellation
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/test-desktop-codex-refresh.mjs

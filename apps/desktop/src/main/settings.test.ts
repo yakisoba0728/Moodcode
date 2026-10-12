@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test, type TestContext } from 'node:test';
 import type { SaveDesktopSettings } from '../shared/protocol.js';
+import { AI_SDK_PROVIDERS, type AiSdkProviderId } from '@moodcode/contracts';
 import {
   SettingsError, SettingsStore, type CredentialStorage, type DesktopCodexAuth, type PreparedSettings, type SettingsStoreOptions,
 } from './settings.js';
@@ -50,6 +51,24 @@ const remote = (extra: Partial<SaveDesktopSettings> = {}): SaveDesktopSettings =
   providerId: 'openai-compatible', modelId: 'fixture-model', baseURL: 'http://127.0.0.1:3000/v1', ...extra,
 });
 const scripted: SaveDesktopSettings = { providerId: 'scripted', modelId: 'local', baseURL: '' };
+
+test('SDK provider settings persist encrypted credentials, isolate environment keys and keep public views secret-free', async t => {
+  for (const id of Object.keys(AI_SDK_PROVIDERS) as AiSdkProviderId[]) {
+    const preset = AI_SDK_PROVIDERS[id], secret = `sdk-fixture-${id}-key`;
+    const f = await fixture(t, { environment: { OPENAI_API_KEY: 'unrelated-openai-key' } });
+    const input = { providerId: id, modelId: 'fixture-model', baseURL: preset.baseURL };
+    await assert.rejects(f.store.prepare(input), { code: 'SETTINGS_KEY_REQUIRED' });
+    const prepared = await f.store.prepare({ ...input, apiKey: secret });
+    await f.store.commit(prepared);
+    assert.equal(prepared.engineConfig.apiKey, secret);
+    assert.ok(!JSON.stringify(prepared.view).includes(secret));
+    assert.ok(!(await readFile(f.path, 'utf8')).includes(secret));
+    const reopened = new SettingsStore({ directory: f.directory, safeStorage: f.storage, environment: {} });
+    assert.equal((await reopened.load()).engineConfig.apiKey, secret);
+    const environmentStore = new SettingsStore({ directory: f.directory, safeStorage: f.storage, environment: { [preset.apiKeyEnv]: 'sdk-environment-key' } });
+    assert.equal((await environmentStore.load()).engineConfig.apiKey, 'sdk-environment-key');
+  }
+});
 
 function accountCredential(): PrivateAccountCredential {
   const value = { accountId: randomUUID(), baseURL: 'https://chatgpt.com/backend-api/codex' as const, models: [{ id: 'fixture-account-model', displayName: 'Fixture account model' }] };

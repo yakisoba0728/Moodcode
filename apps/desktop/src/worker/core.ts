@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
-import { EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
-import { getRecoveryStatus, recoverEngine, createEngine, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
+import { isAiSdkProviderId, EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
+import { getRecoveryStatus, recoverEngine, createEngine, AiSdkProvider, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
 import type { DesktopUpdate } from '../shared/protocol.js';
 import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
 import type { CodexCredential, WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
@@ -83,7 +83,7 @@ function boundedJson(value: unknown): void {
 
 function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'account'): WorkerEngineConfig {
   const source = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'codexCredential', 'reasoningEffort']);
-  if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'anthropic' && source.providerId !== 'codex') {
+  if (source.providerId !== 'scripted' && source.providerId !== 'openai-compatible' && source.providerId !== 'openai-responses' && source.providerId !== 'anthropic' && source.providerId !== 'codex' && !isAiSdkProviderId(source.providerId)) {
     throw new EngineError('INVALID_CONFIG', 'Desktop provider is not supported.');
   }
   if (scenario) return { providerId: 'scripted', modelId: `desktop-${scenario}-fixture`, baseURL: '' };
@@ -143,6 +143,8 @@ function startPayload(value: unknown): WorkerStartPayload {
 function selectedProvider(payload: WorkerStartPayload, credentialReader?: UtilityWorkerOptions['requestCodexCredential']): ProviderAdapter {
   if (payload.testScenario) return testFixtureProvider(payload.testScenario);
   switch (payload.config.providerId) {
+    case 'google': case 'groq': case 'mistral': case 'deepseek': case 'xai': case 'openrouter':
+      return new AiSdkProvider({ ...payload.config, providerId: payload.config.providerId, apiKey: payload.config.apiKey! });
     case 'scripted': return new ScriptedProvider();
     case 'openai-compatible': return new OpenAICompatibleProvider(payload.config);
     case 'openai-responses': return new ResponsesProvider(payload.config);

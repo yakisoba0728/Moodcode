@@ -1,0 +1,159 @@
+{
+  "kind": "ai-sdk-provider-verification",
+  "date": "2026-10-12",
+  "timezone": "Asia/Seoul",
+  "branch": "codex/ai-sdk-providers",
+  "baseCommit": "c68be51123b6d6a9ab9390e17c556d76e0a31301",
+  "runtime": {
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.9.0"
+  },
+  "providers": [
+    "google",
+    "groq",
+    "mistral",
+    "deepseek",
+    "xai",
+    "openrouter"
+  ],
+  "checks": {
+    "compiledSuite": {
+      "command": "npm test",
+      "tests": 5666,
+      "pass": 5662,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "exitCode": 0
+    },
+    "typecheck": {
+      "command": "npm run typecheck",
+      "exitCode": 0
+    },
+    "desktopBuild": {
+      "command": "npm run build:desktop",
+      "exitCode": 0
+    },
+    "desktopSettings": {
+      "command": "node scripts/test-desktop-settings.mjs",
+      "exitCode": 0,
+      "providerSelections": 6,
+      "googleSettingsSwitch": true,
+      "encryptedKey": true,
+      "rendererCredentialReflected": false,
+      "externalRequests": 0,
+      "codexSettingsSwitch": false
+    },
+    "nativeCodexBroker": {
+      "command": "node scripts/test-desktop-codex-refresh.mjs artifacts/ai-sdk-providers-20261012/native-codex-broker.json",
+      "exitCode": 0,
+      "passed": true,
+      "sameGeneration": 1,
+      "credentialRequests": 3,
+      "externalRequests": 0
+    },
+    "primaryDb": {
+      "command": "node scripts/inspect-engine-db-contract.mjs --compare docs/moodcode/next-db-contract-baseline.json",
+      "version": 23,
+      "equal": true,
+      "sha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+    },
+    "cliHelpFinal": {
+      "note": "Help now describes SDK default endpoints and provider-bound credential variables; final CLI configuration tests rerun after this text-only change.",
+      "exitCode": 0
+    }
+  },
+  "preservedContracts": [
+    "Existing Codex PKCE login, Main-owned rotating credential broker, OpenAI/Anthropic adapters and engine turn loop unchanged",
+    "SDK gets schemas without tool execute callbacks, exactly one step and zero SDK retries",
+    "SDK replay remains bound to provider/model/protocol and validates visible text/tool arguments, including Google thought signatures",
+    "Unconfirmed transport/body cleanup survives a raced iterator return, persists quarantine and blocks redispatch after reopen",
+    "API keys are encrypted in Desktop, excluded from renderer/journal and stripped from command environments",
+    "No DB migration or command schema change"
+  ],
+  "firstRun": {
+    "tests": 5687,
+    "pass": 5677,
+    "fail": 6,
+    "cancelled": 0,
+    "skipped": 4,
+    "cause": "Eight orphan compiled test files from prior source moves were still collected; six failed importing removed canonical exports. Removed only outputs without matching .ts/.tsx sources (72 generated files), rebuilt with tsc -b --force and reran the complete suite. Original log and removal manifest retained."
+  },
+  "desktopCorrection": {
+    "cause": "Bundled @vercel/oidc CommonJS dependency attempted a dynamic require of the Node path built-in in the ESM utility bundle.",
+    "fix": "Node createRequire banner for the ESM main/utility/supervisor build; preload and renderer remain isolated.",
+    "verifiedBy": [
+      "Actual Electron SDK settings switch",
+      "Actual Electron utility Codex broker probe"
+    ]
+  },
+  "limits": [
+    "SDK routes currently support text, engine tools and provider-default reasoning; media and explicit reasoning-effort settings are rejected",
+    "Provider SDKs were exercised against injected/local HTTP fixtures; no paid provider/account requests were made",
+    "The settings GUI did not have an available local Codex account to switch to; account/login regression tests and synthetic native broker probe passed",
+    "No fresh hosted CI, other-OS runs, packaging/signing or natural credential-expiry observation performed",
+    "Historical acceptance counts remain separate from this local run"
+  ],
+  "artifacts": {
+    "compiled-tests.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/compiled-tests.log",
+      "sha256": "4c7861a7d10f9cc4ff0daef2cfd0f996c2661181523f30cbba547e7a9ead31da"
+    },
+    "compiled-tests-clean.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/compiled-tests-clean.log",
+      "sha256": "503607d936f280ea271e420ca19f664f1ad231feb0596cdfbac7a355675c7d3d"
+    },
+    "stale-build-outputs.json": {
+      "path": "artifacts/ai-sdk-providers-20261012/stale-build-outputs.json",
+      "sha256": "fc0fb22492dcad3633210a886fba0961c320b987d9b4a929991c301e076ff073"
+    },
+    "desktop-settings.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/desktop-settings.log",
+      "sha256": "4f903206543ff75cead831ee51df525336ee01604217a31f1bb4c76e0ed3c8b7"
+    },
+    "desktop-settings-fixed.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/desktop-settings-fixed.log",
+      "sha256": "20d77fb8ee9344b29ad7422f7b291dfceac79abe52a4230a47e3ffd996a61af9"
+    },
+    "native-codex-broker.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/native-codex-broker.log",
+      "sha256": "f28dd0a7a97f0935036a9e537ae0d2bdd636dde60bca0c2c3d61edf1219772c3"
+    },
+    "native-codex-broker.json": {
+      "path": "artifacts/ai-sdk-providers-20261012/native-codex-broker.json",
+      "sha256": "b1cfa3ac698cb0db6a82e2222b46046ae6978aa1ca73d319c91b9cc58ec1b07c"
+    },
+    "desktop-build.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/desktop-build.log",
+      "sha256": "6591a00313161e3f720c9f274811d2a10be8c39429157f2de93563dd1a987b75"
+    },
+    "cli-config-final.log": {
+      "path": "artifacts/ai-sdk-providers-20261012/cli-config-final.log",
+      "sha256": "9fa893a1e56bc1162f36ca76fe6b17f4142d961f58f247ab620336527bfac6e3"
+    }
+  },
+  "sourceSha256": {
+    "apps/desktop/src/main/settings.test.ts": "aa4f3fd7739eca94f167905a0be22776856f4e7afbda727d7ff3a0751038cacb",
+    "apps/desktop/src/main/settings.ts": "6483bedfa758e8d178123670c7603ce287958994827552f7e8c7ff9fd71dd937",
+    "apps/desktop/src/preload/api.ts": "feb7fcd58e4d0972f9c5b6208520139ccb3b8f6be8b4ae6ac10db722cb257123",
+    "apps/desktop/src/renderer/components/Settings.tsx": "46875a2ce7653650bc511be9f37e5b6ea5d1af39f781bd5bbcbd056865289183",
+    "apps/desktop/src/shared/protocol.ts": "6556c283c3826e47274e2bc41861798753a4f9e7629b97523ae170cbea058367",
+    "apps/desktop/src/worker/core.ts": "713833e78df043b94092e47f94163e58ce3b61d15693bd664adaa7f5df6163be",
+    "apps/engine-harness/src/cli.integration.test.ts": "20271ae8118179b7a621db6326fa75764a2589a67ac232c3f8c14d3fae142a29",
+    "apps/engine-harness/src/config.test.ts": "29e72a8877a13497eb25e3a91660d3ac6abe1b50e08cd2b9d314b223d5e32981",
+    "apps/engine-harness/src/index.ts": "9179ca220208855fe5dc750ac2316f89d49e987db93ba8862f90a644a6a4a34e",
+    "package-lock.json": "2ac2b5640380bad3199f8751f6d81119ecf8ab9311731c53f14018d2cbdbda9c",
+    "packages/contracts/src/index.ts": "ad48b1949f21a273db4a10aff01790714c185ac46bdbf5fdd42d83c90407e7a8",
+    "packages/engine/package.json": "d1b77001247a97344358684c5895f3bd1f43670177d097c6b9768b0293bdd6f9",
+    "packages/engine/src/index.ts": "66e90d02a80de7dd634be0caa7e0fd9e79d29c445fd006dac53836019c950529",
+    "packages/engine/src/provider/index.ts": "63861b8d04ba21b95ec4fe5aee2498a1752c09f8913fd59fccf8ad4a68f3cdbd",
+    "packages/engine/src/shared/runtime.test.ts": "38fa95678b54ffd33644df58192d309c601f24c234a097313ba3931a212cfe88",
+    "packages/engine/src/shared/runtime.ts": "72b673398379f557185e43913fd02c0f99a153627c8e752fbfa0bcb835fcb480",
+    "scripts/build-desktop.mjs": "94b7f92722ef71ce90946f3277775365a66c8a60dfe29148693b84fe141a4c0f",
+    "scripts/test-desktop-settings.mjs": "c88a936fe0c4f72df9a2bde17e9deeba4602ef086d3578b399a21ed0bb02eebb",
+    "apps/desktop/src/worker/ai-sdk-config.test.ts": "b8fe1e5bc06903a0bf3e782c04bc544123c6a4cd6f88abeb7dd7f75b61dfbcb9",
+    "packages/engine/src/provider/ai-sdk.test.ts": "daf90f5e8d7ae08753319dfd4662add9543335f48690b138ec48f952fec53686",
+    "packages/engine/src/provider/ai-sdk.ts": "0659a7ea4b72eb2e2706ef1590172756467536fd1426395c8ce91f05373e98ab"
+  }
+}

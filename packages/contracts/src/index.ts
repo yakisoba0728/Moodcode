@@ -41,6 +41,18 @@ export interface SubmitInput { sessionId: string; requestId: string; prompt: str
 export interface Run { id: string; inputId: string; sessionId: string; workspaceId: string; requestId: string; prompt: string; config: RunConfig; state: RunState; createdAt: string; updatedAt: string; error?: { code: string; message: string }; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }
 export interface RunReceipt { runId: string; inputId: string; admittedSeq: number; duplicate: boolean }
 export interface ProviderToolCall { id: string; name: string; input: JsonValue }
+export const AI_SDK_PROVIDERS = Object.freeze({
+  google: { label: 'Google Gemini', baseURL: 'https://generativelanguage.googleapis.com/v1beta', apiKeyEnv: 'GOOGLE_GENERATIVE_AI_API_KEY' },
+  groq: { label: 'Groq', baseURL: 'https://api.groq.com/openai/v1', apiKeyEnv: 'GROQ_API_KEY' },
+  mistral: { label: 'Mistral', baseURL: 'https://api.mistral.ai/v1', apiKeyEnv: 'MISTRAL_API_KEY' },
+  deepseek: { label: 'DeepSeek', baseURL: 'https://api.deepseek.com/v1', apiKeyEnv: 'DEEPSEEK_API_KEY' },
+  xai: { label: 'xAI', baseURL: 'https://api.x.ai/v1', apiKeyEnv: 'XAI_API_KEY' },
+  openrouter: { label: 'OpenRouter', baseURL: 'https://openrouter.ai/api/v1', apiKeyEnv: 'OPENROUTER_API_KEY' },
+});
+export type AiSdkProviderId = keyof typeof AI_SDK_PROVIDERS;
+export function isAiSdkProviderId(value: unknown): value is AiSdkProviderId {
+  return typeof value === 'string' && Object.hasOwn(AI_SDK_PROVIDERS, value);
+}
 /** Provider-native completed output for manual replay; opaque to tools and the UI. */
 export interface ProviderReplay { providerId: string; items: JsonObject[]; modelId?: string; protocol?: string; version?: number }
 export interface Message { id: string; sessionId: string; runId: string; role: 'user' | 'assistant' | 'tool'; content: string; createdAt: string; toolCalls?: ProviderToolCall[]; toolCallId?: string; providerReplay?: ProviderReplay; toolResult?: Pick<import('./v2.js').ToolResultEnvelope, 'artifactRefs' | 'warnings' | 'outcome'>; attachments?: InputImageAttachment[]; documents?: InputDocumentAttachment[]; media?: InputMediaAttachment[] }

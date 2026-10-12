@@ -1,7 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { EngineError } from '@moodcode/contracts';
-import { pidPresence, raceAbort, settleWithin } from './runtime.js';
+import { createCommandEnvironment, pidPresence, raceAbort, settleWithin } from './runtime.js';
+
+test('SDK provider keys are stripped from command environments', () => {
+  const names = ['GOOGLE_GENERATIVE_AI_API_KEY', 'GROQ_API_KEY', 'MISTRAL_API_KEY', 'DEEPSEEK_API_KEY', 'XAI_API_KEY', 'OPENROUTER_API_KEY'];
+  const environment = Object.fromEntries(names.map(name => [name, 'fixture-key']));
+  assert.deepEqual(createCommandEnvironment({ ...environment, PATH: '/fixture/bin' }), { PATH: '/fixture/bin' });
+});
 
 const cancelled = () => new EngineError('CANCELLED', 'fixture cancelled');
 

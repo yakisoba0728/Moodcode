@@ -4,6 +4,7 @@ import type {
   EngineCapabilities,
   Workspace,
   ReasoningEffort,
+  AiSdkProviderId,
 } from "@moodcode/contracts";
 import type { JsonValue } from '@moodcode/contracts';
 import type { DesktopAdvancedAction, DesktopAdvancedSnapshot } from './advanced.js';
@@ -11,7 +12,7 @@ import type { DesktopAccountAction, DesktopAccountView } from './account-protoco
 import type { DesktopAppUpdate, DesktopAppUpdateAction } from './update-protocol.js';
 
 export type DesktopProviderId =
-  "scripted" | "openai-compatible" | "openai-responses" | "anthropic" | "codex";
+  "scripted" | "openai-compatible" | "openai-responses" | "anthropic" | "codex" | AiSdkProviderId;
 export const ANTHROPIC_REASONING_EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 export interface HostStatus {
   state: "starting" | "ready" | "failed" | "stopped";

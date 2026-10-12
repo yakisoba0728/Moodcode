@@ -134,6 +134,24 @@ function sse(response: ServerResponse, delta: object, finish: string | null = nu
   response.write(`data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason: finish }] })}\n\n`);
 }
 
+test('CLI invokes the SDK adapter and persists its response without exposing the credential', { timeout: 20_000 }, async t => {
+  const paths = await workspace(t);
+  const fixture = await httpFixture(t, response => {
+    sse(response, { role: 'assistant', content: 'SDK result' });
+    sse(response, {}, 'stop'); response.end('data: [DONE]\n\n');
+  });
+  const value = client(t, paths, ['--provider', 'deepseek', '--base-url', fixture.baseURL, '--model', 'fixture']);
+  const sessionId = await openSession(value, paths.path);
+  const receipt = await value.request<{ runId: string }>('run.submit', { sessionId, requestId: 'sdk-request', prompt: 'SDK fixture' });
+  await waitFor(() => terminal(value, receipt.runId, 'run.completed') || terminal(value, receipt.runId, 'run.failed'), () => value.diagnostics, value.process);
+  const snapshot = await value.request<SessionSnapshot>('session.getSnapshot', { sessionId });
+  assert.equal(snapshot.runs[0]?.state, 'completed', JSON.stringify(snapshot.runs[0]?.error));
+  assert.ok(snapshot.messages.some(message => message.role === 'assistant' && message.content === 'SDK result'));
+  assert.ok(!JSON.stringify(snapshot).includes('fixture-only-key'));
+  assert.equal(fixture.requests(), 1);
+  await value.finish();
+});
+
 test('CLI scripted run persists across EOF/restart and afterSeq replays committed records', { timeout: 20_000 }, async (t) => {
   const paths = await workspace(t);
   const first = client(t, paths);

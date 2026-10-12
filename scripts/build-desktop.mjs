@@ -16,6 +16,8 @@ const common = {
 await build({
   ...common,
   format: "esm",
+  // Bundled SDK dependencies use CommonJS to load Node built-ins.
+  banner: { js: 'import { createRequire as __moodcodeCreateRequire } from "node:module"; const require = __moodcodeCreateRequire(import.meta.url);' },
   entryPoints: {
     index: resolve(app, "src/main/index.ts"),
     "engine-worker": resolve(app, "src/worker/index.ts"),

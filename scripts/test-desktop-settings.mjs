@@ -3,6 +3,7 @@ import { _electron as electron, expect } from "@playwright/test";
 import { mkdtemp, writeFile, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { AI_SDK_PROVIDERS } from "@moodcode/contracts";
 const data = await mkdtemp(join(tmpdir(), "moodcode-native-settings-"));
 const sentinel = "synthetic-moodcode-key-for-local-encryption-test";
 let app;
@@ -24,6 +25,7 @@ try {
       MOODCODE_DESKTOP_USER_DATA: data,
       MOODCODE_API_KEY: "",
       OPENAI_API_KEY: "",
+      ...Object.fromEntries(Object.values(AI_SDK_PROVIDERS).map(preset => [preset.apiKeyEnv, ""])),
     },
   });
   const page = await app.firstWindow();
@@ -33,6 +35,11 @@ try {
   const initial = await page.evaluate(() => window.moodcode.getBootstrap());
   await page.getByRole("button", { name: "모델 설정", exact: true }).click();
   const dialog = page.getByRole("dialog");
+  for (const [id, preset] of Object.entries(AI_SDK_PROVIDERS)) {
+    await page.getByLabel("연결 방식").selectOption(id);
+    await expect(page.getByLabel("API endpoint")).toHaveValue(preset.baseURL);
+    await expect(page.getByLabel("모델 ID")).toHaveValue("");
+  }
   await page.getByLabel("연결 방식").selectOption("openai-responses");
   await page.getByLabel("모델 ID").fill("fixture-model");
   if (initial.settings.credentialStorage === "unavailable") {
@@ -74,6 +81,22 @@ try {
       await readFile(join(data, "settings.json"), "utf8"),
     );
     assert.equal(cleared.credential, undefined);
+    await page.getByRole("button", { name: "모델 설정", exact: true }).click();
+    await page.getByLabel("연결 방식").selectOption("google");
+    await page.getByLabel("모델 ID").fill("fixture-sdk-model");
+    await page.getByLabel("API 키", { exact: true }).fill(sentinel);
+    await page.getByRole("button", { name: "설정 저장", exact: true }).click();
+    await expect(page.locator("dialog[open]")).toHaveCount(0, { timeout: 15000 });
+    const sdk = await page.evaluate(() => window.moodcode.getBootstrap());
+    assert.equal(sdk.settings.providerId, "google");
+    assert.equal(sdk.settings.baseURL, AI_SDK_PROVIDERS.google.baseURL);
+    assert.equal(sdk.settings.keySource, "stored");
+    assert.ok(!JSON.stringify(sdk).includes(sentinel));
+    await page.getByRole("button", { name: "모델 설정", exact: true }).click();
+    await page.getByLabel("저장된 API 키 제거").check();
+    await page.getByLabel("연결 방식").selectOption("scripted");
+    await page.getByRole("button", { name: "설정 저장", exact: true }).click();
+    await expect(page.locator("dialog[open]")).toHaveCount(0, { timeout: 15000 });
     if (
       initial.settings.codexAuthState === "available" &&
       initial.settings.codexModelId
@@ -107,6 +130,8 @@ try {
         rendererCredentialReflected: false,
         settingsErrorVisibleInDialog: true,
         storedKeyRemoved: true,
+        sdkProviderSelections: Object.keys(AI_SDK_PROVIDERS).length,
+        sdkSettingsSwitch: true,
         codexSettingsSwitch: initial.settings.codexAuthState === "available",
         providerRequests: 0,
       }),

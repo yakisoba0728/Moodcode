@@ -1,14 +1,14 @@
 import { mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { JsonObject, RunConfig, RunConfigInput } from '@moodcode/contracts';
+import { AI_SDK_PROVIDERS, isAiSdkProviderId, type AiSdkProviderId, type JsonObject, type RunConfig, type RunConfigInput } from '@moodcode/contracts';
 import type { ProviderAdapter } from '@moodcode/engine';
 import { runHarness, type HarnessEngine } from './protocol.js';
 
 export { runHarness } from './protocol.js';
 export type { HarnessEngine, HarnessOptions, HarnessOutcome } from './protocol.js';
 
-export type CliProvider = 'scripted' | 'openai-compatible' | 'openai-responses';
+export type CliProvider = 'scripted' | 'openai-compatible' | 'openai-responses' | AiSdkProviderId;
 export interface CliOptions {
   dbPath: string;
   artifactDir: string;
@@ -24,14 +24,16 @@ export interface CliOptions {
 export const USAGE = `Moodcode JSONL engine harness
 Usage: npm run harness -- [--db PATH] [--artifacts PATH]
        [--config PATH] [--workspace-config PATH]
-       [--provider scripted|openai-compatible|openai-responses] [--base-url URL] [--model ID]
+       [--provider scripted|openai-compatible|openai-responses|google|groq|mistral|deepseek|xai|openrouter] [--base-url URL] [--model ID]
 
 Defaults: scripted provider, local model, plan mode, .moodcode/engine.sqlite.
 Priority: defaults < --config file < --workspace-config file < explicit CLI flags
 < incoming run.submit config. Partial limits retain the lower-layer fields.
-Remote providers require a base URL and model from CLI flags or configuration.
+Remote providers require an explicit model. SDK providers have built-in base URLs;
+other remote providers require a base URL from CLI flags or configuration.
 Configuration providers[id].apiKeyEnv names the environment variable containing
-the key. Without that reference, use MOODCODE_API_KEY (or OPENAI_API_KEY).
+the key. Without that reference, use MOODCODE_API_KEY, then the selected provider's
+key environment variable (OPENAI_API_KEY for the legacy OpenAI adapters).
 API keys are never accepted as CLI arguments or configuration values.
 
 stdin: {schemaVersion:1,commandId:"id",type:"workspace.open",payload:{path:"..."}}
@@ -63,8 +65,8 @@ export function parseArguments(args: readonly string[], cwd = process.cwd()): Cl
     values.set(name, value);
   }
   const provider = values.get('--provider') ?? 'scripted';
-  if (provider !== 'scripted' && provider !== 'openai-compatible' && provider !== 'openai-responses') throw new CliError('provider must be scripted, openai-compatible or openai-responses');
-  const baseURL = values.get('--base-url');
+  if (provider !== 'scripted' && provider !== 'openai-compatible' && provider !== 'openai-responses' && !isAiSdkProviderId(provider)) throw new CliError('provider must be scripted, openai-compatible, openai-responses or a supported AI SDK provider');
+  const baseURL = values.get('--base-url') ?? (isAiSdkProviderId(provider) ? AI_SDK_PROVIDERS[provider].baseURL : undefined);
   const modelId = values.get('--model') ?? (provider === 'scripted' ? 'local' : '');
   if (!help && provider !== 'scripted' && !values.has('--config') && !values.has('--workspace-config') && (!baseURL || !modelId)) throw new CliError('Remote provider requires --base-url and --model or explicit configuration paths');
   if (baseURL) {
@@ -93,15 +95,15 @@ export interface ResolvedCliConfig {
   baseURL?: string;
   apiKeyEnv?: string;
 }
-const PROVIDERS = new Set<string>(['scripted', 'openai-compatible', 'openai-responses']);
+const PROVIDERS = new Set<string>(['scripted', 'openai-compatible', 'openai-responses', ...Object.keys(AI_SDK_PROVIDERS)]);
 
 /** loadConfig owns file merging; only explicitly supplied CLI fields override it. */
 export function resolveCliConfig(options: CliOptions, loaded: LoadedCliConfig): ResolvedCliConfig {
   const provider = options.explicit.provider ? options.provider : loaded.runConfig.providerId;
-  if (!PROVIDERS.has(provider) || Object.keys(loaded.providers).some((id) => !PROVIDERS.has(id))) throw new CliError('Harness supports only scripted, openai-compatible and openai-responses provider IDs');
+  if (!PROVIDERS.has(provider) || Object.keys(loaded.providers).some((id) => !PROVIDERS.has(id))) throw new CliError('Harness provider ID is not supported');
   const modelId = options.explicit.model ? options.modelId : loaded.runConfig.modelId;
   const metadata = loaded.providers[provider];
-  const baseURL = options.explicit.baseURL ? options.baseURL : metadata?.baseURL;
+  const baseURL = options.explicit.baseURL ? options.baseURL : metadata?.baseURL ?? (isAiSdkProviderId(provider) ? AI_SDK_PROVIDERS[provider].baseURL : undefined);
   if (provider !== 'scripted' && (!baseURL || !modelId.trim())) throw new CliError('Remote provider requires a base URL and model from CLI or configuration');
   return {
     runConfig: { ...loaded.runConfig, providerId: provider, modelId, limits: { ...loaded.runConfig.limits } },
@@ -111,8 +113,8 @@ export function resolveCliConfig(options: CliOptions, loaded: LoadedCliConfig): 
   };
 }
 
-/** Resolve only a configured reference, or the two legacy names when no reference exists. */
-export function resolveApiKey(metadata: { apiKeyEnv?: string } | undefined, environment: Readonly<Record<string, string | undefined>>): string {
+/** Explicit credential references never fall through to another provider's key. */
+export function resolveApiKey(metadata: { apiKeyEnv?: string } | undefined, environment: Readonly<Record<string, string | undefined>>, providerId?: string): string {
   if (metadata?.apiKeyEnv !== undefined) {
     if (typeof metadata.apiKeyEnv !== 'string' || !/^[A-Za-z_][A-Za-z0-9_]{0,127}$/.test(metadata.apiKeyEnv)) throw new CliError('Configured provider credential environment variable name is invalid');
     const key = Object.hasOwn(environment, metadata.apiKeyEnv) ? environment[metadata.apiKeyEnv] : undefined;
@@ -121,8 +123,9 @@ export function resolveApiKey(metadata: { apiKeyEnv?: string } | undefined, envi
   }
   const moodcodeKey = environment.MOODCODE_API_KEY;
   if (typeof moodcodeKey === 'string' && moodcodeKey) return moodcodeKey;
-  const key = environment.OPENAI_API_KEY;
-  if (typeof key !== 'string' || !key) throw new CliError('Set MOODCODE_API_KEY or OPENAI_API_KEY for a remote provider');
+  const keyEnv = isAiSdkProviderId(providerId) ? AI_SDK_PROVIDERS[providerId].apiKeyEnv : 'OPENAI_API_KEY';
+  const key = environment[keyEnv];
+  if (typeof key !== 'string' || !key) throw new CliError(`Set MOODCODE_API_KEY or ${keyEnv} for a remote provider`);
   return key;
 }
 
@@ -173,7 +176,7 @@ export async function main(args: readonly string[] = process.argv.slice(2)): Pro
     const options = parseArguments(args);
     if (options.help) { process.stdout.write(USAGE); return 0; }
     // Lazy loading leaves --help and transport tests independent of engine startup.
-    const { createEngine, loadConfig, ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider } = await import('@moodcode/engine');
+    const { createEngine, loadConfig, ScriptedProvider, OpenAICompatibleProvider, ResponsesProvider, AiSdkProvider } = await import('@moodcode/engine');
     const loaded = await loadConfig({ userConfigPath: options.userConfigPath, workspaceConfigPath: options.workspaceConfigPath });
     const resolved = resolveCliConfig(options, loaded);
     const providers: ProviderAdapter[] = [new ScriptedProvider()];
@@ -184,17 +187,18 @@ export async function main(args: readonly string[] = process.argv.slice(2)): Pro
       const metadata = id === resolved.provider ? { baseURL: resolved.baseURL, apiKeyEnv: resolved.apiKeyEnv } : loaded.providers[id];
       const getAdapter = (): ProviderAdapter => {
         if (adapter) return adapter;
-        if (!metadata?.baseURL) throw new CliError('Configured remote provider requires a base URL');
-        const apiKey = resolveApiKey(metadata, process.env);
+        const baseURL = metadata?.baseURL ?? (isAiSdkProviderId(id) ? AI_SDK_PROVIDERS[id].baseURL : undefined);
+        if (!baseURL) throw new CliError('Configured remote provider requires a base URL');
+        const apiKey = resolveApiKey(metadata, process.env, id);
         secrets.push(apiKey);
-        const input = { baseURL: metadata.baseURL, apiKey };
-        adapter = id === 'openai-responses' ? new ResponsesProvider(input) : new OpenAICompatibleProvider(input);
+        const input = { baseURL, apiKey };
+        adapter = isAiSdkProviderId(id) ? new AiSdkProvider({ ...input, providerId: id }) : id === 'openai-responses' ? new ResponsesProvider(input) : new OpenAICompatibleProvider(input);
         return adapter;
       };
       // Selected provider errors are reported at startup. Other configured known
       // providers are initialized only if an incoming run chooses them.
       if (id === resolved.provider) providers.push(getAdapter());
-      else providers.push({ id, streamTurn: (request, signal) => getAdapter().streamTurn(request, signal) });
+      else providers.push({ id, ...(isAiSdkProviderId(id) ? { replayProtocol: 'ai-sdk-v7-messages', inputModalities: ['text'] as const } : {}), streamTurn: (request, signal) => getAdapter().streamTurn(request, signal) });
     }
     if (options.dbPath !== ':memory:') await mkdir(dirname(options.dbPath), { recursive: true, mode: 0o700 });
     await mkdir(options.artifactDir, { recursive: true, mode: 0o700 });

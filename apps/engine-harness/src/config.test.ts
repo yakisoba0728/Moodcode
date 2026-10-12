@@ -3,6 +3,21 @@ import assert from 'node:assert/strict';
 import { DEFAULT_LIMITS, type CommandEnvelope, type RunConfig, type RunConfigInput } from '@moodcode/contracts';
 import type { HarnessEngine } from './protocol.js';
 import { configuredCredentialEnvNames, parseArguments, resolveApiKey, resolveCliConfig, withSubmitDefaults } from './index.js';
+import { AI_SDK_PROVIDERS, type AiSdkProviderId } from '@moodcode/contracts';
+
+test('SDK CLI providers use presets, explicit overrides and their own credential references', () => {
+  for (const id of Object.keys(AI_SDK_PROVIDERS) as AiSdkProviderId[]) {
+    const preset = AI_SDK_PROVIDERS[id];
+    const options = parseArguments(['--provider', id, '--model', 'fixture-model']);
+    const resolved = resolveCliConfig(options, loaded());
+    assert.equal(resolved.provider, id); assert.equal(resolved.baseURL, preset.baseURL);
+    const override = parseArguments(['--provider', id, '--model', 'fixture-model', '--base-url', 'http://127.0.0.1:3210/v1']);
+    assert.equal(resolveCliConfig(override, loaded()).baseURL, 'http://127.0.0.1:3210/v1');
+    assert.equal(resolveApiKey({}, { [preset.apiKeyEnv]: 'sdk-key', OPENAI_API_KEY: 'unrelated-key' }, id), 'sdk-key');
+    assert.throws(() => resolveApiKey({}, { OPENAI_API_KEY: 'unrelated-key' }, id));
+    assert.equal(resolveApiKey({ apiKeyEnv: 'CUSTOM_KEY' }, { CUSTOM_KEY: 'custom-key' }, id), 'custom-key');
+  }
+});
 
 const fixtureKey = 'fixture-only-layered-key';
 const fixtureEnvironmentName = 'MOODCODE_FIXTURE_LAYERED_KEY';

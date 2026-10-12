@@ -1,4 +1,4 @@
-import { REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
+import { AI_SDK_PROVIDERS, isAiSdkProviderId, REASONING_EFFORTS, type ReasoningEffort } from '@moodcode/contracts';
 import { constants } from 'node:fs';
 import { chmod, lstat, mkdir, open, rename, unlink } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
@@ -10,7 +10,7 @@ import type { PrivateAccountCredential } from './accounts.js';
 const MAX_FILE_BYTES = 32_768;
 const MAX_KEY_BYTES = 4_096;
 const MAX_CIPHERTEXT_BYTES = 16_384;
-const PROVIDERS: readonly DesktopProviderId[] = ['scripted', 'openai-compatible', 'openai-responses', 'anthropic', 'codex'];
+const PROVIDERS: readonly DesktopProviderId[] = ['scripted', 'openai-compatible', 'openai-responses', 'anthropic', 'codex', ...Object.keys(AI_SDK_PROVIDERS) as import('@moodcode/contracts').AiSdkProviderId[]];
 
 export interface DesktopCodexAuth {
   available: boolean;
@@ -407,7 +407,8 @@ export class SettingsStore {
       if (!this.#auth().available) fail('SETTINGS_CODEX_AUTH_REQUIRED', 'Codex authentication is unavailable. Sign in to Codex and retry, or explicitly select another provider.');
       source = 'codex';
     } else if (document.providerId !== 'scripted') {
-      const environmentKey = this.#environment.MOODCODE_API_KEY || (document.providerId === 'anthropic' ? this.#environment.ANTHROPIC_API_KEY : this.#environment.OPENAI_API_KEY);
+      const keyEnv = isAiSdkProviderId(document.providerId) ? AI_SDK_PROVIDERS[document.providerId].apiKeyEnv : document.providerId === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY';
+      const environmentKey = this.#environment.MOODCODE_API_KEY || this.#environment[keyEnv];
       if (environmentKey) {
         try { engineConfig.apiKey = key(environmentKey); }
         catch { fail('SETTINGS_ENVIRONMENT_CREDENTIAL_INVALID', 'The configured credential environment variable is invalid.'); }
@@ -418,7 +419,7 @@ export class SettingsStore {
         catch { fail('SETTINGS_CREDENTIAL_DECRYPT_FAILED', 'The stored credential could not be decrypted. Enter a new credential or use a credential environment variable.'); }
         source = 'stored';
       } else {
-        fail('SETTINGS_KEY_REQUIRED', `The selected provider requires its own credential. Enter a credential or set MOODCODE_API_KEY or ${document.providerId === 'anthropic' ? 'ANTHROPIC_API_KEY' : 'OPENAI_API_KEY'}.`);
+        fail('SETTINGS_KEY_REQUIRED', `The selected provider requires its own credential. Enter a credential or set MOODCODE_API_KEY or ${keyEnv}.`);
       }
     }
     if (engineConfig.apiKey && document.anthropicWorkspaceId?.includes(engineConfig.apiKey)) invalid('anthropicWorkspaceId');

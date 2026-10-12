@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { REASONING_EFFORTS, type ReasoningEffort } from "@moodcode/contracts";
+import { AI_SDK_PROVIDERS, isAiSdkProviderId, REASONING_EFFORTS, type ReasoningEffort } from "@moodcode/contracts";
 import type {
   DesktopProviderId,
   DesktopSettings,
@@ -143,11 +143,11 @@ export function Settings({
             setProvider(id);
             setEffort("");
             setCredentialMode(id === "codex" && settings.credentialMode === "chatgpt" ? "chatgpt" : "local");
-            if (id === "anthropic" || provider === "anthropic") setKey("");
+            if (id !== provider) setKey("");
             setAnthropicWorkspaceId(id === "anthropic" ? settings.anthropicWorkspaceId ?? "" : "");
             if (id === "codex") setModel(settings.credentialMode === "chatgpt" ? settings.modelId : settings.codexModelId ?? "");
             else if (id === "scripted") setModel("local");
-            else if (id === "anthropic") setModel(settings.providerId === "anthropic" ? settings.modelId : "");
+            else if (id === "anthropic" || isAiSdkProviderId(id)) setModel(settings.providerId === id ? settings.modelId : "");
             else if (model === "local") setModel("");
             if (id === "codex" || id === "scripted") {
               setEndpoint("");
@@ -155,6 +155,7 @@ export function Settings({
             } else if (id === "openai-responses")
               setEndpoint("https://api.openai.com/v1");
             else if (id === "anthropic") setEndpoint("https://api.anthropic.com/v1");
+            else if (isAiSdkProviderId(id)) setEndpoint(AI_SDK_PROVIDERS[id].baseURL);
           }}
         >
           <option value="codex">Codex · ChatGPT 로그인</option>
@@ -163,6 +164,9 @@ export function Settings({
           </option>
           <option value="openai-compatible">OpenAI 호환 API</option>
           <option value="anthropic">Anthropic · API 키</option>
+          {Object.entries(AI_SDK_PROVIDERS).map(([id, preset]) => (
+            <option key={id} value={id}>{preset.label} · API 키</option>
+          ))}
           <option value="scripted">테스트 모델 · 로컬</option>
         </select>
       </label>
@@ -294,7 +298,7 @@ export function Settings({
                 <input
                   value={endpoint}
                   onChange={(event) => setEndpoint(event.target.value)}
-                  placeholder={provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
+                  placeholder={isAiSdkProviderId(provider) ? AI_SDK_PROVIDERS[provider].baseURL : provider === "anthropic" ? "https://api.anthropic.com/v1" : "https://api.openai.com/v1"}
                   autoComplete="off"
                   spellCheck={false}
                 />

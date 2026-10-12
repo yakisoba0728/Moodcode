@@ -10,8 +10,14 @@
     }
   },
   "dependencies": {
+    "@ai-sdk/google": "4.0.93",
+    "@ai-sdk/groq": "4.0.59",
+    "@ai-sdk/mistral": "4.0.62",
+    "@ai-sdk/openai-compatible": "3.0.67",
+    "@ai-sdk/xai": "5.0.20",
     "@moodcode/contracts": "0.1.0",
-    "@moodcode/windows-job": "0.1.0"
+    "@moodcode/windows-job": "0.1.0",
+    "ai": "7.0.137"
   },
   "optionalDependencies": {
     "node-pty": "1.1.0"

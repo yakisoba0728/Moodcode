@@ -4,7 +4,7 @@ import { DESKTOP_CHANNELS } from '../main/ipc-channels.js';
 import { validateExternalURL } from '../main/security.js';
 import { validateRecoveryInput } from '../shared/recovery.js';
 import { validateClipboardText } from '../shared/clipboard.js';
-import { REASONING_EFFORTS } from '@moodcode/contracts';
+import { isAiSdkProviderId, REASONING_EFFORTS } from '@moodcode/contracts';
 import { validateAdvancedAction, type DesktopAdvancedAction } from '../shared/advanced.js';
 import type { DesktopAccountAction } from '../shared/account-protocol.js';
 import type { DesktopAppUpdateAction } from '../shared/update-protocol.js';
@@ -72,7 +72,7 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
 
 export function validateDesktopSettings(value: unknown): SaveDesktopSettings {
   const input = record(value, ['providerId', 'modelId', 'baseURL', 'anthropicWorkspaceId', 'apiKey', 'clearKey', 'reasoningEffort', 'credentialMode', 'accountId']);
-  if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'anthropic' && input.providerId !== 'codex') invalid();
+  if (input.providerId !== 'scripted' && input.providerId !== 'openai-compatible' && input.providerId !== 'openai-responses' && input.providerId !== 'anthropic' && input.providerId !== 'codex' && !isAiSdkProviderId(input.providerId)) invalid();
   const result: SaveDesktopSettings = {
     providerId: input.providerId,
     modelId: boundedString(input.modelId, 256, input.providerId === 'codex'),
