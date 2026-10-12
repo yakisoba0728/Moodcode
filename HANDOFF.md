@@ -27,7 +27,7 @@
 
 ## 최신 보강과 검증
 
-2026-10-12 현재 작업 브랜치 `codex/ai-sdk-providers`에서 AI SDK 7 공급자 여섯 개(Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter)를 추가했다. 기존 자체 엔진과 Codex 로그인·Main 갱신 broker 및 OpenAI/Anthropic 경로는 유지한다. Desktop 설정과 JSONL harness에서 선택할 수 있으며 모델 ID는 명시한다. 전체 회귀 5,666/5,662 pass/실패 0/취소 0/skip 4, Desktop build·실제 설정 전환·native Codex broker(외부 요청 0)·DB23 비교를 통과했다. 새 SDK 경로는 텍스트·도구 호출 범위이고 실제 계정·미디어·다른 OS/서명 배포 검증은 별도다. 상세와 첫 실패 보존은 [SDK 검증 기록](docs/moodcode/ai-sdk-provider-verification.json), 사용법은 [README](README.md)를 따른다. 이 작업은 로컬 변경이며 새 hosted CI 수용이나 커밋·푸시 완료를 뜻하지 않는다.
+2026-10-12 브랜치 `codex/ai-sdk-providers`의 `2f6d4f9`로 AI SDK 7 공급자 여섯 개(Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter)를 커밋·푸시했다. 기존 자체 엔진과 Codex 로그인·Main 갱신 broker 및 OpenAI/Anthropic 경로는 유지한다. Desktop 설정과 JSONL harness에서 선택할 수 있으며 모델 ID는 명시한다. 로컬 전체 회귀 5,666/5,662 pass/실패 0/취소 0/skip 4와 DB23 비교를 통과했다. hosted 수용은 엔진 6개·native Windows 2개·세 OS Desktop packages 3개 모두 성공이다. 첫 macOS Node 26 전체 테스트의 2개 실패를 보존했고 `262b0ca`에서 macOS 테스트 파일 병렬도만 4→2로 줄여 엔진 여섯 작업을 재검증했다. 제품 코드·assertion·deadline·skip 조건은 동일하며 원래 sandbox 실패의 정확한 명령 오류는 미확정이다. [hosted CI와 OS 빌드 기록](docs/moodcode/ai-sdk-provider-hosted-ci.json), [이전 로컬 SDK 검증](docs/moodcode/ai-sdk-provider-verification.json), [사용법](README.md)을 따른다. 새 SDK 경로는 텍스트·도구 호출 범위이고 실제 계정·미디어·미검증 architecture·서명 배포는 별도다. `main` 병합은 아직 수행하지 않았다.
 
 사용자 요청: **실제 코딩 검증 → 실행 중 토큰 자동 갱신 → LSP 오류 수정**, 에이전트 병렬 작업, 테스트·커밋·푸시, 전체 문서화와 다음 세션 인계.
 

@@ -1,0 +1,439 @@
+{
+  "schemaVersion": 1,
+  "kind": "ai-sdk-provider-hosted-ci",
+  "date": "2026-10-12",
+  "branch": "codex/ai-sdk-providers",
+  "productCommit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+  "priorLocalRecord": "ai-sdk-provider-verification.json",
+  "priorLocalRecordUnchanged": true,
+  "initial": {
+    "expectedJobs": 11,
+    "passedJobs": 10,
+    "failedJobs": 1,
+    "runs": [
+      {
+        "workflow": "Engine headless",
+        "commit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+        "runId": 38208359060,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060",
+        "conclusion": "failure",
+        "jobs": [
+          {
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "jobId": 114676767793,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676767793",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "jobId": 114676767952,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676767952",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "jobId": 114676767956,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676767956",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 24.x",
+            "jobId": 114676767979,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676767979",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "jobId": 114676768003,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676768003",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 26.x",
+            "jobId": 114676768029,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359060/job/114676768029",
+            "conclusion": "failure",
+            "failedSteps": [
+              "Run complete headless fixtures"
+            ]
+          }
+        ]
+      },
+      {
+        "workflow": "Engine native Windows",
+        "commit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+        "runId": 38208359294,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "jobId": 114676768527,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294/job/114676768527",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "jobId": 114676768864,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294/job/114676768864",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      },
+      {
+        "workflow": "Desktop packages",
+        "commit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+        "runId": 38208359067,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+            "jobId": 114676767966,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676767966",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / windows-2025",
+            "jobId": 114676768107,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676768107",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / macos-15",
+            "jobId": 114676768122,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676768122",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      }
+    ]
+  },
+  "failure": {
+    "runId": 38208359060,
+    "jobId": 114676768029,
+    "platform": "darwin",
+    "arch": "arm64",
+    "node": "v26.11.1",
+    "tests": 5372,
+    "pass": 5366,
+    "fail": 2,
+    "skipped": 4,
+    "cases": [
+      {
+        "test": "actual Moodcode authored callsites resolve to exact source declarations through the installed native TS7 server",
+        "error": "REPOSITORY_TIMEOUT",
+        "elapsedMs": 15045.6835
+      },
+      {
+        "test": "full sandbox store admits commands by pruning the oldest closed chains only",
+        "error": "ENOENT: second-effect",
+        "elapsedMs": 11257.688625
+      }
+    ],
+    "evidenceGap": "The original sandbox fixture directory was retained in runner temporary storage but was outside the uploaded artifact selection; its tool outcome is not available. No exact historical sandbox cause is asserted."
+  },
+  "correction": {
+    "commit": "262b0ca08b7dbe829b23b4609332130d5249b213",
+    "files": [
+      ".github/workflows/engine.yml",
+      "docs/moodcode/engine-ci.md"
+    ],
+    "productSourceUnchanged": true,
+    "change": "Limit macOS test file concurrency to 2; Linux remains 4. Native fixtures also start their own subprocesses.",
+    "assertionsChanged": false,
+    "skipsAdded": 0,
+    "productionDeadlinesChanged": false,
+    "localTargeted": {
+      "platform": "darwin",
+      "arch": "arm64",
+      "node": "v26.9.0",
+      "command": "node --test --test-concurrency=1 packages/engine/dist/repository/native-typescript-corpus.test.js packages/engine/dist/sandbox/native-integrity.integration.test.js",
+      "tests": 10,
+      "pass": 10,
+      "fail": 0
+    },
+    "loadEvidence": {
+      "native512ModuleElapsedMs": {
+        "failedRunner": 34712.012291,
+        "local": 4293.91075
+      },
+      "qualification": "Consistent with runner resource contention; exact sandbox outcome and CPU/memory saturation were not captured."
+    },
+    "hostedRecheck": {
+      "macosNode24": {
+        "tests": 5372,
+        "pass": 5368,
+        "fail": 0,
+        "skipped": 4
+      },
+      "macosNode26": {
+        "tests": 5372,
+        "pass": 5368,
+        "fail": 0,
+        "skipped": 4
+      },
+      "failedCasesPassed": [
+        "actual Moodcode authored callsites resolve to exact source declarations through the installed native TS7 server",
+        "full sandbox store admits commands by pruning the oldest closed chains only"
+      ]
+    }
+  },
+  "accepted": {
+    "status": "complete",
+    "expectedJobs": 11,
+    "passedJobs": 11,
+    "failedJobs": 0,
+    "runs": [
+      {
+        "workflow": "Engine headless",
+        "commit": "262b0ca08b7dbe829b23b4609332130d5249b213",
+        "runId": 38209658474,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "jobId": 114680766858,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680766858",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 26.x",
+            "jobId": 114680767023,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680767023",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "jobId": 114680767061,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680767061",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 24.x",
+            "jobId": 114680767090,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680767090",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "jobId": 114680767105,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680767105",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "jobId": 114680767118,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38209658474/job/114680767118",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      },
+      {
+        "workflow": "Engine native Windows",
+        "commit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+        "runId": 38208359294,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "jobId": 114676768527,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294/job/114676768527",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "jobId": 114676768864,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359294/job/114676768864",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      },
+      {
+        "workflow": "Desktop packages",
+        "commit": "2f6d4f9c5664426039efd9eb11156703682e744f",
+        "runId": 38208359067,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+            "jobId": 114676767966,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676767966",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / windows-2025",
+            "jobId": 114676768107,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676768107",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / macos-15",
+            "jobId": 114676768122,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/job/114676768122",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      }
+    ],
+    "qualification": "Headless runs at the CI correction commit. Desktop/native Windows runs at the product commit. The intervening changes affect only workflow scheduling and its documentation; product sources and tests are identical."
+  },
+  "sdkChecks": {
+    "desktopSdkTests": {
+      "macos": 12,
+      "linux": 12,
+      "windows": 12,
+      "fail": 0,
+      "skipped": 0
+    },
+    "macosSettings": {
+      "providerSelections": 6,
+      "googleSettingsSwitch": true,
+      "nativeStorage": "available",
+      "fileMode": "0600",
+      "plaintextStored": false,
+      "rendererCredentialReflected": false,
+      "externalRequests": 0
+    },
+    "codexUtilityBroker": {
+      "platforms": [
+        "darwin",
+        "linux",
+        "win32"
+      ],
+      "sameGeneration": 1,
+      "credentialRequests": 3,
+      "externalRequests": 0
+    }
+  },
+  "desktopPackages": [
+    {
+      "id": 11728870367,
+      "name": "desktop-unsigned-windows-2025-1",
+      "bytes": 183489801,
+      "sha256": "sha256:d532155637316555468a5431f38b3f85388835565ebafe7063f0e4b7df41a7d4",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/artifacts/11728870367",
+      "expiresAt": "2026-10-19T05:35:35Z"
+    },
+    {
+      "id": 11728296087,
+      "name": "desktop-unsigned-macos-15-1",
+      "bytes": 411758268,
+      "sha256": "sha256:b624a09d61758cea5c3b73d34f693a69825e3b78ec28c89b2105446266e04f48",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/artifacts/11728296087",
+      "expiresAt": "2026-10-19T05:34:49Z"
+    },
+    {
+      "id": 11728073731,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "bytes": 142560285,
+      "sha256": "sha256:553eab682de60354ee259bbb2437e6891ef1f65e2f782fc7e42a0fd8aad8e781",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38208359067/artifacts/11728073731",
+      "expiresAt": "2026-10-19T05:33:29Z"
+    }
+  ],
+  "evidencePins": [
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/headless-run.json",
+      "sha256": "8cf591610208856073e2a1c323a0dfd09375d93620345a8215e96cb8b598362e"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/native-windows-run.json",
+      "sha256": "ac94ff142416fe4053351dc5e4b8e4174d62a4a3034988ea8a65c994e6a404fa"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/desktop-run.json",
+      "sha256": "54da0ec7459ec3d92b0aef43062a1549ae487d3a510ecf4387f81e70749f9eed"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/headless-artifacts.json",
+      "sha256": "68973205ee70b314dfcf34956df081237e295521167cac213cce83c082f0e7b1"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/native-windows-artifacts.json",
+      "sha256": "3d634969e186c6b28c1bf5e36c486b3c6e160172ac3cc83391f202a2fc6640af"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/desktop-artifacts.json",
+      "sha256": "8ec2966dacbc23cf130fde139e2abab9166a716d3360d6b8dcec1eeecb53ef60"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/headless-macos-node26.log",
+      "sha256": "31860ad0b47f026befa7703aef88efc02f90f6651fd0317f2590fb5a89803928"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/failure-targeted-local.log",
+      "sha256": "9b6dccde563534ab93a10704dc1205a0d0a06afa51ca5b598f08ea125eedc5d6"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/desktop-macos.log",
+      "sha256": "b798954dea3c6857961b8512d1be5359e75b4cac022fafc385b19b427e05a006"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/desktop-linux.log",
+      "sha256": "7b8495ca2ebed2b410264c152de4989e0dc5c73d52067426c37b0bb0e1924f7e"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/initial/desktop-windows.log",
+      "sha256": "eff6abbafa0dc9c21a02ad80175c640e551cbb3aa07c36642add1033483de886"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/final/headless-run.json",
+      "sha256": "0b77c7ff918f06790c6964b70bf18865e477aef4dbae532a3ea720e9a983bec0"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/final/headless-artifacts.json",
+      "sha256": "16dfa5a744e16a3dafa49f560666696f19d8bca8726323855e03db3e0859ea7d"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/final/headless-macos-node24.log",
+      "sha256": "93aa093d262aef82435874db457b976737a6955b4ef59ac10404ab8fe369d4a5"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/final/headless-macos-node26.log",
+      "sha256": "09f0f7accbf231b42c1473c253b2f04d128e1e56a789a2fcf0bfa68521c9eaa2"
+    }
+  ],
+  "limits": [
+    "New provider requests used local/injected HTTP fixtures; actual provider accounts and billing were not exercised.",
+    "Desktop packages are unsigned macOS arm64, Linux x64 and Windows x64 bundles; signed installers, notarization and public release/update feeds were not exercised.",
+    "Windows PTY/arm64, macOS Intel and Linux arm64 are outside these jobs.",
+    "Passing runs do not establish the precise historical cause of the initial sandbox failure."
+  ],
+  "workflowSha256": {
+    ".github/workflows/engine.yml": "58b7cb0d4c165387cc47cafc4fc6b19b8604693e53064fac50b79f09ce102caa",
+    ".github/workflows/desktop-package.yml": "10a0595ad56b6d435159ee6e59a6e21e2f172824438c482125045cab3ab62c97",
+    ".github/workflows/engine-native-windows.yml": "d51b326ec6ccfaeff82411b90d175d96f75793dbfd982d8018f2d43abbe7bd1a"
+  },
+  "priorLocalRecordSha256": "d8ae8299859e857fc367fcec43e6f3ebb29ea29a198951e62ad1af6db23a8b12"
+}

@@ -12,7 +12,8 @@
 
 ### 1. 남은 기능과 제품 연결
 
-- [x] **SDK-PROVIDERS — AI SDK 공급자 확대(2026-10-12)**: AI SDK 7의 Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter를 기존 ProviderAdapter·Desktop 설정/worker·JSONL harness에 연결했다. Codex 로그인·Main credential broker·기존 OpenAI/Anthropic adapter와 자체 엔진의 승인·재시도·취소·복구를 유지한다. 전체 compiled 5,666개 중 5,662 pass·실패/취소 0·플랫폼 skip 4, 실제 Electron의 6개 선택·Google 설정 전환 및 native Codex broker(외부 요청 0), DB23 동일을 확인했다. 첫 실행의 오래된 dist 실패와 bundle CommonJS 오류·수정을 보존했다. 새 SDK 경로의 미디어/추론 강도·실제 계정/모델/다른 OS 검증은 별도 범위다. [검증 기록](docs/moodcode/ai-sdk-provider-verification.json).
+- [x] **SDK-PROVIDERS — AI SDK 공급자 확대(2026-10-12)**: AI SDK 7의 Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter를 기존 ProviderAdapter·Desktop 설정/worker·JSONL harness에 연결했다. Codex 로그인·Main credential broker·기존 OpenAI/Anthropic adapter와 자체 엔진의 승인·재시도·취소·복구를 유지한다. 전체 compiled 5,666개 중 5,662 pass·실패/취소 0·플랫폼 skip 4, 실제 Electron의 6개 선택·Google 설정 전환 및 native Codex broker(외부 요청 0), DB23 동일을 확인했다. 첫 실행의 오래된 dist 실패와 bundle CommonJS 오류·수정을 보존했다. 새 SDK 경로의 미디어/추론 강도·실제 계정/모델 검증은 별도 범위다. [로컬 검증 기록](docs/moodcode/ai-sdk-provider-verification.json).
+- [x] **SDK-CI — 커밋·푸시와 OS 빌드 검증(2026-10-12)**: `codex/ai-sdk-providers`에 SDK 구현 `2f6d4f9`와 CI 조정 `262b0ca`를 게시했다. 엔진 6/6·native Windows 2/2·Desktop packages 3/3 성공. SDK 프로토콜·worker·승인·취소·복구 12/12를 세 OS에 연결하고 macOS 실제 설정·암호화 키 전환도 확인했다. macOS arm64·Linux x64·Windows x64의 unsigned bundle·실제 native smoke를 통과했다. 첫 macOS Node 26 테스트 2개 실패는 보존했고 macOS 파일 병렬도 4→2 후 전체 5,372/5,368 pass/실패 0/skip 4를 Node 24·26에서 확인했다. 제품 deadline·assertion·skip은 변경하지 않았다. 제품 소스가 동일한 패키지/native Windows 결과와 CI 수정 후 엔진 결과를 구분한다. 원래 sandbox 명령 오류 원인은 미확정이며 실제 계정·서명/공증 배포를 완료로 세지 않는다. [hosted 기록](docs/moodcode/ai-sdk-provider-hosted-ci.json).
 
 기존 열린 항목은 아래 원래 ID에서 추적하며 별도 완료 집계로 중복 계산하지 않는다.
 
