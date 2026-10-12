@@ -77,6 +77,8 @@ jobs:
         node: ["24.x", "26.x"]
     env:
       MOODCODE_CI_LANE: posix-full
+      # Native TS and sandbox fixtures share CPU with their own child processes.
+      MOODCODE_ENGINE_TEST_CONCURRENCY: ${{ matrix.os == 'macos-15' && '2' || '4' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

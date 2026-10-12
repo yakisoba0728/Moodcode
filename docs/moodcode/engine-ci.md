@@ -34,6 +34,8 @@ runner 이름과 architecture는 [GitHub-hosted runner 공식 표](https://docs.
 
 ## 설치와 gate 순서
 
+2026-10-12 SDK 변경의 첫 CI에서 macOS Node 26 전체 fixture 중 native TS 저장소 조회가 15초 한도에 도달했고 sandbox 명령의 결과 파일이 없었다. 같은 두 파일은 로컬 단독 실행 10/10을 통과했다. native 512-module 조회는 해당 runner에서 약 35초, 로컬에서 약 4초였다. macOS의 전체 엔진 테스트 파일 동시 실행을 4개에서 2개로 제한해 native 자식 프로세스 간 부하를 줄인다. Linux는 4개를 유지한다. 제품의 repository/tool deadline, assertion, 입력량과 기존 skip 조건은 유지하며 이 변경만으로 과거 sandbox 실패 원인을 확정하지 않는다.
+
 `npm ci --include=optional`로 lockfile의 root/workspace dependency 및 optional node-pty를 설치한다. `ELECTRON_SKIP_BINARY_DOWNLOAD=1`을 설정하여 root dev dependency의 Electron binary 다운로드를 생략한다. GUI를 실행하거나 데스크톱 build/package를 호출하지 않는다. dependency install script는 npm 기본 동작대로 수행된다.
 
 설치 다음 `node scripts/prepare-pty.mjs`를 호출한다. 이 명시적 helper는 macOS node-pty prebuilt spawn-helper 실행 비트를 보정한다. POSIX lane은 optional native module을 실제 require하고 spawn API가 없으면 실패한다. module load 자체를 실제 PTY 종료 검증으로 간주하지 않는다. 실제 TTY·resize·input·cancel·supervisor parent-loss 검증은 후속 engine fixture가 담당한다. Windows lane은 준비 결과와 지원 공백을 기록하고 실제 PTY를 시작하지 않는다.
