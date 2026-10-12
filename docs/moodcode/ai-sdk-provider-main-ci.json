@@ -1,0 +1,697 @@
+{
+  "schemaVersion": 1,
+  "kind": "ai-sdk-provider-main-ci",
+  "date": "2026-10-12",
+  "timezone": "Asia/Seoul",
+  "status": "complete",
+  "integration": {
+    "method": "fast-forward",
+    "previousMain": "c68be51123b6d6a9ab9390e17c556d76e0a31301",
+    "sourceBranch": "codex/ai-sdk-providers",
+    "mainCommit": "5d972841b9089d9b674560f6abd9bb8d6b9bf9c8",
+    "conflicts": 0
+  },
+  "priorBranchRecord": {
+    "path": "docs/moodcode/ai-sdk-provider-hosted-ci.json",
+    "sha256": "a2ef9cbee4e725f27693d80898d2466ac18b09c1728601289cdb9fda658707be",
+    "unchanged": true
+  },
+  "expectedJobs": 11,
+  "runs": [
+    {
+      "workflow": "Engine headless",
+      "branch": "main",
+      "commit": "9270e190eda5c6f5d97f184705748dc940be2f15",
+      "runId": 38220982593,
+      "attempt": 1,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Headless macos-15 / Node 26.x",
+          "jobId": 114716902759,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902759",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "jobId": 114716902851,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902851",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Headless ubuntu-24.04 / Node 24.x",
+          "jobId": 114716902901,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902901",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
+          "jobId": 114716902903,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902903",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "jobId": 114716902927,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902927",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Headless macos-15 / Node 24.x",
+          "jobId": 114716902947,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982593/job/114716902947",
+          "conclusion": "success",
+          "failedSteps": []
+        }
+      ]
+    },
+    {
+      "workflow": "Engine native Windows",
+      "branch": "main",
+      "commit": "9270e190eda5c6f5d97f184705748dc940be2f15",
+      "runId": 38220982656,
+      "attempt": 1,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982656",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Native Windows Job Object / x64 / Node 24.x",
+          "jobId": 114716902559,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982656/job/114716902559",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Native Windows Job Object / x64 / Node 26.x",
+          "jobId": 114716903114,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982656/job/114716903114",
+          "conclusion": "success",
+          "failedSteps": []
+        }
+      ]
+    },
+    {
+      "workflow": "Desktop packages",
+      "branch": "main",
+      "commit": "9270e190eda5c6f5d97f184705748dc940be2f15",
+      "runId": 38220982604,
+      "attempt": 1,
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604",
+      "conclusion": "success",
+      "jobs": [
+        {
+          "name": "Unsigned bundle and native smoke / macos-15",
+          "jobId": 114716902881,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/job/114716902881",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "jobId": 114716903075,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/job/114716903075",
+          "conclusion": "success",
+          "failedSteps": []
+        },
+        {
+          "name": "Unsigned bundle and native smoke / windows-2025",
+          "jobId": 114716903211,
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/job/114716903211",
+          "conclusion": "success",
+          "failedSteps": []
+        }
+      ]
+    }
+  ],
+  "fixesAfterIntegration": [
+    {
+      "file": "packages/engine/src/jobs/host-command.integration.test.ts",
+      "change": "Write the authored effect to a same-directory temporary file, close it, then rename to the observed final path.",
+      "productCodeChanged": false,
+      "productionDeadlinesChanged": false,
+      "existingAssertionsChanged": false,
+      "existingSkipConditionsChanged": false,
+      "regression": {
+        "test": "host command fixture publishes its effect only after the original write completes",
+        "mechanism": "Hold the real child write after empty-file creation, observe the final path, then release the original write and verify exact bytes and confirmed native completion.",
+        "before": {
+          "tests": 1,
+          "pass": 0,
+          "fail": 1
+        },
+        "after": {
+          "tests": 1,
+          "pass": 1,
+          "fail": 0
+        }
+      },
+      "local": {
+        "platform": "darwin",
+        "arch": "arm64",
+        "node": "v26.9.0",
+        "typecheckExitCode": 0,
+        "compiledHostCommand": {
+          "tests": 17,
+          "pass": 17,
+          "fail": 0,
+          "skipped": 0
+        }
+      },
+      "commit": "9270e190eda5c6f5d97f184705748dc940be2f15",
+      "sourceSha256": "5b5336f3b673c31d7d66ea3feaa305f913e24eac5a842fa7017674f01db1f21e"
+    }
+  ],
+  "sdkTests": {
+    "macos": 12,
+    "linux": 12,
+    "windows": 12,
+    "fail": 0,
+    "skipped": 0
+  },
+  "codexUtilityBroker": {
+    "platforms": [
+      "darwin",
+      "linux",
+      "win32"
+    ],
+    "sameGeneration": 1,
+    "credentialRequests": 3,
+    "externalRequests": 0,
+    "applicationExitCode": 0
+  },
+  "desktopPackages": [
+    {
+      "id": 11734685084,
+      "name": "desktop-unsigned-macos-15-1",
+      "bytes": 411759005,
+      "digestFromGitHub": "sha256:3a5b906f37fba4a4ff61b71aa0528f829fc52651b92f0b34d2626aa10f3faf3d",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/artifacts/11734685084",
+      "expiresAt": "2026-10-19T08:02:38Z"
+    },
+    {
+      "id": 11733853300,
+      "name": "desktop-unsigned-windows-2025-1",
+      "bytes": 183490934,
+      "digestFromGitHub": "sha256:0206fd52e51a11735518d37778b94bbde2d81b8385375d88246120060a50ff1b",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/artifacts/11733853300",
+      "expiresAt": "2026-10-19T08:04:12Z"
+    },
+    {
+      "id": 11733474674,
+      "name": "desktop-unsigned-ubuntu-24.04-1",
+      "bytes": 142560952,
+      "digestFromGitHub": "sha256:2f6222b4b5dac4df79c1ab8a6d95b70bc5b7f66f4e17def0ce5596aa7c7723d5",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38220982604/artifacts/11733474674",
+      "expiresAt": "2026-10-19T08:01:44Z"
+    }
+  ],
+  "limits": [
+    "Packages are unsigned macOS arm64, Linux x64 and Windows x64 bundles. Signed installers, notarization and public release/update feeds were not exercised.",
+    "Provider requests use injected/local HTTP fixtures. Actual provider accounts, billing and natural Codex token expiry were not exercised.",
+    "Passing main CI does not resolve historical PTY, fixture-retention, native Windows accounting or sandbox failure causes."
+  ],
+  "initial": {
+    "expectedJobs": 11,
+    "passedJobs": 10,
+    "failedJobs": 1,
+    "runs": [
+      {
+        "workflow": "Engine headless",
+        "branch": "main",
+        "commit": "5d972841b9089d9b674560f6abd9bb8d6b9bf9c8",
+        "runId": 38217951480,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480",
+        "conclusion": "failure",
+        "jobs": [
+          {
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "jobId": 114707016589,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016589",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 24.x",
+            "jobId": 114707016728,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016728",
+            "conclusion": "failure",
+            "failedSteps": [
+              "Run complete headless fixtures"
+            ]
+          },
+          {
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "jobId": 114707016832,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016832",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless macos-15 / Node 26.x",
+            "jobId": 114707016891,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016891",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "jobId": 114707016914,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016914",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "jobId": 114707016939,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951480/job/114707016939",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      },
+      {
+        "workflow": "Engine native Windows",
+        "branch": "main",
+        "commit": "5d972841b9089d9b674560f6abd9bb8d6b9bf9c8",
+        "runId": 38217951502,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951502",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "jobId": 114707017039,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951502/job/114707017039",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "jobId": 114707017227,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951502/job/114707017227",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      },
+      {
+        "workflow": "Desktop packages",
+        "branch": "main",
+        "commit": "5d972841b9089d9b674560f6abd9bb8d6b9bf9c8",
+        "runId": 38217951522,
+        "attempt": 1,
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951522",
+        "conclusion": "success",
+        "jobs": [
+          {
+            "name": "Unsigned bundle and native smoke / macos-15",
+            "jobId": 114707016899,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951522/job/114707016899",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+            "jobId": 114707017056,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951522/job/114707017056",
+            "conclusion": "success",
+            "failedSteps": []
+          },
+          {
+            "name": "Unsigned bundle and native smoke / windows-2025",
+            "jobId": 114707017138,
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38217951522/job/114707017138",
+            "conclusion": "success",
+            "failedSteps": []
+          }
+        ]
+      }
+    ]
+  },
+  "failure": {
+    "runId": 38217951480,
+    "jobId": 114707016728,
+    "test": "independent approved command owns its idle workspace, genuine PID, output and checkpoint without creating Run/Tool identities",
+    "tests": 5372,
+    "pass": 5367,
+    "fail": 1,
+    "skipped": 4,
+    "observed": "The workspace fixture effect file existed but read as empty before writeFileSync completed.",
+    "cause": "The observer waited only for existence. The child created the final path before writing its bytes. A controlled pause after file creation reproduces the visibility race."
+  },
+  "finalVerifiedCommit": "9270e190eda5c6f5d97f184705748dc940be2f15",
+  "passedJobs": 11,
+  "failedJobs": 0,
+  "priorLocalRecord": {
+    "path": "docs/moodcode/ai-sdk-provider-verification.json",
+    "sha256": "d8ae8299859e857fc367fcec43e6f3ebb29ea29a198951e62ad1af6db23a8b12",
+    "unchanged": true
+  },
+  "sdkSourcePins": {
+    "from": "docs/moodcode/ai-sdk-provider-verification.json",
+    "matched": 21,
+    "unchanged": true
+  },
+  "headless": {
+    "linuxNode24": {
+      "tests": 5373,
+      "pass": 5302,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 71,
+      "hostEffectRegressionPassed": true,
+      "originalHostEffectTestPassed": true
+    },
+    "linuxNode26": {
+      "tests": 5373,
+      "pass": 5302,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 71,
+      "hostEffectRegressionPassed": true,
+      "originalHostEffectTestPassed": true
+    },
+    "macosNode26": {
+      "tests": 5373,
+      "pass": 5369,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "hostEffectRegressionPassed": true,
+      "originalHostEffectTestPassed": true
+    },
+    "macosNode24": {
+      "tests": 5373,
+      "pass": 5369,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "hostEffectRegressionPassed": true,
+      "originalHostEffectTestPassed": true
+    }
+  },
+  "nativeWindows": {
+    "24": {
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "26": {
+      "tests": 40,
+      "pass": 40,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "portableWindows": {
+    "24": {
+      "scope": "compiled portable contracts/storage tests",
+      "tests": 163,
+      "pass": 163,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    },
+    "26": {
+      "scope": "compiled portable contracts/storage tests",
+      "tests": 163,
+      "pass": 163,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 0
+    }
+  },
+  "desktopSettings": {
+    "ok": true,
+    "nativeStorage": "available",
+    "fileMode": "0600",
+    "plaintextStored": false,
+    "rendererCredentialReflected": false,
+    "settingsErrorVisibleInDialog": true,
+    "storedKeyRemoved": true,
+    "sdkProviderSelections": 6,
+    "sdkSettingsSwitch": true,
+    "codexSettingsSwitch": false,
+    "providerRequests": 0
+  },
+  "packagedRuntime": {
+    "macos": [
+      {
+        "scope": "bundle-utility-SQLite-renderer",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "arm64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {}
+      },
+      {
+        "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "arm64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {
+          "commandSupervisor": {
+            "exitCode": 0,
+            "cleanupConfirmed": true
+          },
+          "ptySupervisor": {
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "nativeExitObserved": true
+          }
+        }
+      }
+    ],
+    "linux": [
+      {
+        "scope": "bundle-utility-SQLite-renderer",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {}
+      },
+      {
+        "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {
+          "commandSupervisor": {
+            "exitCode": 0,
+            "cleanupConfirmed": true
+          },
+          "ptySupervisor": {
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "nativeExitObserved": true
+          }
+        }
+      }
+    ],
+    "windows": [
+      {
+        "scope": "bundle-utility-SQLite-renderer",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {}
+      },
+      {
+        "scope": "bundle-utility-SQLite-renderer-native-Windows-utility",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "mainUtilityCloseConfirmed": true,
+        "native": {
+          "owner": "actual-packaged-engine-utility",
+          "commandExecution": "windows-job-object",
+          "privateCodingFixture": true,
+          "exactNativeApprovals": 2,
+          "runState": "completed",
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "completeCommandCheckpoint": true,
+          "mainTestOverridesEnabled": false,
+          "utilityCloseConfirmed": true,
+          "cleanup": {
+            "state": "confirmed",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": true,
+            "utilityExitObserved": true,
+            "forcedStop": false,
+            "utilityScope": "private-coding-utility"
+          }
+        }
+      }
+    ]
+  },
+  "primaryDatabase": {
+    "version": 23,
+    "baseline": "docs/moodcode/next-db-contract-baseline.json",
+    "preservedInAllFourPosixJobs": true
+  },
+  "evidencePins": [
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/headless-run.json",
+      "sha256": "448840097d87d4ebd30ba294e9e3f8f87606c211aac4112dcdb3d4ef8d5137da"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/headless-artifacts.json",
+      "sha256": "1d0d5c8ebebe76e479b3f065cbe8ccc1423c29be4acff62fbd546dfec7fdbf68"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/headless-macos-node24.log",
+      "sha256": "2ea09ce8732b689eab64a13a19eff52c93f24cb32a6d8f0bb1bce0e523f5eaf1"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/native-windows-run.json",
+      "sha256": "7a21788c56604c73dd6588a02fe93d79572d9609a2cd21212ae1a9a33e50e090"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/native-windows-artifacts.json",
+      "sha256": "8b1760fa3623d104ad6024948160a27937a18344ecb185c87167622e8002e97e"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/desktop-run.json",
+      "sha256": "a1e5588f6a4e434f3b3bdd2dca4befe988313b8d539d2b2c0e560dbc7f935df9"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/desktop-artifacts.json",
+      "sha256": "89cdcba5b3401f053bc2c397939a7911e0c715a0fa1092c479cc01a48afafe31"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/host-effect-red.log",
+      "sha256": "259b1ae0ea5ef167aaf5059f89d8d251bd8e5174fba23a2c717699fb92f79bb6"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/host-effect-green.log",
+      "sha256": "58d6cedfd4322393de28aa068e35d6ecfb38a1961adeef392b2fa7baab032fba"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/host-effect-typecheck.log",
+      "sha256": "928986cee2945fe71f91a50e521c50bb2773455885d4ac9db703f2bee0493670"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-5d97284/host-effect-compiled.log",
+      "sha256": "141b0d7162756ecbc4dbdd5f3b45547523f3ff988f285cdd4e908768e8863524"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/completed-scope-proof.json",
+      "sha256": "990f81031a2e1018996a6de7a678a03a6c1ef1e84e459fd74af382a5222d6d53"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/desktop-artifacts.json",
+      "sha256": "9a709f6ea2c0d7f57d43c3d04b1f33cba670f9a41d3faf2429aa56406a42e4bf"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/desktop-linux.log",
+      "sha256": "329d66a100c5d98f7bc6f0f3aacd82fbcbdc7afd8d0c9987723fe594e1b062c1"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/desktop-macos.log",
+      "sha256": "1c5dcad857ced8d6556e65756a3b5714c50fe03e39737b53d933919d034b64ac"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/desktop-run.json",
+      "sha256": "e6839a9edb0d0c263a77eff8f100ddabfaf72ff5401345084cc6984b4f983438"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/desktop-windows.log",
+      "sha256": "3fd22dd74995857b53d22358c54178f83c5c3a798de91b89ac0ca2f97bd1e0bb"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-artifacts.json",
+      "sha256": "ccb1f3bb483a5a922e9b4988456c49e4dec92229541f9cc2b6d027cd57ecd092"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-linux-node24.log",
+      "sha256": "08542cd360061237baf18c52235287ce111982093f28292824bda2e1cf5c90a3"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-linux-node26.log",
+      "sha256": "d87f6aca04555079de3c0dce150725648de3bedf10d719161274679a28faed9a"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-macos-node24.log",
+      "sha256": "e78960ed0d857980f020444fecba08ea0b84e34257e5d50dbfe582878ca7ffa2"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-macos-node26.log",
+      "sha256": "d1e135d7e9d6f790dd116c956b30a69bbe640b953d8690f6646b87b3763c892f"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/headless-run.json",
+      "sha256": "1cd16203f56d21407244819c500947bea85e35b21d6345aa77ab608ccd581d16"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/native-windows-artifacts.json",
+      "sha256": "e80b9f3d2570fba0c7a7679ecc92cdcac82700a9bc4989ed8466cc1aeb9ee210"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/native-windows-node24.log",
+      "sha256": "a98d4914a8a0816488f3838dd208b7f8b29a87924e0d307d24711e123336fc9e"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/native-windows-node26.log",
+      "sha256": "daa12c245735ff9537de0d63e8d6e88b268b4bbf705dc89bf98f736d1faec7fd"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/native-windows-run.json",
+      "sha256": "279018e8b12803c139b7f577148ecc3bfc9cc5a53ef1bafdc0f0740bf31d69d8"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/portable-windows-node24.log",
+      "sha256": "fb563110622cfbd5edaa734503f6107b7cbf39d75317b6d90923be6df84413da"
+    },
+    {
+      "path": "artifacts/ai-sdk-providers-20261012/hosted/main-9270e19/portable-windows-node26.log",
+      "sha256": "30fb9c83265f0879821412c7285a3b6273ca3530e74ad483791597ccf3fdfaf9"
+    }
+  ],
+  "evidenceNote": "Retained logs and metadata are local ignored artifacts. GitHub package digests are server metadata, not locally rehashed ZIP archives. Hosted artifacts have limited retention.",
+  "documentationFollowup": "A later documentation-only commit records this acceptance. No runtime, test or workflow change is included in that follow-up."
+}
