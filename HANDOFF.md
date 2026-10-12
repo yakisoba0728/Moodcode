@@ -43,7 +43,7 @@ LSP의 기존 전체 실패는 `bom-crlf-astral-definition`이다. `e3032f0` 로
 
 ## 남아 있는 후속
 
-- ENGINE-REFACTOR(브랜치 `codex/engine-refactor-audit`, 2026-10-12): 2026-10-10 읽기 전용 감사 계획(268개 패키지, 결정 57개 권장안 일괄 승인)을 workflow로 실행했다. 적용 250·부분 17·불필요 1, 최종 hosted CI(`a4e60a6`) 11/11 성공. 제품 코드·주석 줄 수는 줄지 않았다. `main` 병합은 사용자 결정 전이다. [실행 결과](docs/moodcode/engine-refactor-execution.md).
+- ENGINE-REFACTOR(브랜치 `codex/engine-refactor-audit`, 2026-10-12): 2026-10-10 읽기 전용 감사 계획(268개 패키지, 결정 57개 권장안 일괄 승인)을 workflow로 실행했다. 적용 250·부분 17·불필요 1, 최종 hosted CI(`a4e60a6`) 11/11 성공. 이어서 줄 수·주석 축소로 제품 코드 132,319줄(`main` 134,028)·주석 1,676줄(`main` 1,504), hosted CI 11/11. `main` 병합은 사용자 결정 전이다. [실행 결과](docs/moodcode/engine-refactor-execution.md).
 - N-03: 실제 브라우저 로그인 사용자 확인과 선택한 앱 계정의 모델 조회·코딩 추론 확인 완료. 완료한 실제 요청을 상태 확인만을 위해 반복하지 않는다.
 - R-AUTH·R-LSP: 위 유한 구현 범위와 원격 갱신·역사적 경합의 미확정 범위를 구분한다. 최신 전체 gate 결과는 검증 문서에서 확인한다.
 - R-AUTH-LIVE: 2026-10-10 사용자 결정으로 이전 토큰 만료만 메모리에서 앞당겨 실제 `oauth/token` 갱신·ID 토큰 검증·저장·access/refresh 회전·같은 worker 후속 turn을 관측했다(부분 충족). [근거](docs/moodcode/desktop-account-renewal-live-verification.json). 자연 만료 관측은 열려 있으며 다음 갱신 구간은 2026-10-20 07:10 KST(만료 07:11)부터다. 이 하네스는 실제 grant를 회전시키므로 다시 실행하려면 새 승인이 필요하다.

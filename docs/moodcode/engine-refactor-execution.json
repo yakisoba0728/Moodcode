@@ -161,7 +161,8 @@
  },
  "incidents": {
   "2026-10-11 08:02 KST": "git bisect run exported GIT_DIR to engine tests and a fixture git init set core.bare=true on the shared repository; restored within minutes with no ref, hook or index change; bisects since then are manual",
-  "5e57e19 native Windows Node 26": "windows-native.integration accounting assertion failed once (1 !== 0) and passed on rerun; recorded as a timing flake"
+  "5e57e19 native Windows Node 26": "windows-native.integration accounting assertion failed once (1 !== 0) and passed on rerun; recorded as a timing flake",
+  "b3848eb native Windows Node 26": "Second failure of the same windows-native.integration accounting assertion (first on 5e57e19); passed on rerun. The test calls the native addon directly and neither packages/windows-job nor the test changed on this branch, so it is recorded as an OS timing flake to watch."
  },
  "hostedCi": {
   "1296048": "success",
@@ -174,7 +175,8 @@
   "8d9c391": "Engine headless failed (F-07)",
   "5e57e19": "headless cancelled by the next push; native Windows flake, rerun success",
   "5dd9d60": "success",
-  "a4e60a6": "success: Engine headless 6/6, Desktop packages 3/3, native Windows 2/2 (runs 38164456926, 38164456996, 38164456956)"
+  "a4e60a6": "success: Engine headless 6/6, Desktop packages 3/3, native Windows 2/2 (runs 38164456926, 38164456996, 38164456956)",
+  "b3848eb": "success after rerun of native Windows Node 26 (accounting flake)"
  },
  "finalLocalGate": "a4e60a6: tsc -b pass, DB23 catalogue compare equal, git diff --check 10f1801..HEAD clean, 437 touched compiled test files plus the media and hardening script groups: 5,145 pass, 0 code failures, 3 Windows-only skips (one listed .ts source path failed to load under plain node --test; its compiled test passed)",
  "metrics": {
@@ -199,12 +201,36 @@
    "before": 2830,
    "after": 1496
   },
-  "reading": "Bugs, security, duplication and dead code were addressed, but total product lines and comment lines did not go down: shared modules, extracted collaborators and their doc comments offset the removals. A line- and comment-reduction pass remains open."
+  "reading": "Bugs, security, duplication and dead code were addressed, but total product lines and comment lines did not go down: shared modules, extracted collaborators and their doc comments offset the removals. The reduction pass below then cut lines and comments."
  },
  "openItems": [
   "Decide whether and how to merge the branch into main",
   "The 17 partial packages and 1 not-needed package above",
-  "A line- and comment-reduction pass",
-  "R-CI-HOSTED-02 fixture-retention, PERF-GIT-02 and the other TODO items are unchanged"
- ]
+  "R-CI-HOSTED-02 fixture-retention, PERF-GIT-02 and the other TODO items are unchanged",
+  "Comment lines remain 172 above main after the reduction pass; a stricter per-file pass is optional",
+  "Watch the native Windows Node 26 accounting flake (2 of the last 7 runs)"
+ ],
+ "reductionPass": {
+  "run": "wf_a995bc4a-e83 (2026-10-12): 21 file-disjoint partitions, up to 8 at once, each agent trimming comments and duplicated code in its own files and integrating by compare-and-swap; R03 integrated by hand after 5 lost races; 22 agents, about 52 min",
+  "range": "16fd9b1..b3848eb",
+  "measure": "packages/engine/src product .ts files without tests and fixtures (test-fixtures/, fixtures/, *fixture*), wc -l; comment lines start with //, /* or *",
+  "lines": {
+   "main": 134028,
+   "beforePass": 134820,
+   "afterPass": 132319
+  },
+  "commentLines": {
+   "main": 1504,
+   "beforePass": 2072,
+   "afterPass": 1676
+  },
+  "files": {
+   "main": 365,
+   "afterPass": 409
+  },
+  "literalGuard": "A small TS/JS lexer compared string and template-text literals of all product files: 0 literals disappeared over 16fd9b1..b3848eb (12,313 distinct before, 12,318 after). The same lexer finds 489 gone over 2e64f32..16fd9b1, so it detects removals.",
+  "localGate": "b3848eb before R03 (cfd95fb): tsc -b --force, DB23 compare equal, diff check clean, whole compiled engine suite at concurrency 4 plus script groups: 5,523 pass, 0 fail, 4 platform skips; R03 then passed its 356 directory tests",
+  "hostedCi": "b3848eb: Engine headless 6/6, Desktop packages 3/3; native Windows Node 26 failed windows-native.integration status-only accounting (1 !== 0) and passed on rerun; Node 24 passed",
+  "reading": "Code is 1,709 lines shorter than main; comment lines are 172 above main. Agents kept validation, codes, messages and SQL and cut conservatively in already dense files."
+ }
 }
