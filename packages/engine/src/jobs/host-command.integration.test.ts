@@ -63,9 +63,10 @@ async function fixture(
     release = join(f.root, "host.release"),
     effect = join(f.root, "host-effect.txt"),
     script = join(f.root, "host-command.mjs");
+  // Publish only closed effect bytes; observers in another process wait on its existence.
   writeFileSync(
     script,
-    `import{writeFileSync,existsSync}from'node:fs';${deferPidPublication ? `writeFileSync(${JSON.stringify(marker)},'');while(!existsSync(${JSON.stringify(publishPid)}))await new Promise(resolve=>setTimeout(resolve,1));` : ""}writeFileSync(${JSON.stringify(marker)},String(process.pid));writeFileSync(${JSON.stringify(effect)},'Actual independent host effect\\n');process.stdout.write('HOST_READY 한글🙂\\n');let timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('HOST_DONE\\n',()=>process.exit(0));}},10);`,
+    `import{writeFileSync,renameSync,existsSync}from'node:fs';${deferPidPublication ? `writeFileSync(${JSON.stringify(marker)},'');while(!existsSync(${JSON.stringify(publishPid)}))await new Promise(resolve=>setTimeout(resolve,1));` : ""}writeFileSync(${JSON.stringify(marker)},String(process.pid));writeFileSync(${JSON.stringify(effect + ".tmp")},'Actual independent host effect\\n');renameSync(${JSON.stringify(effect + ".tmp")},${JSON.stringify(effect)});process.stdout.write('HOST_READY 한글🙂\\n');let timer=setInterval(()=>{if(existsSync(${JSON.stringify(release)})){clearInterval(timer);process.stdout.write('HOST_DONE\\n',()=>process.exit(0));}},10);`,
   );
   const command = `${quote(process.execPath)} ${quote(script)}`;
   const preview = () =>
@@ -127,6 +128,44 @@ async function fixture(
     counts,
   };
 }
+
+test(
+  "host command fixture publishes its effect only after the original write completes",
+  posix,
+  async (t) => {
+    const f = await fixture(t),
+      opened = join(f.root, "effect-write.opened"),
+      resume = join(f.root, "effect-write.resume");
+    const expected = "Actual independent host effect\n";
+    const delayedWrite = `import fs from 'node:fs';import{syncBuiltinESMExports}from'node:module';
+const nativeWrite=fs.writeFileSync,gate=new Int32Array(new SharedArrayBuffer(4));
+fs.writeFileSync=(path,data,options)=>{if(data===${JSON.stringify(expected)}){
+nativeWrite(path,'');nativeWrite(${JSON.stringify(opened)},'Write opened');
+while(!fs.existsSync(${JSON.stringify(resume)}))Atomics.wait(gate,0,0,10);
+}return nativeWrite(path,data,options);};syncBuiltinESMExports();\n`;
+    writeFileSync(f.script, delayedWrite + readFileSync(f.script, "utf8"));
+    const started = await f.start(await f.preview());
+    await jobUntil(
+      () => existsSync(opened),
+      "Original effect write was not observed",
+    );
+    assert.ok(await waitForHostPid(f.marker));
+    assert.equal(
+      existsSync(f.effect),
+      false,
+      "Effect became visible before its original write completed",
+    );
+    writeFileSync(resume, "Finish original write");
+    await jobUntil(
+      () => existsSync(f.effect),
+      "Completed effect was not published",
+    );
+    assert.equal(readFileSync(f.effect, "utf8"), expected);
+    const closed = await f.complete(started);
+    assert.equal(closed.state, "completed");
+    assert.equal(closed.completion?.outcome.cleanupConfirmed, true);
+  },
+);
 
 test(
   "independent approved command owns its idle workspace, genuine PID, output and checkpoint without creating Run/Tool identities",
