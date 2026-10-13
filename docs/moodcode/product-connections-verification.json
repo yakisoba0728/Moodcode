@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "observedAt": "2026-10-13T01:28:17.378728+00:00",
-  "status": "final-hosted-pending",
+  "observedAt": "2026-10-13T01:55:06.368189+00:00",
+  "status": "accepted",
   "branch": "codex/product-connections",
   "baselineCommit": "417bcf234897bac31a80122526b41cc6a7f3187e",
-  "sourceCommit": null,
+  "sourceCommit": "523efe7aad790f056e8b3a892771f03d71680ff8",
   "sourcePins": [
     {
       "path": ".github/workflows/desktop-package.yml",
@@ -167,6 +167,146 @@
       "rawLogSha256": "79bb1692d83518bfcea91eb5fe60d2f8e12116ff76fcfe30763af2f3866886a4"
     },
     "fullTests": {
+      "total": 5681,
+      "pass": 5677,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "durationMs": 327170.548167,
+      "sourceCommit": "523efe7aad790f056e8b3a892771f03d71680ff8",
+      "rawLog": "artifacts/product-connections/full-tests-523efe7.log",
+      "rawLogSha256": "068475620caae09520d5ae1af941fc5cf59610f334adaf73702a1e7d7610be53"
+    },
+    "gui": {
+      "schemaVersion": 1,
+      "ok": true,
+      "platform": "darwin",
+      "catalogSearch": true,
+      "deprecatedHidden": true,
+      "offlineCache": true,
+      "webFetchOptIn": true,
+      "missingSearchKeyHidden": true,
+      "pluginLoadedInOriginalUtility": true,
+      "profileForwardedAndPersisted": true,
+      "planPreserved": true,
+      "databaseSchema": 23,
+      "providerAccountRequests": 0
+    },
+    "databaseContract": {
+      "version": 23,
+      "equal": true,
+      "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+    },
+    "finalGuards": {
+      "scope": [
+        "pre-open file identity",
+        "stale writer recheck before rename",
+        "empty search environment treated as missing",
+        "default Exa key removed from command environment"
+      ],
+      "targetTests": {
+        "total": 40,
+        "pass": 40,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "rawLog": "artifacts/product-connections/target-final.log",
+      "rawLogSha256": "8348041e91f99d0dc79d3062960fda6d97dc77ec905a8f7d109c9f7bb5f18fb2",
+      "note": "The complete suite passed before these final guards; affected tests and actual GUI passed again after them. Hosted CI verifies the committed source."
+    },
+    "settingsGui": {
+      "ok": true,
+      "nativeStorage": "available",
+      "fileMode": "0600",
+      "plaintextStored": false,
+      "rendererCredentialReflected": false,
+      "settingsErrorVisibleInDialog": true,
+      "storedKeyRemoved": true,
+      "sdkProviderSelections": 6,
+      "sdkSettingsSwitch": true,
+      "codexSettingsSwitch": false,
+      "providerRequests": 0
+    },
+    "codexBroker": {
+      "passed": true,
+      "externalRequests": 0,
+      "sameGeneration": 1,
+      "credentialRequests": 3,
+      "applicationExitCode": 0
+    },
+    "accountProfiles": {
+      "pass": 63,
+      "fail": 0,
+      "cancelled": 0,
+      "scope": "Codex offered-model narrowing and all configured profile model limits, main host regression",
+      "rawLog": "artifacts/product-connections/account-profile-final.log"
+    },
+    "package": {
+      "ok": true,
+      "platform": "darwin",
+      "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+      "runtime": {
+        "packaged": true,
+        "node": "24.21.0",
+        "electron": "44.5.1",
+        "arch": "arm64",
+        "isolation": true
+      },
+      "host": "ready",
+      "primarySQLiteVersion": 23,
+      "testOverridesIgnored": true,
+      "updates": "disabled",
+      "commandSupervisor": {
+        "exitCode": 0,
+        "cleanupConfirmed": true
+      },
+      "ptySupervisor": {
+        "exitCode": 0,
+        "cleanupConfirmed": true,
+        "nativeExitObserved": true
+      },
+      "cleanup": {
+        "state": "unknown",
+        "nativeConfirmed": null,
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "forcedStop": false,
+        "utilityScope": "main-utility"
+      },
+      "mainUtilityClose": {
+        "schemaVersion": 1,
+        "utilityScope": "main-utilities",
+        "complete": true,
+        "spawnAttempted": true,
+        "spawnUnobserved": false,
+        "evictedCount": 0,
+        "connections": [
+          {
+            "connectionId": "0aae5384-ead6-409f-aa50-30b9f86bfaea",
+            "scope": "engine",
+            "source": "original-electron-utility",
+            "generation": 1,
+            "utilityExitObservable": true,
+            "engineCloseAcknowledged": true,
+            "utilityExitObserved": true,
+            "exitCode": 0,
+            "cleanupConfirmed": true,
+            "forcedStop": false,
+            "reason": null
+          }
+        ],
+        "utilityAcknowledged": true,
+        "utilityExitObserved": true,
+        "cleanupConfirmed": true,
+        "forcedStop": false
+      },
+      "originalFixtureRetained": true,
+      "evidenceBundleAvailable": true,
+      "sourceCommit": "523efe7aad790f056e8b3a892771f03d71680ff8",
+      "rawLogSha256": "0a9c9c3b0e1471654e16209bb9d6876eeb2704a1a6903dd3a4a252b79742187c"
+    },
+    "previousFullTests": {
       "total": 5680,
       "pass": 5676,
       "fail": 0,
@@ -294,72 +434,7 @@
       "rawLog": "artifacts/product-connections/full-tests-final.log",
       "rawLogSha256": "26e0739d1aebef36e580fb51cd4aa87bc8be12fb4875cd1ca87459255f3d608e"
     },
-    "gui": {
-      "schemaVersion": 1,
-      "ok": true,
-      "platform": "darwin",
-      "catalogSearch": true,
-      "deprecatedHidden": true,
-      "offlineCache": true,
-      "webFetchOptIn": true,
-      "missingSearchKeyHidden": true,
-      "pluginLoadedInOriginalUtility": true,
-      "profileForwardedAndPersisted": true,
-      "planPreserved": true,
-      "databaseSchema": 23,
-      "providerAccountRequests": 0
-    },
-    "databaseContract": {
-      "version": 23,
-      "equal": true,
-      "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
-    },
-    "finalGuards": {
-      "scope": [
-        "pre-open file identity",
-        "stale writer recheck before rename",
-        "empty search environment treated as missing",
-        "default Exa key removed from command environment"
-      ],
-      "targetTests": {
-        "total": 40,
-        "pass": 40,
-        "fail": 0,
-        "cancelled": 0,
-        "skipped": 0
-      },
-      "rawLog": "artifacts/product-connections/target-final.log",
-      "rawLogSha256": "8348041e91f99d0dc79d3062960fda6d97dc77ec905a8f7d109c9f7bb5f18fb2",
-      "note": "The complete suite passed before these final guards; affected tests and actual GUI passed again after them. Hosted CI verifies the committed source."
-    },
-    "settingsGui": {
-      "ok": true,
-      "nativeStorage": "available",
-      "fileMode": "0600",
-      "plaintextStored": false,
-      "rendererCredentialReflected": false,
-      "settingsErrorVisibleInDialog": true,
-      "storedKeyRemoved": true,
-      "sdkProviderSelections": 6,
-      "sdkSettingsSwitch": true,
-      "codexSettingsSwitch": false,
-      "providerRequests": 0
-    },
-    "codexBroker": {
-      "passed": true,
-      "externalRequests": 0,
-      "sameGeneration": 1,
-      "credentialRequests": 3,
-      "applicationExitCode": 0
-    },
-    "accountProfiles": {
-      "pass": 63,
-      "fail": 0,
-      "cancelled": 0,
-      "scope": "Codex offered-model narrowing and all configured profile model limits, main host regression",
-      "rawLog": "artifacts/product-connections/account-profile-final.log"
-    },
-    "package": {
+    "initialPackage": {
       "ok": true,
       "platform": "darwin",
       "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
@@ -422,7 +497,126 @@
       "evidenceBundleAvailable": true
     }
   },
-  "hosted": [],
+  "hosted": [
+    {
+      "databaseId": 38332832352,
+      "name": "Engine headless",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "523efe7aad790f056e8b3a892771f03d71680ff8",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352",
+      "jobs": [
+        {
+          "id": 115086222776,
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086222776",
+          "failedSteps": []
+        },
+        {
+          "id": 115086222966,
+          "name": "Headless ubuntu-24.04 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086222966",
+          "failedSteps": []
+        },
+        {
+          "id": 115086223018,
+          "name": "Headless macos-15 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086223018",
+          "failedSteps": []
+        },
+        {
+          "id": 115086223059,
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086223059",
+          "failedSteps": []
+        },
+        {
+          "id": 115086223084,
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086223084",
+          "failedSteps": []
+        },
+        {
+          "id": 115086223103,
+          "name": "Headless macos-15 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832352/job/115086223103",
+          "failedSteps": []
+        }
+      ]
+    },
+    {
+      "databaseId": 38332832379,
+      "name": "Engine native Windows",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "523efe7aad790f056e8b3a892771f03d71680ff8",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832379",
+      "jobs": [
+        {
+          "id": 115086222932,
+          "name": "Native Windows Job Object / x64 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832379/job/115086222932",
+          "failedSteps": []
+        },
+        {
+          "id": 115086223060,
+          "name": "Native Windows Job Object / x64 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832379/job/115086223060",
+          "failedSteps": []
+        }
+      ]
+    },
+    {
+      "databaseId": 38332832356,
+      "name": "Desktop packages",
+      "status": "completed",
+      "conclusion": "success",
+      "headSha": "523efe7aad790f056e8b3a892771f03d71680ff8",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832356",
+      "jobs": [
+        {
+          "id": 115086222611,
+          "name": "Unsigned bundle and native smoke / macos-15",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832356/job/115086222611",
+          "failedSteps": []
+        },
+        {
+          "id": 115086222850,
+          "name": "Unsigned bundle and native smoke / windows-2025",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832356/job/115086222850",
+          "failedSteps": []
+        },
+        {
+          "id": 115086222901,
+          "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332832356/job/115086222901",
+          "failedSteps": []
+        }
+      ]
+    }
+  ],
   "release": {
     "publishing": false,
     "signingPerformed": false,
@@ -574,2251 +768,122 @@
   ],
   "hostedInitial": [
     {
-      "conclusion": "success",
       "databaseId": 38329536039,
-      "headSha": "67cc506179cf182c97c8cf28d0905588939c84a6",
-      "jobs": [
-        {
-          "completedAt": "2026-10-13T00:56:11Z",
-          "conclusion": "success",
-          "databaseId": 115075880208,
-          "name": "Portable contracts/storage only / Windows / Node 26.x",
-          "startedAt": "2026-10-13T00:54:26Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:32Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:29Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:44Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:32Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:01Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:44Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:01Z",
-              "conclusion": "success",
-              "name": "Record partial Windows scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:55:01Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:14Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies",
-              "number": 5,
-              "startedAt": "2026-10-13T00:55:01Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:15Z",
-              "conclusion": "success",
-              "name": "Record PTY helper preparation without claiming Windows native support",
-              "number": 6,
-              "startedAt": "2026-10-13T00:55:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:15Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:55:15Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:21Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness source",
-              "number": 8,
-              "startedAt": "2026-10-13T00:55:15Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:27Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:21Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:27Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:55:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:05Z",
-              "conclusion": "success",
-              "name": "Run portable contracts and selected SQLite/native-port fixtures",
-              "number": 11,
-              "startedAt": "2026-10-13T00:55:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:06Z",
-              "conclusion": "success",
-              "name": "Record partial outcome summary",
-              "number": 12,
-              "startedAt": "2026-10-13T00:56:05Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:07Z",
-              "conclusion": "success",
-              "name": "Upload partial results and failure logs",
-              "number": 13,
-              "startedAt": "2026-10-13T00:56:06Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:07Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 25,
-              "startedAt": "2026-10-13T00:56:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:09Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 26,
-              "startedAt": "2026-10-13T00:56:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:09Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 27,
-              "startedAt": "2026-10-13T00:56:09Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880208"
-        },
-        {
-          "completedAt": "2026-10-13T01:05:36Z",
-          "conclusion": "success",
-          "databaseId": 115075880361,
-          "name": "Headless ubuntu-24.04 / Node 24.x",
-          "startedAt": "2026-10-13T00:54:25Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:26Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:26Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:28Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:26Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:30Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:30Z",
-              "conclusion": "success",
-              "name": "Record environment and planned scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:42Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies including optional PTY",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:42Z",
-              "conclusion": "success",
-              "name": "Prepare and require the native POSIX PTY capability",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:42Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:54:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:47Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 8,
-              "startedAt": "2026-10-13T00:54:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:54:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:54Z",
-              "conclusion": "success",
-              "name": "Validate bounded history measurement and exact storage comparison",
-              "number": 11,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:10Z",
-              "conclusion": "success",
-              "name": "Run local media CLI regression fixtures",
-              "number": 12,
-              "startedAt": "2026-10-13T00:54:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:12Z",
-              "conclusion": "success",
-              "name": "Validate resilience CLI preflight and report failures",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:10Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:03Z",
-              "conclusion": "success",
-              "name": "Run complete headless fixtures",
-              "number": 14,
-              "startedAt": "2026-10-13T00:56:12Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:08Z",
-              "conclusion": "success",
-              "name": "Run scripted local engine evaluation",
-              "number": 15,
-              "startedAt": "2026-10-13T01:05:03Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:10Z",
-              "conclusion": "success",
-              "name": "Verify mixed execution, cancellation and restart",
-              "number": 16,
-              "startedAt": "2026-10-13T01:05:08Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:15Z",
-              "conclusion": "success",
-              "name": "Verify persistent Engine history and crash quarantine",
-              "number": 17,
-              "startedAt": "2026-10-13T01:05:10Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:27Z",
-              "conclusion": "success",
-              "name": "Repeat native PTY lifecycle and retained fault diagnostics",
-              "number": 18,
-              "startedAt": "2026-10-13T01:05:15Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:30Z",
-              "conclusion": "success",
-              "name": "Measure native engine performance baseline",
-              "number": 19,
-              "startedAt": "2026-10-13T01:05:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:30Z",
-              "conclusion": "success",
-              "name": "Record outcome summary",
-              "number": 20,
-              "startedAt": "2026-10-13T01:05:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:34Z",
-              "conclusion": "success",
-              "name": "Upload results and failure logs",
-              "number": 21,
-              "startedAt": "2026-10-13T01:05:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:34Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 41,
-              "startedAt": "2026-10-13T01:05:34Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:34Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 42,
-              "startedAt": "2026-10-13T01:05:34Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:34Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 43,
-              "startedAt": "2026-10-13T01:05:34Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880361"
-        },
-        {
-          "completedAt": "2026-10-13T00:56:25Z",
-          "conclusion": "success",
-          "databaseId": 115075880421,
-          "name": "Portable contracts/storage only / Windows / Node 24.x",
-          "startedAt": "2026-10-13T00:54:26Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:28Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:39Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:39Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:54Z",
-              "conclusion": "success",
-              "name": "Record partial Windows scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:13Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:13Z",
-              "conclusion": "success",
-              "name": "Record PTY helper preparation without claiming Windows native support",
-              "number": 6,
-              "startedAt": "2026-10-13T00:55:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:14Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:55:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:22Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness source",
-              "number": 8,
-              "startedAt": "2026-10-13T00:55:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:30Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:22Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:31Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:55:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:18Z",
-              "conclusion": "success",
-              "name": "Run portable contracts and selected SQLite/native-port fixtures",
-              "number": 11,
-              "startedAt": "2026-10-13T00:55:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:19Z",
-              "conclusion": "success",
-              "name": "Record partial outcome summary",
-              "number": 12,
-              "startedAt": "2026-10-13T00:56:18Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:20Z",
-              "conclusion": "success",
-              "name": "Upload partial results and failure logs",
-              "number": 13,
-              "startedAt": "2026-10-13T00:56:19Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:21Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 25,
-              "startedAt": "2026-10-13T00:56:20Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:23Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 26,
-              "startedAt": "2026-10-13T00:56:21Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:23Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 27,
-              "startedAt": "2026-10-13T00:56:23Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880421"
-        },
-        {
-          "completedAt": "2026-10-13T01:05:17Z",
-          "conclusion": "success",
-          "databaseId": 115075880452,
-          "name": "Headless macos-15 / Node 26.x",
-          "startedAt": "2026-10-13T00:54:29Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:31Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:33Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:42Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:33Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:42Z",
-              "conclusion": "success",
-              "name": "Record environment and planned scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:46Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies including optional PTY",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:46Z",
-              "conclusion": "success",
-              "name": "Prepare and require the native POSIX PTY capability",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:46Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:46Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:54:46Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:50Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 8,
-              "startedAt": "2026-10-13T00:54:46Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:54:50Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:54Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:55Z",
-              "conclusion": "success",
-              "name": "Validate bounded history measurement and exact storage comparison",
-              "number": 11,
-              "startedAt": "2026-10-13T00:54:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:02Z",
-              "conclusion": "success",
-              "name": "Run local media CLI regression fixtures",
-              "number": 12,
-              "startedAt": "2026-10-13T00:54:55Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:58Z",
-              "conclusion": "success",
-              "name": "Validate resilience CLI preflight and report failures",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:02Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:31Z",
-              "conclusion": "success",
-              "name": "Run complete headless fixtures",
-              "number": 14,
-              "startedAt": "2026-10-13T00:55:58Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:36Z",
-              "conclusion": "success",
-              "name": "Run scripted local engine evaluation",
-              "number": 15,
-              "startedAt": "2026-10-13T01:04:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:38Z",
-              "conclusion": "success",
-              "name": "Verify mixed execution, cancellation and restart",
-              "number": 16,
-              "startedAt": "2026-10-13T01:04:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:47Z",
-              "conclusion": "success",
-              "name": "Verify persistent Engine history and crash quarantine",
-              "number": 17,
-              "startedAt": "2026-10-13T01:04:38Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:08Z",
-              "conclusion": "success",
-              "name": "Repeat native PTY lifecycle and retained fault diagnostics",
-              "number": 18,
-              "startedAt": "2026-10-13T01:04:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:09Z",
-              "conclusion": "success",
-              "name": "Measure native engine performance baseline",
-              "number": 19,
-              "startedAt": "2026-10-13T01:05:08Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:09Z",
-              "conclusion": "success",
-              "name": "Record outcome summary",
-              "number": 20,
-              "startedAt": "2026-10-13T01:05:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Upload results and failure logs",
-              "number": 21,
-              "startedAt": "2026-10-13T01:05:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 41,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 42,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:14Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 43,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880452"
-        },
-        {
-          "completedAt": "2026-10-13T01:10:36Z",
-          "conclusion": "success",
-          "databaseId": 115075880488,
-          "name": "Headless macos-15 / Node 24.x",
-          "startedAt": "2026-10-13T00:54:31Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:37Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:32Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:41Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:37Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:46Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:41Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:46Z",
-              "conclusion": "success",
-              "name": "Record environment and planned scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:46Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies including optional PTY",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:46Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Prepare and require the native POSIX PTY capability",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:54Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:02Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 8,
-              "startedAt": "2026-10-13T00:54:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:09Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:02Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:09Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:55:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:11Z",
-              "conclusion": "success",
-              "name": "Validate bounded history measurement and exact storage comparison",
-              "number": 11,
-              "startedAt": "2026-10-13T00:55:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:30Z",
-              "conclusion": "success",
-              "name": "Run local media CLI regression fixtures",
-              "number": 12,
-              "startedAt": "2026-10-13T00:55:11Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:55Z",
-              "conclusion": "success",
-              "name": "Validate resilience CLI preflight and report failures",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:09:25Z",
-              "conclusion": "success",
-              "name": "Run complete headless fixtures",
-              "number": 14,
-              "startedAt": "2026-10-13T00:56:55Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:09:34Z",
-              "conclusion": "success",
-              "name": "Run scripted local engine evaluation",
-              "number": 15,
-              "startedAt": "2026-10-13T01:09:25Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:09:37Z",
-              "conclusion": "success",
-              "name": "Verify mixed execution, cancellation and restart",
-              "number": 16,
-              "startedAt": "2026-10-13T01:09:34Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:09:52Z",
-              "conclusion": "success",
-              "name": "Verify persistent Engine history and crash quarantine",
-              "number": 17,
-              "startedAt": "2026-10-13T01:09:37Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:22Z",
-              "conclusion": "success",
-              "name": "Repeat native PTY lifecycle and retained fault diagnostics",
-              "number": 18,
-              "startedAt": "2026-10-13T01:09:52Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:24Z",
-              "conclusion": "success",
-              "name": "Measure native engine performance baseline",
-              "number": 19,
-              "startedAt": "2026-10-13T01:10:22Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:25Z",
-              "conclusion": "success",
-              "name": "Record outcome summary",
-              "number": 20,
-              "startedAt": "2026-10-13T01:10:24Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:30Z",
-              "conclusion": "success",
-              "name": "Upload results and failure logs",
-              "number": 21,
-              "startedAt": "2026-10-13T01:10:25Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:31Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 41,
-              "startedAt": "2026-10-13T01:10:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:31Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 42,
-              "startedAt": "2026-10-13T01:10:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:10:34Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 43,
-              "startedAt": "2026-10-13T01:10:31Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880488"
-        },
-        {
-          "completedAt": "2026-10-13T01:05:15Z",
-          "conclusion": "success",
-          "databaseId": 115075880513,
-          "name": "Headless ubuntu-24.04 / Node 26.x",
-          "startedAt": "2026-10-13T00:54:25Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:27Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:26Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:29Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:36Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:29Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:36Z",
-              "conclusion": "success",
-              "name": "Record environment and planned scope",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:47Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies including optional PTY",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:47Z",
-              "conclusion": "success",
-              "name": "Prepare and require the native POSIX PTY capability",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:48Z",
-              "conclusion": "success",
-              "name": "Validate the headless CI launcher",
-              "number": 7,
-              "startedAt": "2026-10-13T00:54:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:53Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 8,
-              "startedAt": "2026-10-13T00:54:48Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "Build only headless projects",
-              "number": 9,
-              "startedAt": "2026-10-13T00:54:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "Preserve the primary SQL database contract",
-              "number": 10,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:00Z",
-              "conclusion": "success",
-              "name": "Validate bounded history measurement and exact storage comparison",
-              "number": 11,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:11Z",
-              "conclusion": "success",
-              "name": "Run local media CLI regression fixtures",
-              "number": 12,
-              "startedAt": "2026-10-13T00:55:00Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:58Z",
-              "conclusion": "success",
-              "name": "Validate resilience CLI preflight and report failures",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:11Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:42Z",
-              "conclusion": "success",
-              "name": "Run complete headless fixtures",
-              "number": 14,
-              "startedAt": "2026-10-13T00:55:58Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:47Z",
-              "conclusion": "success",
-              "name": "Run scripted local engine evaluation",
-              "number": 15,
-              "startedAt": "2026-10-13T01:04:42Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:49Z",
-              "conclusion": "success",
-              "name": "Verify mixed execution, cancellation and restart",
-              "number": 16,
-              "startedAt": "2026-10-13T01:04:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:04:54Z",
-              "conclusion": "success",
-              "name": "Verify persistent Engine history and crash quarantine",
-              "number": 17,
-              "startedAt": "2026-10-13T01:04:49Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:06Z",
-              "conclusion": "success",
-              "name": "Repeat native PTY lifecycle and retained fault diagnostics",
-              "number": 18,
-              "startedAt": "2026-10-13T01:04:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:09Z",
-              "conclusion": "success",
-              "name": "Measure native engine performance baseline",
-              "number": 19,
-              "startedAt": "2026-10-13T01:05:06Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:09Z",
-              "conclusion": "success",
-              "name": "Record outcome summary",
-              "number": 20,
-              "startedAt": "2026-10-13T01:05:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Upload results and failure logs",
-              "number": 21,
-              "startedAt": "2026-10-13T01:05:09Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 41,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 42,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:05:13Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 43,
-              "startedAt": "2026-10-13T01:05:13Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880513"
-        }
-      ],
       "name": "Engine headless",
       "status": "completed",
-      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039"
-    },
-    {
       "conclusion": "success",
-      "databaseId": 38329536115,
       "headSha": "67cc506179cf182c97c8cf28d0905588939c84a6",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039",
       "jobs": [
         {
-          "completedAt": "2026-10-13T00:57:07Z",
-          "conclusion": "success",
-          "databaseId": 115075880750,
-          "name": "Native Windows Job Object / x64 / Node 24.x",
-          "startedAt": "2026-10-13T00:54:26Z",
+          "id": 115075880208,
+          "name": "Portable contracts/storage only / Windows / Node 26.x",
           "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:27Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:26Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:36Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:45Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:45Z",
-              "conclusion": "success",
-              "name": "Record actual runner and source",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:45Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:45Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:00Z",
-              "conclusion": "success",
-              "name": "Build and require the actual Windows native addon",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:07Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 7,
-              "startedAt": "2026-10-13T00:56:00Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:14Z",
-              "conclusion": "success",
-              "name": "Build headless engine and real Windows fixtures",
-              "number": 8,
-              "startedAt": "2026-10-13T00:56:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:36Z",
-              "conclusion": "success",
-              "name": "Verify native tree, output, cancellation, handle close and real parent crash/restart",
-              "number": 9,
-              "startedAt": "2026-10-13T00:56:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:02Z",
-              "conclusion": "success",
-              "name": "Preserve existing portable contracts and storage regressions",
-              "number": 10,
-              "startedAt": "2026-10-13T00:56:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:02Z",
-              "conclusion": "success",
-              "name": "Hash original native evidence",
-              "number": 11,
-              "startedAt": "2026-10-13T00:57:02Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:03Z",
-              "conclusion": "success",
-              "name": "Upload original success and failure evidence",
-              "number": 12,
-              "startedAt": "2026-10-13T00:57:02Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:04Z",
-              "conclusion": "success",
-              "name": "Record uploaded artifact SHA",
-              "number": 13,
-              "startedAt": "2026-10-13T00:57:03Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:04Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 25,
-              "startedAt": "2026-10-13T00:57:04Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:06Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 26,
-              "startedAt": "2026-10-13T00:57:04Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:06Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 27,
-              "startedAt": "2026-10-13T00:57:06Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115/job/115075880750"
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880208",
+          "failedSteps": []
         },
         {
-          "completedAt": "2026-10-13T00:57:35Z",
-          "conclusion": "success",
-          "databaseId": 115075880859,
-          "name": "Native Windows Job Object / x64 / Node 26.x",
-          "startedAt": "2026-10-13T00:54:26Z",
+          "id": 115075880361,
+          "name": "Headless ubuntu-24.04 / Node 24.x",
           "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:27Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:38Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:38Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "Record actual runner and source",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:11Z",
-              "conclusion": "success",
-              "name": "Install locked dependencies",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:21Z",
-              "conclusion": "success",
-              "name": "Build and require the actual Windows native addon",
-              "number": 6,
-              "startedAt": "2026-10-13T00:55:11Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:28Z",
-              "conclusion": "success",
-              "name": "Typecheck contracts, engine and harness",
-              "number": 7,
-              "startedAt": "2026-10-13T00:56:21Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:35Z",
-              "conclusion": "success",
-              "name": "Build headless engine and real Windows fixtures",
-              "number": 8,
-              "startedAt": "2026-10-13T00:56:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:58Z",
-              "conclusion": "success",
-              "name": "Verify native tree, output, cancellation, handle close and real parent crash/restart",
-              "number": 9,
-              "startedAt": "2026-10-13T00:56:35Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:29Z",
-              "conclusion": "success",
-              "name": "Preserve existing portable contracts and storage regressions",
-              "number": 10,
-              "startedAt": "2026-10-13T00:56:58Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:30Z",
-              "conclusion": "success",
-              "name": "Hash original native evidence",
-              "number": 11,
-              "startedAt": "2026-10-13T00:57:29Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:31Z",
-              "conclusion": "success",
-              "name": "Upload original success and failure evidence",
-              "number": 12,
-              "startedAt": "2026-10-13T00:57:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:31Z",
-              "conclusion": "success",
-              "name": "Record uploaded artifact SHA",
-              "number": 13,
-              "startedAt": "2026-10-13T00:57:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:31Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 25,
-              "startedAt": "2026-10-13T00:57:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:33Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 26,
-              "startedAt": "2026-10-13T00:57:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:57:33Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 27,
-              "startedAt": "2026-10-13T00:57:33Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115/job/115075880859"
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880361",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880421,
+          "name": "Portable contracts/storage only / Windows / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880421",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880452,
+          "name": "Headless macos-15 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880452",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880488,
+          "name": "Headless macos-15 / Node 24.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880488",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880513,
+          "name": "Headless ubuntu-24.04 / Node 26.x",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536039/job/115075880513",
+          "failedSteps": []
         }
-      ],
+      ]
+    },
+    {
+      "databaseId": 38329536115,
       "name": "Engine native Windows",
       "status": "completed",
-      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115"
-    },
-    {
-      "conclusion": "cancelled",
-      "databaseId": 38329536037,
+      "conclusion": "success",
       "headSha": "67cc506179cf182c97c8cf28d0905588939c84a6",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115",
       "jobs": [
         {
-          "completedAt": "2026-10-13T00:56:04Z",
-          "conclusion": "success",
-          "databaseId": 115075880440,
-          "name": "Unsigned bundle and native smoke / ubuntu-24.04",
-          "startedAt": "2026-10-13T00:54:26Z",
+          "id": 115075880750,
+          "name": "Native Windows Job Object / x64 / Node 24.x",
           "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:28Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:31Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:44Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:31Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:56Z",
-              "conclusion": "success",
-              "name": "Run npm ci --include=optional",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:44Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:56Z",
-              "conclusion": "success",
-              "name": "Run node scripts/prepare-pty.mjs",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:56Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:04Z",
-              "conclusion": "success",
-              "name": "Run npm run build:desktop",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:56Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:07Z",
-              "conclusion": "success",
-              "name": "AI SDK protocols, worker config, approval, cancellation and recovery",
-              "number": 7,
-              "startedAt": "2026-10-13T00:55:04Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:13Z",
-              "conclusion": "success",
-              "name": "Native account, update, MCP and evidence regression",
-              "number": 8,
-              "startedAt": "2026-10-13T00:55:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:13Z",
-              "conclusion": "skipped",
-              "name": "Windows Node Job Object for local account coding regression",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:14Z",
-              "conclusion": "success",
-              "name": "Local HTTP app-account coding regression",
-              "number": 10,
-              "startedAt": "2026-10-13T00:55:13Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:14Z",
-              "conclusion": "skipped",
-              "name": "Remove Windows Node Job Object before Electron utility steps",
-              "number": 11,
-              "startedAt": "2026-10-13T00:55:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:23Z",
-              "conclusion": "success",
-              "name": "Linux original utility close, exit and fault boundaries",
-              "number": 12,
-              "startedAt": "2026-10-13T00:55:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:23Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows original utility close, exit and fault boundaries",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:23Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:23Z",
-              "conclusion": "skipped",
-              "name": "macOS actual advanced GUI flows",
-              "number": 14,
-              "startedAt": "2026-10-13T00:55:23Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:23Z",
-              "conclusion": "skipped",
-              "name": "macOS actual provider settings and encrypted keys",
-              "number": 15,
-              "startedAt": "2026-10-13T00:55:23Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:27Z",
-              "conclusion": "success",
-              "name": "Linux product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 16,
-              "startedAt": "2026-10-13T00:55:23Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:27Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 17,
-              "startedAt": "2026-10-13T00:55:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:28Z",
-              "conclusion": "success",
-              "name": "Linux original utility Codex credential refresh and cancellation",
-              "number": 18,
-              "startedAt": "2026-10-13T00:55:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:28Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows original utility Codex credential refresh and cancellation",
-              "number": 19,
-              "startedAt": "2026-10-13T00:55:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:28Z",
-              "conclusion": "skipped",
-              "name": "macOS actual delayed renderer delivery and restore theme",
-              "number": 20,
-              "startedAt": "2026-10-13T00:55:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:28Z",
-              "conclusion": "skipped",
-              "name": "macOS Anthropic settings, native tools, reconnect and cancellation",
-              "number": 21,
-              "startedAt": "2026-10-13T00:55:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:28Z",
-              "conclusion": "skipped",
-              "name": "macOS actual PTY failure and native evidence retention",
-              "number": 22,
-              "startedAt": "2026-10-13T00:55:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:44Z",
-              "conclusion": "success",
-              "name": "Package this OS without publishing",
-              "number": 23,
-              "startedAt": "2026-10-13T00:55:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:45Z",
-              "conclusion": "success",
-              "name": "Linux portable bundle, utility, SQLite and renderer smoke",
-              "number": 24,
-              "startedAt": "2026-10-13T00:55:44Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:45Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows portable bundle, utility, SQLite and renderer smoke",
-              "number": 25,
-              "startedAt": "2026-10-13T00:55:45Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:47Z",
-              "conclusion": "success",
-              "name": "Linux real command and PTY supervisor smoke",
-              "number": 26,
-              "startedAt": "2026-10-13T00:55:45Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:47Z",
-              "conclusion": "skipped",
-              "name": "macOS real command and PTY supervisor smoke",
-              "number": 27,
-              "startedAt": "2026-10-13T00:55:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:47Z",
-              "conclusion": "skipped",
-              "name": "Windows actual packaged utility Job Object command and approval gate",
-              "number": 28,
-              "startedAt": "2026-10-13T00:55:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:48Z",
-              "conclusion": "success",
-              "name": "Linux real updater checksum, disposable install and recovery fixture",
-              "number": 29,
-              "startedAt": "2026-10-13T00:55:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:48Z",
-              "conclusion": "skipped",
-              "name": "macOS real updater checksum, disposable install and recovery fixture",
-              "number": 30,
-              "startedAt": "2026-10-13T00:55:48Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:00Z",
-              "conclusion": "success",
-              "name": "Upload unsigned reviewable package and logs",
-              "number": 31,
-              "startedAt": "2026-10-13T00:55:48Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:00Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 61,
-              "startedAt": "2026-10-13T00:56:00Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:01Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 62,
-              "startedAt": "2026-10-13T00:56:00Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:01Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 63,
-              "startedAt": "2026-10-13T00:56:01Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880440"
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115/job/115075880750",
+          "failedSteps": []
         },
         {
-          "completedAt": "2026-10-13T00:56:45Z",
+          "id": 115075880859,
+          "name": "Native Windows Job Object / x64 / Node 26.x",
+          "status": "completed",
           "conclusion": "success",
-          "databaseId": 115075880464,
-          "name": "Unsigned bundle and native smoke / macos-15",
-          "startedAt": "2026-10-13T00:54:29Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:30Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:29Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:33Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:30Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:47Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:33Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:51Z",
-              "conclusion": "success",
-              "name": "Run npm ci --include=optional",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:47Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:51Z",
-              "conclusion": "success",
-              "name": "Run node scripts/prepare-pty.mjs",
-              "number": 5,
-              "startedAt": "2026-10-13T00:54:51Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:57Z",
-              "conclusion": "success",
-              "name": "Run npm run build:desktop",
-              "number": 6,
-              "startedAt": "2026-10-13T00:54:51Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:59Z",
-              "conclusion": "success",
-              "name": "AI SDK protocols, worker config, approval, cancellation and recovery",
-              "number": 7,
-              "startedAt": "2026-10-13T00:54:57Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:04Z",
-              "conclusion": "success",
-              "name": "Native account, update, MCP and evidence regression",
-              "number": 8,
-              "startedAt": "2026-10-13T00:54:59Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:04Z",
-              "conclusion": "skipped",
-              "name": "Windows Node Job Object for local account coding regression",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:04Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:05Z",
-              "conclusion": "success",
-              "name": "Local HTTP app-account coding regression",
-              "number": 10,
-              "startedAt": "2026-10-13T00:55:04Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:05Z",
-              "conclusion": "skipped",
-              "name": "Remove Windows Node Job Object before Electron utility steps",
-              "number": 11,
-              "startedAt": "2026-10-13T00:55:05Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:05Z",
-              "conclusion": "skipped",
-              "name": "Linux original utility close, exit and fault boundaries",
-              "number": 12,
-              "startedAt": "2026-10-13T00:55:05Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:16Z",
-              "conclusion": "success",
-              "name": "macOS/Windows original utility close, exit and fault boundaries",
-              "number": 13,
-              "startedAt": "2026-10-13T00:55:05Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:32Z",
-              "conclusion": "success",
-              "name": "macOS actual advanced GUI flows",
-              "number": 14,
-              "startedAt": "2026-10-13T00:55:16Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:36Z",
-              "conclusion": "success",
-              "name": "macOS actual provider settings and encrypted keys",
-              "number": 15,
-              "startedAt": "2026-10-13T00:55:32Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:36Z",
-              "conclusion": "skipped",
-              "name": "Linux product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 16,
-              "startedAt": "2026-10-13T00:55:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:40Z",
-              "conclusion": "success",
-              "name": "macOS/Windows product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 17,
-              "startedAt": "2026-10-13T00:55:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:40Z",
-              "conclusion": "skipped",
-              "name": "Linux original utility Codex credential refresh and cancellation",
-              "number": 18,
-              "startedAt": "2026-10-13T00:55:40Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:40Z",
-              "conclusion": "success",
-              "name": "macOS/Windows original utility Codex credential refresh and cancellation",
-              "number": 19,
-              "startedAt": "2026-10-13T00:55:40Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:50Z",
-              "conclusion": "success",
-              "name": "macOS actual delayed renderer delivery and restore theme",
-              "number": 20,
-              "startedAt": "2026-10-13T00:55:40Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:54Z",
-              "conclusion": "success",
-              "name": "macOS Anthropic settings, native tools, reconnect and cancellation",
-              "number": 21,
-              "startedAt": "2026-10-13T00:55:50Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:57Z",
-              "conclusion": "success",
-              "name": "macOS actual PTY failure and native evidence retention",
-              "number": 22,
-              "startedAt": "2026-10-13T00:55:54Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:10Z",
-              "conclusion": "success",
-              "name": "Package this OS without publishing",
-              "number": 23,
-              "startedAt": "2026-10-13T00:55:57Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:10Z",
-              "conclusion": "skipped",
-              "name": "Linux portable bundle, utility, SQLite and renderer smoke",
-              "number": 24,
-              "startedAt": "2026-10-13T00:56:10Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:12Z",
-              "conclusion": "success",
-              "name": "macOS/Windows portable bundle, utility, SQLite and renderer smoke",
-              "number": 25,
-              "startedAt": "2026-10-13T00:56:10Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:12Z",
-              "conclusion": "skipped",
-              "name": "Linux real command and PTY supervisor smoke",
-              "number": 26,
-              "startedAt": "2026-10-13T00:56:12Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:14Z",
-              "conclusion": "success",
-              "name": "macOS real command and PTY supervisor smoke",
-              "number": 27,
-              "startedAt": "2026-10-13T00:56:12Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:14Z",
-              "conclusion": "skipped",
-              "name": "Windows actual packaged utility Job Object command and approval gate",
-              "number": 28,
-              "startedAt": "2026-10-13T00:56:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:14Z",
-              "conclusion": "skipped",
-              "name": "Linux real updater checksum, disposable install and recovery fixture",
-              "number": 29,
-              "startedAt": "2026-10-13T00:56:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:15Z",
-              "conclusion": "success",
-              "name": "macOS real updater checksum, disposable install and recovery fixture",
-              "number": 30,
-              "startedAt": "2026-10-13T00:56:14Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:39Z",
-              "conclusion": "success",
-              "name": "Upload unsigned reviewable package and logs",
-              "number": 31,
-              "startedAt": "2026-10-13T00:56:15Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:40Z",
-              "conclusion": "success",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 61,
-              "startedAt": "2026-10-13T00:56:39Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:40Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 62,
-              "startedAt": "2026-10-13T00:56:40Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:41Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 63,
-              "startedAt": "2026-10-13T00:56:40Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880464"
-        },
-        {
-          "completedAt": "2026-10-13T01:19:41Z",
-          "conclusion": "cancelled",
-          "databaseId": 115075880605,
-          "name": "Unsigned bundle and native smoke / windows-2025",
-          "startedAt": "2026-10-13T00:54:26Z",
-          "status": "completed",
-          "steps": [
-            {
-              "completedAt": "2026-10-13T00:54:28Z",
-              "conclusion": "success",
-              "name": "Set up job",
-              "number": 1,
-              "startedAt": "2026-10-13T00:54:27Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:36Z",
-              "conclusion": "success",
-              "name": "Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 2,
-              "startedAt": "2026-10-13T00:54:28Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:54:56Z",
-              "conclusion": "success",
-              "name": "Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 3,
-              "startedAt": "2026-10-13T00:54:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:07Z",
-              "conclusion": "success",
-              "name": "Run npm ci --include=optional",
-              "number": 4,
-              "startedAt": "2026-10-13T00:54:56Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:07Z",
-              "conclusion": "success",
-              "name": "Run node scripts/prepare-pty.mjs",
-              "number": 5,
-              "startedAt": "2026-10-13T00:55:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:17Z",
-              "conclusion": "success",
-              "name": "Run npm run build:desktop",
-              "number": 6,
-              "startedAt": "2026-10-13T00:55:07Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:22Z",
-              "conclusion": "success",
-              "name": "AI SDK protocols, worker config, approval, cancellation and recovery",
-              "number": 7,
-              "startedAt": "2026-10-13T00:55:17Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:55:32Z",
-              "conclusion": "success",
-              "name": "Native account, update, MCP and evidence regression",
-              "number": 8,
-              "startedAt": "2026-10-13T00:55:22Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:37Z",
-              "conclusion": "success",
-              "name": "Windows Node Job Object for local account coding regression",
-              "number": 9,
-              "startedAt": "2026-10-13T00:55:32Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:40Z",
-              "conclusion": "success",
-              "name": "Local HTTP app-account coding regression",
-              "number": 10,
-              "startedAt": "2026-10-13T00:56:37Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:41Z",
-              "conclusion": "success",
-              "name": "Remove Windows Node Job Object before Electron utility steps",
-              "number": 11,
-              "startedAt": "2026-10-13T00:56:40Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:41Z",
-              "conclusion": "skipped",
-              "name": "Linux original utility close, exit and fault boundaries",
-              "number": 12,
-              "startedAt": "2026-10-13T00:56:41Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:53Z",
-              "conclusion": "success",
-              "name": "macOS/Windows original utility close, exit and fault boundaries",
-              "number": 13,
-              "startedAt": "2026-10-13T00:56:41Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:53Z",
-              "conclusion": "skipped",
-              "name": "macOS actual advanced GUI flows",
-              "number": 14,
-              "startedAt": "2026-10-13T00:56:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:53Z",
-              "conclusion": "skipped",
-              "name": "macOS actual provider settings and encrypted keys",
-              "number": 15,
-              "startedAt": "2026-10-13T00:56:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T00:56:53Z",
-              "conclusion": "skipped",
-              "name": "Linux product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 16,
-              "startedAt": "2026-10-13T00:56:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "cancelled",
-              "name": "macOS/Windows product catalogue, profiles and explicit extensions in actual GUI",
-              "number": 17,
-              "startedAt": "2026-10-13T00:56:53Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Linux original utility Codex credential refresh and cancellation",
-              "number": 18,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows original utility Codex credential refresh and cancellation",
-              "number": 19,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS actual delayed renderer delivery and restore theme",
-              "number": 20,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS Anthropic settings, native tools, reconnect and cancellation",
-              "number": 21,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS actual PTY failure and native evidence retention",
-              "number": 22,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Package this OS without publishing",
-              "number": 23,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Linux portable bundle, utility, SQLite and renderer smoke",
-              "number": 24,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS/Windows portable bundle, utility, SQLite and renderer smoke",
-              "number": 25,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Linux real command and PTY supervisor smoke",
-              "number": 26,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS real command and PTY supervisor smoke",
-              "number": 27,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Windows actual packaged utility Job Object command and approval gate",
-              "number": 28,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "Linux real updater checksum, disposable install and recovery fixture",
-              "number": 29,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:36Z",
-              "conclusion": "skipped",
-              "name": "macOS real updater checksum, disposable install and recovery fixture",
-              "number": 30,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:37Z",
-              "conclusion": "success",
-              "name": "Upload unsigned reviewable package and logs",
-              "number": 31,
-              "startedAt": "2026-10-13T01:19:36Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:37Z",
-              "conclusion": "skipped",
-              "name": "Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020",
-              "number": 61,
-              "startedAt": "2026-10-13T01:19:37Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:40Z",
-              "conclusion": "success",
-              "name": "Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
-              "number": 62,
-              "startedAt": "2026-10-13T01:19:37Z",
-              "status": "completed"
-            },
-            {
-              "completedAt": "2026-10-13T01:19:40Z",
-              "conclusion": "success",
-              "name": "Complete job",
-              "number": 63,
-              "startedAt": "2026-10-13T01:19:40Z",
-              "status": "completed"
-            }
-          ],
-          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880605"
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536115/job/115075880859",
+          "failedSteps": []
         }
-      ],
+      ]
+    },
+    {
+      "databaseId": 38329536037,
       "name": "Desktop packages",
       "status": "completed",
-      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037"
+      "conclusion": "cancelled",
+      "headSha": "67cc506179cf182c97c8cf28d0905588939c84a6",
+      "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037",
+      "jobs": [
+        {
+          "id": 115075880440,
+          "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880440",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880464,
+          "name": "Unsigned bundle and native smoke / macos-15",
+          "status": "completed",
+          "conclusion": "success",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880464",
+          "failedSteps": []
+        },
+        {
+          "id": 115075880605,
+          "name": "Unsigned bundle and native smoke / windows-2025",
+          "status": "completed",
+          "conclusion": "cancelled",
+          "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/job/115075880605",
+          "failedSteps": []
+        }
+      ]
     }
   ],
   "initialWindowsFailure": {
@@ -2829,6 +894,97 @@
     "rawLog": "artifacts/product-connections/windows-initial.log",
     "rawLogSha256": "8f54f46906e65f3e5ebfbbbe56c8587f36174fd4deac1d6815370d217c996687",
     "artifact": "https://github.com/yakisoba0728/Moodcode/actions/runs/38329536037/artifacts/11782822675",
-    "causeQualification": "Startup path normalization is suspected: Windows short DOS paths require fs.realpathSync.native to agree with fs.promises.realpath. Added native canonicalization, bounded first-window wait, test startup errors without blocking modal, and progress evidence. Final hosted run must confirm."
-  }
+    "causeQualification": "Startup path normalization is suspected: Windows short DOS paths require fs.realpathSync.native to agree with fs.promises.realpath. Added native canonicalization, bounded first-window wait, test startup errors without blocking modal, and progress evidence. Final hosted run must confirm.",
+    "finalQualification": "The correction passed original GUI startup, profile/plugin execution, native close and unsigned package smoke on all three OS, including two successful Windows workflow executions. Original startup root cause was not independently replayed on the old commit; keep that qualification."
+  },
+  "pullRequest": "https://github.com/yakisoba0728/Moodcode/pull/1",
+  "hostedPushDesktop": {
+    "databaseId": 38332285876,
+    "name": "Desktop packages",
+    "status": "completed",
+    "conclusion": "success",
+    "headSha": "523efe7aad790f056e8b3a892771f03d71680ff8",
+    "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332285876",
+    "jobs": [
+      {
+        "id": 115084512387,
+        "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332285876/job/115084512387",
+        "failedSteps": []
+      },
+      {
+        "id": 115084512556,
+        "name": "Unsigned bundle and native smoke / macos-15",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332285876/job/115084512556",
+        "failedSteps": []
+      },
+      {
+        "id": 115084512626,
+        "name": "Unsigned bundle and native smoke / windows-2025",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38332285876/job/115084512626",
+        "failedSteps": []
+      }
+    ]
+  },
+  "acceptedJobs": {
+    "total": 11,
+    "success": 11,
+    "failure": 0,
+    "cancelled": 0,
+    "headSha": "523efe7aad790f056e8b3a892771f03d71680ff8"
+  },
+  "hostedGui": [
+    {
+      "schemaVersion": 1,
+      "ok": true,
+      "platform": "linux",
+      "catalogSearch": true,
+      "deprecatedHidden": true,
+      "offlineCache": true,
+      "webFetchOptIn": true,
+      "missingSearchKeyHidden": true,
+      "pluginLoadedInOriginalUtility": true,
+      "profileForwardedAndPersisted": true,
+      "planPreserved": true,
+      "databaseSchema": 23,
+      "providerAccountRequests": 0
+    },
+    {
+      "schemaVersion": 1,
+      "ok": true,
+      "platform": "darwin",
+      "catalogSearch": true,
+      "deprecatedHidden": true,
+      "offlineCache": true,
+      "webFetchOptIn": true,
+      "missingSearchKeyHidden": true,
+      "pluginLoadedInOriginalUtility": true,
+      "profileForwardedAndPersisted": true,
+      "planPreserved": true,
+      "databaseSchema": 23,
+      "providerAccountRequests": 0
+    },
+    {
+      "schemaVersion": 1,
+      "ok": true,
+      "platform": "win32",
+      "catalogSearch": true,
+      "deprecatedHidden": true,
+      "offlineCache": true,
+      "webFetchOptIn": true,
+      "missingSearchKeyHidden": true,
+      "pluginLoadedInOriginalUtility": true,
+      "profileForwardedAndPersisted": true,
+      "planPreserved": true,
+      "databaseSchema": 23,
+      "providerAccountRequests": 0
+    }
+  ],
+  "hostedDesktopLogSha256": "98ecfcc2cde4b0a6c550a45319c3f9619a2d0e2c9a012134121abb20332ed1c0"
 }

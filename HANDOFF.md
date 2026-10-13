@@ -2,7 +2,7 @@
 
 갱신일: 2026-10-13, Asia/Seoul. 새 세션은 이 문서 → [TODO](TODO.md) 상단 → 해당 기능의 검증 문서를 읽고 현재 Git 상태부터 확인한다. 아래 과거 테스트 집계는 각각 기록한 커밋의 결과이며 현재 소스의 새 결과로 합산하지 않는다.
 
-2026-10-13 `codex/product-connections`에서 모델 카탈로그·승인된 웹 조사·전역/호환 Skills·명시적 npm Plugin 설치/활성화·에이전트 설정/실행 선택을 구현했다. 실제 Electron GUI와 DB23을 확인했다. 공급자/검색 계정 호출은 제외한다. 전체 회귀 5,676 pass/실패·취소 0/skip 4와 최종 보강 40/40을 확인했고 OS CI/패키지 검증을 진행 중이며 N-05 signing 자격은 없어 공개 release하지 않는다. [기능 계약](docs/moodcode/product-connections.md)·[검증 기록](docs/moodcode/product-connections-verification.json).
+2026-10-13 `codex/product-connections`에서 모델 카탈로그·승인된 웹 조사·전역/호환 Skills·명시적 npm Plugin 설치/활성화·에이전트 설정/실행 선택을 구현했다. 실제 Electron GUI와 DB23을 확인했다. 공급자/검색 계정 호출은 제외한다. 최종 전체 회귀 5,677 pass/실패·취소 0/skip 4와 PR CI 11/11·세 OS GUI/unsigned 패키지를 확인했으며 N-05 signing 자격은 없어 공개 release하지 않는다. [기능 계약](docs/moodcode/product-connections.md)·[검증 기록](docs/moodcode/product-connections-verification.json).
 
 ## 프로젝트와 결정
 

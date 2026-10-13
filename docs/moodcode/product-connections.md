@@ -45,4 +45,4 @@ Desktop CI에 새 경계/도구 테스트와 세 OS GUI를 추가했다. [검증
 이번 환경/repository secrets에는 macOS/Windows signing 자격이 없어 N-05 실제 서명·공증·설치·공개 feed는 남는다. 기존 release preflight/업데이트 검증과 unsigned OS 빌드를 사용하며 publish하지 않는다. 추가 검색 공급자·SDK 미디어·OpenCode plugin ABI·Windows PTY·추가 architecture는 완료 범위 밖이다.
 
 
-Windows GUI의 첫 실행은 시작 대기 중 job timeout으로 취소되었다. 원본 run/log/artifact를 보존하고 native realpath 정규화와 시작 단계/오류 기록을 보강해 재검증한다. 원인 확정과 최종 OS 수용은 검증 기록의 별도 결과를 따른다.
+Windows GUI 첫 실행의 job timeout 기록을 보존했다. native realpath 정규화·시작 단계/오류 기록을 보강한 523efe7의 세 OS 실제 GUI/unsigned 패키지와 PR CI 11/11이 통과했다. 최초 원인은 old commit에서 독립 재현하지 않았으므로 확정하지 않는다. 최종 로컬 전체 5,681개 중 5,677 pass/실패·취소 0/플랫폼 skip 4, DB23 동일이다. 실제 계정 호출과 signing/public release는 제외했다.

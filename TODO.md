@@ -2,7 +2,7 @@
 
 갱신일: 2026-10-13, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 계정·LSP 보강 기준: `2a13f2e`, [통합 결과](docs/moodcode/engine-account-lsp-followup-verification.md). 다른 세션은 [HANDOFF](HANDOFF.md)에서 시작한다. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
 
-2026-10-13 `codex/product-connections`에서 모델 카탈로그·승인된 웹 조사·전역/호환 Skills·명시적 npm Plugin 설치/활성화·에이전트 설정/실행 선택을 구현했다. 실제 Electron GUI와 DB23을 확인했다. 공급자/검색 계정 호출은 제외한다. 전체 회귀 5,676 pass/실패·취소 0/skip 4와 최종 보강 40/40을 확인했고 OS CI/패키지 검증을 진행 중이며 N-05 signing 자격은 없어 공개 release하지 않는다. [기능 계약](docs/moodcode/product-connections.md)·[검증 기록](docs/moodcode/product-connections-verification.json).
+2026-10-13 `codex/product-connections`에서 모델 카탈로그·승인된 웹 조사·전역/호환 Skills·명시적 npm Plugin 설치/활성화·에이전트 설정/실행 선택을 구현했다. 실제 Electron GUI와 DB23을 확인했다. 공급자/검색 계정 호출은 제외한다. 최종 전체 회귀 5,677 pass/실패·취소 0/skip 4와 PR CI 11/11·세 OS GUI/unsigned 패키지를 확인했으며 N-05 signing 자격은 없어 공개 release하지 않는다. [기능 계약](docs/moodcode/product-connections.md)·[검증 기록](docs/moodcode/product-connections-verification.json).
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64와 N-03의 선택 앱 계정 추론을 확인했다. E5-13·서명 배포·과거 PTY 실패 진단 R-PTY-01 및 아래 추가 검증은 열린 후속 범위다.
 
@@ -25,7 +25,7 @@
 - [x] **PC-02 — 웹 조사 도구**: 승인된 공개 웹 수집과 명시적 검색 공급자를 기존 도구·정책·취소·출력 상한에 연결한다. 비공개 주소·credential URL·임의 redirect 및 키 노출을 차단하고 외부 본문은 비신뢰 자료로 다룬다.
 - [x] **PC-03 — Skills·Plugins 설정**: 기존 skill/reference와 plugin manager를 재사용해 전역·호환 skill 경로와 명시적으로 선택한 확장을 관리한다. 설치·실행은 사용자 설정으로만 허용한다.
 - [x] **PC-04 — 에이전트 설정 UX**: profile의 지침·도구·모델·예산을 편집하고 실행 시 선택한다. Plan/Build·host 권한·기존 요청 ID와 profile revision 계약을 유지한다.
-- [ ] **PC-05 — 통합·배포 준비 검증**: 영향 회귀·GUI·DB23과 OS CI/패키지를 확인한다. 실제 계정 호출·서명 자격이 없는 signing/notarization·공개 release는 수행하지 않는다.
+- [x] **PC-05 — 통합·배포 준비 검증**: 영향 회귀·GUI·DB23과 OS CI/패키지를 확인한다. 실제 계정 호출·서명 자격이 없는 signing/notarization·공개 release는 수행하지 않는다.
 
 기존 열린 항목은 아래 원래 ID에서 추적하며 별도 완료 집계로 중복 계산하지 않는다.
 

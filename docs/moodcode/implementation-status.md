@@ -1,6 +1,6 @@
 # Moodcode 구현 상태
 
-2026-10-13 `codex/product-connections`: 공개 모델 카탈로그/캐시·웹 조사·전역/호환 Skills·명시적 Plugin 설치/활성화·에이전트 설정/실행 선택을 Desktop에 연결했다. 실제 GUI/DB23을 확인했고 전체 회귀 5,676 pass/실패·취소 0/skip 4와 최종 보강 40/40을 확인했고 세 OS CI를 진행 중이다. 실제 계정 호출·signing/public release는 제외한다. [기능 계약](product-connections.md)·[검증 기록](product-connections-verification.json).
+2026-10-13 `codex/product-connections`: 공개 모델 카탈로그/캐시·웹 조사·전역/호환 Skills·명시적 Plugin 설치/활성화·에이전트 설정/실행 선택을 Desktop에 연결했다. 실제 GUI/DB23을 확인했고 최종 전체 회귀 5,677 pass/실패·취소 0/skip 4와 PR CI 11/11·세 OS GUI/unsigned 패키지를 확인했다. 실제 계정 호출·signing/public release는 제외한다. [기능 계약](product-connections.md)·[검증 기록](product-connections-verification.json).
 
 2026-10-12 현재 AI SDK 변경사항은 `5d97284`로 main에 통합·푸시했다. 첫 main CI의 macOS Node 24 fixture 파일 쓰기 경합을 재현해 테스트만 수정한 `9270e19`의 새 CI 11/11(엔진 6·native Windows 2·Desktop packages 3)을 통과했다. macOS Node 24·26 각 5,369 pass/실패·취소 0/skip 4, Linux 각 5,302 pass/실패·취소 0/skip 71, native Windows 각 40/40이다. SDK 테스트는 세 OS 각각 12/12이고 unsigned macOS arm64·Linux x64·Windows x64 패키지의 실제 실행을 확인했다. 제품 코드·기존 deadline/assertion/skip과 SDK source pin 21개를 유지했으며, 아래 브랜치 검증과 첫 main 실패는 별도 보존한다. [main 통합·수정·최종 수용 기록](ai-sdk-provider-main-ci.json). 이후 수용 기록 커밋은 문서만 변경한다.
 
