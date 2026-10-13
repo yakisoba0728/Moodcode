@@ -1,5 +1,7 @@
 import { app, BrowserWindow, clipboard, dialog, ipcMain, safeStorage, shell, utilityProcess } from 'electron';
-import { getCodexAuthStatus, getCodexModelCatalog } from '@moodcode/engine';
+import { getCodexAuthStatus, getCodexModelCatalog, catalogModelSpec } from '@moodcode/engine';
+import { DesktopModelCatalog } from './model-catalog.js';
+import { DesktopProductSettings } from './product-settings.js';
 import { validateClipboardText } from '../shared/clipboard.js';
 import { mkdirSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -34,6 +36,8 @@ app.setName('Moodcode');
 let window: BrowserWindow | undefined;
 let ownerId = randomUUID();
 let host: DesktopHost | undefined;
+let modelCatalog: DesktopModelCatalog;
+let productSettings: DesktopProductSettings;
 let accounts: DesktopAccounts | undefined;
 let updates: DesktopUpdates | undefined;
 let refreshSettingsMetadata: (() => Promise<void>) | undefined;
@@ -92,6 +96,12 @@ function requireHost(): DesktopHost {
   return host;
 }
 function installIpc(): void {
+  handle(DESKTOP_CHANNELS.productSettings, async () => productSettings.get());
+  handle(DESKTOP_CHANNELS.saveProductSettings, async args => requireHost().accountTransition(() => productSettings.save(args[0])));
+  handle(DESKTOP_CHANNELS.installPlugin, async args => requireHost().accountTransition(() => productSettings.install(args[0])));
+  handle(DESKTOP_CHANNELS.cancelPluginInstall, async () => productSettings.cancelInstall());
+  handle(DESKTOP_CHANNELS.modelCatalog, async () => modelCatalog.get());
+  handle(DESKTOP_CHANNELS.refreshModelCatalog, async () => modelCatalog.refresh());
   handle(DESKTOP_CHANNELS.bootstrap, async () => { await refreshSettingsMetadata?.(); return requireHost().getBootstrap(); });
   handle(DESKTOP_CHANNELS.command, async args => requireHost().command(args[0] as CommandEnvelope));
   handle(DESKTOP_CHANNELS.advanced, async (args, owner) => requireHost().advanced(owner, args[0] as import('../shared/advanced.js').DesktopAdvancedAction));
@@ -175,6 +185,7 @@ app.on('before-quit', event => {
   quitPending = true;
   void (async () => {
     try {
+      productSettings?.cancelInstall();
       await accounts?.close();
       await host?.close();
       quitting = true;
@@ -190,6 +201,10 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => ap
 
 void app.whenReady().then(async () => {
   const userData = realpathSync(app.getPath('userData'));
+  modelCatalog = new DesktopModelCatalog(userData);
+  await modelCatalog.load();
+  productSettings = new DesktopProductSettings(userData, scenario ? {} : process.env);
+  await productSettings.load();
   const credentialStorage: CredentialStorage = {
     isEncryptionAvailable: () => safeStorage.isEncryptionAvailable(),
     encryptString: value => safeStorage.encryptString(value),
@@ -236,6 +251,11 @@ void app.whenReady().then(async () => {
     await settingsStore.commit(prepared);
   };
   host = new DesktopHost({
+    runtimeOptions: config => {
+      const catalog = modelCatalog.get();
+      const spec = catalog && catalogModelSpec(catalog, config.providerId, config.modelId, config.baseURL);
+      return { ...productSettings.runtime(), ...(spec ? { modelSpecs: [spec] } : {}) };
+    },
     spawn: spawnWorker, settings, dbPath: join(userData, 'engine.sqlite'), artifactDir: join(userData, 'artifacts'),
     platform: process.platform, version: app.getVersion(), ...(scenario ? { testScenario: scenario } : {}),
     resolveCodexCredential: async (accountId, modelId, signal) => {

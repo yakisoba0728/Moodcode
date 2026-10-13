@@ -42,6 +42,8 @@ jobs:
           node --import ./node_modules/tsx/dist/loader.mjs --test
           packages/engine/src/provider/ai-sdk.test.ts
           apps/desktop/src/worker/ai-sdk-config.test.ts
+          packages/engine/src/provider/catalog.test.ts packages/engine/src/tools/web/web.test.ts
+          packages/engine/src/tools/session/skills.test.ts apps/desktop/src/main/product-settings.test.ts
       - name: Native account, update, MCP and evidence regression
         run: >-
           node --import ./node_modules/tsx/dist/loader.mjs --test
@@ -77,6 +79,12 @@ jobs:
       - name: macOS actual provider settings and encrypted keys
         if: runner.os == 'macOS'
         run: node scripts/test-desktop-settings.mjs
+      - name: Linux product catalogue, profiles and explicit extensions in actual GUI
+        if: runner.os == 'Linux'
+        run: xvfb-run -a node scripts/test-desktop-product.mjs
+      - name: macOS/Windows product catalogue, profiles and explicit extensions in actual GUI
+        if: runner.os != 'Linux'
+        run: node scripts/test-desktop-product.mjs
       - name: Linux original utility Codex credential refresh and cancellation
         if: runner.os == 'Linux'
         run: xvfb-run -a node scripts/test-desktop-codex-refresh.mjs
@@ -132,6 +140,7 @@ jobs:
             artifacts/renderer-anthropic/
             artifacts/next-main-utility-close/
             artifacts/engine-account-lsp-20261010/
+            artifacts/product-connections/
           retention-days: 7
           include-hidden-files: true
           if-no-files-found: warn

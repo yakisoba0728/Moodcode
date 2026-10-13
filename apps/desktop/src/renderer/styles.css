@@ -1431,7 +1431,8 @@ button svg {
   margin: 17px 0;
 }
 .field-label input,
-.field-label select {
+.field-label select,
+.field-label textarea {
   width: 100%;
   background: #18211a;
   border: 1px solid #404e38;
@@ -1444,6 +1445,15 @@ button svg {
 .field-label input::placeholder {
   color: #708365;
 }
+.product-settings { margin: 18px 0; padding: 14px; border: 1px solid var(--border); border-radius: 7px; }
+.product-settings summary { cursor: pointer; font-size: 12px; }
+.product-settings fieldset { min-width: 0; border: 0; padding: 0; margin: 16px 0 0; }
+.product-settings legend { font-size: 12px; }
+.product-settings h3 { font-size: 13px; margin: 20px 0 10px; }
+.product-settings details { margin: 12px 0; }
+.product-settings .field-help { margin: 8px 0; }
+.product-settings textarea { resize: vertical; font-family: inherit; }
+.product-settings button { margin-right: 10px; }
 .field-help {
   font-size: 9px;
   color: #7d9272;

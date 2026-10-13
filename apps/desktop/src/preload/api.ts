@@ -10,6 +10,7 @@ import type { DesktopAccountAction } from '../shared/account-protocol.js';
 import type { DesktopAppUpdateAction } from '../shared/update-protocol.js';
 import type { DesktopApi, DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
 import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
+import { validateProductSave, validatePlugin } from '../shared/product-settings.js';
 
 type TransportListener = (event: unknown, payload: unknown) => void;
 export interface DesktopTransport {
@@ -61,7 +62,7 @@ export function validateDesktopCommand(value: unknown): CommandEnvelope {
     } else {
       const config = original.payload.config as Record<string, unknown>;
       const copied: Record<string, unknown> = {};
-      for (const key of ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort']) {
+      for (const key of ['providerId', 'modelId', 'mode', 'limits', 'reasoningEffort', 'agentProfileId', 'agentProfileRevision']) {
         if (Object.hasOwn(config, key)) copied[key] = key === 'limits' ? { ...(config[key] as object) } : config[key];
       }
       command.payload.config = copied as CommandEnvelope['payload'];
@@ -180,6 +181,12 @@ export function createDesktopApi(transport: DesktopTransport): DesktopApi {
   };
   return Object.freeze({
     getBootstrap: () => invoke(transport, DESKTOP_CHANNELS.bootstrap),
+    getModelCatalog: () => invoke(transport, DESKTOP_CHANNELS.modelCatalog),
+    getProductSettings: () => invoke(transport, DESKTOP_CHANNELS.productSettings),
+    saveProductSettings: async input => invoke(transport, DESKTOP_CHANNELS.saveProductSettings, validateProductSave(input)),
+    installPlugin: async input => invoke(transport, DESKTOP_CHANNELS.installPlugin, validatePlugin(input)),
+    cancelPluginInstall: () => invoke(transport, DESKTOP_CHANNELS.cancelPluginInstall),
+    refreshModelCatalog: () => invoke(transport, DESKTOP_CHANNELS.refreshModelCatalog),
     command: async (command: CommandEnvelope) => invoke(transport, DESKTOP_CHANNELS.command, validateDesktopCommand(command)),
     getAdvancedSnapshot: async (sessionId: string) => invoke(transport, DESKTOP_CHANNELS.advancedSnapshot, boundedString(sessionId, 128)),
     advanced: async (input: DesktopAdvancedAction) => invoke(transport, DESKTOP_CHANNELS.advanced, validateAdvancedAction(input)),

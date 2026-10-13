@@ -18,6 +18,7 @@ import type {
   HostStatus,
   SaveDesktopSettings,
 } from "../shared/protocol.js";
+import type { DesktopAgentProfile, ProductSettings } from '../shared/product-settings.js';
 
 export interface FileEntry {
   path: string;
@@ -55,6 +56,7 @@ export interface DesktopState {
   snapshot: SessionSnapshot | null;
   capabilities: EngineCapabilities | null;
   settings: DesktopSettings | null;
+  profiles: DesktopAgentProfile[];
   review: ReviewDiff | null;
   reviewRunId: string | null;
   error: string | null;
@@ -80,6 +82,7 @@ const empty = (): DesktopState => ({
   snapshot: null,
   capabilities: null,
   settings: null,
+  profiles: [],
   review: null,
   reviewRunId: null,
   error: null,
@@ -277,7 +280,7 @@ export function createDesktopStore(
     const request = ++initializeRevision,
       token = revision;
     try {
-      const bootstrap = await api.getBootstrap();
+      const [bootstrap, product] = await Promise.all([api.getBootstrap(), api.getProductSettings?.()]);
       if (
         stopped ||
         request !== initializeRevision ||
@@ -290,6 +293,7 @@ export function createDesktopStore(
         workspaces: bootstrap.workspaces,
         capabilities: bootstrap.capabilities ?? null,
         settings: bootstrap.settings,
+        profiles: product?.settings.profiles ?? [],
         version: bootstrap.version,
         platform: bootstrap.platform,
       });
@@ -597,6 +601,26 @@ export function createDesktopStore(
     cancel,
     decide,
     saveSettings,
+    getProductSettings: () => api.getProductSettings?.() ?? Promise.resolve(null),
+    saveProductSettings: async (input: { revision: string; settings: ProductSettings }) => {
+      if (!api.saveProductSettings) throw new Error('확장 설정을 사용할 수 없어요.');
+      const view = await api.saveProductSettings(input);
+      publish({ profiles: view.settings.profiles });
+      await initialize();
+      return view;
+    },
+    installPlugin: async (input: import('../shared/product-settings.js').DesktopPlugin) => {
+      if (!api.installPlugin) throw new Error('플러그인 설치를 사용할 수 없어요.');
+      const view = await api.installPlugin(input);
+      await initialize();
+      return view;
+    },
+    cancelPluginInstall: () => api.cancelPluginInstall?.() ?? Promise.resolve(),
+    getModelCatalog: () => api.getModelCatalog?.() ?? Promise.resolve(null),
+    refreshModelCatalog: () => {
+      if (!api.refreshModelCatalog) throw new Error('모델 카탈로그를 사용할 수 없어요.');
+      return api.refreshModelCatalog();
+    },
     chooseReview,
     loadOlder,
     showLatest,

@@ -121,6 +121,7 @@ export function App({ store }: { store: DesktopStore }) {
       return "plan";
     }
   });
+  const [agentProfileId, setAgentProfileId] = useState('');
   const [drafts, setDrafts] = useState<Record<string, string>>(getDrafts);
   const request = useRef<{
     prompt: string;
@@ -228,6 +229,7 @@ export function App({ store }: { store: DesktopStore }) {
       return;
     const config: RunConfigInput = {
       mode,
+      ...(state.profiles.some(profile => profile.id === agentProfileId) ? { agentProfileId } : {}),
       ...(state.settings
         ? {
             providerId: state.settings.providerId,
@@ -667,6 +669,10 @@ export function App({ store }: { store: DesktopStore }) {
                     {modelLabel}
                     <Icon name="chevronDown" size={11} />
                   </button>
+                  {state.profiles.length ? <select className="delivery-select" aria-label="에이전트 프로파일" value={state.profiles.some(profile => profile.id === agentProfileId) ? agentProfileId : ''} onChange={event => setAgentProfileId(event.target.value)} disabled={state.submitting}>
+                    <option value="">기본 에이전트</option>
+                    {state.profiles.map(profile => <option key={profile.id} value={profile.id}>{profile.description || profile.id}</option>)}
+                  </select> : null}
                 </div>
                 {advancedApi ? (
                   <select

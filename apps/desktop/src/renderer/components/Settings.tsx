@@ -10,6 +10,8 @@ import { AccountSettings } from "./AccountSettings.js";
 import { UpdateSettings } from "./UpdateSettings.js";
 import type { DesktopAccountView } from "../../shared/account-protocol.js";
 import { ANTHROPIC_REASONING_EFFORTS } from "../../shared/protocol.js";
+import type { ModelCatalog } from '@moodcode/engine';
+import { ProductSettings } from './ProductSettings.js';
 
 export function Settings({
   settings,
@@ -38,6 +40,16 @@ export function Settings({
   const [clearKey, setClearKey] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [catalog, setCatalog] = useState<ModelCatalog | null>(null);
+  const [catalogBusy, setCatalogBusy] = useState(false);
+  const [modelQuery, setModelQuery] = useState('');
+  const catalogModels = catalog?.providers.find(item => item.id === provider)?.models ?? [];
+  const selectedModel = catalogModels.find(item => item.id === model);
+  useEffect(() => {
+    let live = true;
+    void store.getModelCatalog().then(value => { if (live) setCatalog(value); }).catch(() => {});
+    return () => { live = false; };
+  }, [store]);
   const accountLogin = provider === "codex" && credentialMode === "chatgpt";
   useEffect(() => {
     if (settings.credentialMode === "chatgpt" && settings.accountId) {
@@ -134,6 +146,13 @@ export function Settings({
         작업에 사용할 모델과 로그인 방식을 선택하세요.
       </p>
       <AccountSettings store={store} onView={setAccounts} />
+      <ProductSettings store={store} />
+      <button className="text-button" disabled={catalogBusy || saving} onClick={async () => {
+        setCatalogBusy(true); setError(null);
+        try { setCatalog(await store.refreshModelCatalog()); }
+        catch { setError('공개 모델 목록을 가져오지 못했어요. 저장된 목록이나 모델 ID 입력을 사용할 수 있어요.'); }
+        finally { setCatalogBusy(false); }
+      }}>{catalogBusy ? '공개 모델 목록 불러오는 중…' : '공개 모델 카탈로그 새로고침'}</button>
       <label className="field-label">
         연결 방식
         <select
@@ -208,13 +227,23 @@ export function Settings({
                 setEffort("");
               }}
               list={
-                accountLogin ? "account-models" : provider === "codex" ? "codex-models" : undefined
+                accountLogin ? "account-models" : provider === "codex" ? "codex-models" : 'provider-models'
               }
               placeholder="사용할 모델 ID"
               autoComplete="off"
               spellCheck={false}
             />
           </label>
+          {provider !== 'codex' ? <>
+            <datalist id="provider-models">{catalogModels.filter(item => !item.deprecated).map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</datalist>
+            <label className="field-label">모델 검색<input value={modelQuery} onChange={event => setModelQuery(event.target.value)} placeholder="이름 또는 모델 ID" /></label>
+            <label className="field-label">카탈로그에서 선택<select aria-label="카탈로그에서 선택" value={catalogModels.some(item => item.id === model) ? model : ''} onChange={event => { if (event.target.value) { setModel(event.target.value); setEffort(''); } }}>
+              <option value="">모델 ID 직접 입력</option>
+              {catalogModels.filter(item => !item.deprecated && `${item.name} ${item.id}`.toLowerCase().includes(modelQuery.toLowerCase())).map(item => <option key={item.id} value={item.id}>{item.name} · {item.id}</option>)}
+            </select></label>
+            <p className="field-help">Models.dev 공개 정보{catalog ? ` · ${new Date(catalog.observedAt).toLocaleDateString()}` : ' · 새로고침 후 목록을 사용할 수 있어요.'}. 계정의 모델 사용 권한은 호출할 때 확인해요.</p>
+            {selectedModel ? <p className="field-help">컨텍스트 {selectedModel.contextWindow?.toLocaleString() ?? '정보 없음'} · 출력 {selectedModel.maxOutputTokens?.toLocaleString() ?? '정보 없음'} · 도구 {selectedModel.tools === null ? '정보 없음' : selectedModel.tools ? '지원 선언' : '미지원 선언'} · 추론 {selectedModel.reasoning === null ? '정보 없음' : selectedModel.reasoning ? '지원 선언' : '미지원 선언'} · 입력 {selectedModel.input.join(', ') || '정보 없음'}{isAiSdkProviderId(provider) ? '. 현재 앱의 AI SDK 경로는 텍스트 입력을 지원해요.' : ''}</p> : null}
+          </> : null}
           {accountLogin && accounts?.activeAccountId ? (
             <datalist id="account-models">
               {accounts.models.map((item) => (

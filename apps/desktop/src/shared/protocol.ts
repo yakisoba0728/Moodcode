@@ -68,6 +68,12 @@ export interface DesktopRecoveryStatus {
 }
 export interface DesktopRecoveryResult { recoveryId: string; restoredAcknowledgments: number; effectMarkerCleared: boolean; backupVerified: true }
 export interface DesktopApi {
+  getProductSettings?(): Promise<import('./product-settings.js').ProductSettingsView>;
+  saveProductSettings?(input: { revision: string; settings: import('./product-settings.js').ProductSettings }): Promise<import('./product-settings.js').ProductSettingsView>;
+  installPlugin?(input: import('./product-settings.js').DesktopPlugin): Promise<import('./product-settings.js').ProductSettingsView>;
+  cancelPluginInstall?(): Promise<void>;
+  getModelCatalog?(): Promise<import('@moodcode/engine').ModelCatalog | null>;
+  refreshModelCatalog?(): Promise<import('@moodcode/engine').ModelCatalog>;
   getAdvancedSnapshot?(sessionId: string): Promise<DesktopAdvancedSnapshot>;
   advanced?(input: DesktopAdvancedAction): Promise<JsonValue>;
   getAccounts?(): Promise<DesktopAccountView>;

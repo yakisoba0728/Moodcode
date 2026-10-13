@@ -6,6 +6,7 @@ import { DESKTOP_CHANNELS } from '../main/ipc-channels.js';
 import { createDesktopApi, validateDesktopCommand, validateDesktopSettings } from './api.js';
 import type { DesktopTransport } from './api.js';
 import type { DesktopUpdate, HostStatus, SaveDesktopSettings } from '../shared/protocol.js';
+import { DEFAULT_PRODUCT_SETTINGS } from '../shared/product-settings.js';
 
 class TransportDouble extends EventEmitter implements DesktopTransport {
   invocations: { channel: string; args: unknown[] }[] = [];
@@ -38,10 +39,23 @@ test('ChatGPT account settings select Codex without accepting renderer credentia
 test('desktop bridge is frozen and exposes only the typed API', () => {
   const api = createDesktopApi(new TransportDouble());
   assert.equal(Object.isFrozen(api), true);
-  assert.deepEqual(Object.keys(api).sort(), ['advanced', 'getAdvancedSnapshot', 'accountAction', 'getAccounts', 'appUpdateAction', 'getAppUpdate', 'backupDatabase', 'copyText', 'getRecoveryStatus', 'recoverEngine', 'chooseWorkspace', 'command', 'getBootstrap', 'onHostState', 'onUpdate', 'openExternal', 'retryEngine', 'saveSettings', 'subscribe', 'unsubscribe'].sort());
+  assert.deepEqual(Object.keys(api).sort(), ['getModelCatalog', 'refreshModelCatalog', 'getProductSettings', 'saveProductSettings', 'installPlugin', 'cancelPluginInstall', 'advanced', 'getAdvancedSnapshot', 'accountAction', 'getAccounts', 'appUpdateAction', 'getAppUpdate', 'backupDatabase', 'copyText', 'getRecoveryStatus', 'recoverEngine', 'chooseWorkspace', 'command', 'getBootstrap', 'onHostState', 'onUpdate', 'openExternal', 'retryEngine', 'saveSettings', 'subscribe', 'unsubscribe'].sort());
   assert.equal('invoke' in api, false);
   assert.equal('send' in api, false);
   assert.equal('ipcRenderer' in api, false);
+});
+
+test('profile selection survives submission and extension requests cross only the validated closed bridge', async () => {
+  const config = { agentProfileId: 'review', agentProfileRevision: 'a'.repeat(64), mode: 'plan' };
+  assert.deepEqual(validateDesktopCommand(submit({ config })).payload.config, config);
+  const transport = new TransportDouble(), api = createDesktopApi(transport);
+  await api.getModelCatalog!(); await api.refreshModelCatalog!(); await api.getProductSettings!();
+  await api.saveProductSettings!({ revision: 'b'.repeat(64), settings: DEFAULT_PRODUCT_SETTINGS });
+  await api.installPlugin!({ name: 'fixture-plugin', version: '1.0.0', enabled: false }); await api.cancelPluginInstall!();
+  assert.deepEqual(transport.invocations.map(item => item.channel), [DESKTOP_CHANNELS.modelCatalog, DESKTOP_CHANNELS.refreshModelCatalog, DESKTOP_CHANNELS.productSettings, DESKTOP_CHANNELS.saveProductSettings, DESKTOP_CHANNELS.installPlugin, DESKTOP_CHANNELS.cancelPluginInstall]);
+  await assert.rejects(api.saveProductSettings!({ revision: 'b'.repeat(64), settings: { ...DEFAULT_PRODUCT_SETTINGS, apiKey: 'fixture-secret' } } as never));
+  await assert.rejects(api.installPlugin!({ name: 'pkg;run', version: 'latest', enabled: true }));
+  assert.equal(transport.invocations.length, 6);
 });
 
 test('bridge methods map to the closed IPC channel list and unwrap success envelopes', async () => {

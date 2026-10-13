@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-13T00:53:35.312918+00:00",
+  "status": "local-passed-hosted-pending",
+  "branch": "codex/product-connections",
+  "baselineCommit": "417bcf234897bac31a80122526b41cc6a7f3187e",
+  "sourceCommit": null,
+  "sourcePins": [
+    {
+      "path": ".github/workflows/desktop-package.yml",
+      "sha256": "ff9e312e5d79a6024df1a606a13f4420a2afd4d121ea483a27431e69a862fa1a"
+    },
+    {
+      "path": "apps/desktop/src/main/host.ts",
+      "sha256": "eb6b830de69bad9d241d85e68d190a2697af1546b408dcc25046a38f55cc9356"
+    },
+    {
+      "path": "apps/desktop/src/main/index.ts",
+      "sha256": "c9fee65dae1ce6297f1a8045029bcad981a322ffc11fa377672ecd327e726f37"
+    },
+    {
+      "path": "apps/desktop/src/main/ipc-channels.ts",
+      "sha256": "869209eb8313f03f9f21751f5affc24a35b24e3374bf9f3d4ee7d431a5d73183"
+    },
+    {
+      "path": "apps/desktop/src/main/model-catalog.ts",
+      "sha256": "30c7bb50ad088b37704f3111da8d0eee1d5b53f8149c0da1aa2da640a889ad81"
+    },
+    {
+      "path": "apps/desktop/src/main/private-json.ts",
+      "sha256": "ae2b6732dd2d0b081f70bad8d9d01237749d21054a655fff21fd058fb9d621b9"
+    },
+    {
+      "path": "apps/desktop/src/main/product-settings.test.ts",
+      "sha256": "10690421099f2cc297f7233493f3bb72cdcedf6ae1b894fe5f7637e3cdb341fa"
+    },
+    {
+      "path": "apps/desktop/src/main/product-settings.ts",
+      "sha256": "87a3cec60458fafb3d60973948e969ec27a0da4ef052c41ac34252a165c7adee"
+    },
+    {
+      "path": "apps/desktop/src/preload/api.test.ts",
+      "sha256": "bc010d340c9bebab2f6a1678902dbd779baa744b285789046809f119d6d9bd74"
+    },
+    {
+      "path": "apps/desktop/src/preload/api.ts",
+      "sha256": "07560dcf2b5f6f074d8fbb9393939809cd3b79a607b4ef3d85b082608e09c9cc"
+    },
+    {
+      "path": "apps/desktop/src/renderer/App.tsx",
+      "sha256": "827de76929451eece474fc7a3f94a249bcd13f1b1032ab7e0487d371fe600445"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/ProductSettings.tsx",
+      "sha256": "06c2674f5d05835c20999ee5d81355b86ab43e5e4f8a7622c0d7bac1f7d59f54"
+    },
+    {
+      "path": "apps/desktop/src/renderer/components/Settings.tsx",
+      "sha256": "36c2cd272b23af27fa3593ca30fa4439b02afb6696e39dce17d05d03dcfc5308"
+    },
+    {
+      "path": "apps/desktop/src/renderer/store.ts",
+      "sha256": "d2864ccf12de9a76b4a2c3b2abbef76998b5cfea59e58e53727bff40658604a8"
+    },
+    {
+      "path": "apps/desktop/src/renderer/styles.css",
+      "sha256": "b0ed8176e349e84c6222c8c391504cf7efbc16ba87e2892c2775b7fbdcac1601"
+    },
+    {
+      "path": "apps/desktop/src/shared/product-settings.ts",
+      "sha256": "bcf12f2a0f4d86d23c8e76b49c64cc8ece70aba8cc00d16ef61ea41b0b6e3da9"
+    },
+    {
+      "path": "apps/desktop/src/shared/protocol.ts",
+      "sha256": "911abc461a06f5f39a755f08951b2af81032bd7adee72cddf7fede0e3b5c52eb"
+    },
+    {
+      "path": "apps/desktop/src/worker/core.ts",
+      "sha256": "3fc5a2ff0ab9a468c9d03bada366ddd75b6e3ed5ee570c4154d8c6790d1cc610"
+    },
+    {
+      "path": "apps/desktop/src/worker/protocol.ts",
+      "sha256": "afed3cef7ed19cd1ab76685870a3db7beed6b53f2a19e0eb38dab9ba44589731"
+    },
+    {
+      "path": "packages/engine/src/engine-options.ts",
+      "sha256": "2027c16855b2c199b61ed082f6d3f4629e0a2dc381378a0a94c96daa55427edd"
+    },
+    {
+      "path": "packages/engine/src/engine.ts",
+      "sha256": "cfe5df9f8f18bb2af2a3c0034bb4587b4c998d51e3d9c7ec1bc963b3a0abff24"
+    },
+    {
+      "path": "packages/engine/src/index.ts",
+      "sha256": "cb8a4929d16ff340dc9e7eee2228bb498702c116a5a65d596d897d3c3609a891"
+    },
+    {
+      "path": "packages/engine/src/provider/catalog.test.ts",
+      "sha256": "57918835fa5c176db9e2b1be1755638b52defa66588f69e21dbc4871f7411eed"
+    },
+    {
+      "path": "packages/engine/src/provider/catalog.ts",
+      "sha256": "99fb184575f0b103b7b295c24da5bf34463835da2b536bba2eb58140a77691a1"
+    },
+    {
+      "path": "packages/engine/src/shared/runtime.test.ts",
+      "sha256": "18bb509f499422d89cb723fd45188e2e4176f6ba5a9dcee2b97798182c165fd5"
+    },
+    {
+      "path": "packages/engine/src/shared/runtime.ts",
+      "sha256": "733d5d2ca3bdaebe25316c9a2fd001a0444e2775d755a2cc812545539f8f4923"
+    },
+    {
+      "path": "packages/engine/src/tools/session/skills.test.ts",
+      "sha256": "7af7bc9df38a6fc879e2fee51b37a7b2e9902d237f2e44f3e1a094693c957a40"
+    },
+    {
+      "path": "packages/engine/src/tools/session/skills.ts",
+      "sha256": "bc85ebc2d2140d5e369c9be2228ad9cf1e43d4eaa540528ff7718b8b3dc7be3a"
+    },
+    {
+      "path": "packages/engine/src/tools/web/index.ts",
+      "sha256": "eac3d5063a49f571865af254075568072d7224bf3de56ce06358cda29e0b20c7"
+    },
+    {
+      "path": "packages/engine/src/tools/web/web.test.ts",
+      "sha256": "5bae8119475eec50ab4282b3ed2e8fdbfc7d5791d2a947d9fd37989fa677f906"
+    },
+    {
+      "path": "scripts/test-desktop-product.mjs",
+      "sha256": "cdcacf42ac73ce3cd4a288d1cc240185b96b518eb1658c0549cdcc763fcae008"
+    }
+  ],
+  "providerAccountRequests": 0,
+  "searchAccountRequests": 0,
+  "publicCatalogue": {
+    "source": "https://models.dev/api.json",
+    "models": 564,
+    "providerCounts": {
+      "openai-responses": 53,
+      "anthropic": 17,
+      "google": 39,
+      "groq": 16,
+      "mistral": 42,
+      "deepseek": 4,
+      "xai": 13,
+      "openrouter": 380
+    },
+    "accountAccessClaim": false
+  },
+  "local": {
+    "buildDesktop": {
+      "passed": true
+    },
+    "initialFullTests": {
+      "total": 5678,
+      "pass": 5673,
+      "fail": 1,
+      "cancelled": 0,
+      "skipped": 4,
+      "failure": "REPOSITORY_SOURCE_STALE in actual Moodcode native TS7 repository probe while this working tree was edited",
+      "rawLog": "artifacts/product-connections/full-tests.log",
+      "rawLogSha256": "79bb1692d83518bfcea91eb5fe60d2f8e12116ff76fcfe30763af2f3866886a4"
+    },
+    "fullTests": {
+      "total": 5680,
+      "pass": 5676,
+      "fail": 0,
+      "cancelled": 0,
+      "skipped": 4,
+      "durationMs": 280135.374709,
+      "sourcePins": [
+        {
+          "path": ".github/workflows/desktop-package.yml",
+          "sha256": "ff9e312e5d79a6024df1a606a13f4420a2afd4d121ea483a27431e69a862fa1a"
+        },
+        {
+          "path": "apps/desktop/src/main/host.ts",
+          "sha256": "eb6b830de69bad9d241d85e68d190a2697af1546b408dcc25046a38f55cc9356"
+        },
+        {
+          "path": "apps/desktop/src/main/index.ts",
+          "sha256": "c9fee65dae1ce6297f1a8045029bcad981a322ffc11fa377672ecd327e726f37"
+        },
+        {
+          "path": "apps/desktop/src/main/ipc-channels.ts",
+          "sha256": "869209eb8313f03f9f21751f5affc24a35b24e3374bf9f3d4ee7d431a5d73183"
+        },
+        {
+          "path": "apps/desktop/src/main/model-catalog.ts",
+          "sha256": "30c7bb50ad088b37704f3111da8d0eee1d5b53f8149c0da1aa2da640a889ad81"
+        },
+        {
+          "path": "apps/desktop/src/main/private-json.ts",
+          "sha256": "6262bb16e27ebd1e98bac2253477765fa1cb27e00da42f7c6456790bb1227ddb"
+        },
+        {
+          "path": "apps/desktop/src/main/product-settings.test.ts",
+          "sha256": "fc62a74f34173204fb6561fbc00bcca96f767ab7a13dd198d9e0b4612af40a14"
+        },
+        {
+          "path": "apps/desktop/src/main/product-settings.ts",
+          "sha256": "217277761c5c9dc87c86a5be06538c7829e0863704fe555c985a5c5eda33dacb"
+        },
+        {
+          "path": "apps/desktop/src/preload/api.test.ts",
+          "sha256": "bc010d340c9bebab2f6a1678902dbd779baa744b285789046809f119d6d9bd74"
+        },
+        {
+          "path": "apps/desktop/src/preload/api.ts",
+          "sha256": "07560dcf2b5f6f074d8fbb9393939809cd3b79a607b4ef3d85b082608e09c9cc"
+        },
+        {
+          "path": "apps/desktop/src/renderer/App.tsx",
+          "sha256": "827de76929451eece474fc7a3f94a249bcd13f1b1032ab7e0487d371fe600445"
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/ProductSettings.tsx",
+          "sha256": "06c2674f5d05835c20999ee5d81355b86ab43e5e4f8a7622c0d7bac1f7d59f54"
+        },
+        {
+          "path": "apps/desktop/src/renderer/components/Settings.tsx",
+          "sha256": "36c2cd272b23af27fa3593ca30fa4439b02afb6696e39dce17d05d03dcfc5308"
+        },
+        {
+          "path": "apps/desktop/src/renderer/store.ts",
+          "sha256": "d2864ccf12de9a76b4a2c3b2abbef76998b5cfea59e58e53727bff40658604a8"
+        },
+        {
+          "path": "apps/desktop/src/renderer/styles.css",
+          "sha256": "b0ed8176e349e84c6222c8c391504cf7efbc16ba87e2892c2775b7fbdcac1601"
+        },
+        {
+          "path": "apps/desktop/src/shared/product-settings.ts",
+          "sha256": "bcf12f2a0f4d86d23c8e76b49c64cc8ece70aba8cc00d16ef61ea41b0b6e3da9"
+        },
+        {
+          "path": "apps/desktop/src/shared/protocol.ts",
+          "sha256": "911abc461a06f5f39a755f08951b2af81032bd7adee72cddf7fede0e3b5c52eb"
+        },
+        {
+          "path": "apps/desktop/src/worker/core.ts",
+          "sha256": "3fc5a2ff0ab9a468c9d03bada366ddd75b6e3ed5ee570c4154d8c6790d1cc610"
+        },
+        {
+          "path": "apps/desktop/src/worker/protocol.ts",
+          "sha256": "afed3cef7ed19cd1ab76685870a3db7beed6b53f2a19e0eb38dab9ba44589731"
+        },
+        {
+          "path": "packages/engine/src/engine-options.ts",
+          "sha256": "2027c16855b2c199b61ed082f6d3f4629e0a2dc381378a0a94c96daa55427edd"
+        },
+        {
+          "path": "packages/engine/src/engine.ts",
+          "sha256": "cfe5df9f8f18bb2af2a3c0034bb4587b4c998d51e3d9c7ec1bc963b3a0abff24"
+        },
+        {
+          "path": "packages/engine/src/index.ts",
+          "sha256": "cb8a4929d16ff340dc9e7eee2228bb498702c116a5a65d596d897d3c3609a891"
+        },
+        {
+          "path": "packages/engine/src/provider/catalog.test.ts",
+          "sha256": "57918835fa5c176db9e2b1be1755638b52defa66588f69e21dbc4871f7411eed"
+        },
+        {
+          "path": "packages/engine/src/provider/catalog.ts",
+          "sha256": "99fb184575f0b103b7b295c24da5bf34463835da2b536bba2eb58140a77691a1"
+        },
+        {
+          "path": "packages/engine/src/tools/session/skills.test.ts",
+          "sha256": "7af7bc9df38a6fc879e2fee51b37a7b2e9902d237f2e44f3e1a094693c957a40"
+        },
+        {
+          "path": "packages/engine/src/tools/session/skills.ts",
+          "sha256": "bc85ebc2d2140d5e369c9be2228ad9cf1e43d4eaa540528ff7718b8b3dc7be3a"
+        },
+        {
+          "path": "packages/engine/src/tools/web/index.ts",
+          "sha256": "eac3d5063a49f571865af254075568072d7224bf3de56ce06358cda29e0b20c7"
+        },
+        {
+          "path": "packages/engine/src/tools/web/web.test.ts",
+          "sha256": "5bae8119475eec50ab4282b3ed2e8fdbfc7d5791d2a947d9fd37989fa677f906"
+        },
+        {
+          "path": "scripts/test-desktop-product.mjs",
+          "sha256": "cdcacf42ac73ce3cd4a288d1cc240185b96b518eb1658c0549cdcc763fcae008"
+        }
+      ],
+      "rawLog": "artifacts/product-connections/full-tests-final.log",
+      "rawLogSha256": "26e0739d1aebef36e580fb51cd4aa87bc8be12fb4875cd1ca87459255f3d608e"
+    },
+    "gui": {
+      "schemaVersion": 1,
+      "ok": true,
+      "platform": "darwin",
+      "catalogSearch": true,
+      "deprecatedHidden": true,
+      "offlineCache": true,
+      "webFetchOptIn": true,
+      "missingSearchKeyHidden": true,
+      "pluginLoadedInOriginalUtility": true,
+      "profileForwardedAndPersisted": true,
+      "planPreserved": true,
+      "databaseSchema": 23,
+      "providerAccountRequests": 0
+    },
+    "databaseContract": {
+      "version": 23,
+      "equal": true,
+      "catalogueSha256": "a2363293416dc276fbe5e80c90c3646e2229f723cfe8d1048a47e088901d190b"
+    },
+    "finalGuards": {
+      "scope": [
+        "pre-open file identity",
+        "stale writer recheck before rename",
+        "empty search environment treated as missing",
+        "default Exa key removed from command environment"
+      ],
+      "targetTests": {
+        "total": 40,
+        "pass": 40,
+        "fail": 0,
+        "cancelled": 0,
+        "skipped": 0
+      },
+      "rawLog": "artifacts/product-connections/target-final.log",
+      "rawLogSha256": "8348041e91f99d0dc79d3062960fda6d97dc77ec905a8f7d109c9f7bb5f18fb2",
+      "note": "The complete suite passed before these final guards; affected tests and actual GUI passed again after them. Hosted CI verifies the committed source."
+    },
+    "settingsGui": {
+      "ok": true,
+      "nativeStorage": "available",
+      "fileMode": "0600",
+      "plaintextStored": false,
+      "rendererCredentialReflected": false,
+      "settingsErrorVisibleInDialog": true,
+      "storedKeyRemoved": true,
+      "sdkProviderSelections": 6,
+      "sdkSettingsSwitch": true,
+      "codexSettingsSwitch": false,
+      "providerRequests": 0
+    },
+    "codexBroker": {
+      "passed": true,
+      "externalRequests": 0,
+      "sameGeneration": 1,
+      "credentialRequests": 3,
+      "applicationExitCode": 0
+    }
+  },
+  "hosted": [],
+  "release": {
+    "publishing": false,
+    "signingPerformed": false,
+    "missingDarwin": [
+      "CSC_LINK",
+      "CSC_KEY_PASSWORD",
+      "Apple notarization credentials"
+    ],
+    "missingWindows": [
+      "WIN_CSC_LINK or CSC_LINK",
+      "Windows certificate password",
+      "MOODCODE_WINDOWS_PUBLISHER_NAME"
+    ],
+    "repositorySigningSecretsConfigured": false
+  },
+  "limits": [
+    "Actual provider and Exa account calls excluded by user.",
+    "SDK inputs remain text; provider-specific SDK reasoning options unchanged.",
+    "Plugin modules use Moodcode EnginePlugin ABI and execute trusted host code.",
+    "System Node.js/npm required for plugin installation; installed cache is retained when removed from configuration.",
+    "Additional search providers, signing/notarization/public release, Windows PTY and additional architectures remain unverified."
+  ]
+}
