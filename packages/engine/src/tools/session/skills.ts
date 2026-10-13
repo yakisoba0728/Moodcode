@@ -36,8 +36,25 @@ async function read(root: string, path: string, signal: AbortSignal): Promise<{ 
   } finally { await file.close(); }
 }
 export class LocalReferenceService {
+  constructor(private readonly directories: readonly { path: string; label: string }[] = [], private readonly compatibility = false) {
+    if (directories.length > 8 || directories.some(item => !isAbsolute(item.path) || resolve(item.path) !== item.path || typeof item.label !== 'string' || !/^[A-Za-z0-9_.-]{1,64}$/u.test(item.label))) throw new EngineError('INVALID_CONFIG', 'Skill directories must be bounded absolute host paths with source labels');
+  }
+  #roots(workspaceRoot: string) {
+    return [{ path: join(workspaceRoot, '.moodcode', 'skills'), label: '.moodcode/skills' },
+      ...(this.compatibility ? [{ path: join(workspaceRoot, '.agents', 'skills'), label: '.agents/skills' }, { path: join(workspaceRoot, '.claude', 'skills'), label: '.claude/skills' }] : []), ...this.directories];
+  }
   async list(workspaceRoot: string, signal: AbortSignal): Promise<{ skills: LocalSkill[]; truncated: boolean }> {
-    const root = join(workspaceRoot, '.moodcode', 'skills');
+    const skills: LocalSkill[] = []; let truncated = false;
+    for (const root of this.#roots(workspaceRoot)) {
+      const result = await this.#listRoot(root.path, root.label, signal);
+      truncated ||= result.truncated;
+      for (const item of result.skills) if (!skills.some(prior => prior.id === item.id)) {
+        if (skills.length === 64) { truncated = true; break; } skills.push(item);
+      }
+    }
+    return { skills, truncated };
+  }
+  async #listRoot(root: string, label: string, signal: AbortSignal): Promise<{ skills: LocalSkill[]; truncated: boolean }> {
     const names: string[] = []; let scanned = 0, truncated = false;
     try {
       const directory = await opendir(root);
@@ -51,7 +68,7 @@ export class LocalReferenceService {
       try {
         const result = await read(root, join(id, 'SKILL.md'), signal);
         const description = /^description:\s*["']?([^\r\n]{1,1024})/mu.exec(result.text)?.[1]?.replace(/["']$/u, '') ?? result.text.split('\n').find(line => line.trim() && !line.startsWith('---'))?.slice(0, 1024) ?? id;
-        skills.push({ id, path: `.moodcode/skills/${id}/SKILL.md`, description, sha256: result.sha256 });
+        skills.push({ id, path: `${label}/${id}/SKILL.md`, description, sha256: result.sha256 });
       } catch (error) { live(signal); if (error instanceof EngineError && ['REFERENCE_PATH_UNSAFE', 'REFERENCE_CHANGED', 'REFERENCE_BINARY_UNSUPPORTED'].includes(error.code) || (error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw new EngineError('SKILL_DISCOVERY_FAILED', 'A local skill could not be inspected'); }
     }
     return { skills, truncated };
@@ -59,7 +76,12 @@ export class LocalReferenceService {
   async skill(workspaceRoot: string, id: string, reference: string | undefined, signal: AbortSignal) {
     if (!idPattern.test(id)) throw new EngineError('INVALID_SKILL_ID', 'Skill needs a bounded directory identifier');
     const path = reference ?? 'SKILL.md';
-    return { ...await read(join(workspaceRoot, '.moodcode', 'skills', id), path, signal), source: `.moodcode/skills/${id}/${path}`, kind: 'local-skill' };
+    for (const root of this.#roots(workspaceRoot)) {
+      try { await lstat(join(root.path, id, 'SKILL.md')); }
+      catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue; throw error; }
+      return { ...await read(join(root.path, id), path, signal), source: `${root.label}/${id}/${path}`, kind: 'local-skill' };
+    }
+    throw new EngineError('SKILL_NOT_FOUND', 'Skill was not found in the enabled discovery roots');
   }
   async reference(workspaceRoot: string, path: string, signal: AbortSignal) { return { ...await read(join(workspaceRoot, '.moodcode', 'references'), path, signal), source: `.moodcode/references/${path}`, kind: 'local-reference' }; }
 }

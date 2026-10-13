@@ -1,6 +1,8 @@
 # Moodcode 구현·리팩터링 TODO
 
-갱신일: 2026-10-12, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 계정·LSP 보강 기준: `2a13f2e`, [통합 결과](docs/moodcode/engine-account-lsp-followup-verification.md). 다른 세션은 [HANDOFF](HANDOFF.md)에서 시작한다. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+갱신일: 2026-10-13, Asia/Seoul. 초기 기준 구현: `6d9a952`, 분석·구현안: `77e16e2`. 2차 최종 검증 source: `99bf6f0`, 문서 커밋: `c4af35e`. 최신 계정·LSP 보강 기준: `2a13f2e`, [통합 결과](docs/moodcode/engine-account-lsp-followup-verification.md). 다른 세션은 [HANDOFF](HANDOFF.md)에서 시작한다. 사용자가 확정한 순서는 **자체 엔진을 먼저 구현하고 이후 Electron GUI에 연결**하는 것이다.
+
+2026-10-13 `codex/product-connections`에서 모델 카탈로그·승인된 웹 조사·전역/호환 Skills·명시적 npm Plugin 설치/활성화·에이전트 설정/실행 선택을 구현했다. 실제 Electron GUI와 DB23을 확인했다. 공급자/검색 계정 호출은 제외한다. 최종 전체 회귀 5,677 pass/실패·취소 0/skip 4와 PR CI 11/11·세 OS GUI/unsigned 패키지를 확인했으며 N-05 signing 자격은 없어 공개 release하지 않는다. [기능 계약](docs/moodcode/product-connections.md)·[검증 기록](docs/moodcode/product-connections-verification.json).
 
 상태: G1-29까지 1차 구현과 자체 메인 엔진 2차 MC2-01~20의 **80/80 항목·20/20 기능군**을 명시 지원 범위에서 완료했다. 원래 조건을 유지한 독립 감사, 전체 회귀와 실제 공개 CI 여섯 작업으로 확인했다. [최종 수용 근거](docs/moodcode/engine-phase-two-final-acceptance-verification.json)와 docs/moodcode/engine-phase-two-progress.json을 기준으로 사용한다. E5-08 native Windows x64와 N-03의 선택 앱 계정 추론을 확인했다. E5-13·서명 배포·과거 PTY 실패 진단 R-PTY-01 및 아래 추가 검증은 열린 후속 범위다.
 
@@ -16,6 +18,14 @@
 - [x] **SDK-CI — 커밋·푸시와 OS 빌드 검증(2026-10-12)**: `codex/ai-sdk-providers`에 SDK 구현 `2f6d4f9`와 CI 조정 `262b0ca`를 게시했다. 엔진 6/6·native Windows 2/2·Desktop packages 3/3 성공. SDK 프로토콜·worker·승인·취소·복구 12/12를 세 OS에 연결하고 macOS 실제 설정·암호화 키 전환도 확인했다. macOS arm64·Linux x64·Windows x64의 unsigned bundle·실제 native smoke를 통과했다. 첫 macOS Node 26 테스트 2개 실패는 보존했고 macOS 파일 병렬도 4→2 후 전체 5,372/5,368 pass/실패 0/skip 4를 Node 24·26에서 확인했다. 제품 deadline·assertion·skip은 변경하지 않았다. 제품 소스가 동일한 패키지/native Windows 결과와 CI 수정 후 엔진 결과를 구분한다. 원래 sandbox 명령 오류 원인은 미확정이며 실제 계정·서명/공증 배포를 완료로 세지 않는다. [hosted 기록](docs/moodcode/ai-sdk-provider-hosted-ci.json).
 
 - [x] **SDK-MAIN — main 통합·실패 수정과 새 OS 검증(2026-10-12)**: `5d97284`로 fast-forward 통합·푸시했다. 첫 main CI의 macOS Node 24 host command fixture 실패는 파일 존재가 쓰기 완료를 뜻하지 않는 경합으로 재현했고, `9270e19`에서 닫힌 임시 파일 rename과 회귀 테스트로 수정했다. 제품 코드·원래 timeout/assertion/skip 불변, 로컬 관련 compiled 17/17·타입 검사 성공. 같은 main 수정 커밋의 엔진 6/6·native Windows 2/2·Desktop packages 3/3가 모두 성공했다. macOS 각 5,369 pass/skip 4, Linux 각 5,302 pass/skip 71, native Windows 각 40/40이며 SDK 12/12와 unsigned macOS arm64·Linux/Windows x64 실제 패키지 실행을 확인했다. 첫 실패와 원본 근거를 [main 수용 기록](docs/moodcode/ai-sdk-provider-main-ci.json)에 보존했다. 후속 기록 커밋은 문서만 변경한다.
+
+2026-10-13 사용자 승인 후 `codex/product-connections`에서 다음 순서로 진행한다. 실제 공급자 계정 호출은 제외하고 기존 엔진·Codex 인증·승인·취소·복구·DB23을 보존한다.
+
+- [x] **PC-01 — 공급자·모델 카탈로그**: 현재 지원 공급자의 공개 Models.dev 목록·검색·capability·한도 표시, 명시적 갱신·오프라인 캐시와 선택 모델 metadata 연결. 계정 권한과 실제 adapter 지원을 catalog 선언과 구분한다.
+- [x] **PC-02 — 웹 조사 도구**: 승인된 공개 웹 수집과 명시적 검색 공급자를 기존 도구·정책·취소·출력 상한에 연결한다. 비공개 주소·credential URL·임의 redirect 및 키 노출을 차단하고 외부 본문은 비신뢰 자료로 다룬다.
+- [x] **PC-03 — Skills·Plugins 설정**: 기존 skill/reference와 plugin manager를 재사용해 전역·호환 skill 경로와 명시적으로 선택한 확장을 관리한다. 설치·실행은 사용자 설정으로만 허용한다.
+- [x] **PC-04 — 에이전트 설정 UX**: profile의 지침·도구·모델·예산을 편집하고 실행 시 선택한다. Plan/Build·host 권한·기존 요청 ID와 profile revision 계약을 유지한다.
+- [x] **PC-05 — 통합·배포 준비 검증**: 영향 회귀·GUI·DB23과 OS CI/패키지를 확인한다. 실제 계정 호출·서명 자격이 없는 signing/notarization·공개 release는 수행하지 않는다.
 
 기존 열린 항목은 아래 원래 ID에서 추적하며 별도 완료 집계로 중복 계산하지 않는다.
 

@@ -5,6 +5,21 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { LocalReferenceService } from './skills.js';
 
+test('explicit global and compatibility roots preserve workspace priority and bounded references', async t => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-skill-roots-'))); t.after(() => rm(root, { recursive: true, force: true }));
+  const global = join(root, 'global');
+  for (const [base, id, content] of [[join(root, '.moodcode', 'skills'), 'review', 'workspace'], [global, 'review', 'global-shadow'], [global, 'global-only', 'global'], [join(root, '.agents', 'skills'), 'compatible', 'compatible']] as const) {
+    await mkdir(join(base, id), { recursive: true }); await writeFile(join(base, id, 'SKILL.md'), content);
+  }
+  const signal = new AbortController().signal;
+  assert.deepEqual((await new LocalReferenceService().list(root, signal)).skills.map(item => item.id), ['review']);
+  const service = new LocalReferenceService([{ path: global, label: 'global' }], true);
+  assert.deepEqual((await service.list(root, signal)).skills.map(item => item.id), ['review', 'compatible', 'global-only']);
+  assert.equal((await service.skill(root, 'review', undefined, signal)).text, 'workspace');
+  assert.equal((await service.skill(root, 'global-only', undefined, signal)).source, 'global/global-only/SKILL.md');
+  await assert.rejects(service.skill(root, 'global-only', '../review/SKILL.md', signal), { code: 'INVALID_REFERENCE_PATH' });
+});
+
 test('workspace-local skills and references return bounded content with provenance and reject escapes', async t => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'moodcode-local-skills-'))); t.after(() => rm(root, { recursive: true, force: true }));
   await mkdir(join(root, '.moodcode', 'skills', 'check', 'references'), { recursive: true });

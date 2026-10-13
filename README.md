@@ -60,6 +60,8 @@ AI SDK 7로 Google Gemini·Groq·Mistral·DeepSeek·xAI·OpenRouter를 추가했
 Desktop은 `MOODCODE_API_KEY` → 선택 공급자의 환경 변수 → 해당 공급자에 묶인 암호화 키 순으로 읽는다. Harness는 명시한 `apiKeyEnv`를 우선하며, 없으면 `MOODCODE_API_KEY` → 선택 공급자의 환경 변수를 사용한다. 다른 공급자의 키나 Codex 로그인 credential을 자동 재사용하지 않는다. SDK 공급자의 기본 endpoint는 내장되어 있어 harness에서 `--provider google --model YOUR_MODEL_ID`처럼 지정할 수 있고, `--base-url` 또는 `providers[id].baseURL`로 덮어쓸 수 있다. 모델 ID는 사용자가 지정하며 SDK 지원이 실제 계정·모델 검증 완료를 뜻하지 않는다.
 
 
+설정 화면에서 공개 모델 카탈로그 검색·선택과 웹 조사, 전역·호환 Skills, 고정 버전 Plugins, 에이전트 프로파일을 관리할 수 있다. 웹과 외부 확장은 기본적으로 꺼져 있으며 사용자 선택 후 활성화한다. [사용법과 지원 경계](docs/moodcode/product-connections.md)를 참고한다.
+
 `npm run package:desktop` 결과는 `release/mac-arm64/Moodcode.app`이다. 현재 서명·공증되지 않은 개발용 bundle이다. `npm run verify:codex`는 실제 계정 사용량을 소비하는 명시적 검증 명령이며, 기본 테스트에는 포함되지 않는다. 임시 저장소의 정확히 지정한 수정·명령만 자동 승인하고 fixture를 삭제한다.
 
 `demo`는 임시 Git 저장소와 scripted 모델에서 파일 읽기·patch 승인·적용·명령 승인·테스트 실행·결과 조회를 연결하는 로컬 검증이다. 임시 fixture에 대해서만 승인한다. 실제 공급자 성공 여부를 검증하는 호출은 아니다.

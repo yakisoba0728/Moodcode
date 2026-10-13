@@ -1,6 +1,12 @@
 /** This closed list is the entire renderer-to-main transport. */
 export const DESKTOP_CHANNELS = Object.freeze({
   bootstrap: 'moodcode:bootstrap',
+  modelCatalog: 'moodcode:model-catalog',
+  productSettings: 'moodcode:product-settings',
+  saveProductSettings: 'moodcode:save-product-settings',
+  installPlugin: 'moodcode:install-plugin',
+  cancelPluginInstall: 'moodcode:cancel-plugin-install',
+  refreshModelCatalog: 'moodcode:refresh-model-catalog',
   command: 'moodcode:command',
   advanced: 'moodcode:advanced',
   advancedSnapshot: 'moodcode:advanced-snapshot',

@@ -25,6 +25,9 @@ import type { ChildTaskManager, ChildTaskRecord } from './child-tasks/index.js';
 import type { WorktreeManager } from './worktrees/index.js';
 
 export interface EngineOptions {
+  webTools?: import('./tools/web/index.js').WebToolOptions;
+  skillDirectories?: readonly { path: string; label: string }[];
+  compatibilitySkills?: boolean;
   /** Actual Darwin kernel sandbox, explicit grants, never a host fallback. */
   osSandbox?:boolean;
   /** Actual OS-isolated closed JSON runtime, with individual nested native approvals. */
@@ -214,6 +217,7 @@ export function resolveEngineOptions(options: EngineOptions): ResolvedEngineOpti
   if(options.osSandbox && (options.repositoryContextTools||options.verificationTools||options.lifecycleHooks?.length||options.lifecycleHookRegistry?.list().length))throw new EngineError('SANDBOX_EXTERNAL_EFFECT_UNSUPPORTED','Repository/verification or host lifecycle callbacks require a separately sandbox-bound producer');
   if(options.osSandbox && options.tools)throw new EngineError('SANDBOX_CUSTOM_TOOLS_UNSUPPORTED','Custom effects cannot assert OS sandbox enforcement');
   assertOptionalBoolean(options, 'commandLifetimes', 'commandLifetimes requires an explicit host boolean');
+  assertOptionalBoolean(options, 'compatibilitySkills', 'Skill compatibility requires an explicit host boolean');
   if(options.osSandbox && options.commandLifetimes===true)throw new EngineError('SANDBOX_COMMAND_LIFETIME_UNSUPPORTED','Interactive ownership transfer requires a separately sandbox-bound command lifetime producer');
   if(options.commandLifetimes===true&&(options.jobs!==true||options.hostCommands!==true))throw new EngineError('INVALID_CONFIG','commandLifetimes requires jobs and hostCommands');
   assertOptionalBoolean(options, 'hostCommands', 'hostCommands must be an explicit boolean');

@@ -56,6 +56,7 @@ export interface UtilityCloseDiagnostics {
 export const UTILITY_CLOSE_DIAGNOSTIC_LIMIT = 64;
 
 export interface DesktopHostOptions {
+  runtimeOptions?(config: WorkerEngineConfig): Pick<WorkerStartPayload, 'modelSpecs' | 'productSettings' | 'searchKey' | 'plugins'>;
   spawn: () => UtilityTransport;
   settings: HostSettingsStore;
   dbPath: string;
@@ -262,6 +263,7 @@ export class DesktopHost {
   private async start(config: WorkerEngineConfig, publishReady = true): Promise<void> {
     if (this.closing) throw new HostError('ENGINE_CLOSED', 'Desktop is closing.');
     if (this.connection && !this.connection.closed && !this.connection.exited) throw new HostError('ENGINE_BUSY', 'The previous engine must close before a new one starts.');
+    const runtime = this.options.runtimeOptions?.(config);
     this.status.generation += 1;
     this.publish('starting');
     const secrets = credentialSecrets(config);
@@ -288,11 +290,13 @@ export class DesktopHost {
       });
     }
     const payload: WorkerStartPayload = {
+      ...runtime,
       dbPath: this.options.dbPath, artifactDir: this.options.artifactDir,
       config: this.options.testScenario ? { providerId: 'scripted', modelId: `desktop-${this.options.testScenario}-fixture`, baseURL: '' } : { ...config },
       ...(this.options.testScenario ? { testScenario: this.options.testScenario } : {}),
       ...(connection.credentials ? { codexCredentialBroker: true } : {}),
     };
+    if (payload.searchKey) connection.secrets.push(payload.searchKey);
     try {
       await this.rpc(connection, 'start', payload);
       if (this.closing) throw new HostError('ENGINE_CLOSED', 'Desktop is closing.');

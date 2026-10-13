@@ -1,7 +1,11 @@
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { validateProductSettings } from '../shared/product-settings.js';
 import { isAiSdkProviderId, EngineError, REASONING_EFFORTS, SCHEMA_VERSION, isTerminal, type EngineCapabilities } from '@moodcode/contracts';
-import { getRecoveryStatus, recoverEngine, createEngine, AiSdkProvider, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
+import { getRecoveryStatus, recoverEngine, createEngine, ModelRegistry, AiSdkProvider, AnthropicProvider, CodexProvider, OpenAICompatibleProvider, ResponsesProvider, ScriptedProvider, type EngineOptions, type MoodcodeEngine, type ProviderAdapter } from '@moodcode/engine';
 import type { DesktopUpdate } from '../shared/protocol.js';
 import { ANTHROPIC_REASONING_EFFORTS } from '../shared/protocol.js';
 import type { CodexCredential, WorkerBootstrap, WorkerEngineConfig, WorkerPush, WorkerResponse, WorkerStartPayload } from './protocol.js';
@@ -131,14 +135,29 @@ function config(value: unknown, scenario?: 'coding' | 'slow' | 'advanced' | 'acc
   return { providerId: source.providerId, modelId, baseURL, ...(anthropicWorkspaceId ? { anthropicWorkspaceId: anthropicWorkspaceId as string } : {}), ...(apiKey ? { apiKey } : {}), ...(reasoningEffort ? { reasoningEffort: reasoningEffort as import('@moodcode/contracts').ReasoningEffort } : {}) };
 }
 function startPayload(value: unknown): WorkerStartPayload {
-  const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario', 'codexCredentialBroker']);
+  const source = record(value, ['dbPath', 'artifactDir', 'config', 'testScenario', 'codexCredentialBroker', 'modelSpecs', 'productSettings', 'searchKey', 'plugins']);
   const dbPath = text(source.dbPath, 'dbPath', 4096);
   const artifactDir = text(source.artifactDir, 'artifactDir', 4096);
   if ((dbPath !== ':memory:' && !isAbsolute(dbPath)) || !isAbsolute(artifactDir)) throw new EngineError('INVALID_CONFIG', 'Engine storage paths must be absolute.');
   if (source.testScenario !== undefined && source.testScenario !== 'coding' && source.testScenario !== 'slow' && source.testScenario !== 'advanced' && source.testScenario !== 'account') invalid('Unknown desktop test scenario.');
   const resolved = config(source.config, source.testScenario);
+  const productSettings = source.productSettings === undefined ? undefined : validateProductSettings(source.productSettings);
+  if (source.searchKey !== undefined && (typeof source.searchKey !== 'string' || !/^[\x21-\x7e]{1,4096}$/u.test(source.searchKey) || !productSettings?.web || !productSettings.searchKeyEnv)) invalid('Web search credentials require explicit web settings.');
+  const plugins = source.plugins === undefined ? [] : source.plugins;
+  if (!Array.isArray(plugins) || plugins.length > 8) invalid('Plugin startup configuration is invalid.');
+  const selectedPlugins = plugins.map(raw => {
+    const item = record(raw, ['name', 'version', 'enabled', 'entry']);
+    if (!productSettings?.plugins.some(plugin => plugin.enabled && plugin.name === item.name && plugin.version === item.version) || item.enabled !== true || typeof item.entry !== 'string' || !isAbsolute(item.entry) || Buffer.byteLength(item.entry) > 4096 || item.entry.includes('\0')) invalid('Only explicitly enabled installed plugins may start.');
+    return { name: item.name as string, version: item.version as string, enabled: true, entry: item.entry as string };
+  });
+  if (source.modelSpecs !== undefined && (!Array.isArray(source.modelSpecs) || source.modelSpecs.length > 9)) invalid('Only configured model metadata may be supplied.');
+  const registry = new ModelRegistry();
+  for (const spec of (source.modelSpecs ?? []) as import('@moodcode/engine').ModelSpec[]) registry.put(spec);
+  const modelSpecs = registry.list();
+  const selectedModels = [resolved.modelId, ...(productSettings?.profiles.flatMap(profile => profile.modelId ? [profile.modelId] : []) ?? [])];
+  if (modelSpecs.some(spec => spec.providerId !== resolved.providerId || !selectedModels.includes(spec.modelId)) && !source.testScenario) invalid('Model metadata must belong to the selected provider and configured models.');
   if (source.codexCredentialBroker !== undefined && (source.codexCredentialBroker !== true || resolved.providerId !== 'codex' || !resolved.codexCredential)) invalid('Codex credential broker configuration is invalid.');
-  return { dbPath, artifactDir, config: resolved, ...(source.testScenario ? { testScenario: source.testScenario } : {}), ...(source.codexCredentialBroker ? { codexCredentialBroker: true } : {}) };
+  return { dbPath, artifactDir, config: resolved, ...(productSettings ? { productSettings } : {}), ...(source.searchKey ? { searchKey: source.searchKey as string } : {}), ...(selectedPlugins.length ? { plugins: selectedPlugins } : {}), ...(!source.testScenario && modelSpecs.length ? { modelSpecs } : {}), ...(source.testScenario ? { testScenario: source.testScenario } : {}), ...(source.codexCredentialBroker ? { codexCredentialBroker: true } : {}) };
 }
 function selectedProvider(payload: WorkerStartPayload, credentialReader?: UtilityWorkerOptions['requestCodexCredential']): ProviderAdapter {
   if (payload.testScenario) return testFixtureProvider(payload.testScenario);
@@ -169,6 +188,7 @@ export class UtilityWorker {
   #closing = false;
   #closePromise?: Promise<void>;
   #secrets: string[] = [];
+  #shutdown = new AbortController();
   constructor(options: UtilityWorkerOptions) { this.#options = options; }
   get subscriptionCount(): number { return this.#subscriptions.size; }
 
@@ -191,6 +211,8 @@ export class UtilityWorker {
           if (this.#engine) throw new EngineError('ENGINE_BUSY', 'Desktop engine has already started.');
           const payload = startPayload(request.payload);
           this.#secrets = payload.config.codexCredential ? [...payload.config.codexCredential.secrets] : payload.config.apiKey ? [payload.config.apiKey] : [];
+          if (payload.searchKey) this.#secrets.push(payload.searchKey);
+          if (this.#secrets.some(secret => secret && JSON.stringify(payload.productSettings ?? {}).includes(secret))) invalid('Extension metadata must not contain credentials.');
           if (payload.codexCredentialBroker && !this.#options.requestCodexCredential) throw new EngineError('INVALID_CONFIG', 'The private Codex credential broker is unavailable.');
           const provider = selectedProvider(payload, async signal => {
             const credential = checkedCredential(await this.#options.requestCodexCredential!(signal));
@@ -200,12 +222,31 @@ export class UtilityWorker {
             return credential;
           });
           this.#engine = (this.#options.createEngine ?? createEngine)({
+            ...(payload.productSettings?.web ? { webTools: { ...(payload.searchKey ? { searchKey: payload.searchKey } : {}) } } : {}),
+            ...(payload.productSettings?.searchKeyEnv ? { credentialEnvNames: [payload.productSettings.searchKeyEnv] } : {}),
+            ...(payload.productSettings?.compatibilitySkills ? { compatibilitySkills: true } : {}),
+            ...(payload.productSettings?.globalSkills ? { skillDirectories: [
+              { path: join(homedir(), '.config', 'moodcode', 'skills'), label: 'global-moodcode' },
+              ...(payload.productSettings.compatibilitySkills ? [{ path: join(homedir(), '.agents', 'skills'), label: 'global-agents' }, { path: join(homedir(), '.claude', 'skills'), label: 'global-claude' }] : []),
+            ] } : {}),
+            ...(payload.productSettings ? { agentProfiles: payload.productSettings.profiles.map(({ modelId, ...profile }) => ({ ...profile, ...(modelId ? { model: { providerId: payload.config.providerId, modelId } } : {}) })) } : {}),
             dbPath: payload.dbPath, artifactDir: payload.artifactDir, providers: [provider],
+            ...(payload.modelSpecs ? { modelSpecs: payload.modelSpecs } : {}),
             defaults: { providerId: payload.config.providerId, modelId: payload.config.modelId, ...(payload.config.reasoningEffort ? { reasoningEffort: payload.config.reasoningEffort } : {}) },
             teams: true, teamModelTools: true, residentTeams: true, workflows: true, jobs: true, diagnosticObservations: true,
           });
           if ('dispatchSession' in this.#engine) this.#advanced = new AdvancedService(this.#engine as MoodcodeEngine);
-          try { result = await this.#tracked(() => this.#bootstrap()); }
+          const engine = this.#engine;
+          try { result = await this.#tracked(async () => {
+            for (const plugin of payload.plugins ?? []) {
+              if (this.#closing) throw new EngineError('ENGINE_CLOSED', 'Plugin startup cancelled.');
+              const module = await import(pathToFileURL(plugin.entry).href) as { default?: import('@moodcode/engine').EnginePlugin };
+              if (this.#closing) throw new EngineError('ENGINE_CLOSED', 'Plugin startup cancelled.');
+              if (!module.default || typeof module.default.activate !== 'function' || !('activatePlugin' in engine)) throw new EngineError('PLUGIN_CONTRACT_INVALID', 'Plugins must export a Moodcode EnginePlugin as default.');
+              await (engine as MoodcodeEngine).activatePlugin(module.default, AbortSignal.any([this.#shutdown.signal, AbortSignal.timeout(5000)]));
+            }
+            return this.#bootstrap();
+          }); }
           catch (error) { await this.#engine.close(); this.#engine = undefined; throw error; }
           break;
         }
@@ -412,6 +453,7 @@ export class UtilityWorker {
   close(): Promise<void> {
     if (this.#closePromise) return this.#closePromise;
     this.#closing = true;
+    this.#shutdown.abort();
     const subscriptions = [...this.#subscriptions.values()];
     for (const subscription of subscriptions) { subscription.abort.abort(); this.#clearUpdate(subscription); }
     this.#subscriptions.clear();

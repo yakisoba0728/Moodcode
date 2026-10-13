@@ -16,6 +16,10 @@ export interface WorkerEngineConfig {
   reasoningEffort?: import('@moodcode/contracts').ReasoningEffort;
 }
 export interface WorkerStartPayload {
+  productSettings?: import('../shared/product-settings.js').ProductSettings;
+  searchKey?: string;
+  plugins?: { name: string; version: string; enabled: boolean; entry: string }[];
+  modelSpecs?: import('@moodcode/engine').ModelSpec[];
   dbPath: string;
   artifactDir: string;
   config: WorkerEngineConfig;

@@ -81,7 +81,8 @@ import { QuestionManager } from './questions/index.js';
 import { SessionTaskService } from './session-state/index.js';
 import { createSessionTaskTools } from './tools/session/index.js';
 import { createQuestionTool } from './tools/session/question.js';
-import { createLocalReferenceTools } from './tools/session/skills.js';
+import { createLocalReferenceTools, LocalReferenceService } from './tools/session/skills.js';
+import { createWebTools } from './tools/web/index.js';
 import { createArtifactReadTool } from './tools/session/artifact.js';
 import { ArtifactStore } from './artifacts/store.js';
 import { EnginePluginManager, type EnginePlugin, type ActivePlugin } from './plugins/index.js';
@@ -451,7 +452,7 @@ export class MoodcodeEngine implements EngineRuntime {
       } : undefined;
       const coreCommand = createCommandTool({...commandObserver?{observer:commandObserver}:{},...options.osSandbox?{sandbox:(context:ToolContext)=>this.sandboxHost.launch(context)}:{}});
       const lifetimeTools = options.commandLifetimes===true?createCommandLifetimeTools(()=>this.commandLifetimes):[];
-      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...lifetimeTools, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
+      const allCoreTools = options.tools ?? [...createReadTools(), createPatchTool(), coreCommand, ...lifetimeTools, createExactEditTool(), ...createFileActionTools(), ...createPatternSearchTools(), ...createSessionTaskTools(this.tasks), createQuestionTool(this.questions), ...createLocalReferenceTools(new LocalReferenceService(options.skillDirectories, options.compatibilitySkills)), ...(options.webTools ? createWebTools(options.webTools) : []), createArtifactReadTool(this.store, this.managedArtifacts), createFormatTool(this.formatters), createLspFormatTool(this.lsp), createChildMergeTool(options.childTaskScope?.tasks ?? this.children.tasks, options.childTaskScope?.worktrees ?? this.children.worktrees, options.childTaskScope?.sessionId), createDelegateTaskTool(this.children.delegationHost(this.executionLockPath))];
       this.childToolNames = Object.freeze([...(options.tools ?? allCoreTools.filter(tool => tool.name !== 'delegate_task' && !lifetimeTools.includes(tool))).map(tool => tool.name), ...(this.enabled.verification ? ['verify_changes'] : []), ...(toolDiscoveryPolicy ? ['discover_tools'] : []), ...(this.enabled.teamModelTools ? TEAM_MODEL_TOOL_NAMES : [])]);
       // Effect paths with no OS-bound producer are deliberately absent from this catalogue.
       const coreTools=options.osSandbox ? allCoreTools.filter(t=>['run_command','delegate_task'].includes(t.name)) : allCoreTools;
