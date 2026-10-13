@@ -150,11 +150,12 @@ function startPayload(value: unknown): WorkerStartPayload {
     if (!productSettings?.plugins.some(plugin => plugin.enabled && plugin.name === item.name && plugin.version === item.version) || item.enabled !== true || typeof item.entry !== 'string' || !isAbsolute(item.entry) || Buffer.byteLength(item.entry) > 4096 || item.entry.includes('\0')) invalid('Only explicitly enabled installed plugins may start.');
     return { name: item.name as string, version: item.version as string, enabled: true, entry: item.entry as string };
   });
-  if (source.modelSpecs !== undefined && (!Array.isArray(source.modelSpecs) || source.modelSpecs.length > 1)) invalid('Only the selected model metadata may be supplied.');
+  if (source.modelSpecs !== undefined && (!Array.isArray(source.modelSpecs) || source.modelSpecs.length > 9)) invalid('Only configured model metadata may be supplied.');
   const registry = new ModelRegistry();
   for (const spec of (source.modelSpecs ?? []) as import('@moodcode/engine').ModelSpec[]) registry.put(spec);
   const modelSpecs = registry.list();
-  if (modelSpecs.some(spec => spec.providerId !== resolved.providerId || spec.modelId !== resolved.modelId) && !source.testScenario) invalid('Model metadata must belong to the selected provider and model.');
+  const selectedModels = [resolved.modelId, ...(productSettings?.profiles.flatMap(profile => profile.modelId ? [profile.modelId] : []) ?? [])];
+  if (modelSpecs.some(spec => spec.providerId !== resolved.providerId || !selectedModels.includes(spec.modelId)) && !source.testScenario) invalid('Model metadata must belong to the selected provider and configured models.');
   if (source.codexCredentialBroker !== undefined && (source.codexCredentialBroker !== true || resolved.providerId !== 'codex' || !resolved.codexCredential)) invalid('Codex credential broker configuration is invalid.');
   return { dbPath, artifactDir, config: resolved, ...(productSettings ? { productSettings } : {}), ...(source.searchKey ? { searchKey: source.searchKey as string } : {}), ...(selectedPlugins.length ? { plugins: selectedPlugins } : {}), ...(!source.testScenario && modelSpecs.length ? { modelSpecs } : {}), ...(source.testScenario ? { testScenario: source.testScenario } : {}), ...(source.codexCredentialBroker ? { codexCredentialBroker: true } : {}) };
 }

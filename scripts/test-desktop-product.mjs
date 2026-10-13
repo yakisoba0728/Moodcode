@@ -13,6 +13,12 @@ const root = await mkdtemp(join(tmpdir(), 'moodcode-product-gui-'));
 const data = join(root, 'data'), workspace = join(root, 'workspace');
 const artifacts = resolve('artifacts/product-connections');
 await mkdir(data); await mkdir(workspace); await mkdir(artifacts, { recursive: true });
+let lastStage = 'fixture-created', passed = false;
+async function stage(value) {
+  lastStage = value;
+  await writeFile(join(artifacts, 'gui-progress.json'), JSON.stringify({ stage: value, platform: process.platform, originalDirectory: root }));
+  console.log(`[product GUI] ${value}`);
+}
 execFileSync('git', ['init', '-q', workspace]);
 await writeFile(join(data, 'settings.json'), JSON.stringify({ schemaVersion: 1, providerId: 'scripted', modelId: 'local', baseURL: '' }), { mode: 0o600 });
 await writeFile(join(data, 'model-catalog.json'), JSON.stringify(parseModelCatalog({ google: { name: 'Google', models: {
@@ -26,9 +32,12 @@ await writeFile(join(pluginRoot, 'index.js'), `export default {id:'guiFixture',a
 await writeFile(join(data, 'product-settings.json'), JSON.stringify({ schemaVersion: 1, web: false, globalSkills: false, compatibilitySkills: false, profiles: [], plugins: [{ name: 'fixture-plugin', version: '1.0.0', enabled: false }] }));
 let application;
 try {
+  await stage('launching');
   application = await electron.launch({ args: [resolve('apps/desktop')], env: { ...process.env, MOODCODE_DESKTOP_TEST: '1', MOODCODE_DESKTOP_USER_DATA: data, MOODCODE_DESKTOP_TEST_WORKSPACE: workspace,
-    MOODCODE_API_KEY: '', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', EXA_API_KEY: '', ...Object.fromEntries(Object.values(AI_SDK_PROVIDERS).map(preset => [preset.apiKeyEnv, ''])) } });
-  const page = await application.firstWindow();
+    MOODCODE_API_KEY: '', OPENAI_API_KEY: '', ANTHROPIC_API_KEY: '', EXA_API_KEY: '', ...Object.fromEntries(Object.values(AI_SDK_PROVIDERS).map(preset => [preset.apiKeyEnv, ''])) }, timeout: 30000 });
+  await stage('launched');
+  const page = await application.firstWindow({ timeout: 20000 });
+  await stage('window-created');
   await expect(page.getByText('무엇을 만들어볼까요?', { exact: true })).toBeVisible({ timeout: 20000 });
   await page.getByRole('button', { name: '모델 설정', exact: true }).click();
   await page.getByLabel('연결 방식').selectOption('google');
@@ -37,6 +46,7 @@ try {
   await expect(page.getByLabel('모델 ID', { exact: true })).toHaveValue('fixture-coding');
   await expect(page.getByText(/컨텍스트 128,000/)).toBeVisible();
   assert.equal(await page.getByLabel('카탈로그에서 선택').getByRole('option', { name: /Retired/ }).count(), 0);
+  await stage('catalog-selected');
   await page.getByLabel('연결 방식').selectOption('scripted');
   await page.getByText('웹 조사 · Skills · Plugins · 에이전트', { exact: true }).click();
   await page.getByLabel('공개 웹 문서 읽기 활성화').check();
@@ -54,6 +64,7 @@ try {
   await page.getByLabel('fixture-plugin@1.0.0 · 설치됨').check();
   await page.getByRole('button', { name: '확장 설정 저장', exact: true }).click();
   await expect(page.getByText('확장 설정을 저장했어요. 다음 실행부터 적용돼요.', { exact: true })).toBeVisible({ timeout: 20000 });
+  await stage('extensions-saved');
   const bootstrap = await page.evaluate(() => window.moodcode.getBootstrap());
   assert.ok(bootstrap.capabilities.tools.some(tool => tool.name === 'web_fetch'));
   assert.ok(bootstrap.capabilities.tools.some(tool => tool.name === 'gui_plugin_read'));
@@ -75,16 +86,24 @@ try {
   assert.equal(run.config.modelId, 'review-local'); assert.equal(run.config.mode, 'plan'); assert.equal(run.config.budgets.turnAllowance, 2);
   const persisted = JSON.parse(await readFile(join(data, 'product-settings.json'), 'utf8'));
   assert.deepEqual(persisted.profiles[0].tools, ['read_file', 'list_files', 'search_files']);
+  await stage('profile-completed');
   await application.close(); application = undefined;
+  await stage('native-closed');
   const database = new DatabaseSync(join(data, 'engine.sqlite'), { readOnly: true });
   const databaseSchema = database.prepare('PRAGMA user_version').get().user_version; database.close(); assert.equal(databaseSchema, 23);
   const evidence = { schemaVersion: 1, ok: true, platform: process.platform, catalogSearch: true, deprecatedHidden: true, offlineCache: true, webFetchOptIn: true, missingSearchKeyHidden: true, pluginLoadedInOriginalUtility: true, profileForwardedAndPersisted: true, planPreserved: true, databaseSchema, providerAccountRequests: 0 };
   await writeFile(join(artifacts, 'gui.json'), JSON.stringify(evidence, null, 2)); console.log(JSON.stringify(evidence));
+  passed = true;
 } catch (error) {
-  if (application) {
-    const page = await application.firstWindow();
+  console.error(`[product GUI] failed at ${lastStage}`);
+  if (application?.windows().length) {
+    const page = application.windows()[0];
     await page.screenshot({ path: join(artifacts, 'gui-failed.png') }).catch(() => {});
     await writeFile(join(artifacts, 'gui-error.txt'), await page.locator('body').innerText()).catch(() => {});
   }
   throw error;
-} finally { if (application) await application.close(); await rm(root, { recursive: true, force: true }); }
+} finally {
+  if (application) await application.close();
+  if (passed) await rm(root, { recursive: true, force: true });
+  else console.error(`[product GUI] retained original: ${root}`);
+}

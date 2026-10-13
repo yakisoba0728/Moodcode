@@ -46,7 +46,8 @@ export class DesktopProductSettings {
     await this.#inspect();
     return this.get();
   }
-  runtime() {
+  runtime(codexModels?: readonly string[]) {
+    if (codexModels && this.#settings.profiles.some(profile => profile.modelId && !codexModels.includes(profile.modelId))) throw new HostError('ACCOUNT_MODEL_REQUIRED', 'Codex 계정에서 제공하는 모델로 에이전트 프로파일을 설정해 주세요.');
     const key = this.#settings.web && this.#settings.searchKeyEnv ? this.environment[this.#settings.searchKeyEnv] || undefined : undefined;
     if (key !== undefined && !/^[\x21-\x7e]{1,4096}$/u.test(key)) throw new HostError('WEB_CREDENTIAL_INVALID', '검색 키 환경 변수의 값이 올바르지 않아요.');
     const plugins = this.#settings.plugins.filter(item => item.enabled).map(item => {

@@ -6,7 +6,7 @@
 
 공개 모델 카탈로그 새로고침은 인증 없이 [Models.dev JSON](https://models.dev/api.json)을 읽는다. 현재 지원하는 여덟 API 공급자의 이름/ID 검색·선택과 컨텍스트/출력 한도, 도구·추론·입력 모달리티 선언을 표시한다. 수동 ID와 별도 Codex 계정/로컬 모델 목록을 유지한다. 카탈로그는 계정 사용 권한이나 실제 검증 완료를 뜻하지 않는다.
 
-15초·8 MiB·고정 URL·redirect 금지·UTF-8/JSON 한도를 적용하고 userData/model-catalog.json을 원자적으로 저장한다. 실패한 갱신은 이전 캐시를 보존하고 손상된 캐시는 앱 시작을 막지 않는다. 공식 endpoint의 선택 모델 한 개만 worker ModelRegistry에 전달한다. proxy/Codex에는 자동 적용하지 않는다. SDK 입력은 텍스트로 제한하며 native PDF 선언도 adapter의 별도 허용 계약을 통과해야 한다. reasoning 선언은 SDK 공급자별 추론 옵션 구현을 뜻하지 않는다.
+15초·8 MiB·고정 URL·redirect 금지·UTF-8/JSON 한도를 적용하고 userData/model-catalog.json을 원자적으로 저장한다. 실패한 갱신은 이전 캐시를 보존하고 손상된 캐시는 앱 시작을 막지 않는다. 공식 endpoint의 연결 모델과 프로파일에서 지정한 모델만 worker ModelRegistry에 전달한다(최대 9개). proxy/Codex에는 자동 적용하지 않는다. SDK 입력은 텍스트로 제한하며 native PDF 선언도 adapter의 별도 허용 계약을 통과해야 한다. reasoning 선언은 SDK 공급자별 추론 옵션 구현을 뜻하지 않는다.
 
 ## 웹 조사
 
@@ -30,7 +30,7 @@ HTTP(S) 기본 포트만 허용한다. credential URL·secret query·private/lin
 
 ## 프로파일과 설정 수명
 
-최대 8개 profile의 ID·설명·지침·현재 공급자의 모델 ID·turn allowance·tool allowlist를 편집한다. allowlist를 켜고 비워 두면 도구 없음, model ID를 비우면 현재 연결 모델이다. 실행창 선택이 preload를 통해 기존 AgentProfiles로 전달된다. 기존 delegate_task/자식·팀 화면을 사용하며 host 권한·Plan/Build·승인 정책을 넓히지 않는다. Run과 같은 request ID 재시도는 기존 immutable revision 계약을 유지한다.
+최대 8개 profile의 ID·설명·지침·현재 공급자의 모델 ID·turn allowance·tool allowlist를 편집한다. allowlist를 켜고 비워 두면 도구 없음, model ID를 비우면 현재 연결 모델이다. 실행창 선택이 preload를 통해 기존 AgentProfiles로 전달된다. 기존 delegate_task/자식·팀 화면을 사용하며 host 권한·Plan/Build·승인 정책을 넓히지 않는다. 앱 Codex 계정의 프로파일 모델도 해당 계정이 제공한 목록으로 좁힌다. Run과 같은 request ID 재시도는 기존 immutable revision 계약을 유지한다.
 
 product-settings.json에는 키 대신 환경 변수 이름과 metadata만 저장한다. preload/main/worker의 closed field·byte/count·ID·중복 검증, 원자적 mode-0600 쓰기와 파일 digest로 stale writer를 거절한다. malformed JSON/설정은 확장을 끈 기본값으로 시작하고 오류를 표시한다. 사용자가 수정 후 저장하면 잘못된 원본을 mode-0600 별도 파일로 먼저 보관한다. unsafe/oversized file은 읽지 않는다.
 
@@ -44,3 +44,5 @@ Desktop CI에 새 경계/도구 테스트와 세 OS GUI를 추가했다. [검증
 
 이번 환경/repository secrets에는 macOS/Windows signing 자격이 없어 N-05 실제 서명·공증·설치·공개 feed는 남는다. 기존 release preflight/업데이트 검증과 unsigned OS 빌드를 사용하며 publish하지 않는다. 추가 검색 공급자·SDK 미디어·OpenCode plugin ABI·Windows PTY·추가 architecture는 완료 범위 밖이다.
 
+
+Windows GUI의 첫 실행은 시작 대기 중 job timeout으로 취소되었다. 원본 run/log/artifact를 보존하고 native realpath 정규화와 시작 단계/오류 기록을 보강해 재검증한다. 원인 확정과 최종 OS 수용은 검증 기록의 별도 결과를 따른다.

@@ -200,7 +200,7 @@ app.on('activate', () => { if (app.isReady()) createWindow(); });
 for (const signal of ['SIGINT', 'SIGTERM'] as const) process.on(signal, () => app.quit());
 
 void app.whenReady().then(async () => {
-  const userData = realpathSync(app.getPath('userData'));
+  const userData = realpathSync.native(app.getPath('userData'));
   modelCatalog = new DesktopModelCatalog(userData);
   await modelCatalog.load();
   productSettings = new DesktopProductSettings(userData, scenario ? {} : process.env);
@@ -253,8 +253,10 @@ void app.whenReady().then(async () => {
   host = new DesktopHost({
     runtimeOptions: config => {
       const catalog = modelCatalog.get();
-      const spec = catalog && catalogModelSpec(catalog, config.providerId, config.modelId, config.baseURL);
-      return { ...productSettings.runtime(), ...(spec ? { modelSpecs: [spec] } : {}) };
+      const runtime = productSettings.runtime(config.codexCredential ? (accounts!.getCredential()?.models.map(model => model.id) ?? []) : undefined);
+      const ids = [...new Set([config.modelId, ...runtime.productSettings.profiles.flatMap(profile => profile.modelId ? [profile.modelId] : [])])];
+      const modelSpecs = catalog ? ids.flatMap(id => { const spec = catalogModelSpec(catalog, config.providerId, id, config.baseURL); return spec ? [spec] : []; }) : [];
+      return { ...runtime, ...(modelSpecs.length ? { modelSpecs } : {}) };
     },
     spawn: spawnWorker, settings, dbPath: join(userData, 'engine.sqlite'), artifactDir: join(userData, 'artifacts'),
     platform: process.platform, version: app.getVersion(), ...(scenario ? { testScenario: scenario } : {}),
@@ -271,7 +273,8 @@ void app.whenReady().then(async () => {
   installIpc();
   createWindow();
   await host.initialize();
-}).catch(() => {
-  dialog.showErrorBox('Moodcode could not start', 'Desktop initialization failed. Reopen Moodcode after checking its installed files.');
+}).catch(error => {
+  if (testLaunch) console.error('Moodcode startup failed:', publicFailure(error));
+  else dialog.showErrorBox('Moodcode could not start', 'Desktop initialization failed. Reopen Moodcode after checking its installed files.');
   app.quit();
 });
