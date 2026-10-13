@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "observedAt": "2026-10-13T01:55:06.368189+00:00",
+  "observedAt": "2026-10-13T02:43:35.808558+00:00",
   "status": "accepted",
   "branch": "codex/product-connections",
   "baselineCommit": "417bcf234897bac31a80122526b41cc6a7f3187e",
@@ -986,5 +986,345 @@
       "providerAccountRequests": 0
     }
   ],
-  "hostedDesktopLogSha256": "98ecfcc2cde4b0a6c550a45319c3f9619a2d0e2c9a012134121abb20332ed1c0"
+  "hostedDesktopLogSha256": "98ecfcc2cde4b0a6c550a45319c3f9619a2d0e2c9a012134121abb20332ed1c0",
+  "mainIntegration": {
+    "status": "accepted",
+    "branch": "main",
+    "mergeCommit": "7499e9295f5ddb25dd0162b354d9dce0c087664d",
+    "pullRequestHead": "c6bcb5da74f9f462eeade73a48008588919c0663",
+    "mergedAt": "2026-10-13T02:27:37Z",
+    "observedAt": "2026-10-13T02:43:35.808558+00:00",
+    "treeIdenticalToPullRequestHead": true,
+    "verifiedSourcePins": 32,
+    "sourceFixesRequired": false,
+    "providerAccountRequests": 0,
+    "searchAccountRequests": 0,
+    "acceptedJobs": {
+      "total": 11,
+      "success": 11,
+      "failure": 0,
+      "cancelled": 0
+    },
+    "hosted": [
+      {
+        "databaseId": 38336980189,
+        "name": "Engine headless",
+        "headSha": "7499e9295f5ddb25dd0162b354d9dce0c087664d",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189",
+        "jobs": [
+          {
+            "id": 115099175117,
+            "name": "Portable contracts/storage only / Windows / Node 26.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175117"
+          },
+          {
+            "id": 115099175213,
+            "name": "Headless ubuntu-24.04 / Node 26.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175213"
+          },
+          {
+            "id": 115099175240,
+            "name": "Headless macos-15 / Node 24.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175240"
+          },
+          {
+            "id": 115099175264,
+            "name": "Headless ubuntu-24.04 / Node 24.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175264"
+          },
+          {
+            "id": 115099175271,
+            "name": "Portable contracts/storage only / Windows / Node 24.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175271"
+          },
+          {
+            "id": 115099175325,
+            "name": "Headless macos-15 / Node 26.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980189/job/115099175325"
+          }
+        ]
+      },
+      {
+        "databaseId": 38336980201,
+        "name": "Engine native Windows",
+        "headSha": "7499e9295f5ddb25dd0162b354d9dce0c087664d",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980201",
+        "jobs": [
+          {
+            "id": 115099174954,
+            "name": "Native Windows Job Object / x64 / Node 26.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980201/job/115099174954"
+          },
+          {
+            "id": 115099175131,
+            "name": "Native Windows Job Object / x64 / Node 24.x",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980201/job/115099175131"
+          }
+        ]
+      },
+      {
+        "databaseId": 38336980273,
+        "name": "Desktop packages",
+        "headSha": "7499e9295f5ddb25dd0162b354d9dce0c087664d",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273",
+        "jobs": [
+          {
+            "id": 115099175555,
+            "name": "Unsigned bundle and native smoke / macos-15",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/job/115099175555"
+          },
+          {
+            "id": 115099175723,
+            "name": "Unsigned bundle and native smoke / ubuntu-24.04",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/job/115099175723"
+          },
+          {
+            "id": 115099175725,
+            "name": "Unsigned bundle and native smoke / windows-2025",
+            "conclusion": "success",
+            "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/job/115099175725"
+          }
+        ]
+      }
+    ],
+    "actualGui": [
+      {
+        "schemaVersion": 1,
+        "ok": true,
+        "platform": "darwin",
+        "catalogSearch": true,
+        "deprecatedHidden": true,
+        "offlineCache": true,
+        "webFetchOptIn": true,
+        "missingSearchKeyHidden": true,
+        "pluginLoadedInOriginalUtility": true,
+        "profileForwardedAndPersisted": true,
+        "planPreserved": true,
+        "databaseSchema": 23,
+        "providerAccountRequests": 0
+      },
+      {
+        "schemaVersion": 1,
+        "ok": true,
+        "platform": "linux",
+        "catalogSearch": true,
+        "deprecatedHidden": true,
+        "offlineCache": true,
+        "webFetchOptIn": true,
+        "missingSearchKeyHidden": true,
+        "pluginLoadedInOriginalUtility": true,
+        "profileForwardedAndPersisted": true,
+        "planPreserved": true,
+        "databaseSchema": 23,
+        "providerAccountRequests": 0
+      },
+      {
+        "schemaVersion": 1,
+        "ok": true,
+        "platform": "win32",
+        "catalogSearch": true,
+        "deprecatedHidden": true,
+        "offlineCache": true,
+        "webFetchOptIn": true,
+        "missingSearchKeyHidden": true,
+        "pluginLoadedInOriginalUtility": true,
+        "profileForwardedAndPersisted": true,
+        "planPreserved": true,
+        "databaseSchema": 23,
+        "providerAccountRequests": 0
+      }
+    ],
+    "codexBrokerFixtures": [
+      {
+        "job": "Unsigned bundle and native smoke / macos-15",
+        "passed": true,
+        "externalRequests": 0,
+        "sameGeneration": 1,
+        "credentialRequests": 3,
+        "applicationExitCode": 0
+      },
+      {
+        "job": "Unsigned bundle and native smoke / ubuntu-24.04",
+        "passed": true,
+        "externalRequests": 0,
+        "sameGeneration": 1,
+        "credentialRequests": 3,
+        "applicationExitCode": 0
+      },
+      {
+        "job": "Unsigned bundle and native smoke / windows-2025",
+        "passed": true,
+        "externalRequests": 0,
+        "sameGeneration": 1,
+        "credentialRequests": 3,
+        "applicationExitCode": 0
+      }
+    ],
+    "nativePackages": [
+      {
+        "platform": "darwin",
+        "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "arm64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": true,
+          "utilityExitObserved": true,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "commandSupervisor": {
+          "exitCode": 0,
+          "cleanupConfirmed": true
+        },
+        "ptySupervisor": {
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "nativeExitObserved": true
+        },
+        "mainUtilityCloseConfirmed": true
+      },
+      {
+        "platform": "linux",
+        "scope": "bundle-utility-SQLite-renderer-native-POSIX-supervisors",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": true,
+          "utilityExitObserved": true,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "commandSupervisor": {
+          "exitCode": 0,
+          "cleanupConfirmed": true
+        },
+        "ptySupervisor": {
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "nativeExitObserved": true
+        },
+        "mainUtilityCloseConfirmed": true
+      },
+      {
+        "platform": "win32",
+        "scope": "bundle-utility-SQLite-renderer-native-Windows-utility",
+        "runtime": {
+          "packaged": true,
+          "node": "24.21.0",
+          "electron": "44.5.1",
+          "arch": "x64",
+          "isolation": true
+        },
+        "primarySQLiteVersion": 23,
+        "cleanup": {
+          "state": "unknown",
+          "nativeConfirmed": null,
+          "utilityAcknowledged": true,
+          "utilityExitObserved": true,
+          "forcedStop": false,
+          "utilityScope": "main-utility"
+        },
+        "windowsJobObject": {
+          "owner": "actual-packaged-engine-utility",
+          "commandExecution": "windows-job-object",
+          "privateCodingFixture": true,
+          "exactNativeApprovals": 2,
+          "runState": "completed",
+          "exitCode": 0,
+          "cleanupConfirmed": true,
+          "completeCommandCheckpoint": true,
+          "mainTestOverridesEnabled": false,
+          "utilityCloseConfirmed": true,
+          "cleanup": {
+            "state": "confirmed",
+            "nativeConfirmed": true,
+            "utilityAcknowledged": true,
+            "utilityExitObserved": true,
+            "forcedStop": false,
+            "utilityScope": "private-coding-utility"
+          }
+        },
+        "windowsNativeBinary": {
+          "packageRelativePathPreserved": true,
+          "outsideAsar": true,
+          "electronHeaders": "44.5.1",
+          "arch": "x64",
+          "sha256": "26ee34713005513fc2a76e6bedf683aac11da0c813099224a5f543ae61d10dd3"
+        },
+        "mainUtilityCloseConfirmed": true
+      }
+    ],
+    "packageEvidenceNote": "Defined command, PTY/Job Object and Main utility scopes are confirmed. Preserve original overall fixture cleanup unknown/nativeConfirmed null; do not promote it to a global cleanup claim.",
+    "rawLogs": [
+      {
+        "path": "artifacts/product-connections/main-integration/headless.log",
+        "sha256": "6ca6d8284bf3e6a8410f6a22af72ebfc6188f94b5b79266347b1a01fdda804cf"
+      },
+      {
+        "path": "artifacts/product-connections/main-integration/native-windows.log",
+        "sha256": "0092090ac8d9cb55c3559756a4d402d26cadadf22abeaebddfb2cfa09dfae7b2"
+      },
+      {
+        "path": "artifacts/product-connections/main-integration/desktop.log",
+        "sha256": "f229a9647091ddf608dc85adb35132e8a373db3d4c36b7650f673316e22edcbf"
+      }
+    ],
+    "artifacts": [
+      {
+        "id": 11785377883,
+        "name": "desktop-unsigned-macos-15-1",
+        "digest": "sha256:31b63136226fffda307371e9e0f6453726837861b2ac421658cbe9684277993c",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/artifacts/11785377883"
+      },
+      {
+        "id": 11784878992,
+        "name": "desktop-unsigned-ubuntu-24.04-1",
+        "digest": "sha256:dbd26fda7bed45ce5329102270d777df5fad8400072f721356d52c0ba42f7782",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/artifacts/11784878992"
+      },
+      {
+        "id": 11784733526,
+        "name": "desktop-unsigned-windows-2025-1",
+        "digest": "sha256:9fe49ad7d8f241e415419c7528c5646ce465ab7d38b72deb520832790e5ad586",
+        "url": "https://github.com/yakisoba0728/Moodcode/actions/runs/38336980273/artifacts/11784733526"
+      }
+    ],
+    "limits": [
+      "Actual provider/search account calls excluded by user.",
+      "Unsigned review packages only; signing, notarization and public release not performed.",
+      "Windows native x64 verified; Windows PTY and other architectures remain outside this run."
+    ]
+  }
 }
